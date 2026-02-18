@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 - Server Error</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        /* 500 일러스트 - 고장난 기어 */
+        .error-illustration {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 40px;
+        }
+
+        .gear {
+            position: absolute;
+            border: 8px solid white;
+            border-radius: 50%;
+            animation: brokenRotate 3s ease-in-out infinite;
+        }
+
+        .gear-1 {
+            width: 120px;
+            height: 120px;
+            top: 50px;
+            left: 40px;
+            opacity: 0.9;
+        }
+
+        .gear-1::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .gear-2 {
+            width: 100px;
+            height: 100px;
+            top: 100px;
+            right: 50px;
+            animation-delay: 0.5s;
+            animation-direction: reverse;
+            opacity: 0.8;
+        }
+
+        .gear-2::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 스파크 효과 */
+        .spark {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: yellow;
+            border-radius: 50%;
+            animation: sparkle 1.5s ease-in-out infinite;
+        }
+
+        .spark-1 {
+            top: 80px;
+            left: 100px;
+        }
+
+        .spark-2 {
+            top: 140px;
+            right: 90px;
+            animation-delay: 0.5s;
+        }
+
+        .spark-3 {
+            bottom: 100px;
+            left: 120px;
+            animation-delay: 1s;
+        }
+
+        /* 500 숫자 */
+        .error-code {
+            font-size: 120px;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+            animation: shake 2s ease-in-out infinite;
+        }
+
+        .error-message {
+            font-size: 32px;
+            color: white;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .error-description {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        /* 버튼 */
+        .btn-home {
+            display: inline-block;
+            padding: 15px 40px;
+            background: white;
+            color: #f5576c;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-right: 15px;
+        }
+
+        .btn-home:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-retry {
+            display: inline-block;
+            padding: 15px 40px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: 2px solid white;
+        }
+
+        .btn-retry:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+        }
+
+        /* 경고 아이콘 */
+        .warning-icon {
+            position: absolute;
+            font-size: 50px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .warning-icon:nth-child(1) {
+            top: 15%;
+            left: 15%;
+        }
+
+        .warning-icon:nth-child(2) {
+            bottom: 20%;
+            right: 10%;
+            animation-delay: 1s;
+        }
+
+        /* 애니메이션 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes brokenRotate {
+            0%, 100% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(30deg);
+            }
+            50% {
+                transform: rotate(20deg);
+            }
+            75% {
+                transform: rotate(40deg);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-5px);
+            }
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
+        @keyframes sparkle {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.6;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 80px;
+            }
+
+            .error-message {
+                font-size: 24px;
+            }
+
+            .error-description {
+                font-size: 16px;
+            }
+
+            .error-illustration {
+                width: 200px;
+                height: 200px;
+            }
+
+            .btn-home, .btn-retry {
+                display: block;
+                margin: 10px auto;
+            }
+
+            .warning-icon {
+                font-size: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- 경고 배경 요소 -->
+<div class="warning-icon">⚠️</div>
+<div class="warning-icon">🔧</div>
+
+<div class="container">
+    <!-- 고장난 기어 일러스트 -->
+    <div class="error-illustration">
+        <div class="gear gear-1"></div>
+        <div class="gear gear-2"></div>
+        <div class="spark spark-1"></div>
+        <div class="spark spark-2"></div>
+        <div class="spark spark-3"></div>
+    </div>
+
+    <!-- 500 에러 메시지 -->
+    <div class="error-code">500</div>
+    <h1 class="error-message">서버에 문제가 발생했어요</h1>
+    <p class="error-description">
+        일시적인 오류입니다.<br>
+        잠시 후 다시 시도해주세요.
+    </p>
+
+    <!-- 버튼들 -->
+    <a href="/" class="btn-home">홈으로 돌아가기</a>
+    <a href="javascript:location.reload()" class="btn-retry">다시 시도</a>
+</div>
+</body>
+</html>

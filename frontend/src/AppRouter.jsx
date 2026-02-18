@@ -1,0 +1,19 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import App from './App'; // 기존 날씨 지도 컴포넌트
+import NotFound from './pages/NotFound';
+
+function AppRouter() {
+    return (
+        <Router>
+            <Routes>
+                {/* 기본 주소일 때 날씨 지도(App)를 보여줌 */}
+                <Route path="/" element={<App />} />
+
+                {/* 그 외 모든 잘못된 주소는 NotFound 컴포넌트로 연결 */}
+                <Route path="*" element={<NotFound />} />
+            </Routes>
+        </Router>
+    );
+}
+
+export default AppRouter;

@@ -62,6 +62,8 @@ function App() {
             if (Cesium.defined(pickedObject) && pickedObject.id) {
                 const entity = pickedObject.id;
                 let h = 0;
+
+                // 1. 속성 설정
                 entity.polygon.outlineColor = Cesium.Color.GRAY;
                 entity.polygon.outlineWidth = 4;
                 entity.polygon.extrudedHeight = new Cesium.CallbackProperty(() => {
@@ -70,11 +72,17 @@ function App() {
                 }, false);
 
                 selectedEntityRef.current = entity;
+
+                // 2. [수정] flyTo를 엔티티 대신 위치 정보로 직접 호출
+                // 엔티티의 중심점(Center)이나 클릭된 위치를 활용하면 더 정확합니다.
                 viewer.flyTo(entity, {
                     offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-75), 700000),
                     duration: 1.2
+                }).then((success) => {
+                    if (!success) console.warn("카메라 이동 실패");
                 });
 
+                // 3. 리액트 상태 업데이트는 카메라 이동 시작 후에 처리
                 const fullName = entity.properties.name?._value || "";
                 let mappingName = null;
                 for (const [city, province] of Object.entries(CITY_TO_PROVINCE)) {
@@ -248,7 +256,7 @@ function App() {
             )}
 
             {/* 좌측 패널: 전국 기온 */}
-            <Draggable nodeRef={nodeRef} bounds="parent" handle=".drag-handle">
+            <Draggable nodeRef={nodeRef} bounds="parent" handle=".drag-handle" cancel=".no-drag">
                 <div ref={nodeRef} style={{
                     position: 'absolute', top: '15px', left: '15px',
                     width: isCollapsed ? '90px' : (isMobile ? '180px' : '250px'),
@@ -272,7 +280,14 @@ function App() {
                                     </span>
                                     {/* 🆕 커스텀 시간 선택 버튼 */}
                                     <button
+                                        className="no-drag"
                                         onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsTimePickerOpen(!isTimePickerOpen);
+                                        }}
+                                        onTouchEnd={(e) => {
+                                            e.preventDefault();
                                             e.stopPropagation();
                                             setIsTimePickerOpen(!isTimePickerOpen);
                                         }}
@@ -287,7 +302,10 @@ function App() {
                                             cursor: 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '3px'
+                                            gap: '3px',
+                                            touchAction: 'manipulation',
+                                            userSelect: 'none',
+                                            WebkitTapHighlightColor: 'transparent'
                                         }}
                                     >
                                         ({selectedHour.toString().padStart(2, '0')}:00)
@@ -296,6 +314,7 @@ function App() {
                                 </div>
                             )}
                             <button
+                                className="no-drag"
                                 onPointerDown={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}
                                 style={{
                                     background: '#444',
@@ -338,6 +357,13 @@ function App() {
                                         <button
                                             key={hour}
                                             onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setSelectedHour(hour);
+                                                setIsTimePickerOpen(false);
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                e.preventDefault();
                                                 e.stopPropagation();
                                                 setSelectedHour(hour);
                                                 setIsTimePickerOpen(false);
@@ -351,7 +377,10 @@ function App() {
                                                 fontSize: '11px',
                                                 fontWeight: hour === selectedHour ? 'bold' : 'normal',
                                                 cursor: 'pointer',
-                                                transition: 'all 0.2s'
+                                                transition: 'all 0.2s',
+                                                touchAction: 'manipulation',
+                                                userSelect: 'none',
+                                                WebkitTapHighlightColor: 'transparent'
                                             }}
                                         >
                                             {hour.toString().padStart(2, '0')}시
