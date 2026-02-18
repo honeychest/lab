@@ -1,9 +1,28 @@
 import React from 'react';
 
-const WeatherDetail = ({ weather, onClose, isMobile, position }) => {
-    // position = { x: 500, y: 300 } 형태로 전달받는다고 가정
+// 날씨 데이터 타입 정의
+interface WeatherData {
+    city: string;
+    displayTime: string;
+    tmp: number;
+    pop: string;
+    hum: string;
+    wind: string;
+    rain: string;
+}
 
-    const mobileStyle = {
+// 컴포넌트 프롭스 타입 정의
+interface WeatherDetailProps {
+    weather: WeatherData;
+    onClose: () => void;
+    isMobile: boolean;
+    position: { x: number; y: number } | null;
+}
+
+const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobile, position }) => {
+
+    // 모바일 스타일 (기존 유지) [cite: 564]
+    const mobileStyle: React.CSSProperties = {
         position: 'fixed',
         bottom: '0',
         left: '0',
@@ -18,22 +37,24 @@ const WeatherDetail = ({ weather, onClose, isMobile, position }) => {
         boxSizing: 'border-box'
     };
 
-    const pcStyle = {
+    // PC 스타일 (수정됨) [cite: 565, 566]
+    const pcStyle: React.CSSProperties = {
         position: 'fixed',
-        // 클릭한 지점(position.x)에서 우측으로 130px 이동
-        left: `${position?.x + 130}px`,
-        // 클릭한 지점(position.y) 중앙에 맞춤
-        top: `${position?.y}px`,
+        // 클릭한 지점에서 우측으로 130px 이동
+        left: position ? `${position.x + 130}px` : '50%',
+        // 클릭한 지점의 Y좌표에 배치한 후, transform으로 자신의 절반만큼 위로 올려 중앙 맞춤
+        top: position ? `${position.y}px` : '50%',
         transform: 'translateY(-50%)',
-        width: '260px', // 여백 축소를 위해 너비 더 줄임
+        width: '260px',
         backgroundColor: 'rgba(255, 255, 255, 0.98)',
         borderRadius: '12px',
-        padding: '16px', // 흰색 여백 축소
+        padding: '16px',
         boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
         zIndex: 9999,
         animation: 'fadeIn 0.2s ease-out',
         border: '1px solid rgba(0,0,0,0.05)',
-        backdropFilter: 'blur(8px)'
+        backdropFilter: 'blur(8px)',
+        pointerEvents: 'auto'
     };
 
     const containerStyle = isMobile ? mobileStyle : pcStyle;
@@ -62,11 +83,7 @@ const WeatherDetail = ({ weather, onClose, isMobile, position }) => {
                 >✕</button>
             </div>
 
-            <div style={isMobile ? {
-                display: 'flex', gap: '6px', overflow: 'hidden'
-            } : {
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px'
-            }}>
+            <div style={isMobile ? { display: 'flex', gap: '6px', overflow: 'hidden' } : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <InfoBox isMobile={isMobile} icon="🌡️" label="기온" value={`${weather.tmp}°C`} color="#ff4757" />
                 <InfoBox isMobile={isMobile} icon="💧" label="강수" value={weather.pop === "-" ? "0%" : `${weather.pop}%`} />
                 <InfoBox isMobile={isMobile} icon="💦" label="습도" value={`${weather.hum}%`} />
@@ -83,12 +100,22 @@ const WeatherDetail = ({ weather, onClose, isMobile, position }) => {
             <style>{`
                 .cesium-widget-credits { display: none !important; }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
             `}</style>
         </div>
     );
 };
 
-const InfoBox = ({ isMobile, icon, label, value, color = '#111' }) => (
+// 하단 정보 박스 컴포넌트
+interface InfoBoxProps {
+    isMobile: boolean;
+    icon: string;
+    label: string;
+    value: string;
+    color?: string;
+}
+
+const InfoBox: React.FC<InfoBoxProps> = ({ isMobile, icon, label, value, color = '#111' }) => (
     <div style={{
         flex: isMobile ? '1' : '1',
         minWidth: 0,
