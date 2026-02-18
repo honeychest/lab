@@ -106,23 +106,53 @@ function App() {
 
     // 3. 🆕 사용 가능한 시간 목록 조회 (초기 로딩 시)
     useEffect(() => {
-        fetch('/api/weather/available-hours')
-            .then(res => res.json())
-            .then(hours => {
-                setAvailableHours(hours);
-                // 사용 가능한 시간 중 가장 최근 시간을 기본값으로
-                if (hours.length > 0) {
-                    setSelectedHour(Math.max(...hours));
+        const fetchAvailableHours = async () => {
+            try {
+                // 1. API 호출 시도
+                const res = await fetch('/api/weather/available-hours');
+
+                // 2. 서버 장애 (500) 대응
+                if (res.status >= 500) {
+                    console.error("서버 내부 장애 발생 (500)");
+                    // 백엔드의 CustomErrorController가 준비한 500 페이지로 강제 이동
+                    window.location.href = '/error';
+                    return;
                 }
-            })
-            .catch(err => {
-                console.error('사용 가능한 시간 조회 실패:', err);
-                // 실패 시 현재 시간부터 0시까지 표시
+
+                // 3. 잘못된 경로 (404) 대응
+                if (res.status === 404) {
+                    console.error("API 경로를 찾을 수 없습니다 (404)");
+                    // 리액트 라우터가 있다면 그쪽으로 보내거나, 그냥 에러 처리
+                    return;
+                }
+
+                if (!res.ok) throw new Error('응답 상태가 좋지 않습니다.');
+
+                const data = await res.json();
+
+                // 4. 데이터가 정상적으로 있을 때
+                if (data && data.length > 0) {
+                    setAvailableHours(data);
+                    // 가장 최신 시간(마지막 데이터)을 기본 선택
+                    setSelectedHour(data[data.length - 1]);
+                } else {
+                    // 데이터가 비어있다면 에러로 던져서 catch에서 처리
+                    throw new Error('데이터 없음');
+                }
+
+            } catch (err) {
+                // 5. 데이터가 없거나 기타 에러 발생 시 Fallback
+                console.warn('데이터 공백 발생: 현재 시간 기준으로 목록을 생성합니다.', err);
                 const currentHour = new Date().getHours();
+                // 0시부터 현재 시각까지 배열 생성
                 const fallbackHours = Array.from({ length: currentHour + 1 }, (_, i) => i);
                 setAvailableHours(fallbackHours);
-            });
-    }, []);
+                setSelectedHour(currentHour);
+            }
+        };
+        fetchAvailableHours();
+
+    }, []); // 앱 로드 시 한 번 실행
 
     // 4. 날씨 데이터 페칭 함수
     const fetchWeatherData = (hour) => {
