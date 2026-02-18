@@ -23,12 +23,12 @@ function App() {
     const [availableHours, setAvailableHours] = useState([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+
     const handleMapClick = (e) => {
-        const position = { x: e.client.x, y: e.client.y }; // Cesium의 경우 cartesian을 윈도우 좌표로 변환한 값
+        const position = { x: e.client.x, y: e.client.y };
         setPopupPos(position);
     };
 
-    // 팝업 위치 관리를 위한 상태 추가
     const [selectedWeather, setSelectedWeather] = useState(null);
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
 
@@ -72,8 +72,6 @@ function App() {
                 }, false);
 
                 selectedEntityRef.current = entity;
-
-                // 클릭 좌표 저장 (PC용)
                 setPopupPos({ x: click.position.x, y: click.position.y });
 
                 const fullName = entity.properties.name?._value || "";
@@ -163,22 +161,153 @@ function App() {
 
     useEffect(() => { if (selectedHour !== null) fetchWeatherData(selectedHour); }, [selectedHour]);
 
+    // 🆕 시간 선택 팝업 외부 클릭 시 닫기
+    useEffect(() => {
+        const handleClickOutside = () => {
+            if (isTimePickerOpen) setIsTimePickerOpen(false);
+        };
+        if (isTimePickerOpen) {
+            document.addEventListener('click', handleClickOutside);
+        }
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [isTimePickerOpen]);
+
     return (
         <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
             <div ref={cesiumContainer} style={{ width: '100%', height: '100%' }} />
 
+            {/* 🆕 초기 로딩 스피너 */}
+            {isInitialLoading && (
+                <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 9999
+                }}>
+                    <div style={{
+                        width: '50px', height: '50px',
+                        border: '5px solid rgba(255, 255, 255, 0.3)',
+                        borderTop: '5px solid #00d4ff',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 15px'
+                    }} />
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        날씨 데이터 로딩 중...
+                    </div>
+                </div>
+            )}
+
             <Draggable nodeRef={nodeRef} bounds="parent" handle=".drag-handle" cancel=".no-drag">
                 <div ref={nodeRef} style={{
                     position: 'absolute', top: '15px', left: '15px',
-                    width: isMobile ? (isCollapsed ? 'auto' : '140px') : '180px', // 모바일만 auto 적용
+                    width: isMobile ? (isCollapsed ? 'auto' : '140px') : '180px',
                     backgroundColor: 'rgba(0, 0, 0, 0.8)', color: 'white', padding: '10px',
                     borderRadius: '10px', zIndex: 1000
                 }}>
-                    <div className="drag-handle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'move', marginBottom: isCollapsed ? '0' : '8px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{isCollapsed ? '🌡️' : '전국 기온'}</span>
-                        <button className="no-drag" onClick={() => setIsCollapsed(!isCollapsed)} style={{ background: '#555', border: 'none', color: '#fff', fontSize: '9px', padding: '1px 4px', borderRadius: '3px' }}>
-                            {isCollapsed ? '펼치기' : '접기'}
-                        </button>
+                    <div style={{ marginBottom: isCollapsed ? '0' : '8px' }}>
+                        <div className="drag-handle" style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'move'
+                        }}>
+                            {isCollapsed ? (
+                                <span style={{ fontSize: '12px', fontWeight: 'bold' }}>🌡️</span>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>전국 기온</span>
+                                    {/* 🆕 시간 선택 버튼 */}
+                                    <button
+                                        className="no-drag"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsTimePickerOpen(!isTimePickerOpen);
+                                        }}
+                                        style={{
+                                            padding: '2px 6px',
+                                            backgroundColor: '#333',
+                                            color: '#00d4ff',
+                                            border: '1px solid #555',
+                                            borderRadius: '4px',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                        }}
+                                    >
+                                        ({selectedHour.toString().padStart(2, '0')}:00)
+                                        <span style={{ fontSize: '8px' }}>▼</span>
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                className="no-drag"
+                                onClick={() => setIsCollapsed(!isCollapsed)}
+                                style={{
+                                    background: '#555',
+                                    border: 'none',
+                                    color: '#fff',
+                                    fontSize: '9px',
+                                    padding: '1px 4px',
+                                    borderRadius: '3px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {isCollapsed ? '펼치기' : '접기'}
+                            </button>
+                        </div>
+
+                        {/* 🆕 시간 선택 팝업 */}
+                        {!isCollapsed && isTimePickerOpen && (
+                            <div
+                                className="no-drag"
+                                style={{
+                                    position: 'absolute',
+                                    top: '45px',
+                                    left: '10px',
+                                    backgroundColor: 'rgba(20, 20, 20, 0.98)',
+                                    border: '1px solid #00d4ff',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    zIndex: 10000,
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                    boxShadow: '0 4px 12px rgba(0, 212, 255, 0.3)'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(4, 1fr)',
+                                    gap: '6px'
+                                }}>
+                                    {availableHours.map(hour => (
+                                        <button
+                                            key={hour}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedHour(hour);
+                                                setIsTimePickerOpen(false);
+                                            }}
+                                            style={{
+                                                padding: '8px 4px',
+                                                backgroundColor: hour === selectedHour ? '#00d4ff' : '#333',
+                                                color: hour === selectedHour ? '#000' : '#fff',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                fontWeight: hour === selectedHour ? 'bold' : 'normal',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {hour.toString().padStart(2, '0')}시
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     {!isCollapsed && (
                         <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
@@ -197,10 +326,17 @@ function App() {
                 <WeatherDetail
                     weather={selectedWeather}
                     isMobile={isMobile}
-                    popupPos={popupPos} // 좌표 전달
+                    popupPos={popupPos}
                     onClose={() => setSelectedWeather(null)}
                 />
             )}
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

@@ -16,12 +16,12 @@ interface WeatherDetailProps {
     weather: WeatherData;
     onClose: () => void;
     isMobile: boolean;
-    position: { x: number; y: number } | null;
+    popupPos: { x: number; y: number }; // prop 이름을 popupPos로 통일
 }
 
-const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobile, position }) => {
+const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobile, popupPos }) => {
 
-    // 모바일 스타일 (기존 유지) [cite: 564]
+    // 모바일 스타일 (기존 유지)
     const mobileStyle: React.CSSProperties = {
         position: 'fixed',
         bottom: '0',
@@ -37,13 +37,13 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
         boxSizing: 'border-box'
     };
 
-    // PC 스타일 (수정됨) [cite: 565, 566]
+    // PC 스타일 - 클릭 위치 기준 우측 130px
     const pcStyle: React.CSSProperties = {
         position: 'fixed',
         // 클릭한 지점에서 우측으로 130px 이동
-        left: position ? `${position.x + 130}px` : '50%',
-        // 클릭한 지점의 Y좌표에 배치한 후, transform으로 자신의 절반만큼 위로 올려 중앙 맞춤
-        top: position ? `${position.y}px` : '50%',
+        left: `${popupPos.x + 130}px`,
+        // 클릭한 지점의 Y좌표 - 팝업 세로 중앙 정렬
+        top: `${popupPos.y}px`,
         transform: 'translateY(-50%)',
         width: '260px',
         backgroundColor: 'rgba(255, 255, 255, 0.98)',
