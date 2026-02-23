@@ -4,6 +4,7 @@ import "cesium/Build/Cesium/Widgets/widgets.css";
 import { getRelativeColor } from "./features/weather/utils/weatherUtils.ts";
 import Draggable from 'react-draggable';
 import WeatherDetail from './features/weather/components/WeatherDetail.tsx';
+import styles from './App.module.css';
 
 const GEO_ORDER = ["서울특별시", "경기도", "강원도", "충청북도", "충청남도", "전라북도", "경상북도", "전라남도", "경상남도", "제주특별자치도"];
 const CITY_TO_PROVINCE = { "광주": "전라남도", "대구": "경상북도", "대전": "충청남도", "울산": "경상남도", "부산": "경상남도", "인천": "경기도", "세종": "충청남도" };
@@ -14,30 +15,32 @@ function App() {
     const nodeRef = useRef(null);
     const selectedEntityRef = useRef(null);
 
+    // 클릭 핸들러 안에서 selectedHour 최신값을 참조하기 위한 ref
+    const selectedHourRef = useRef(new Date().getHours());
+
     const [weatherList, setWeatherList] = useState([]);
-    const [range, setRange] = useState({ min: 0, max: 0 });
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-    const [selectedHour, setSelectedHour] = useState(new Date().getHours());
+    const [selectedHour, setSelectedHour] = useState(null); // null로 초기화 → available-hours 응답 후 세팅
     const [availableHours, setAvailableHours] = useState([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
-
-    const handleMapClick = (e) => {
-        const position = { x: e.client.x, y: e.client.y };
-        setPopupPos(position);
-    };
-
     const [selectedWeather, setSelectedWeather] = useState(null);
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
 
+    // selectedHour state가 바뀌면 ref도 동기화
+    useEffect(() => {
+        if (selectedHour !== null) selectedHourRef.current = selectedHour;
+    }, [selectedHour]);
+
+    // 반응형 처리
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // ✅ Cesium viewer 초기화 - 마운트 1회만 실행 (selectedHour 의존성 제거)
     useEffect(() => {
         if (!cesiumContainer.current) return;
 
@@ -87,8 +90,12 @@ function App() {
                         setSelectedWeather({
                             ...found,
                             city: fullName,
-                            displayTime: found.time ? `${found.time.substring(0, 2)}시` : `${selectedHour}시`,
-                            pop: found.pop || "0", hum: found.hum || "-", wind: found.wind || "-", rain: found.rain || "0"
+                            // ✅ state 대신 ref로 읽어서 stale closure 방지
+                            displayTime: found.time
+                                ? `${found.time.substring(0, 2)}시`
+                                : `${selectedHourRef.current}시`,
+                            pop: found.pop || "0", hum: found.hum || "-",
+                            wind: found.wind || "-", rain: found.rain || "0"
                         });
                     }
                     return prev;
@@ -101,8 +108,9 @@ function App() {
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
         return () => { handler.destroy(); viewer.destroy(); };
-    }, [selectedHour]);
+    }, []); // ✅ 의존성 배열 비움 → 마운트 1회만 실행
 
+    // ✅ available-hours 먼저 받아온 뒤 selectedHour 세팅
     useEffect(() => {
         const fetchAvailableHours = async () => {
             try {
@@ -110,39 +118,18 @@ function App() {
                 const data = await res.json();
                 if (data && data.length > 0) {
                     setAvailableHours(data);
-                    setSelectedHour(data[data.length - 1]);
+                    setSelectedHour(data[data.length - 1]); // 가장 최근 시간으로 세팅
                 }
-            } catch (err) {
-                setAvailableHours(Array.from({ length: new Date().getHours() + 1 }, (_, i) => i));
+            } catch {
+                const fallback = Array.from({ length: new Date().getHours() + 1 }, (_, i) => i);
+                setAvailableHours(fallback);
+                setSelectedHour(fallback[fallback.length - 1]);
             }
         };
         fetchAvailableHours();
     }, []);
 
-    const fetchWeatherData = (hour) => {
-        fetch(`/api/weather/all?hour=${hour}`)
-            .then(res => res.json())
-            .then(data => {
-                const sorted = GEO_ORDER.map(name => ({
-                    name, ...data[name], tmp: parseFloat(data[name]?.tmp || 0)
-                }));
-                const temps = sorted.map(d => d.tmp);
-                setWeatherList(sorted);
-                setRange({ min: Math.min(...temps), max: Math.max(...temps) });
-
-                if (viewerRef.current && viewerRef.current.dataSources.length === 0) {
-                    Cesium.GeoJsonDataSource.load('/data/korea.json').then(ds => {
-                        viewerRef.current.dataSources.add(ds);
-                        updateMapColors(ds, sorted, Math.min(...temps), Math.max(...temps));
-                        setIsInitialLoading(false);
-                    });
-                } else if (viewerRef.current?.dataSources.length > 0) {
-                    updateMapColors(viewerRef.current.dataSources.get(0), sorted, Math.min(...temps), Math.max(...temps));
-                }
-            })
-            .catch(() => setIsInitialLoading(false));
-    };
-
+    // 지도 색상 업데이트
     const updateMapColors = (ds, sorted, minT, maxT) => {
         ds.entities.values.forEach(entity => {
             const name = entity.properties.name?._value || "";
@@ -151,7 +138,9 @@ function App() {
             if (!target) target = GEO_ORDER.find(n => name.includes(n));
             const regionData = sorted.find(d => d.name === target);
             if (regionData) {
-                entity.polygon.material = Cesium.Color.fromCssColorString(getRelativeColor(regionData.tmp, minT, maxT));
+                entity.polygon.material = Cesium.Color.fromCssColorString(
+                    getRelativeColor(regionData.tmp, minT, maxT)
+                );
                 entity.polygon.outlineColor = Cesium.Color.WHITE.withAlpha(0.5);
                 entity.polygon.outlineWidth = 1;
             }
@@ -159,147 +148,121 @@ function App() {
         viewerRef.current.scene.requestRender();
     };
 
-    useEffect(() => { if (selectedHour !== null) fetchWeatherData(selectedHour); }, [selectedHour]);
-
-    // 🆕 시간 선택 팝업 외부 클릭 시 닫기
+    // ✅ selectedHour가 세팅된 이후에만 날씨 데이터 fetch
     useEffect(() => {
-        const handleClickOutside = () => {
-            if (isTimePickerOpen) setIsTimePickerOpen(false);
-        };
+        if (selectedHour === null) return;
+
+        fetch(`/api/weather/all?hour=${selectedHour}`)
+            .then(res => res.json())
+            .then(data => {
+                const sorted = GEO_ORDER.map(name => ({
+                    name, ...data[name], tmp: parseFloat(data[name]?.tmp || 0)
+                }));
+                const temps = sorted.map(d => d.tmp);
+                const minT = Math.min(...temps);
+                const maxT = Math.max(...temps);
+                setWeatherList(sorted);
+
+                if (!viewerRef.current) return;
+
+                if (viewerRef.current.dataSources.length === 0) {
+                    // 최초 1회: GeoJSON 로드 후 색상 적용
+                    Cesium.GeoJsonDataSource.load('/data/korea.json').then(ds => {
+                        viewerRef.current.dataSources.add(ds);
+                        updateMapColors(ds, sorted, minT, maxT);
+                        setIsInitialLoading(false);
+                    });
+                } else {
+                    // 이후 시간 변경 시: 색상만 업데이트
+                    updateMapColors(viewerRef.current.dataSources.get(0), sorted, minT, maxT);
+                }
+            })
+            .catch(() => setIsInitialLoading(false));
+    }, [selectedHour]);
+
+    // 시간 선택 드롭다운 외부 클릭 시 닫기
+    useEffect(() => {
+        const handleClickOutside = () => setIsTimePickerOpen(false);
         if (isTimePickerOpen) {
             document.addEventListener('click', handleClickOutside);
         }
         return () => document.removeEventListener('click', handleClickOutside);
     }, [isTimePickerOpen]);
 
-    return (
-        <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
-            <div ref={cesiumContainer} style={{ width: '100%', height: '100%' }} />
+    const allTemps = weatherList.map(w => w.tmp);
+    const minT = allTemps.length > 0 ? Math.min(...allTemps) : 0;
+    const maxT = allTemps.length > 0 ? Math.max(...allTemps) : 0;
 
-            {/* 🆕 초기 로딩 스피너 */}
+    return (
+        <div className={styles.root}>
+            <div ref={cesiumContainer} className={styles.cesiumContainer} />
+
+            {/* 초기 로딩 스피너 */}
             {isInitialLoading && (
-                <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 9999
-                }}>
-                    <div style={{
-                        width: '50px', height: '50px',
-                        border: '5px solid rgba(255, 255, 255, 0.3)',
-                        borderTop: '5px solid #00d4ff',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto 15px'
-                    }} />
-                    <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                        날씨 데이터 로딩 중...
-                    </div>
+                <div className={styles.loadingOverlay}>
+                    <div className={styles.spinner} />
+                    <div className={styles.loadingText}>날씨 데이터 로딩 중...</div>
                 </div>
             )}
 
-            <Draggable nodeRef={nodeRef} bounds="parent" handle=".drag-handle" cancel=".no-drag">
-                <div ref={nodeRef} style={{
-                    position: 'absolute', top: '15px', left: '15px',
-                    width: isMobile ? (isCollapsed ? 'auto' : '140px') : '180px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)', color: 'white', padding: '10px',
-                    borderRadius: '10px', zIndex: 1000
-                }}>
+            {/* 드래그 가능한 날씨 패널 */}
+            <Draggable
+                nodeRef={nodeRef}
+                bounds="parent"
+                handle=".drag-handle"
+                cancel=".no-drag"
+            >
+                <div
+                    ref={nodeRef}
+                    className={styles.weatherPanel}
+                    style={{ width: isMobile ? (isCollapsed ? 'auto' : '140px') : '180px' }}
+                >
                     <div style={{ marginBottom: isCollapsed ? '0' : '8px' }}>
-                        <div className="drag-handle" style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            cursor: 'move'
-                        }}>
+                        <div className={`drag-handle ${styles.panelHeader}`}>
                             {isCollapsed ? (
-                                <span style={{ fontSize: '12px', fontWeight: 'bold' }}>🌡️</span>
+                                <span className={styles.panelTitleIcon}>🌡️</span>
                             ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>전국 기온</span>
-                                    {/* 🆕 시간 선택 버튼 */}
+                                <div className={styles.panelTitleRow}>
+                                    <span className={styles.panelTitle}>전국 기온</span>
                                     <button
-                                        className="no-drag"
+                                        className={`no-drag ${styles.timePickerBtn}`}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setIsTimePickerOpen(!isTimePickerOpen);
                                         }}
-                                        style={{
-                                            padding: '2px 6px',
-                                            backgroundColor: '#333',
-                                            color: '#00d4ff',
-                                            border: '1px solid #555',
-                                            borderRadius: '4px',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '3px'
-                                        }}
                                     >
-                                        ({selectedHour.toString().padStart(2, '0')}:00)
-                                        <span style={{ fontSize: '8px' }}>▼</span>
+                                        ({selectedHour !== null ? selectedHour.toString().padStart(2, '0') : '--'}:00)
+                                        <span className={styles.timePickerArrow}>▼</span>
                                     </button>
                                 </div>
                             )}
                             <button
-                                className="no-drag"
+                                className={`no-drag ${styles.collapseBtn}`}
                                 onClick={() => setIsCollapsed(!isCollapsed)}
-                                style={{
-                                    background: '#555',
-                                    border: 'none',
-                                    color: '#fff',
-                                    fontSize: '9px',
-                                    padding: '1px 4px',
-                                    borderRadius: '3px',
-                                    cursor: 'pointer'
-                                }}
                             >
                                 {isCollapsed ? '펼치기' : '접기'}
                             </button>
                         </div>
 
-                        {/* 🆕 시간 선택 팝업 */}
+                        {/* 시간 선택 드롭다운 */}
                         {!isCollapsed && isTimePickerOpen && (
                             <div
-                                className="no-drag"
-                                style={{
-                                    position: 'absolute',
-                                    top: '45px',
-                                    left: '10px',
-                                    backgroundColor: 'rgba(20, 20, 20, 0.98)',
-                                    border: '1px solid #00d4ff',
-                                    borderRadius: '8px',
-                                    padding: '8px',
-                                    zIndex: 10000,
-                                    maxHeight: '200px',
-                                    overflowY: 'auto',
-                                    boxShadow: '0 4px 12px rgba(0, 212, 255, 0.3)'
-                                }}
+                                className={`no-drag ${styles.timePickerDropdown}`}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(4, 1fr)',
-                                    gap: '6px'
-                                }}>
+                                <div className={styles.timePickerGrid}>
                                     {availableHours.map(hour => (
                                         <button
                                             key={hour}
+                                            className={`${styles.timePickerItem} ${
+                                                hour === selectedHour
+                                                    ? styles.timePickerItemSelected
+                                                    : styles.timePickerItemDefault
+                                            }`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setSelectedHour(hour);
                                                 setIsTimePickerOpen(false);
-                                            }}
-                                            style={{
-                                                padding: '8px 4px',
-                                                backgroundColor: hour === selectedHour ? '#00d4ff' : '#333',
-                                                color: hour === selectedHour ? '#000' : '#fff',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                fontSize: '11px',
-                                                fontWeight: hour === selectedHour ? 'bold' : 'normal',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s'
                                             }}
                                         >
                                             {hour.toString().padStart(2, '0')}시
@@ -309,31 +272,27 @@ function App() {
                             </div>
                         )}
                     </div>
-                    {!isCollapsed && (
-                        <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                            {weatherList.map((item, i) => {
-                                // 1. 현재 리스트에서 숫자만 추출
-                                const allTemps = weatherList.map(w => w.tmp);
-                                // 2. 즉석에서 최소/최대 계산 (0, 0 방지)
-                                const minT = Math.min(...allTemps);
-                                const maxT = Math.max(...allTemps);
 
-                                return (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
-                                        <span>{item.name}</span>
-                                        <span style={{
-                                            fontWeight: 'bold',
-                                            color: getRelativeColor(item.tmp, minT, maxT) // 계산된 값을 직접 전달!
-                                                    }}>{item.tmp}°
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                    {/* 지역별 기온 리스트 */}
+                    {!isCollapsed && (
+                        <div className={styles.weatherList}>
+                            {weatherList.map((item, i) => (
+                                <div key={i} className={styles.weatherListItem}>
+                                    <span>{item.name}</span>
+                                    <span
+                                        className={styles.weatherListTemp}
+                                        style={{ color: getRelativeColor(item.tmp, minT, maxT) }}
+                                    >
+                                        {item.tmp}°
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
             </Draggable>
 
+            {/* 지역 클릭 시 날씨 상세 팝업 */}
             {selectedWeather && (
                 <WeatherDetail
                     weather={selectedWeather}
@@ -342,13 +301,6 @@ function App() {
                     onClose={() => setSelectedWeather(null)}
                 />
             )}
-
-            <style>{`
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
         </div>
     );
 }
