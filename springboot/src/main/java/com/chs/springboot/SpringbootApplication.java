@@ -4,13 +4,15 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.TimeZone;
+
 @SpringBootApplication(exclude = {
         org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class
 })
 @EnableScheduling
 public class SpringbootApplication {
-
     public static void main(String[] args) {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));
         String currentDir = System.getProperty("user.dir");
 
         // 실행 위치가 root(home)인지 프로젝트 폴더(springboot)인지에 따라 경로 자동 선택
