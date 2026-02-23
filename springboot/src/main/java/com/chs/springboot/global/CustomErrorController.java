@@ -1,4 +1,4 @@
-package com.chs.springboot;
+package com.chs.springboot.global;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;

@@ -1,4 +1,4 @@
-package com.chs.springboot;
+package com.chs.springboot.global;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.context.annotation.Configuration;

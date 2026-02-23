@@ -1,4 +1,4 @@
-package com.chs.springboot;
+package com.chs.springboot.domain.calc;
 
 import org.springframework.web.bind.annotation.*;
 

@@ -1,5 +1,6 @@
-package com.chs.springboot;
+package com.chs.springboot.domain.weather.repository;
 
+import com.chs.springboot.domain.weather.model.WeatherEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

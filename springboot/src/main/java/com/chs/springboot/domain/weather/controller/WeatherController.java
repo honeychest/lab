@@ -1,5 +1,7 @@
-package com.chs.springboot;
+package com.chs.springboot.domain.weather.controller;
 
+import com.chs.springboot.domain.weather.model.WeatherEntity;
+import com.chs.springboot.domain.weather.repository.WeatherRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;

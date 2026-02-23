@@ -1,4 +1,4 @@
-package com.chs.springboot;
+package com.chs.springboot.domain.weather.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;

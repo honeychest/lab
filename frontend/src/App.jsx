@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Cesium from 'cesium';
 import "cesium/Build/Cesium/Widgets/widgets.css";
-import { getRelativeColor } from "./utils/weatherUtils";
+import { getRelativeColor } from "./features/weather/utils/weatherUtils.ts";
 import Draggable from 'react-draggable';
-import WeatherDetail from './components/WeatherDetail';
+import WeatherDetail from './features/weather/components/WeatherDetail.tsx';
 
 const GEO_ORDER = ["서울특별시", "경기도", "강원도", "충청북도", "충청남도", "전라북도", "경상북도", "전라남도", "경상남도", "제주특별자치도"];
 const CITY_TO_PROVINCE = { "광주": "전라남도", "대구": "경상북도", "대전": "충청남도", "울산": "경상남도", "부산": "경상남도", "인천": "경기도", "세종": "충청남도" };
@@ -151,7 +151,7 @@ function App() {
             if (!target) target = GEO_ORDER.find(n => name.includes(n));
             const regionData = sorted.find(d => d.name === target);
             if (regionData) {
-                entity.polygon.material = getRelativeColor(regionData.tmp, minT, maxT);
+                entity.polygon.material = Cesium.Color.fromCssColorString(getRelativeColor(regionData.tmp, minT, maxT));
                 entity.polygon.outlineColor = Cesium.Color.WHITE.withAlpha(0.5);
                 entity.polygon.outlineWidth = 1;
             }
@@ -311,12 +311,24 @@ function App() {
                     </div>
                     {!isCollapsed && (
                         <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                            {weatherList.map((item, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
-                                    <span>{item.name}</span>
-                                    <span style={{ fontWeight: 'bold', color: getRelativeColor(item.tmp, range.min, range.max).toCssColorString() }}>{item.tmp}°</span>
-                                </div>
-                            ))}
+                            {weatherList.map((item, i) => {
+                                // 1. 현재 리스트에서 숫자만 추출
+                                const allTemps = weatherList.map(w => w.tmp);
+                                // 2. 즉석에서 최소/최대 계산 (0, 0 방지)
+                                const minT = Math.min(...allTemps);
+                                const maxT = Math.max(...allTemps);
+
+                                return (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
+                                        <span>{item.name}</span>
+                                        <span style={{
+                                            fontWeight: 'bold',
+                                            color: getRelativeColor(item.tmp, minT, maxT) // 계산된 값을 직접 전달!
+                                                    }}>{item.tmp}°
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
