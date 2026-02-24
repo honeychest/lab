@@ -3,7 +3,7 @@ plugins {
     id 'org.springframework.boot' version '3.4.2' // 4.0.2에서 3.4.2로 하향 조정
     id 'io.spring.dependency-management' version '1.1.7'
 }
-
+rrrrrrrrrrrrrcd
 group = 'com.chs'
 version = '0.0.1-SNAPSHOT'
 description = 'springboot'

@@ -14,6 +14,7 @@ function App() {
     const viewerRef = useRef(null);
     const nodeRef = useRef(null);
     const selectedEntityRef = useRef(null);
+    const selectedEntityMaterialRef = useRef(null);
 
     // 클릭 핸들러 안에서 selectedHour 최신값을 참조하기 위한 ref
     const selectedHourRef = useRef(new Date().getHours());
@@ -62,10 +63,12 @@ function App() {
                 prev.polygon.outlineColor = Cesium.Color.WHITE.withAlpha(0.5);
                 prev.polygon.outlineWidth = 1;
                 prev.polygon.extrudedHeight = 0;
+                prev.polygon.material = selectedEntityMaterialRef.current;
             }
 
             if (Cesium.defined(pickedObject) && pickedObject.id) {
                 const entity = pickedObject.id;
+                selectedEntityMaterialRef.current = entity.polygon.material;
                 let h = 0;
                 entity.polygon.outlineColor = Cesium.Color.GRAY;
                 entity.polygon.outlineWidth = 4;
