@@ -1,0 +1,13 @@
+/* Purpose: 전체 페이지 높이를 Header/main/Footer 세 영역으로 분배하는 컨테이너 */
+
+.layout {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;  /* dvh: 모바일 브라우저 주소창 높이 변동 대응 */
+    overflow: hidden;
+}
+
+.main {
+    flex: 1;         /* Header·Footer 높이를 제외한 나머지를 모두 차지 */
+    overflow: hidden;
+}
