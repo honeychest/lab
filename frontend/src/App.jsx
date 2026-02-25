@@ -85,8 +85,13 @@ function App() {
         });
     };
 
+    // 팝업 오픈 여부에 따라 TypeScript 태그 추가
+    const footerCenter = selectedWeather
+        ? ['Cesium', 'TypeScript']
+        : ['Cesium'];
+
     return (
-        <Layout>
+        <Layout footerCenter={footerCenter}>
             <div className={styles.root}>
                 <CesiumMap
                     weatherList={weatherList}
