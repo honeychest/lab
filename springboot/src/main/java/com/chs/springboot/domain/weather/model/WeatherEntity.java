@@ -8,9 +8,14 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "weather_history", indexes = {
-        @Index(name = "idx_region_fcst", columnList = "region, fcstDateTime")
-})
+@Table(name = "weather_history",
+        indexes = {
+                @Index(name = "idx_region_fcst", columnList = "region, fcstDateTime")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_region_fcstdatetime", columnNames = {"region", "fcstDateTime"})
+        }
+)
 public class WeatherEntity {
 
     @Id

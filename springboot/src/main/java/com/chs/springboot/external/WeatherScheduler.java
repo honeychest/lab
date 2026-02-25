@@ -19,6 +19,11 @@ public class WeatherScheduler {
      */
     @Scheduled(cron = "0 */10 * * * *")
     public void collectWeatherData() {
+        // DotenvConfig가 @PostConstruct에서 로드하므로, application.properties 평가 시점보다
+        // 늦게 값이 세팅됨. 따라서 런타임에 시스템 프로퍼티를 직접 확인한다.
+        if (!"true".equalsIgnoreCase(System.getProperty("SCHEDULING_ENABLED"))) {
+            return;
+        }
         System.out.println("--- [스케줄러] 10분 주기 자동 수집 시작: " + LocalDateTime.now() + " ---");
         try {
             weatherService.getWeatherByHour(null);
