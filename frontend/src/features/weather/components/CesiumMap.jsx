@@ -5,18 +5,27 @@ import { getRelativeColor } from "../utils/weatherUtils.ts";
 import { GEO_ORDER, CITY_TO_PROVINCE } from "../constants/regions";
 import styles from "../../../App.module.css";
 
+const OUTLINE_COLOR = Cesium.Color.fromCssColorString("#222222").withAlpha(0.88);
+const OUTLINE_WIDTH = 2;
+const BASE_HEIGHT = 1;
+
 function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
   const cesiumContainer = useRef(null);
   const viewerRef = useRef(null);
   const selectedEntityRef = useRef(null);
+  const selectedEntityNameRef = useRef(null);
+  const selectedEntityMaterialRef = useRef(null);
+  const weatherDataRef = useRef({ weatherList: [], minT: 0, maxT: 0 });
   const clickCallbackRef = useRef(onRegionClick);
 
-  // onRegionClick 최신 값 유지
+  useEffect(() => {
+    weatherDataRef.current = { weatherList, minT, maxT };
+  }, [weatherList, minT, maxT]);
+
   useEffect(() => {
     clickCallbackRef.current = onRegionClick;
   }, [onRegionClick]);
 
-  // Cesium viewer 초기화 (마운트 1회)
   useEffect(() => {
     if (!cesiumContainer.current) return;
 
@@ -41,31 +50,52 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
 
     handler.setInputAction((click) => {
+      console.log("--- Click Event Started ---");
       const pickedObject = viewer.scene.pick(click.position);
 
-      // 이전 선택 영역 스타일 복원
       if (selectedEntityRef.current) {
         const prev = selectedEntityRef.current;
-        // 이전 선택 영역은 색상(material)은 그대로 두고, 강조 스타일만 원복
-        prev.polygon.outlineColor = Cesium.Color.WHITE.withAlpha(0.5);
-        prev.polygon.outlineWidth = 1;
-        prev.polygon.extrudedHeight = 0;
+        const prevName = selectedEntityNameRef.current;
+        console.log(`Deselecting: ${prevName}`);
+
+        prev.polygon.outlineColor = OUTLINE_COLOR;
+        prev.polygon.outlineWidth = OUTLINE_WIDTH;
+        prev.polygon.extrudedHeight = BASE_HEIGHT;
+
+        const { weatherList: wl, minT: mn, maxT: mx } = weatherDataRef.current;
+        const regionData = wl.find((d) => d.name === prevName);
+
+        if (regionData) {
+          const newColor = getRelativeColor(regionData.tmp, mn, mx);
+          console.log(`Restoring color for ${prevName}: ${newColor}`);
+          prev.polygon.material = Cesium.Color.fromCssColorString(newColor);
+        } else if (selectedEntityMaterialRef.current) {
+          console.warn(`Data not found for ${prevName}, using fallback material`);
+          prev.polygon.material = selectedEntityMaterialRef.current;
+        }
       }
 
       if (Cesium.defined(pickedObject) && pickedObject.id) {
         const entity = pickedObject.id;
+        const fullName = entity.properties.name?._value || "Unknown";
+        console.log(`Selected: ${fullName}`);
+
+        // 현재 적용되어 있는 색상 확인
+        console.log("Current Material before animation:", entity.polygon.material);
+
+        selectedEntityMaterialRef.current = entity.polygon.material;
 
         let h = 0;
         entity.polygon.outlineColor = Cesium.Color.GRAY;
         entity.polygon.outlineWidth = 4;
+
+        // 애니메이션 작동 로그
         entity.polygon.extrudedHeight = new Cesium.CallbackProperty(() => {
           if (h < 30000) h += 10000;
           return h;
         }, false);
 
         selectedEntityRef.current = entity;
-
-        const fullName = entity.properties.name?._value || "";
 
         let mappingName = null;
         for (const [city, province] of Object.entries(CITY_TO_PROVINCE)) {
@@ -78,6 +108,9 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
           mappingName = GEO_ORDER.find((name) => fullName.includes(name)) || null;
         }
 
+        selectedEntityNameRef.current = mappingName;
+        console.log(`Mapped Name: ${mappingName}`);
+
         if (clickCallbackRef.current) {
           clickCallbackRef.current({
             fullName,
@@ -86,13 +119,17 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
           });
         }
       } else {
+        console.log("Clicked on empty space");
         selectedEntityRef.current = null;
+        selectedEntityNameRef.current = null;
+        selectedEntityMaterialRef.current = null;
         if (clickCallbackRef.current) {
           clickCallbackRef.current(null);
         }
       }
 
       viewer.scene.requestRender();
+      console.log("--- Click Event Finished ---");
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     return () => {
@@ -101,8 +138,8 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
     };
   }, []);
 
-  // 지도 색상 업데이트
   const updateMapColors = (ds, sorted, localMinT, localMaxT) => {
+    console.log("Updating Map Colors...");
     ds.entities.values.forEach((entity) => {
       const name = entity.properties.name?._value || "";
 
@@ -120,17 +157,17 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
       const regionData = sorted.find((d) => d.name === target);
       if (regionData) {
         entity.polygon.material = Cesium.Color.fromCssColorString(
-          getRelativeColor(regionData.tmp, localMinT, localMaxT)
+            getRelativeColor(regionData.tmp, localMinT, localMaxT)
         );
-        entity.polygon.outlineColor = Cesium.Color.WHITE.withAlpha(0.5);
-        entity.polygon.outlineWidth = 1;
+        entity.polygon.outlineColor = OUTLINE_COLOR;
+        entity.polygon.outlineWidth = OUTLINE_WIDTH;
+        entity.polygon.extrudedHeight = BASE_HEIGHT;
       }
     });
-
+    console.log("Map Colors Updated");
     viewerRef.current.scene.requestRender();
   };
 
-  // weatherList 변경 시 색상 갱신 / GeoJSON 최초 로드
   useEffect(() => {
     if (!viewerRef.current) return;
     if (!weatherList || weatherList.length === 0) return;
@@ -138,8 +175,10 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
     const dataSources = viewerRef.current.dataSources;
 
     if (dataSources.length === 0) {
+      console.log("Loading GeoJSON...");
       Cesium.GeoJsonDataSource.load("/data/korea.json").then((ds) => {
         viewerRef.current.dataSources.add(ds);
+        console.log("GeoJSON Loaded");
         updateMapColors(ds, weatherList, minT, maxT);
       });
     } else {
@@ -151,4 +190,3 @@ function CesiumMap({ weatherList, minT, maxT, onRegionClick }) {
 }
 
 export default CesiumMap;
-
