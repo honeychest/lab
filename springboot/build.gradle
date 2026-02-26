@@ -17,7 +17,19 @@ java {
 bootJar {
     archiveFileName = 'chsproject.jar'
 }
+bootRun {
+    // 1. 시스템 환경변수(OS)에 JASYPT_PASSWORD가 있으면 자바 프로퍼티로 전달
+    if (System.getenv('JASYPT_PASSWORD') != null) {
+        systemProperty 'jasypt.encryptor.password', System.getenv('JASYPT_PASSWORD')
+    }
+    // 2. 만약 실행 시 -Djasypt.encryptor.password=... 를 직접 줬다면 그것을 우선 사용
+    else if (System.getProperty('jasypt.encryptor.password') != null) {
+        systemProperty 'jasypt.encryptor.password', System.getProperty('jasypt.encryptor.password')
+    }
 
+    // 리얼 서버 배포 시 DevTools로 인한 재시작 및 변수 유실 방지
+    systemProperty 'spring.devtools.restart.enabled', 'false'
+}
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
