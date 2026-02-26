@@ -1,3 +1,4 @@
+// Purpose: 날씨 데이터 유틸리티 — 기온 기반 색상 계산 및 강수 형태 변환
 // 1. 서버에서 오는 날씨 데이터의 '설계도'를 만듭니다. (Java의 DTO와 매핑)
 export interface WeatherData {
     name: string;       // 지역명 (예: 강원도)

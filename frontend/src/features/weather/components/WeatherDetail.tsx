@@ -1,3 +1,4 @@
+// Purpose: 지역 클릭 시 표시되는 날씨 상세 팝업 — 기온/강수/습도/풍속 정보 표시
 import React from 'react';
 
 // 날씨 데이터 타입 정의

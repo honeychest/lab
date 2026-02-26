@@ -1,22 +1,17 @@
+// Purpose: 날씨 지도 메인 화면 — Cesium 지도와 날씨 패널/팝업 조합
 import { useEffect, useRef, useState } from 'react';
-import { getRelativeColor } from "./features/weather/utils/weatherUtils.ts";
 import { useWeatherData } from "./hooks/useWeatherData";
 import { GEO_ORDER } from "./features/weather/constants/regions";
 import Layout from "./layout/Layout.jsx";
-import Draggable from 'react-draggable';
 import WeatherDetail from './features/weather/components/WeatherDetail.tsx';
 import CesiumMap from './features/weather/components/CesiumMap.jsx';
+import WeatherPanel from './features/weather/components/WeatherPanel.jsx';
 import styles from './App.module.css';
 
 function App() {
-    const nodeRef = useRef(null);
-
-    // 클릭 핸들러 안에서 selectedHour 최신값을 참조하기 위한 ref
     const selectedHourRef = useRef(new Date().getHours());
 
-    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
     const [selectedWeather, setSelectedWeather] = useState(null);
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
 
@@ -41,15 +36,6 @@ function App() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
-
-    // 시간 선택 드롭다운 외부 클릭 시 닫기
-    useEffect(() => {
-        const handleClickOutside = () => setIsTimePickerOpen(false);
-        if (isTimePickerOpen) {
-            document.addEventListener('click', handleClickOutside);
-        }
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, [isTimePickerOpen]);
 
     const handleRegionClick = (payload) => {
         if (!payload) {
@@ -108,92 +94,15 @@ function App() {
                     </div>
                 )}
 
-                {/* 드래그 가능한 날씨 패널 */}
-                <Draggable
-                    nodeRef={nodeRef}
-                    bounds="parent"
-                    handle=".drag-handle"
-                    cancel=".no-drag"
-                >
-                    <div
-                        ref={nodeRef}
-                        className={styles.weatherPanel}
-                        style={{ width: isMobile ? (isCollapsed ? 'auto' : '140px') : '180px' }}
-                    >
-                        <div style={{ marginBottom: isCollapsed ? '0' : '8px' }}>
-                            <div className={`drag-handle ${styles.panelHeader}`}>
-                                {isCollapsed ? (
-                                    <span className={styles.panelTitleIcon}>🌡️</span>
-                                ) : (
-                                    <div className={styles.panelTitleRow}>
-                                        <span className={styles.panelTitle}>전국 기온</span>
-                                        <button
-                                            className={`no-drag ${styles.timePickerBtn}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setIsTimePickerOpen(!isTimePickerOpen);
-                                            }}
-                                        >
-                                            ({selectedHour !== null ? selectedHour.toString().padStart(2, '0') : '--'}:00)
-                                            <span className={styles.timePickerArrow}>▼</span>
-                                        </button>
-                                    </div>
-                                )}
-                                <button
-                                    className={`no-drag ${styles.collapseBtn}`}
-                                    onClick={() => setIsCollapsed(!isCollapsed)}
-                                >
-                                    {isCollapsed ? '펼치기' : '접기'}
-                                </button>
-                            </div>
-
-                            {/* 시간 선택 드롭다운 */}
-                            {!isCollapsed && isTimePickerOpen && (
-                                <div
-                                    className={`no-drag ${styles.timePickerDropdown}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div className={styles.timePickerGrid}>
-                                        {availableHours.map(hour => (
-                                            <button
-                                                key={hour}
-                                                className={`${styles.timePickerItem} ${
-                                                    hour === selectedHour
-                                                        ? styles.timePickerItemSelected
-                                                        : styles.timePickerItemDefault
-                                                }`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedHour(hour);
-                                                    setIsTimePickerOpen(false);
-                                                }}
-                                            >
-                                                {hour.toString().padStart(2, '0')}시
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 지역별 기온 리스트 */}
-                        {!isCollapsed && (
-                            <div className={styles.weatherList}>
-                                {weatherList.map((item, i) => (
-                                    <div key={i} className={styles.weatherListItem}>
-                                        <span>{item.name}</span>
-                                        <span
-                                            className={styles.weatherListTemp}
-                                            style={{ color: getRelativeColor(item.tmp, minT, maxT) }}
-                                        >
-                                            {item.tmp}°
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </Draggable>
+                <WeatherPanel
+                    weatherList={weatherList}
+                    availableHours={availableHours}
+                    selectedHour={selectedHour}
+                    setSelectedHour={setSelectedHour}
+                    isMobile={isMobile}
+                    minT={minT}
+                    maxT={maxT}
+                />
 
                 {/* 지역 클릭 시 날씨 상세 팝업 */}
                 {selectedWeather && (

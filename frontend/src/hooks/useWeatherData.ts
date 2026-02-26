@@ -1,3 +1,4 @@
+// Purpose: 날씨 데이터 패칭 커스텀 훅 — 사용 가능 시간 조회 및 시간별 전국 날씨 관리
 import { useEffect, useState } from "react";
 import { GEO_ORDER } from "../features/weather/constants/regions";
 

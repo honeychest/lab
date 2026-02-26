@@ -25,6 +25,9 @@ public class WeatherService {
     @Autowired
     private WeatherRepository weatherRepository;
 
+    // API 호출마다 new 생성하지 않도록 필드로 선언해 재사용
+    private final RestTemplate restTemplate = new RestTemplate();
+
     // 전국 10개 지역 좌표 (nx, ny)
     private final Map<String, int[]> locations = new LinkedHashMap<>();
 
@@ -85,7 +88,6 @@ public class WeatherService {
 
         // 2. 부족한 지역만 API 호출
         System.out.println("Data missing for hour " + targetHour.getHour() + ". Calling API...");
-        RestTemplate restTemplate = new RestTemplate();
 
         locations.forEach((name, coords) -> {
             if (results.containsKey(name)) return;
@@ -160,6 +162,12 @@ public class WeatherService {
             if (!data.isEmpty()) return data;
         } catch (Exception e) {
             System.err.println("API call error: " + e.getMessage());
+        }
+
+        try {
+            Thread.sleep(200); // 연속 호출 방지 — 재시도 간 200ms 대기
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
 
         return fetchWeatherRecursive(

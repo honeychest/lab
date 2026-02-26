@@ -1,3 +1,4 @@
+// Purpose: 앱 전체 라우팅 설정 — URL별 페이지 컴포넌트 연결
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import App from './App'; // 기존 날씨 지도 컴포넌트
 import NotFound from './pages/NotFound';

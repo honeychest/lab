@@ -1,6 +1,8 @@
-import React from 'react';
+// Purpose: 500 오류 페이지 — 서버 오프라인 상태 안내 및 재시도 버튼 제공
+import React, { useState } from 'react';
 
 function ServerError() {
+    const [isHovered, setIsHovered] = useState(false);
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -28,13 +30,13 @@ function ServerError() {
 
                 <button
                     onClick={() => window.location.href = '/'}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
                     style={{
-                        padding: '12px 32px', backgroundColor: 'transparent', color: '#f8fafc',
+                        padding: '12px 32px', backgroundColor: isHovered ? '#1e293b' : 'transparent', color: '#f8fafc',
                         border: '1px solid #475569', borderRadius: '4px', cursor: 'pointer',
                         fontSize: '14px', fontWeight: '600', transition: '0.2s'
                     }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#1e293b'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                 >
                     연결 재시도
                 </button>

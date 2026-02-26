@@ -1,9 +1,11 @@
+// Purpose: 404 오류 페이지 — 잘못된 경로 접근 시 안내 및 메인 이동 버튼 제공
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 function NotFound() {
     const navigate = useNavigate();
     const [mounted, setMounted] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -92,27 +94,19 @@ function NotFound() {
 
                 <button
                     onClick={() => navigate('/')}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
                     style={{
                         padding: '14px 32px',
-                        backgroundColor: 'transparent',
-                        color: '#ffffff',
-                        border: '1px solid #475569',
+                        backgroundColor: isHovered ? '#ffffff' : 'transparent',
+                        color: isHovered ? '#0f172a' : '#ffffff',
+                        border: isHovered ? '1px solid #ffffff' : '1px solid #475569',
                         borderRadius: '4px',
                         fontSize: '15px',
                         fontWeight: '500',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         outline: 'none'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = '#ffffff';
-                        e.target.style.color = '#0f172a';
-                        e.target.style.borderColor = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = 'transparent';
-                        e.target.style.color = '#ffffff';
-                        e.target.style.borderColor = '#475569';
                     }}
                 >
                     메인 페이지로 이동

@@ -1,3 +1,4 @@
+// Purpose: 공통 레이아웃 래퍼 — Header, 메인 콘텐츠 영역, Footer 조합
 import Header from "./Header.jsx";
 import Footer from "./Footer.jsx";
 import styles from './Layout.module.css';

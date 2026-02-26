@@ -1,6 +1,9 @@
+// Purpose: 바이낸스 API 연동 서비스 — 시세 조회 및 계좌 잔고 반환
 package com.chs.springboot.domain.binance.service;
 
 import com.binance.connector.client.impl.SpotClientImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
@@ -8,6 +11,8 @@ import java.util.LinkedHashMap;
 
 @Service
 public class BinanceService {
+
+    private static final Logger log = LoggerFactory.getLogger(BinanceService.class);
 
     @Value("${BINANCE_API_KEY}")
     private String apiKey;
@@ -21,35 +26,39 @@ public class BinanceService {
     public void init() {
         // Jasypt가 자동으로 ENC(...)를 풀어서 apiKey에 주입해줍니다.
         // 그 덕분에 여기서는 평문 키를 사용하는 것과 똑같이 코드를 짜면 됩니다.
-        this.client = new SpotClientImpl(apiKey, secretKey);
+        try {
+            this.client = new SpotClientImpl(apiKey, secretKey);
+        } catch (Exception e) {
+            log.error("[BinanceService] SpotClient 초기화 실패: {}", e.getMessage());
+            throw new RuntimeException("바이낸스 클라이언트 초기화에 실패했습니다.", e);
+        }
     }
 
     /**
-     * 비트코인(BTC/USDT) 현재 시세 가져오기
-     */
-    public String getBtcPrice() {
-        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("symbol", "BTCUSDT");
-
-        // 마켓 정보 중 티커(시세)를 가져옵니다.
-        return client.createMarket().tickerSymbol(parameters);
-    }
-
-    /**
-     * 특정 코인 심볼을 파라미터로 받는 메서드 (컨트롤러와 호환용)
+     * 특정 코인 심볼의 현재 시세를 가져옵니다. (예: "BTCUSDT")
      */
     public String getSymbolPrice(String symbol) {
-        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("symbol", symbol);
-        return client.createMarket().tickerSymbol(parameters);
+        try {
+            LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
+            parameters.put("symbol", symbol);
+            return client.createMarket().tickerSymbol(parameters);
+        } catch (Exception e) {
+            log.error("[BinanceService] 시세 조회 실패 (symbol={}): {}", symbol, e.getMessage());
+            throw new RuntimeException("시세 조회에 실패했습니다: " + symbol, e);
+        }
     }
 
     /**
      * 내 계정의 잔고(Asset) 정보를 가져옵니다.
      */
     public String getAccountInformation() {
-        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-        // SpotClient를 사용해 계정 정보를 요청합니다. (API Key 권한 필요)
-        return client.createTrade().account(parameters);
+        try {
+            LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
+            // SpotClient를 사용해 계정 정보를 요청합니다. (API Key 권한 필요)
+            return client.createTrade().account(parameters);
+        } catch (Exception e) {
+            log.error("[BinanceService] 계좌 정보 조회 실패: {}", e.getMessage());
+            throw new RuntimeException("계좌 정보 조회에 실패했습니다.", e);
+        }
     }
 }

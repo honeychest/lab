@@ -1,3 +1,4 @@
+// Purpose: 지역 관련 상수 — 10개 시도 순서(GEO_ORDER) 및 도시-시도 매핑(CITY_TO_PROVINCE)
 export const GEO_ORDER = [
   "서울특별시",
   "경기도",
