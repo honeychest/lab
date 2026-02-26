@@ -37,6 +37,8 @@ dependencies {
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3' //swagger
+    implementation 'com.github.ulisesbocchio:jasypt-spring-boot-starter:3.0.5' // jasypt
+    implementation 'io.github.binance:binance-connector-java:3.3.0' // binance
 
     // 롬복
     compileOnly 'org.projectlombok:lombok'

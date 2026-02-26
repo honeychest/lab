@@ -8,11 +8,11 @@ function AppRouter() {
     return (
         <Router>
             <Routes>
-                {/* 기본 주소일 때 날씨 지도(App)를 보여줌 */}
-                <Route path="/" element={<App />} />
+                {/* Binance 페이지 */}
+                <Route path="/" element={<BinancePage />} />
 
-                {/* Binance 페이지 (준비 중) */}
-                <Route path="/binance" element={<BinancePage />} />
+                {/* Cesium 페이지 */}
+                <Route path="/app" element={<App />} />
 
                 {/* 500 에러 또는 서버 연결 실패 시 보여줄 페이지 주소 추가 */}
                 <Route path="/error" element={<ServerError />} />

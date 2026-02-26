@@ -3,8 +3,8 @@ import { NavLink } from 'react-router-dom';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
-    { label: 'Cesium', path: '/' },
-    { label: 'Binance', path: '/binance' },
+    { label: 'Binance', path: '/' },
+    { label: 'Cesium', path: '/app' },
 ];
 
 function Header() {
