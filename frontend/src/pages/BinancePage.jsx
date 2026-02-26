@@ -1,96 +1,84 @@
-// Purpose: Binance 페이지 - 실시간 시세 및 잔고 확인
-import React, { useEffect, useState } from 'react';
+// Purpose: Binance 대시보드 페이지 — 실시간 WebSocket 시세 및 지갑 잔고 표시
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Layout from '../layout/Layout.jsx';
+import { useBinanceWebSocket } from '../hooks/useBinanceWebSocket.js';
+import BinanceTicker from '../features/binance/components/BinanceTicker.jsx';
+import BinanceWallet from '../features/binance/components/BinanceWallet.jsx';
+
+const STATUS_CONFIG = {
+    connected:    { color: '#2ecc71', dot: true,  text: 'LIVE' },
+    connecting:   { color: '#f39c12', dot: false, text: '연결 중...' },
+    disconnected: { color: '#e74c3c', dot: false, text: '연결 끊김' },
+};
 
 function BinancePage() {
-    const [btcPrice, setBtcPrice] = useState(null);
-    const [accountInfo, setAccountInfo] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const { ticker, status } = useBinanceWebSocket();
+    const [accountInfo, setAccountInfo]   = useState(null);
+    const [walletLoading, setWalletLoading] = useState(true);
+    const [walletError, setWalletError]   = useState(null);
 
-    // 데이터를 가져오는 함수
-    const fetchData = async () => {
-        try {
-            // 1. 비트코인 시세 가져오기
-            const priceRes = await axios.get('/api/binance/price');
-            setBtcPrice(priceRes.data.price);
-
-            // 2. 내 계정 잔고 가져오기
-            const accountRes = await axios.get('/api/binance/account');
-            setAccountInfo(accountRes.data);
-
-            setError(null);
-            setLoading(false);
-        } catch (error) {
-            console.error("데이터 로드 실패:", error);
-            setError("바이낸스 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
-            setLoading(false);
-        }
-    };
-
+    // 지갑 잔고는 REST로 1회 조회 (실시간 필요 없음)
     useEffect(() => {
-        fetchData();
-        // 10초마다 데이터 갱신
-        const timer = setInterval(fetchData, 10000);
-        return () => clearInterval(timer);
+        const fetchWallet = async () => {
+            try {
+                const res = await axios.get('/api/binance/account');
+                setAccountInfo(res.data);
+            } catch {
+                setWalletError('잔고 조회에 실패했습니다.');
+            } finally {
+                setWalletLoading(false);
+            }
+        };
+        fetchWallet();
     }, []);
+
+    const { color, dot, text } = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
 
     return (
         <Layout footerCenter={[]}>
-            <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-                <h1 style={{ color: '#F3BA2F', textAlign: 'center' }}>Binance Dashboard</h1>
+            <div style={{
+                minHeight: '100%', background: '#0a0f1e',
+                padding: '32px', boxSizing: 'border-box'
+            }}>
+                <div style={{ maxWidth: '860px', margin: '0 auto' }}>
 
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: '50px' }}>데이터를 불러오는 중...</div>
-                ) : error ? (
-                    <div style={{ textAlign: 'center', padding: '50px', color: '#e74c3c' }}>{error}</div>
-                ) : (
-                    <>
-                        {/* 시세 섹션 */}
-                        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#666' }}>BTC / USDT</h3>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2ecc71' }}>
-                                ${btcPrice && !isNaN(parseFloat(btcPrice)) ? parseFloat(btcPrice).toLocaleString() : '---'}
-                            </div>
+                    {/* 헤더 */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h1 style={{ color: '#F3BA2F', margin: 0, fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>
+                            Binance Dashboard
+                        </h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <span style={{
+                                width: '8px', height: '8px', borderRadius: '50%',
+                                background: color, display: 'inline-block',
+                                boxShadow: dot ? `0 0 6px ${color}` : 'none'
+                            }} />
+                            <span style={{ color, fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>{text}</span>
                         </div>
+                    </div>
 
-                        {/* 잔고 섹션 */}
-                        <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #eee' }}>
-                            <h3 style={{ borderBottom: '2px solid #F3BA2F', paddingBottom: '10px' }}>내 지갑 잔고</h3>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                                <thead>
-                                <tr style={{ textAlign: 'left', color: '#888' }}>
-                                    <th style={{ padding: '10px 0' }}>자산(Asset)</th>
-                                    <th>보유 수량(Free)</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {accountInfo?.balances
-                                    ?.filter(balance => {
-                                        const val = parseFloat(balance.free);
-                                        return !isNaN(val) && val > 0; // NaN 방어 후 잔고 있는 것만 표시
-                                    })
-                                    .map((balance, index) => (
-                                        <tr key={index} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                                            <td style={{ padding: '12px 0', fontWeight: 'bold' }}>{balance.asset}</td>
-                                            <td>{parseFloat(balance.free).toFixed(8)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    {/* 실시간 시세 */}
+                    <div style={{
+                        background: '#0f172a', border: '1px solid #1e293b',
+                        borderRadius: '16px', padding: '24px', marginBottom: '20px'
+                    }}>
+                        <BinanceTicker ticker={ticker} />
+                    </div>
 
-                        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                            <button
-                                onClick={fetchData}
-                                style={{ padding: '10px 20px', backgroundColor: '#F3BA2F', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
-                            >
-                                지금 새로고침
-                            </button>
-                        </div>
-                    </>
-                )}
+                    {/* 지갑 잔고 */}
+                    <div style={{
+                        background: '#0f172a', border: '1px solid #1e293b',
+                        borderRadius: '16px', padding: '24px'
+                    }}>
+                        <BinanceWallet
+                            accountInfo={accountInfo}
+                            loading={walletLoading}
+                            error={walletError}
+                        />
+                    </div>
+
+                </div>
             </div>
         </Layout>
     );
