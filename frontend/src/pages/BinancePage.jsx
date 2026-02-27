@@ -19,7 +19,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 /**
  * axios: jQuery의 $.ajax와 동일한 역할을 하는 HTTP 요청 라이브러리.
@@ -106,8 +106,6 @@ function BinancePage() {
     /**
      * selectedSymbol:
      *   - 상단 탭에서 선택된 코인의 심볼 (예: 'BTCUSDT', 'ETHUSDT')
-     *   - 현재는 WebSocket이 BTCUSDT만 구독하므로 UI 표시용으로만 사용.
-     *   - 나중에 다중 심볼 실시간 시세를 지원할 때 이 값을 훅/백엔드와 연동할 예정.
      */
     const [selectedSymbol, setSelectedSymbol] = useState(COINS[0].symbol);
 
@@ -238,6 +236,40 @@ function BinancePage() {
      */
     const { upbitTicker } = useUpbitWebSocket(selectedCoin.upbitCode ?? null);
 
+    // ── Upbit KRW-USDT 환율 훅 ───────────────────────────────────
+    /**
+     * usdtTicker:
+     *   - 업비트 KRW-USDT 마켓 시세 = 1 USDT의 KRW 가격 (사실상 달러 환율).
+     *   - 선택된 코인 탭과 무관하게 항상 연결 유지 ('KRW-USDT' 고정).
+     *   - 이 값으로 '바이낸스 USD × USDT환율 = 환율 기준 적정 KRW' 계산.
+     *   - 훅 반환값 이름 충돌 방지를 위해 usdtTicker로 alias.
+     */
+    const { upbitTicker: usdtTicker } = useUpbitWebSocket('KRW-USDT');
+
+    // ── 패널 높이 고정용 ref ─────────────────────────────────────
+    /**
+     * tickerWrapperRef: BinanceTicker를 감싸는 div에 연결된 DOM 참조.
+     * savedHeightRef:   실데이터가 표시 중일 때 측정한 높이(px)를 보관.
+     *
+     * 동작 원리:
+     *   1. ticker가 non-null(실데이터 표시 중) → DOM 높이를 측정해 savedHeightRef에 저장
+     *   2. ticker가 null(스켈레톤 표시 중) → 래퍼 div에 minHeight를 적용해 패널 크기 고정
+     *   3. ticker가 다시 non-null → minHeight 해제, 실데이터가 자연스럽게 높이를 결정
+     *
+     * useRef를 쓰는 이유:
+     *   값 변경 시 리렌더링이 발생하지 않음 — 높이 저장은 부수 효과이므로 적합.
+     */
+    const tickerWrapperRef = useRef(null);
+    const savedHeightRef   = useRef(null);
+
+    useEffect(() => {
+        // ticker가 있을 때마다 현재 패널 높이를 갱신 저장
+        // (ticker가 null이 될 때 이미 저장된 값으로 minHeight 적용)
+        if (ticker !== null && tickerWrapperRef.current) {
+            savedHeightRef.current = tickerWrapperRef.current.offsetHeight;
+        }
+    }, [ticker]);
+
     // ── 가격 갱신 시 LIVE 도트 깜빡임 상태 ────────────────────────
     /**
      * priceFlash:
@@ -280,27 +312,30 @@ function BinancePage() {
                 <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
 
                     {/* ── 페이지 헤더 ─────────────────────────────── */}
+                    {/*
+                      좌: 기준시각 (ticker 수신 후 표시, 없으면 빈 칸 유지로 레이아웃 고정)
+                      우: Binance × Upbit 텍스트 — 테두리 없이 색상만으로 구분
+                    */}
                     <div style={{
                         display: 'flex',
-                        justifyContent: 'space-between', // 좌: 티커, 우: 대시보드 제목
+                        justifyContent: 'space-between',
                         alignItems: 'center',
                         marginBottom: '24px',
                     }}>
-                        {/* 좌측: 현재 선택된 티커 (BTC / USDT 등) */}
-                        <h1 style={{
-                            color: '#F3BA2F',     // 바이낸스 브랜드 옐로우
-                            margin: 0,
-                            fontSize: '30px',
-                            fontWeight: '800',
-                            letterSpacing: '0px',
-                            fontFamily: 'monospace',
-                        }}>
-                            {selectedCoin.label}
-                        </h1>
+                        {/* 좌측: 기준시각 */}
+                        <span style={{ color: '#475569', fontSize: '11px' }}>
+                            {ticker ? new Date(ticker.E).toLocaleTimeString('ko-KR') + ' 기준' : ''}
+                        </span>
 
-                        {/* 우측: 출처 표시 */}
-                        <div style={{ color: '#e5e7eb', fontSize: '18px', fontWeight: 700 }}>
-                            from Binance
+                        {/* 우측: 거래소 표시 — 테두리 없이 색상으로만 구분, 크기 업 */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: '#F3BA2F', fontWeight: 800, fontSize: '20px' }}>
+                                Binance
+                            </span>
+                            <span style={{ color: '#475569', fontSize: '20px', fontWeight: 300 }}>×</span>
+                            <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: '20px' }}>
+                                Upbit
+                            </span>
                         </div>
                     </div>
 
@@ -353,40 +388,60 @@ function BinancePage() {
                                 })}
                             </div>
 
-                            {/* 우측: LIVE 상태 표시 */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {/* 가격 갱신 시 내부가 채워지는 동그라미 */}
-                                <span style={{
-                                    width: '10px',
-                                    height: '10px',
-                                    borderRadius: '50%',
-                                    border: `2px solid ${color}`,              // 테두리는 항상 유지
-                                    backgroundColor: priceFlash && status === 'connected' ? color : 'transparent',
-                                    display: 'inline-block',
-                                    boxSizing: 'border-box',
-                                    transition: 'background-color 0.15s ease-out',
-                                }} />
-                                {/* 상태 텍스트: LIVE / 연결 중... / 연결 끊김 */}
-                                <span style={{ color, fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
-                                    {text}
+                            {/* 우측: LIVE 상태 표시 + USDT 환율 */}
+                            {/*
+                              USDT 가격을 LIVE 도트 바로 아래에 작게 표시.
+                              TODO: 실데이터 연동 후 '₩9,999' → 실제 KRW-USDT 값으로 교체.
+                            */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                {/* LIVE 도트 + 상태 텍스트 */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {/* 가격 갱신 시 내부가 채워지는 동그라미 */}
+                                    <span style={{
+                                        width: '10px',
+                                        height: '10px',
+                                        borderRadius: '50%',
+                                        border: `2px solid ${color}`,
+                                        backgroundColor: priceFlash && status === 'connected' ? color : 'transparent',
+                                        display: 'inline-block',
+                                        boxSizing: 'border-box',
+                                        transition: 'background-color 0.15s ease-out',
+                                    }} />
+                                    {/* 상태 텍스트: LIVE / 연결 중... / 연결 끊김 */}
+                                    <span style={{ color, fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                                        {text}
+                                    </span>
+                                </div>
+                                {/* USDT 환율: 수신 완료 시 실값, 대기 중이면 '...' */}
+                                <span style={{ color: '#475569', fontSize: '11px', fontFamily: 'monospace' }}>
+                                    {usdtTicker
+                                        ? '1 USDT = ₩' + Math.round(usdtTicker.trade_price).toLocaleString('ko-KR')
+                                        : '1 USDT = ...'}
                                 </span>
                             </div>
                         </div>
 
                         {/*
-                          BinanceTicker 컴포넌트에 ticker 데이터 전달.
-                          ticker가 null이면 BinanceTicker 내부에서 로딩 메시지 표시.
-                          ticker가 있으면 시세 정보 모두 표시.
-
-                          pairLabel:
-                            - 상단 COINS 배열에서 선택된 코인의 라벨 (예: "BTC / USDT")
-                            - 현재는 UI 텍스트에만 사용되며, 실제 데이터는 여전히 BTCUSDT 기준.
+                          tickerWrapperRef: 실데이터 표시 중 높이를 측정하기 위한 래퍼 div.
+                          ticker가 null(스켈레톤)일 때 savedHeightRef.current를 minHeight로 적용
+                          → 패널이 줄어들지 않고 스켈레톤이 그 안에서 교체됨.
+                          ticker가 non-null이면 minHeight 해제 → 실데이터가 높이를 자연스럽게 결정.
                         */}
-                        <BinanceTicker
-                            ticker={ticker}
-                            upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
-                            pairLabel={selectedCoin.label}
-                        />
+                        <div
+                            ref={tickerWrapperRef}
+                            style={{
+                                minHeight: ticker === null && savedHeightRef.current
+                                    ? `${savedHeightRef.current}px`
+                                    : undefined,
+                            }}
+                        >
+                            <BinanceTicker
+                                ticker={ticker}
+                                upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
+                                usdtKrwTicker={usdtTicker}
+                                pairLabel={selectedCoin.label}
+                            />
+                        </div>
                     </div>
 
                     {/* ── 지갑 잔고 카드 (현재는 숨김) ───────────────────────────── */}

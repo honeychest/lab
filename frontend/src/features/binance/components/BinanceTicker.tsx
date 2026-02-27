@@ -84,6 +84,13 @@ interface BinanceTickerProps {
      */
     upbitTicker?: UpbitTickerData | null;
     /**
+     * 업비트 KRW-USDT 환율 데이터.
+     * - null: 아직 수신 전
+     * - 객체: 수신 완료 (trade_price = 1 USDT의 KRW 가격, 사실상 달러 환율)
+     * 이 값으로 '바이낸스 USD × USDT환율 = 환율 기준 KRW'를 계산.
+     */
+    usdtKrwTicker?: UpbitTickerData | null;
+    /**
      * 헤더에 표시할 거래쌍 라벨.
      * 예: "BTC / USDT", "ETH / USDT"
      * 전달되지 않으면 기본값 "BTC/USDT" 사용.
@@ -179,6 +186,22 @@ const changeColor = (p: string): string => {
     return num >= 0 ? '#2ecc71' : '#e74c3c';
 };
 
+/**
+ * 프리미엄(차이금액) 절댓값을 KRW 형식으로 포맷.
+ * 부호(+/-)는 호출부에서 premiumSign 변수로 별도 처리.
+ *
+ * @param val - 차이금액 숫자 (음수여도 절댓값으로 처리)
+ * @returns 예: "₩9,999,999" (부호 없음) 또는 파싱 실패 시 '-'
+ */
+const fmtPremiumAbs = (val: number): string => {
+    const abs = Math.abs(val);
+    if (isNaN(abs)) return '-';
+    return '₩' + abs.toLocaleString('ko-KR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+};
+
 // ─────────────────────────────────────────────────────────────────
 //  스켈레톤(Skeleton) 컴포넌트
 //  - ticker가 null일 때 실제 레이아웃과 같은 구조로 shimmer 애니메이션을 표시
@@ -246,24 +269,31 @@ function BinanceTickerSkeleton() {
             {/* @keyframes shimmer CSS 주입 */}
             <style>{shimmerStyle}</style>
 
-            {/* 고가 라인 */}
+            {/* 고가 라인: fontSize 12px → line-height ≈ 18px */}
             <div style={{ marginBottom: '8px' }}>
-                <SkeletonBox width="160px" height="14px" />
+                <SkeletonBox width="160px" height="18px" />
             </div>
 
-            {/* 현재가 + 변동액/변동률 행 */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <SkeletonBox width="200px" height="40px" borderRadius="8px" />
-                <SkeletonBox width="80px"  height="20px" />
-                <SkeletonBox width="60px"  height="16px" />
+            {/* 현재가 영역: fontSize 40px monospace → line-height ≈ 48px */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <SkeletonBox width="200px" height="48px" borderRadius="8px" />
+                <SkeletonBox width="220px" height="48px" borderRadius="8px" />
             </div>
 
-            {/* 저가 라인 */}
+            {/* 변동액/변동률 행: fontSize 16px → line-height ≈ 20px */}
+            <div style={{ display: 'flex', gap: '14px', marginBottom: '8px' }}>
+                <SkeletonBox width="80px" height="20px" />
+                <SkeletonBox width="60px" height="20px" />
+            </div>
+
+            {/* 저가 라인: fontSize 12px → line-height ≈ 18px */}
             <div style={{ marginBottom: '20px' }}>
-                <SkeletonBox width="160px" height="14px" />
+                <SkeletonBox width="160px" height="18px" />
             </div>
 
-            {/* 정보 박스 그리드 (4개) */}
+            {/* 정보 박스 그리드 (4개)
+                실제 InfoBox: label fontSize 11px(≈14px) + marginBottom 4px + value fontSize 14px(≈17px)
+                패딩 12px top/bottom 동일하게 맞춤 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {[1, 2, 3, 4].map((i) => (
                     <div key={i} style={{
@@ -273,15 +303,15 @@ function BinanceTickerSkeleton() {
                         flex: '1 1 120px',
                         minWidth: '120px',
                     }}>
-                        <SkeletonBox width="60px"  height="11px" style={{ marginBottom: '8px' }} />
-                        <SkeletonBox width="80px"  height="14px" />
+                        <SkeletonBox width="60px" height="14px" style={{ marginBottom: '4px' }} />
+                        <SkeletonBox width="80px" height="17px" />
                     </div>
                 ))}
             </div>
 
-            {/* 집계 기간 라인 */}
+            {/* 집계 기간 라인: fontSize 11px → line-height ≈ 14px */}
             <div style={{ marginTop: '12px' }}>
-                <SkeletonBox width="280px" height="11px" />
+                <SkeletonBox width="280px" height="14px" />
             </div>
         </div>
     );
@@ -340,7 +370,7 @@ function InfoBox({ label, value, color = '#94a3b8' }: InfoBoxProps) {
  *   현재가, 변동액/변동률, 고가/저가, 매수/매도호가, 시가,
  *   거래량, 거래대금, 가중평균가, 체결횟수, 시간대 표시.
  */
-function BinanceTicker({ ticker, upbitTicker, pairLabel }: BinanceTickerProps) {
+function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: BinanceTickerProps) {
 
     // ── 로딩 상태 처리 ──────────────────────────────────────────
     // ticker가 null이면 아직 서버에서 첫 데이터가 안 온 것
@@ -367,14 +397,31 @@ function BinanceTicker({ ticker, upbitTicker, pairLabel }: BinanceTickerProps) {
     const highDiffFromCurrent = fmtDiff(highPrice - currentPrice);
     const lowDiffFromCurrent = fmtDiff(lowPrice - currentPrice);
 
-    // 타임스탬프 변환:
-    //   ticker.E = Unix 밀리초 타임스탬프 (예: 1708924800000)
-    //   new Date(ticker.E) → JavaScript Date 객체
-    //   toLocaleTimeString('ko-KR') → "오후 3:40:00" 형식의 한국 시간 문자열
-    const lastUpdated = new Date(ticker.E).toLocaleTimeString('ko-KR');
+    // ticker.E 타임스탬프는 BinancePage 헤더에서 기준시각으로 표시하므로 여기선 미사용
     const hasUpbitMarket = upbitTicker !== undefined;
     const hasUpbitData = upbitTicker !== undefined && upbitTicker !== null;
     const upbitTradePrice = upbitTicker?.trade_price ?? NaN;
+
+    // ── 환율 기준 KRW 및 프리미엄 계산 ──────────────────────────
+    //
+    // calcKrw:
+    //   바이낸스 USD 현재가 × USDT 환율 = 환율 기준 적정 KRW 가격.
+    //   예: $95,000 × ₩1,430/USDT = ₩135,850,000
+    //   usdtKrwTicker가 null(미수신)이면 null 유지 → 스켈레톤 표시.
+    //
+    // premium:
+    //   업비트 실제 KRW - 환율기준 KRW = 김치 프리미엄(양수) 또는 역프리미엄(음수).
+    //   두 데이터(upbit + usdt) 모두 수신된 경우에만 계산.
+    //
+    // premiumRate:
+    //   프리미엄을 환율기준 KRW 대비 퍼센트로 환산.
+    const hasUsdtRate = usdtKrwTicker != null;
+    const calcKrw     = hasUsdtRate ? currentPrice * usdtKrwTicker!.trade_price : null;
+    const premium     = (hasUpbitData && calcKrw !== null) ? upbitTradePrice - calcKrw : null;
+    const premiumRate = (premium !== null && calcKrw !== null) ? (premium / calcKrw) * 100 : null;
+    // 프리미엄 양수(한국 비쌈) → 초록, 음수(역프리미엄) → 빨강, 미계산 → 회색
+    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : '#475569';
+    const premiumSign  = premium !== null && premium >= 0 ? '+' : '';
 
     return (
         <div>
@@ -389,53 +436,127 @@ function BinanceTicker({ ticker, upbitTicker, pairLabel }: BinanceTickerProps) {
                 </span>
             </div>
 
-            {/* ── 현재가 (메인 표시) ─────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                {/* 현재가: 크고 진하게 */}
-                <span style={{ color: '#F3BA2F', fontSize: '40px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '-1px' }}>
+            {/* ── 3열 가격 그리드 ─────────────────────────────────── */}
+            {/*
+              레이아웃:
+                좌 | 중(프리미엄, 양 행 span) | 우
+              ──────────────────────────────────────────────────
+              [바이낸스 USD 가격]  [프리미엄]  [USD×USDT 환율기준 KRW]
+              [바이낸스 등락]                  [업비트 KRW]
+              ──────────────────────────────────────────────────
+              TODO: USD×USDT, 프리미엄 — 현재는 디자인 확인용 플레이스홀더.
+                    실데이터 연동은 KRW-USDT WebSocket 구현 후 진행.
+            */}
+            {/*
+              overflowX: 'auto' — $100,000+ 같은 넓은 숫자가 들어와도
+              카드 레이아웃이 밀리지 않고 가로 스크롤로 처리됨.
+            */}
+            <div style={{ overflowX: 'auto' }}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 150px auto', // 중간 열 고정폭 → 오른쪽 열 안 밀림
+                gridTemplateRows: 'auto auto',
+                columnGap: '28px',
+                rowGap: '8px',
+                alignItems: 'center',
+                marginBottom: '8px',
+                minWidth: 'max-content', // 숫자가 길어져도 열이 찌그러지지 않음
+            }}>
+
+                {/* ── 좌상: 바이낸스 USD 현재가 ── */}
+                <span style={{
+                    gridColumn: 1, gridRow: 1,
+                    color: '#F3BA2F', fontSize: '40px', fontWeight: '800',
+                    fontFamily: 'monospace', letterSpacing: '-1px',
+                }}>
                     {fmt(ticker.c)}
                 </span>
 
-                {/* 변동액: 24시간 전 대비 가격 차이
-                    ticker.p = 변동 금액 (예: "150.00" 또는 "-200.00")
-                    sign + ticker.p = "+150.00" 또는 "-200.00" */}
-                <span style={{ color, fontSize: '16px', fontWeight: '700', fontFamily: 'monospace' }}>
-                    {sign}{parseFloat(ticker.p).toFixed(2)}
-                </span>
-
-                {/* 변동률: 퍼센트로 표시
-                    ticker.P = 변동률 (예: "0.357" → "+0.36%") */}
-                <span style={{ color, fontSize: '14px', fontWeight: '600' }}>
-                    ({sign}{parseFloat(ticker.P).toFixed(2)}%)
-                </span>
-
-                {/* 마지막 업데이트 시각: 우측 정렬 */}
-                <span style={{ color: '#475569', fontSize: '11px', marginLeft: 'auto' }}>
-                    {lastUpdated} 기준
-                </span>
-            </div>
-
-            {/* 업비트 KRW 현재가: 지원 코인일 때만 표시. 연결 중/미수신이면 스켈레톤 */}
-            {hasUpbitMarket && (
+                {/* ── 중앙: 프리미엄 차이 (양 행 span) ── */}
+                {/*
+                  업비트 KRW - (바이낸스 USD × USDT 환율) = 김치 프리미엄
+                  양수 = 업비트가 비쌈(프리미엄), 음수 = 업비트가 쌈(역프리미엄)
+                  TODO: 실데이터 연동 후 색상도 동적으로 변경 (양수 초록 / 음수 빨강)
+                */}
                 <div style={{
+                    gridColumn: 2, gridRow: '1 / 3',
+                    textAlign: 'center',
+                    padding: '10px 20px',
+                    borderLeft: '1px solid #1e293b',
+                    borderRight: '1px solid #1e293b',
+                    alignSelf: 'stretch',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    marginBottom: '12px',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    gap: '4px',
                 }}>
-                    <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700 }}>
-                        {pairLabel ? `${pairLabel} (Upbit KRW)` : 'Upbit KRW'}
-                    </span>
-
-                    {hasUpbitData ? (
-                        <span style={{ color: '#22c55e', fontSize: '24px', fontWeight: 800, fontFamily: 'monospace' }}>
-                            {fmtKrw(upbitTradePrice)}
-                        </span>
+                    {/* 라벨 */}
+                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '1px' }}>
+                        프리미엄
+                    </div>
+                    {/* KRW 차이금액: 두 데이터 수신 완료 후 표시, 대기 중 스켈레톤 */}
+                    {premium !== null ? (
+                        <div style={{ color: premiumColor, fontSize: '17px', fontWeight: 800, fontFamily: 'monospace' }}>
+                            {premiumSign}{fmtPremiumAbs(premium)}
+                        </div>
                     ) : (
-                        <SkeletonBox width="170px" height="28px" borderRadius="8px" />
+                        <SkeletonBox width="120px" height="20px" borderRadius="4px" />
+                    )}
+                    {/* 퍼센트 */}
+                    {premiumRate !== null ? (
+                        <div style={{ color: premiumColor, fontSize: '12px', fontWeight: 700 }}>
+                            {premiumSign}{premiumRate.toFixed(2)}%
+                        </div>
+                    ) : (
+                        <SkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
                     )}
                 </div>
-            )}
+
+                {/* ── 우상: USD × USDT 환율기준 KRW ── */}
+                <div style={{ gridColumn: 3, gridRow: 1, textAlign: 'right' }}>
+                    {/* 라벨 */}
+                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        USD × USDT
+                    </div>
+                    {/* 환율기준 KRW: usdtKrwTicker 수신 완료 후 표시 */}
+                    {calcKrw !== null ? (
+                        <span style={{ color: '#94a3b8', fontSize: '36px', fontWeight: 800, fontFamily: 'monospace' }}>
+                            {fmtKrw(calcKrw)}
+                        </span>
+                    ) : (
+                        <SkeletonBox width="200px" height="42px" borderRadius="8px" />
+                    )}
+                </div>
+
+                {/* ── 좌하: 바이낸스 등락금액 + 등락률 ── */}
+                <div style={{ gridColumn: 1, gridRow: 2, display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ color, fontSize: '16px', fontWeight: '700', fontFamily: 'monospace' }}>
+                        {sign}{parseFloat(ticker.p).toFixed(2)}
+                    </span>
+                    <span style={{ color, fontSize: '14px', fontWeight: '600' }}>
+                        ({sign}{parseFloat(ticker.P).toFixed(2)}%)
+                    </span>
+                </div>
+
+                {/* ── 우하: 업비트 실제 KRW ── */}
+                <div style={{ gridColumn: 3, gridRow: 2, textAlign: 'right' }}>
+                    {/* 라벨 */}
+                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        UPBIT
+                    </div>
+                    {/* 업비트 KRW 현재가 */}
+                    {hasUpbitMarket && (
+                        hasUpbitData ? (
+                            <span style={{ color: '#22c55e', fontSize: '36px', fontWeight: 800, fontFamily: 'monospace' }}>
+                                {fmtKrw(upbitTradePrice)}
+                            </span>
+                        ) : (
+                            <SkeletonBox width="200px" height="42px" borderRadius="8px" />
+                        )
+                    )}
+                </div>
+            </div>
+            </div>{/* overflowX 래퍼 닫기 */}
 
             {/* 24시간 저가: 실시간 시세 블록 바로 아래에 배치 (현재가와의 차이 함께 표시) */}
             <div style={{ marginBottom: '20px', fontSize: '12px', color: '#9ca3af' }}>
