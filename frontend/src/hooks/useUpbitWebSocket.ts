@@ -73,11 +73,15 @@ async function parseUpbitPayload(data: unknown): Promise<UpbitTickerPayload | nu
  *              배열이 비어있으면 연결하지 않음.
  *
  * 동작 요약:
- * 1) 연결 성공 시 업비트 구독 메시지를 전송
+ * 1) 백엔드 업비트 중계 WS(/ws/upbit-price)에 연결
  * 2) 수신 데이터에서 code별 trade_price(KRW 현재가) 추출
  * 3) 예기치 않은 종료 시 3초 후 자동 재연결
  * 4) 탭 비활성화(document.hidden=true) 시 소켓 종료, 다시 활성화되면 재연결
  * 5) codes 변경 시 기존 연결 정리 후 새 코드 배열로 재연결
+ *
+ * 참고:
+ * 브라우저에서 업비트로 직접 연결하면 Origin 기반 제한 영향이 커질 수 있어,
+ * 서버 중계 경로를 통해 단일 상위 소켓으로 구독하도록 전환했다.
  */
 export function useUpbitWebSocket(codes: string[]): UseUpbitWebSocketResult {
     const [tickers, setTickers] = useState<Record<string, UpbitTicker>>({});
@@ -111,19 +115,16 @@ export function useUpbitWebSocket(codes: string[]): UseUpbitWebSocketResult {
 
             setUpbitStatus('connecting');
 
-            const ws = new WebSocket('wss://api.upbit.com/websocket/v1');
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const encodedCodes = encodeURIComponent(normalizedCodes.join(','));
+            const url = `${protocol}//${host}/ws/upbit-price?codes=${encodedCodes}`;
+
+            const ws = new WebSocket(url);
             ws.binaryType = 'arraybuffer';
 
             ws.onopen = () => {
                 setUpbitStatus('connected');
-
-                // 업비트 구독 메시지: ticket + ticker + codes(복수 코드 동시 구독).
-                ws.send(
-                    JSON.stringify([
-                        { ticket: 'upbit-ticker' },
-                        { type: 'ticker', codes: normalizedCodes },
-                    ]),
-                );
             };
 
             ws.onmessage = async (event: MessageEvent) => {

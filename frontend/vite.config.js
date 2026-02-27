@@ -16,6 +16,11 @@ export default defineConfig({
         target: 'ws://localhost:8080',
         ws: true,
         changeOrigin: true
+      },
+      '/ws/upbit-price': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
       }
     }
   }

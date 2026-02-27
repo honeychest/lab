@@ -1,4 +1,4 @@
-// Purpose: WebSocket 엔드포인트 등록 — /ws/binance-price 경로로 핸들러 연결
+// Purpose: WebSocket 엔드포인트 등록 — Binance/Upbit 가격 중계 경로를 핸들러에 연결
 
 /**
  * ─────────────────────────────────────────────────────────────────
@@ -13,6 +13,10 @@
  *  등록 내용:
  *    URL: /ws/binance-price
  *    핸들러: BinancePriceWebSocketHandler
+ *
+ *    URL: /ws/upbit-price
+ *    핸들러: UpbitPriceWebSocketHandler
+ *
  *    CORS: 모든 출처(*) 허용
  *
  *  프론트엔드에서의 연결:
@@ -24,6 +28,7 @@
 package com.chs.springboot.global.websocket;
 
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
+import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -39,8 +44,8 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  *   build.gradle에 spring-boot-starter-websocket 의존성이 있어야 동작.
  *
  * @RequiredArgsConstructor (Lombok):
- *   final 필드(handler)를 받는 생성자를 자동 생성.
- *   Spring이 BinancePriceWebSocketHandler 빈을 찾아 자동 주입.
+ *   final 필드들을 받는 생성자를 자동 생성.
+ *   Spring이 BinancePriceWebSocketHandler/UpbitPriceWebSocketHandler 빈을 자동 주입.
  *
  * implements WebSocketConfigurer:
  *   Spring WebSocket 설정 인터페이스.
@@ -52,11 +57,16 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     /**
-     * handler: 프론트엔드 WebSocket 연결을 처리할 핸들러.
-     * BinancePriceWebSocketHandler 빈이 자동 주입됨.
+     * binanceHandler: Binance 가격 중계 WebSocket 핸들러.
      * final = 불변, Spring이 생성자를 통해 주입.
      */
-    private final BinancePriceWebSocketHandler handler;
+    private final BinancePriceWebSocketHandler binanceHandler;
+
+    /**
+     * upbitHandler: Upbit 가격 중계 WebSocket 핸들러.
+     * final = 불변, Spring이 생성자를 통해 주입.
+     */
+    private final UpbitPriceWebSocketHandler upbitHandler;
 
     /**
      * registerWebSocketHandlers: WebSocket 핸들러와 URL 경로를 등록.
@@ -87,7 +97,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
      */
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(handler, "/ws/binance-price")
+        registry.addHandler(binanceHandler, "/ws/binance-price")
+                .setAllowedOrigins("*");
+
+        registry.addHandler(upbitHandler, "/ws/upbit-price")
                 .setAllowedOrigins("*");
     }
 }
