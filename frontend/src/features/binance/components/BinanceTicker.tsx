@@ -21,6 +21,7 @@
  */
 import React from 'react';
 import type { BinanceTicker as BinanceTickerData } from '../../../hooks/useBinanceWebSocket';
+import type { UpbitTicker as UpbitTickerData } from '../../../hooks/useUpbitWebSocket';
 
 /**
  * 이 컴포넌트에서 "표시할 수 있는" ticker 필드 요약
@@ -76,6 +77,13 @@ interface BinanceTickerProps {
      */
     ticker: BinanceTickerData | null;
     /**
+     * 업비트 KRW 현재가 데이터.
+     * - undefined: 업비트 미지원 코인 (KRW 블록 자체를 숨김)
+     * - null: 업비트 지원 코인이지만 아직 연결 중/데이터 미수신
+     * - 객체: 업비트 현재가 수신 완료
+     */
+    upbitTicker?: UpbitTickerData | null;
+    /**
      * 헤더에 표시할 거래쌍 라벨.
      * 예: "BTC / USDT", "ETH / USDT"
      * 전달되지 않으면 기본값 "BTC/USDT" 사용.
@@ -110,6 +118,20 @@ const fmt = (val: string, decimals = 2): string => {
     return '$' + num.toLocaleString('en-US', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
+    });
+};
+
+/**
+ * 업비트 trade_price 숫자를 KRW 통화 문자열로 포맷.
+ *
+ * @param val - KRW 현재가 숫자
+ * @returns 예: "₩135,000,000" 또는 파싱 실패 시 '-'
+ */
+const fmtKrw = (val: number): string => {
+    if (Number.isNaN(val)) return '-';
+    return '₩' + val.toLocaleString('ko-KR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     });
 };
 
@@ -318,7 +340,7 @@ function InfoBox({ label, value, color = '#94a3b8' }: InfoBoxProps) {
  *   현재가, 변동액/변동률, 고가/저가, 매수/매도호가, 시가,
  *   거래량, 거래대금, 가중평균가, 체결횟수, 시간대 표시.
  */
-function BinanceTicker({ ticker, pairLabel }: BinanceTickerProps) {
+function BinanceTicker({ ticker, upbitTicker, pairLabel }: BinanceTickerProps) {
 
     // ── 로딩 상태 처리 ──────────────────────────────────────────
     // ticker가 null이면 아직 서버에서 첫 데이터가 안 온 것
@@ -350,6 +372,9 @@ function BinanceTicker({ ticker, pairLabel }: BinanceTickerProps) {
     //   new Date(ticker.E) → JavaScript Date 객체
     //   toLocaleTimeString('ko-KR') → "오후 3:40:00" 형식의 한국 시간 문자열
     const lastUpdated = new Date(ticker.E).toLocaleTimeString('ko-KR');
+    const hasUpbitMarket = upbitTicker !== undefined;
+    const hasUpbitData = upbitTicker !== undefined && upbitTicker !== null;
+    const upbitTradePrice = upbitTicker?.trade_price ?? NaN;
 
     return (
         <div>
@@ -389,6 +414,28 @@ function BinanceTicker({ ticker, pairLabel }: BinanceTickerProps) {
                     {lastUpdated} 기준
                 </span>
             </div>
+
+            {/* 업비트 KRW 현재가: 지원 코인일 때만 표시. 연결 중/미수신이면 스켈레톤 */}
+            {hasUpbitMarket && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '12px',
+                }}>
+                    <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700 }}>
+                        {pairLabel ? `${pairLabel} (Upbit KRW)` : 'Upbit KRW'}
+                    </span>
+
+                    {hasUpbitData ? (
+                        <span style={{ color: '#22c55e', fontSize: '24px', fontWeight: 800, fontFamily: 'monospace' }}>
+                            {fmtKrw(upbitTradePrice)}
+                        </span>
+                    ) : (
+                        <SkeletonBox width="170px" height="28px" borderRadius="8px" />
+                    )}
+                </div>
+            )}
 
             {/* 24시간 저가: 실시간 시세 블록 바로 아래에 배치 (현재가와의 차이 함께 표시) */}
             <div style={{ marginBottom: '20px', fontSize: '12px', color: '#9ca3af' }}>

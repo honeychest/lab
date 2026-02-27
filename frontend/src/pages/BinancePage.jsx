@@ -42,6 +42,7 @@ import Layout from '../layout/Layout.jsx';
  * 파일: frontend/src/hooks/useBinanceWebSocket.ts
  */
 import { useBinanceWebSocket } from '../hooks/useBinanceWebSocket';
+import { useUpbitWebSocket } from '../hooks/useUpbitWebSocket';
 
 /**
  * BinanceTicker: 실시간 시세 UI 컴포넌트 (현재가, 변동률, 고저가 등)
@@ -85,13 +86,14 @@ const STATUS_CONFIG = {
  *  - symbol: 바이낸스 심볼 (향후 실제 데이터 연동 시 사용 예정)
  *  - code:   탭에 표시할 짧은 코드 (예: BTC, ETH)
  *  - label:  상세 라벨 (예: "BTC / USDT") — BinanceTicker 헤더 등에 사용
+ *  - upbitCode: 업비트 KRW 마켓 코드 (예: KRW-BTC). 미상장 코인은 null
  *
  * 지금은 WebSocket이 BTCUSDT만 구독하고 있어 두 탭 모두 같은 데이터를 보지만,
  * UI 구조를 먼저 잡아두고 나중에 백엔드/훅을 확장할 때 이 배열만 확장하면 되도록 설계.
  */
 const COINS = [
-    { symbol: 'BTCUSDT', code: 'BTC', label: 'BTC / USDT' },
-    { symbol: 'ETHUSDT', code: 'ETH', label: 'ETH / USDT' },
+    { symbol: 'BTCUSDT', code: 'BTC', label: 'BTC / USDT', upbitCode: 'KRW-BTC' },
+    { symbol: 'ETHUSDT', code: 'ETH', label: 'ETH / USDT', upbitCode: 'KRW-ETH' },
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -99,6 +101,15 @@ const COINS = [
 // ─────────────────────────────────────────────────────────────────
 
 function BinancePage() {
+
+    // ── 선택된 코인 상태 ──────────────────────────────────────────
+    /**
+     * selectedSymbol:
+     *   - 상단 탭에서 선택된 코인의 심볼 (예: 'BTCUSDT', 'ETHUSDT')
+     *   - 현재는 WebSocket이 BTCUSDT만 구독하므로 UI 표시용으로만 사용.
+     *   - 나중에 다중 심볼 실시간 시세를 지원할 때 이 값을 훅/백엔드와 연동할 예정.
+     */
+    const [selectedSymbol, setSelectedSymbol] = useState(COINS[0].symbol);
 
     // ── WebSocket 훅 ─────────────────────────────────────────────
     /**
@@ -111,15 +122,6 @@ function BinancePage() {
      *   탭 전환 시 자동 종료/재연결, 네트워크 끊김 시 자동 재연결.
      */
     const { ticker, status } = useBinanceWebSocket(selectedSymbol);
-
-    // ── 선택된 코인 상태 ──────────────────────────────────────────
-    /**
-     * selectedSymbol:
-     *   - 상단 탭에서 선택된 코인의 심볼 (예: 'BTCUSDT', 'ETHUSDT')
-     *   - 현재는 WebSocket이 BTCUSDT만 구독하므로 UI 표시용으로만 사용.
-     *   - 나중에 다중 심볼 실시간 시세를 지원할 때 이 값을 훅/백엔드와 연동할 예정.
-     */
-    const [selectedSymbol, setSelectedSymbol] = useState(COINS[0].symbol);
 
     // ── 지갑 잔고 State ──────────────────────────────────────────
     /**
@@ -216,7 +218,7 @@ function BinancePage() {
      *   var color = obj.color; var dot = obj.dot; var text = obj.text;
      *   위의 3줄을 한 줄로 줄인 것.
      */
-    const { color, dot, text } = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
+    const { color, text } = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
 
     // ── 현재 선택된 코인 정보 ─────────────────────────────────────
     /**
@@ -226,6 +228,15 @@ function BinancePage() {
      *   - 헤더(좌측 티커 표시)와 BinanceTicker pairLabel에 함께 사용.
      */
     const selectedCoin = COINS.find((c) => c.symbol === selectedSymbol) ?? COINS[0];
+
+    // ── Upbit WebSocket 훅 (KRW 실시간 시세) ─────────────────────
+    /**
+     * useUpbitWebSocket():
+     *   - 업비트 공개 WebSocket에서 KRW 현재가(trade_price)를 수신.
+     *   - upbitCode가 null이면 연결하지 않고 upbitTicker는 null 유지.
+     *   - selectedSymbol이 바뀌면 selectedCoin.upbitCode도 함께 바뀌면서 자동 재연결.
+     */
+    const { upbitTicker } = useUpbitWebSocket(selectedCoin.upbitCode ?? null);
 
     // ── 가격 갱신 시 LIVE 도트 깜빡임 상태 ────────────────────────
     /**
@@ -373,7 +384,8 @@ function BinancePage() {
                         */}
                         <BinanceTicker
                             ticker={ticker}
-                            pairLabel={(COINS.find((c) => c.symbol === selectedSymbol) ?? COINS[0]).label}
+                            upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
+                            pairLabel={selectedCoin.label}
                         />
                     </div>
 
