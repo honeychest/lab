@@ -1,4 +1,4 @@
-// Purpose: 업비트 KRW 티커 WebSocket 연결을 관리하고 trade_price를 실시간으로 반환
+// Purpose: 업비트 KRW 티커 WebSocket 연결을 관리하고 여러 코드의 trade_price를 실시간으로 반환
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,7 +23,7 @@ export type UpbitWsStatus = 'connecting' | 'connected' | 'disconnected';
  * 훅 반환 타입.
  */
 export interface UseUpbitWebSocketResult {
-    upbitTicker: UpbitTicker | null;
+    tickers: Record<string, UpbitTicker>;
     upbitStatus: UpbitWsStatus;
 }
 
@@ -69,104 +69,106 @@ async function parseUpbitPayload(data: unknown): Promise<UpbitTickerPayload | nu
 /**
  * useUpbitWebSocket
  *
- * @param upbitCode 업비트 마켓 코드 (예: KRW-BTC, KRW-ETH). null이면 연결하지 않음.
- * @param delayMs   초기 연결 지연 시간(ms). 기본값 0(즉시 연결).
- *                  여러 소켓이 동시에 업비트 서버에 연결 요청하면 rate limit 거부가 발생할 수 있어,
- *                  두 번째 소켓부터는 delayMs로 시차를 두어 순차 연결을 유도한다.
+ * @param codes 업비트 마켓 코드 배열 (예: ['KRW-BTC', 'KRW-USDT']).
+ *              배열이 비어있으면 연결하지 않음.
  *
  * 동작 요약:
  * 1) 연결 성공 시 업비트 구독 메시지를 전송
- * 2) 수신 데이터에서 trade_price(KRW 현재가) 추출
+ * 2) 수신 데이터에서 code별 trade_price(KRW 현재가) 추출
  * 3) 예기치 않은 종료 시 3초 후 자동 재연결
  * 4) 탭 비활성화(document.hidden=true) 시 소켓 종료, 다시 활성화되면 재연결
- * 5) upbitCode 변경 시 기존 연결 정리 후 새 코드로 재연결
+ * 5) codes 변경 시 기존 연결 정리 후 새 코드 배열로 재연결
  */
-export function useUpbitWebSocket(upbitCode: string | null, delayMs: number = 0): UseUpbitWebSocketResult {
-    const [upbitTicker, setUpbitTicker] = useState<UpbitTicker | null>(null);
+export function useUpbitWebSocket(codes: string[]): UseUpbitWebSocketResult {
+    const [tickers, setTickers] = useState<Record<string, UpbitTicker>>({});
     const [upbitStatus, setUpbitStatus] = useState<UpbitWsStatus>('disconnected');
 
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isManualCloseRef = useRef<boolean>(false);
 
-    const connect = () => {
-        // 업비트 코드가 없으면 "미상장" 케이스이므로 연결하지 않고 null 유지.
-        if (!upbitCode) {
-            setUpbitTicker(null);
-            setUpbitStatus('disconnected');
-            return;
-        }
-
-        // 중복 연결 방지.
-        const state = wsRef.current?.readyState;
-        if (state === WebSocket.CONNECTING || state === WebSocket.OPEN) return;
-
-        setUpbitStatus('connecting');
-
-        const ws = new WebSocket('wss://api.upbit.com/websocket/v1');
-        ws.binaryType = 'arraybuffer';
-
-        ws.onopen = () => {
-            setUpbitStatus('connected');
-
-            // 업비트 구독 메시지: ticket + ticker + codes
-            ws.send(
-                JSON.stringify([
-                    { ticket: 'upbit-ticker' },
-                    { type: 'ticker', codes: [upbitCode] },
-                ]),
-            );
-        };
-
-        ws.onmessage = async (event: MessageEvent) => {
-            const payload = await parseUpbitPayload(event.data);
-            if (!payload) return;
-            if (payload.type !== 'ticker') return;
-            if (typeof payload.trade_price !== 'number') return;
-            if (!payload.code) return;
-
-            setUpbitTicker({
-                code: payload.code,
-                trade_price: payload.trade_price,
-                signed_change_rate: payload.signed_change_rate,
-                high_price: payload.high_price,
-                low_price: payload.low_price,
-            });
-        };
-
-        ws.onclose = () => {
-            setUpbitStatus('disconnected');
-            if (!isManualCloseRef.current) {
-                reconnectTimerRef.current = setTimeout(connect, 3000);
-            }
-        };
-
-        ws.onerror = () => {
-            ws.close();
-        };
-
-        wsRef.current = ws;
-    };
-
     useEffect(() => {
-        // 코인 전환 시 이전 코인 KRW 값을 잠깐 비워서 스켈레톤이 보이도록 처리.
-        setUpbitTicker(null);
+        // 빈 문자열/중복 코드를 제거해서 실제 구독에 사용할 코드 목록을 정규화.
+        const normalizedCodes = Array.from(
+            new Set(codes.filter((code) => typeof code === 'string' && code.trim().length > 0)),
+        );
+        const codeSet = new Set(normalizedCodes);
+
+        // 코드 목록 변경 시 이전 수신값을 비워서 스켈레톤이 보이도록 처리.
+        setTickers({});
         isManualCloseRef.current = false;
 
-        // upbitCode가 null이면 연결 없이 종료.
-        if (!upbitCode) {
+        const connect = () => {
+            // 구독 코드가 없으면 연결하지 않고 disconnected 상태 유지.
+            if (normalizedCodes.length === 0) {
+                setUpbitStatus('disconnected');
+                return;
+            }
+
+            // 중복 연결 방지.
+            const state = wsRef.current?.readyState;
+            if (state === WebSocket.CONNECTING || state === WebSocket.OPEN) return;
+
+            setUpbitStatus('connecting');
+
+            const ws = new WebSocket('wss://api.upbit.com/websocket/v1');
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                setUpbitStatus('connected');
+
+                // 업비트 구독 메시지: ticket + ticker + codes(복수 코드 동시 구독).
+                ws.send(
+                    JSON.stringify([
+                        { ticket: 'upbit-ticker' },
+                        { type: 'ticker', codes: normalizedCodes },
+                    ]),
+                );
+            };
+
+            ws.onmessage = async (event: MessageEvent) => {
+                const payload = await parseUpbitPayload(event.data);
+                if (!payload) return;
+                if (payload.type !== 'ticker') return;
+                if (typeof payload.trade_price !== 'number') return;
+                if (typeof payload.code !== 'string') return;
+                const code = payload.code;
+                const tradePrice = payload.trade_price;
+                if (!codeSet.has(code)) return;
+
+                setTickers((prev) => ({
+                    ...prev,
+                    [code]: {
+                        code,
+                        trade_price: tradePrice,
+                        signed_change_rate: payload.signed_change_rate,
+                        high_price: payload.high_price,
+                        low_price: payload.low_price,
+                    },
+                }));
+            };
+
+            ws.onclose = () => {
+                setUpbitStatus('disconnected');
+                if (!isManualCloseRef.current) {
+                    reconnectTimerRef.current = setTimeout(connect, 3000);
+                }
+            };
+
+            ws.onerror = () => {
+                ws.close();
+            };
+
+            wsRef.current = ws;
+        };
+
+        // codes가 비어있으면 연결하지 않고 종료.
+        if (normalizedCodes.length === 0) {
             setUpbitStatus('disconnected');
             return;
         }
 
-        // delayMs가 있으면 지연 후 연결 (여러 소켓의 동시 연결 요청으로 인한 rate limit 방지).
-        // delayMs가 0이면 즉시 연결.
-        if (delayMs > 0) {
-            delayTimerRef.current = setTimeout(connect, delayMs);
-        } else {
-            connect();
-        }
+        connect();
 
         const handleVisibilityChange = () => {
             if (document.hidden) {
@@ -185,13 +187,10 @@ export function useUpbitWebSocket(upbitCode: string | null, delayMs: number = 0)
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             isManualCloseRef.current = true;
-            // 초기 지연 타이머도 함께 정리 (upbitCode 변경 시 이전 지연 취소).
-            if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             wsRef.current?.close();
         };
-    }, [upbitCode]);
+    }, [codes]);
 
-    return { upbitTicker, upbitStatus };
+    return { tickers, upbitStatus };
 }
-

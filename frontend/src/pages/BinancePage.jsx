@@ -19,7 +19,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 
 /**
  * axios: jQuery의 $.ajax와 동일한 역할을 하는 HTTP 요청 라이브러리.
@@ -227,27 +227,40 @@ function BinancePage() {
      */
     const selectedCoin = COINS.find((c) => c.symbol === selectedSymbol) ?? COINS[0];
 
-    // ── Upbit WebSocket 훅 (KRW 실시간 시세) ─────────────────────
+    // ── Upbit WebSocket 훅 (KRW 실시간 시세 + KRW-USDT 환율 단일 소켓 통합) ──
     /**
-     * useUpbitWebSocket():
-     *   - 업비트 공개 WebSocket에서 KRW 현재가(trade_price)를 수신.
-     *   - upbitCode가 null이면 연결하지 않고 upbitTicker는 null 유지.
-     *   - selectedSymbol이 바뀌면 selectedCoin.upbitCode도 함께 바뀌면서 자동 재연결.
+     * 업비트 구독 코드 목록:
+     *   - 선택 코인의 KRW 마켓(있으면) + KRW-USDT(항상) 를 하나의 소켓으로 동시 구독.
+     *   - useMemo로 배열 참조를 고정해 불필요한 재연결을 방지.
+     *
+     * upbitTickers:
+     *   - key: 업비트 코드 (예: 'KRW-BTC', 'KRW-USDT')
+     *   - value: 해당 코드의 최신 trade_price 포함 티커 객체
      */
-    const { upbitTicker } = useUpbitWebSocket(selectedCoin.upbitCode ?? null);
+    const upbitCodes = useMemo(() => (
+        selectedCoin.upbitCode
+            ? [selectedCoin.upbitCode, 'KRW-USDT']
+            : ['KRW-USDT']
+    ), [selectedCoin.upbitCode]);
 
-    // ── Upbit KRW-USDT 환율 훅 ───────────────────────────────────
+    const { tickers: upbitTickers } = useUpbitWebSocket(upbitCodes);
+
+    /**
+     * upbitTicker:
+     *   - undefined: 업비트 미상장 코인 (KRW 블록 숨김)
+     *   - null:      상장 코인이지만 아직 데이터 미수신
+     *   - 객체:      수신 완료
+     */
+    const upbitTicker = selectedCoin.upbitCode
+        ? upbitTickers[selectedCoin.upbitCode] ?? null
+        : undefined;
+
     /**
      * usdtTicker:
-     *   - 업비트 KRW-USDT 마켓 시세 = 1 USDT의 KRW 가격 (사실상 달러 환율).
-     *   - 선택된 코인 탭과 무관하게 항상 연결 유지 ('KRW-USDT' 고정).
-     *   - 이 값으로 '바이낸스 USD × USDT환율 = 환율 기준 적정 KRW' 계산.
-     *   - 훅 반환값 이름 충돌 방지를 위해 usdtTicker로 alias.
-     *   - delayMs: 1000 → 코인 KRW 소켓(위)과 동시에 연결 시도하면 업비트 서버에서
-     *     rate limit으로 초기 요청을 거부하는 현상이 실서버에서 관측됨.
-     *     1초 지연으로 첫 번째 소켓이 먼저 연결된 뒤 두 번째 소켓이 순차 연결되도록 유도.
+     *   - KRW-USDT 수신 티커. 미수신이면 null.
+     *   - BinanceTicker의 usdtKrwTicker props 형태를 유지하기 위해 분리.
      */
-    const { upbitTicker: usdtTicker } = useUpbitWebSocket('KRW-USDT', 1000);
+    const usdtTicker = upbitTickers['KRW-USDT'] ?? null;
 
     // ── 패널 높이 고정용 ref ─────────────────────────────────────
     /**
