@@ -70,6 +70,9 @@ async function parseUpbitPayload(data: unknown): Promise<UpbitTickerPayload | nu
  * useUpbitWebSocket
  *
  * @param upbitCode 업비트 마켓 코드 (예: KRW-BTC, KRW-ETH). null이면 연결하지 않음.
+ * @param delayMs   초기 연결 지연 시간(ms). 기본값 0(즉시 연결).
+ *                  여러 소켓이 동시에 업비트 서버에 연결 요청하면 rate limit 거부가 발생할 수 있어,
+ *                  두 번째 소켓부터는 delayMs로 시차를 두어 순차 연결을 유도한다.
  *
  * 동작 요약:
  * 1) 연결 성공 시 업비트 구독 메시지를 전송
@@ -78,12 +81,13 @@ async function parseUpbitPayload(data: unknown): Promise<UpbitTickerPayload | nu
  * 4) 탭 비활성화(document.hidden=true) 시 소켓 종료, 다시 활성화되면 재연결
  * 5) upbitCode 변경 시 기존 연결 정리 후 새 코드로 재연결
  */
-export function useUpbitWebSocket(upbitCode: string | null): UseUpbitWebSocketResult {
+export function useUpbitWebSocket(upbitCode: string | null, delayMs: number = 0): UseUpbitWebSocketResult {
     const [upbitTicker, setUpbitTicker] = useState<UpbitTicker | null>(null);
     const [upbitStatus, setUpbitStatus] = useState<UpbitWsStatus>('disconnected');
 
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isManualCloseRef = useRef<boolean>(false);
 
     const connect = () => {
@@ -156,7 +160,13 @@ export function useUpbitWebSocket(upbitCode: string | null): UseUpbitWebSocketRe
             return;
         }
 
-        connect();
+        // delayMs가 있으면 지연 후 연결 (여러 소켓의 동시 연결 요청으로 인한 rate limit 방지).
+        // delayMs가 0이면 즉시 연결.
+        if (delayMs > 0) {
+            delayTimerRef.current = setTimeout(connect, delayMs);
+        } else {
+            connect();
+        }
 
         const handleVisibilityChange = () => {
             if (document.hidden) {
@@ -175,6 +185,8 @@ export function useUpbitWebSocket(upbitCode: string | null): UseUpbitWebSocketRe
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             isManualCloseRef.current = true;
+            // 초기 지연 타이머도 함께 정리 (upbitCode 변경 시 이전 지연 취소).
+            if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             wsRef.current?.close();
         };

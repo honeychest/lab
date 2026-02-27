@@ -243,8 +243,11 @@ function BinancePage() {
      *   - 선택된 코인 탭과 무관하게 항상 연결 유지 ('KRW-USDT' 고정).
      *   - 이 값으로 '바이낸스 USD × USDT환율 = 환율 기준 적정 KRW' 계산.
      *   - 훅 반환값 이름 충돌 방지를 위해 usdtTicker로 alias.
+     *   - delayMs: 1000 → 코인 KRW 소켓(위)과 동시에 연결 시도하면 업비트 서버에서
+     *     rate limit으로 초기 요청을 거부하는 현상이 실서버에서 관측됨.
+     *     1초 지연으로 첫 번째 소켓이 먼저 연결된 뒤 두 번째 소켓이 순차 연결되도록 유도.
      */
-    const { upbitTicker: usdtTicker } = useUpbitWebSocket('KRW-USDT');
+    const { upbitTicker: usdtTicker } = useUpbitWebSocket('KRW-USDT', 1000);
 
     // ── 패널 높이 고정용 ref ─────────────────────────────────────
     /**
