@@ -25,12 +25,15 @@
  */
 package com.chs.springboot.domain.binance.websocket;
 
+import com.chs.springboot.domain.binance.service.SymbolChangeEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,6 +55,16 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class BinancePriceWebSocketHandler extends TextWebSocketHandler {
+
+    // 이전 코드에서는 Setter를 통해 BinanceStreamService를 주입받아
+    // 순환 의존성이 발생했습니다. 이를 해결하기 위해 현재는 서비스
+    // 의존성을 제거하고 ApplicationEventPublisher를 사용합니다.
+
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    public BinancePriceWebSocketHandler(org.springframework.context.ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
 
     /**
      * Logger: 콘솔/파일에 로그를 기록하는 객체.
@@ -107,8 +120,42 @@ public class BinancePriceWebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        sessions.put(session.getId(), session);
+        /**
+         * ConcurrentWebSocketSessionDecorator 로 세션을 감싸서 저장.
+         *
+         * 문제 상황:
+         *   바이낸스 내부 Worker 스레드가 여러 개(Worker-76, 84, 87...)라서
+         *   broadcastPrice()가 거의 동시에 여러 스레드에서 호출됨.
+         *   WebSocketSession.sendMessage()는 스레드 안전하지 않아서
+         *   "TEXT_PARTIAL_WRITING" 오류가 발생하며 세션이 강제 종료됨.
+         *
+         * 해결:
+         *   ConcurrentWebSocketSessionDecorator가 내부 큐로 전송을 직렬화.
+         *   여러 스레드에서 동시에 sendMessage()를 호출해도 하나씩 순서대로 처리.
+         *
+         * 파라미터:
+         *   session     → 원본 세션
+         *   5000        → 전송 타임아웃 5000ms (초과 시 세션 강제 종료)
+         *   64 * 1024   → 버퍼 최대 64KB (초과 시 세션 강제 종료)
+         */
+        WebSocketSession safeSession = new ConcurrentWebSocketSessionDecorator(session, 5000, 64 * 1024);
+        sessions.put(session.getId(), safeSession);
         log.info("[WS] 클라이언트 연결: {} (총 {}개)", session.getId(), sessions.size());
+
+        // 접속 URL의 쿼리 파라미터에서 symbol 추출
+        // 예: ws://localhost:8080/ws/binance-price?symbol=ETHUSDT
+        String query = session.getUri().getQuery();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                if (param.startsWith("symbol=")) {
+                    String symbol = param.substring("symbol=".length());
+                    log.info("[WS] 클라이언트 {} 요청 심볼: {}", session.getId(), symbol);
+                    // 이벤트 발행: Service가 이를 수신해 자체적으로 심볼을 변경한다.
+                    eventPublisher.publishEvent(new com.chs.springboot.domain.binance.service.SymbolChangeEvent(this, symbol));
+                    break;
+                }
+            }
+        }
     }
 
     /**

@@ -19,7 +19,31 @@
  *    TypeScript가 타입 체크에만 사용하고, 빌드 후 JavaScript에는 남지 않음.
  * ─────────────────────────────────────────────────────────────────
  */
+import React from 'react';
 import type { BinanceTicker as BinanceTickerData } from '../../../hooks/useBinanceWebSocket';
+
+/**
+ * 이 컴포넌트에서 "표시할 수 있는" ticker 필드 요약
+ *
+ *  - 현재가: ticker.c
+ *  - 변동 금액: ticker.p
+ *  - 변동률(%): ticker.P
+ *  - 고가(24H High): ticker.h
+ *  - 저가(24H Low): ticker.l
+ *  - 시가(24H Open): ticker.o
+ *  - 전일 종가: ticker.x
+ *  - 매수호가(Bid): ticker.b
+ *  - 매도호가(Ask): ticker.a
+ *  - 가중평균가(VWAP): ticker.w
+ *  - 거래량(BTC, 24H Vol): ticker.v
+ *  - 거래대금(USDT, Quote Vol): ticker.q
+ *  - 체결 횟수: ticker.n
+ *  - 이벤트 시각: ticker.E
+ *  - 통계 기간: ticker.O ~ ticker.C
+ *
+ * 현재 UI에서는 이 중 일부만 사용하지만,
+ * 나중에 디자인을 바꿀 때 어떤 값들을 다시 살릴 수 있는지 한눈에 보기 위함.
+ */
 
 // ─────────────────────────────────────────────────────────────────
 //  Props 타입 정의
@@ -42,7 +66,7 @@ interface InfoBoxProps {
 
 /**
  * BinanceTicker 컴포넌트의 Props
- * BinancePage.jsx에서 <BinanceTicker ticker={ticker} /> 형태로 사용
+ * BinancePage.jsx에서 <BinanceTicker ticker={ticker} pairLabel="BTC / USDT" /> 형태로 사용
  */
 interface BinanceTickerProps {
     /**
@@ -51,6 +75,12 @@ interface BinanceTickerProps {
      * BinanceTickerData = useBinanceWebSocket.ts에서 import한 BinanceTicker 인터페이스
      */
     ticker: BinanceTickerData | null;
+    /**
+     * 헤더에 표시할 거래쌍 라벨.
+     * 예: "BTC / USDT", "ETH / USDT"
+     * 전달되지 않으면 기본값 "BTC/USDT" 사용.
+     */
+    pairLabel?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -84,6 +114,22 @@ const fmt = (val: string, decimals = 2): string => {
 };
 
 /**
+ * 현재가와의 차이를 달러 형식으로 포맷.
+ *
+ * @param diff - 고가/저가와 현재가의 차이 값 (숫자, 양수/음수 모두 가능)
+ * @returns "+$123.45" 또는 "-$67.89" 형식 문자열, 계산 불가 시 '-'
+ */
+const fmtDiff = (diff: number): string => {
+    if (isNaN(diff)) return '-';
+    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+    const abs = Math.abs(diff);
+    return sign + '$' + abs.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+};
+
+/**
  * 거래량(BTC 수량)을 읽기 좋은 형식으로 포맷.
  *
  * @param val - 바이낸스에서 받은 거래량 문자열 (예: "12345.67890000")
@@ -110,6 +156,114 @@ const changeColor = (p: string): string => {
     if (isNaN(num)) return '#ffffff';
     return num >= 0 ? '#2ecc71' : '#e74c3c';
 };
+
+// ─────────────────────────────────────────────────────────────────
+//  스켈레톤(Skeleton) 컴포넌트
+//  - ticker가 null일 때 실제 레이아웃과 같은 구조로 shimmer 애니메이션을 표시
+//  - 코인 탭 전환 시 "데이터 없음" 텍스트 대신 자연스러운 로딩 감을 줌
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * CSS @keyframes shimmer 인라인 삽입.
+ * CSS Modules나 외부 파일 없이 <style> 태그를 JSX로 주입하는 패턴.
+ * 컴포넌트가 마운트될 때 한 번만 DOM에 추가됨.
+ */
+const shimmerStyle = `
+@keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+}
+`;
+
+/**
+ * SkeletonBox: shimmer 애니메이션이 적용된 빈 블록.
+ *
+ * @param width        - CSS 너비 (기본 '100%')
+ * @param height       - CSS 높이 (기본 '16px')
+ * @param borderRadius - 모서리 반경 (기본 '6px')
+ * @param style        - 추가 인라인 스타일 (선택)
+ *
+ * shimmer 동작 원리:
+ *   background: linear-gradient(90deg, 어두운색 25%, 밝은색 50%, 어두운색 75%)
+ *   backgroundSize: 200% → gradient 가 요소 너비의 2배로 설정
+ *   animation: backgroundPosition을 -200% → +200% 로 이동시키면
+ *              밝은 띠가 좌→우로 흘러가는 것처럼 보임
+ */
+function SkeletonBox({
+    width = '100%',
+    height = '16px',
+    borderRadius = '6px',
+    style,
+}: {
+    width?: string;
+    height?: string;
+    borderRadius?: string;
+    style?: React.CSSProperties;
+}) {
+    return (
+        <div style={{
+            width,
+            height,
+            borderRadius,
+            background: 'linear-gradient(90deg, #1e293b 25%, #2d3f52 50%, #1e293b 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite linear',
+            ...style,
+        }} />
+    );
+}
+
+/**
+ * BinanceTickerSkeleton: ticker=null 시 보여줄 전체 스켈레톤 레이아웃.
+ * 실제 BinanceTicker 렌더링 구조(고가라인 · 현재가 · 저가라인 · 그리드 · 집계기간)와
+ * 동일한 구조로 배치하여 레이아웃 이동(Layout Shift) 없이 자연스러운 로딩 표시.
+ */
+function BinanceTickerSkeleton() {
+    return (
+        <div>
+            {/* @keyframes shimmer CSS 주입 */}
+            <style>{shimmerStyle}</style>
+
+            {/* 고가 라인 */}
+            <div style={{ marginBottom: '8px' }}>
+                <SkeletonBox width="160px" height="14px" />
+            </div>
+
+            {/* 현재가 + 변동액/변동률 행 */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <SkeletonBox width="200px" height="40px" borderRadius="8px" />
+                <SkeletonBox width="80px"  height="20px" />
+                <SkeletonBox width="60px"  height="16px" />
+            </div>
+
+            {/* 저가 라인 */}
+            <div style={{ marginBottom: '20px' }}>
+                <SkeletonBox width="160px" height="14px" />
+            </div>
+
+            {/* 정보 박스 그리드 (4개) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} style={{
+                        background: '#1e293b',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                        flex: '1 1 120px',
+                        minWidth: '120px',
+                    }}>
+                        <SkeletonBox width="60px"  height="11px" style={{ marginBottom: '8px' }} />
+                        <SkeletonBox width="80px"  height="14px" />
+                    </div>
+                ))}
+            </div>
+
+            {/* 집계 기간 라인 */}
+            <div style={{ marginTop: '12px' }}>
+                <SkeletonBox width="280px" height="11px" />
+            </div>
+        </div>
+    );
+}
 
 // ─────────────────────────────────────────────────────────────────
 //  내부 서브 컴포넌트
@@ -164,16 +318,13 @@ function InfoBox({ label, value, color = '#94a3b8' }: InfoBoxProps) {
  *   현재가, 변동액/변동률, 고가/저가, 매수/매도호가, 시가,
  *   거래량, 거래대금, 가중평균가, 체결횟수, 시간대 표시.
  */
-function BinanceTicker({ ticker }: BinanceTickerProps) {
+function BinanceTicker({ ticker, pairLabel }: BinanceTickerProps) {
 
     // ── 로딩 상태 처리 ──────────────────────────────────────────
     // ticker가 null이면 아직 서버에서 첫 데이터가 안 온 것
+    // (심볼 변경 시 useBinanceWebSocket 훅이 setTicker(null)을 호출하여 스켈레톤 트리거)
     if (!ticker) {
-        return (
-            <div style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
-                실시간 시세 수신 대기 중...
-            </div>
-        );
+        return <BinanceTickerSkeleton />;
     }
 
     // ── 화면 표시용 값 사전 계산 ────────────────────────────────
@@ -187,6 +338,13 @@ function BinanceTicker({ ticker }: BinanceTickerProps) {
     const isPositive = parseFloat(ticker.P) >= 0; // 상승 여부 (부호 기호 결정)
     const sign = isPositive ? '+' : '';            // 양수는 '+' 추가, 음수는 이미 '-'가 있음
 
+    // 현재가/고가/저가 숫자값 및 현재가와의 차이 계산
+    const currentPrice = parseFloat(ticker.c);
+    const highPrice = parseFloat(ticker.h);
+    const lowPrice = parseFloat(ticker.l);
+    const highDiffFromCurrent = fmtDiff(highPrice - currentPrice);
+    const lowDiffFromCurrent = fmtDiff(lowPrice - currentPrice);
+
     // 타임스탬프 변환:
     //   ticker.E = Unix 밀리초 타임스탬프 (예: 1708924800000)
     //   new Date(ticker.E) → JavaScript Date 객체
@@ -195,15 +353,21 @@ function BinanceTicker({ ticker }: BinanceTickerProps) {
 
     return (
         <div>
-            {/* ── 섹션 제목 ──────────────────────────────────────── */}
-            <h2 style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 20px 0' }}>
-                실시간 시세 · BTC/USDT
-            </h2>
+            {/* 24시간 고가: 실시간 시세 블록 위에 배치 (현재가와의 차이 함께 표시) */}
+            <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
+                <span style={{ marginRight: '6px' }}>24H 고가</span>
+                <span style={{ color: '#2ecc71', fontWeight: 700, fontFamily: 'monospace' }}>
+                    {fmt(ticker.h)}
+                </span>
+                <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
+                    ({highDiffFromCurrent})
+                </span>
+            </div>
 
             {/* ── 현재가 (메인 표시) ─────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {/* 현재가: 크고 진하게 */}
-                <span style={{ color: '#F3BA2F', fontSize: '36px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '-1px' }}>
+                <span style={{ color: '#F3BA2F', fontSize: '40px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '-1px' }}>
                     {fmt(ticker.c)}
                 </span>
 
@@ -226,6 +390,17 @@ function BinanceTicker({ ticker }: BinanceTickerProps) {
                 </span>
             </div>
 
+            {/* 24시간 저가: 실시간 시세 블록 바로 아래에 배치 (현재가와의 차이 함께 표시) */}
+            <div style={{ marginBottom: '20px', fontSize: '12px', color: '#9ca3af' }}>
+                <span style={{ marginRight: '6px' }}>24H 저가</span>
+                <span style={{ color: '#e74c3c', fontWeight: 700, fontFamily: 'monospace' }}>
+                    {fmt(ticker.l)}
+                </span>
+                <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
+                    ({lowDiffFromCurrent})
+                </span>
+            </div>
+
             {/* ── 정보 박스 그리드 ───────────────────────────────── */}
             {/*
               display: flex + flexWrap: wrap 조합:
@@ -234,32 +409,9 @@ function BinanceTicker({ ticker }: BinanceTickerProps) {
             */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
 
-                {/* 고가: 24시간 최고가 (ticker.h) */}
-                <InfoBox label="고가 (24H High)" value={fmt(ticker.h)} color="#2ecc71" />
-
-                {/* 저가: 24시간 최저가 (ticker.l) */}
-                <InfoBox label="저가 (24H Low)"  value={fmt(ticker.l)} color="#e74c3c" />
-
-                {/* 시가: 24시간 전 시작 가격 (ticker.o)
-                    open price = 24시간 전 첫 체결가 */}
-                <InfoBox label="시가 (24H Open)" value={fmt(ticker.o)} />
-
                 {/* 이전 종가: 어제 마지막 가격 (ticker.x)
                     prev close = 이 값 기준으로 변동액/변동률이 계산됨 */}
                 <InfoBox label="전일 종가"        value={fmt(ticker.x)} />
-
-                {/* 매수호가: 내가 팔 때 받을 수 있는 최고 가격 (ticker.b)
-                    bid = buyer의 최대 지불 의사 가격 */}
-                <InfoBox label="매수호가 (Bid)"   value={fmt(ticker.b)} color="#60a5fa" />
-
-                {/* 매도호가: 내가 살 때 지불해야 하는 최저 가격 (ticker.a)
-                    ask = seller의 최소 수취 의사 가격
-                    bid < ask 의 차이 = 스프레드(spread) */}
-                <InfoBox label="매도호가 (Ask)"   value={fmt(ticker.a)} color="#f97316" />
-
-                {/* 가중평균가: 24시간 전체 체결 금액 ÷ 체결 수량 (ticker.w)
-                    VWAP(Volume Weighted Average Price)라고도 부름 */}
-                <InfoBox label="가중평균가 (VWAP)" value={fmt(ticker.w)} />
 
                 {/* 거래량: 24시간 동안 거래된 BTC 수량 (ticker.v)
                     예: "12345.678" BTC = 약 12,345 비트코인이 거래됨 */}

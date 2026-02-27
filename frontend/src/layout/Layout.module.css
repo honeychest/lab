@@ -9,5 +9,5 @@
 
 .main {
     flex: 1;         /* Header·Footer 높이를 제외한 나머지를 모두 차지 */
-    overflow: hidden;
+    overflow-y: auto; /* 세로 방향 스크롤 허용 (BinancePage 등 긴 페이지 대응) */
 }

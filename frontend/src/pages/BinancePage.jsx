@@ -79,6 +79,21 @@ const STATUS_CONFIG = {
     disconnected: { color: '#e74c3c', dot: false, text: '연결 끊김' },
 };
 
+/**
+ * COINS: 상단 코인 선택 탭에 사용할 코인 목록.
+ *
+ *  - symbol: 바이낸스 심볼 (향후 실제 데이터 연동 시 사용 예정)
+ *  - code:   탭에 표시할 짧은 코드 (예: BTC, ETH)
+ *  - label:  상세 라벨 (예: "BTC / USDT") — BinanceTicker 헤더 등에 사용
+ *
+ * 지금은 WebSocket이 BTCUSDT만 구독하고 있어 두 탭 모두 같은 데이터를 보지만,
+ * UI 구조를 먼저 잡아두고 나중에 백엔드/훅을 확장할 때 이 배열만 확장하면 되도록 설계.
+ */
+const COINS = [
+    { symbol: 'BTCUSDT', code: 'BTC', label: 'BTC / USDT' },
+    { symbol: 'ETHUSDT', code: 'ETH', label: 'ETH / USDT' },
+];
+
 // ─────────────────────────────────────────────────────────────────
 //  컴포넌트 본체
 // ─────────────────────────────────────────────────────────────────
@@ -95,7 +110,16 @@ function BinancePage() {
      *   컴포넌트 마운트 시 자동 연결, 언마운트 시 자동 종료.
      *   탭 전환 시 자동 종료/재연결, 네트워크 끊김 시 자동 재연결.
      */
-    const { ticker, status } = useBinanceWebSocket();
+    const { ticker, status } = useBinanceWebSocket(selectedSymbol);
+
+    // ── 선택된 코인 상태 ──────────────────────────────────────────
+    /**
+     * selectedSymbol:
+     *   - 상단 탭에서 선택된 코인의 심볼 (예: 'BTCUSDT', 'ETHUSDT')
+     *   - 현재는 WebSocket이 BTCUSDT만 구독하므로 UI 표시용으로만 사용.
+     *   - 나중에 다중 심볼 실시간 시세를 지원할 때 이 값을 훅/백엔드와 연동할 예정.
+     */
+    const [selectedSymbol, setSelectedSymbol] = useState(COINS[0].symbol);
 
     // ── 지갑 잔고 State ──────────────────────────────────────────
     /**
@@ -194,6 +218,34 @@ function BinancePage() {
      */
     const { color, dot, text } = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
 
+    // ── 현재 선택된 코인 정보 ─────────────────────────────────────
+    /**
+     * selectedCoin:
+     *   - COINS 배열에서 현재 선택된 심볼에 해당하는 객체
+     *   - 찾지 못하면 안전하게 첫 번째 코인(BTC)로 폴백
+     *   - 헤더(좌측 티커 표시)와 BinanceTicker pairLabel에 함께 사용.
+     */
+    const selectedCoin = COINS.find((c) => c.symbol === selectedSymbol) ?? COINS[0];
+
+    // ── 가격 갱신 시 LIVE 도트 깜빡임 상태 ────────────────────────
+    /**
+     * priceFlash:
+     *   - 최근 가격이 갱신되었는지 표시하는 플래그
+     *   - true  → LIVE 앞의 동그라미 내부가 채워짐
+     *   - false → 테두리만 남고 내부는 비어 있음
+     *
+     * useEffect 의존성에 ticker?.c(현재가 문자열)를 넣어
+     * 가격이 바뀔 때마다 짧게 true → false 로 토글.
+     */
+    const [priceFlash, setPriceFlash] = useState(false);
+
+    useEffect(() => {
+        if (!ticker) return;
+        setPriceFlash(true);
+        const timer = setTimeout(() => setPriceFlash(false), 400);
+        return () => clearTimeout(timer);
+    }, [ticker?.E]);
+
     // ── JSX 렌더링 ───────────────────────────────────────────────
     /**
      * JSX: JavaScript 안에서 HTML처럼 보이는 문법.
@@ -202,54 +254,42 @@ function BinancePage() {
      * React는 가상 DOM(Virtual DOM)에서 변경사항을 계산한 뒤 실제 DOM에 최소한만 반영.
      */
     return (
-        <Layout footerCenter={[]}>
+        <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']}>
             {/* 전체 페이지 배경 */}
             <div style={{
                 minHeight: '100%',
                 background: '#0a0f1e',       // 아주 어두운 남색 배경
                 padding: '32px',
                 boxSizing: 'border-box',      // padding이 width에 포함되도록
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',     // PC 기준으로 메인 컨텐츠를 세로 중앙 정렬
             }}>
-                {/* 최대 너비 860px 중앙 정렬 컨테이너 */}
-                <div style={{ maxWidth: '860px', margin: '0 auto' }}>
+                {/* 최대 너비 중앙 정렬 컨테이너 (PC에서 조금 더 넓게 사용) */}
+                <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
 
                     {/* ── 페이지 헤더 ─────────────────────────────── */}
                     <div style={{
                         display: 'flex',
-                        justifyContent: 'space-between', // 제목은 좌측, 상태는 우측
+                        justifyContent: 'space-between', // 좌: 티커, 우: 대시보드 제목
                         alignItems: 'center',
                         marginBottom: '24px',
                     }}>
-                        {/* 페이지 제목 */}
+                        {/* 좌측: 현재 선택된 티커 (BTC / USDT 등) */}
                         <h1 style={{
                             color: '#F3BA2F',     // 바이낸스 브랜드 옐로우
                             margin: 0,
-                            fontSize: '22px',
+                            fontSize: '30px',
                             fontWeight: '800',
-                            letterSpacing: '-0.5px',
+                            letterSpacing: '0px',
+                            fontFamily: 'monospace',
                         }}>
-                            Binance Dashboard
+                            {selectedCoin.label}
                         </h1>
 
-                        {/* WebSocket 연결 상태 인디케이터 */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                            {/*
-                              상태 표시 점(dot):
-                              dot=true(connected)일 때 boxShadow로 글로우 효과 추가.
-                              CSS box-shadow 글로우 = 빛나는 것처럼 보이는 효과.
-                            */}
-                            <span style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',                     // 원형
-                                background: color,                       // 상태에 따른 색상
-                                display: 'inline-block',
-                                boxShadow: dot ? `0 0 6px ${color}` : 'none', // 연결됐을 때만 글로우
-                            }} />
-                            {/* 상태 텍스트: "LIVE", "연결 중...", "연결 끊김" */}
-                            <span style={{ color, fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>
-                                {text}
-                            </span>
+                        {/* 우측: 출처 표시 */}
+                        <div style={{ color: '#e5e7eb', fontSize: '18px', fontWeight: 700 }}>
+                            from Binance
                         </div>
                     </div>
 
@@ -267,33 +307,97 @@ function BinancePage() {
                         padding: '24px',
                         marginBottom: '20px',
                     }}>
+                        {/* 코인 선택 탭 + LIVE 상태 표시 (한 줄, space-between) */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '16px',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                        }}>
+                            {/* 좌측: 코인 선택 탭 */}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {COINS.map((coin) => {
+                                    const isActive = coin.symbol === selectedSymbol;
+                                    return (
+                                        <button
+                                            key={coin.symbol}
+                                            type="button"
+                                            onClick={() => setSelectedSymbol(coin.symbol)}
+                                            style={{
+                                                padding: '6px 12px',
+                                                borderRadius: '999px',
+                                                border: isActive ? '1px solid #F3BA2F' : '1px solid #1e293b',
+                                                background: isActive ? '#F3BA2F' : 'transparent',
+                                                color: isActive ? '#000000' : '#e5e7eb',
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            {coin.code}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* 우측: LIVE 상태 표시 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {/* 가격 갱신 시 내부가 채워지는 동그라미 */}
+                                <span style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    border: `2px solid ${color}`,              // 테두리는 항상 유지
+                                    backgroundColor: priceFlash && status === 'connected' ? color : 'transparent',
+                                    display: 'inline-block',
+                                    boxSizing: 'border-box',
+                                    transition: 'background-color 0.15s ease-out',
+                                }} />
+                                {/* 상태 텍스트: LIVE / 연결 중... / 연결 끊김 */}
+                                <span style={{ color, fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                                    {text}
+                                </span>
+                            </div>
+                        </div>
+
                         {/*
                           BinanceTicker 컴포넌트에 ticker 데이터 전달.
                           ticker가 null이면 BinanceTicker 내부에서 로딩 메시지 표시.
                           ticker가 있으면 시세 정보 모두 표시.
-                        */}
-                        <BinanceTicker ticker={ticker} />
-                    </div>
 
-                    {/* ── 지갑 잔고 카드 ───────────────────────────── */}
-                    <div style={{
-                        background: '#0f172a',
-                        border: '1px solid #1e293b',
-                        borderRadius: '16px',
-                        padding: '24px',
-                    }}>
-                        {/*
-                          BinanceWallet 컴포넌트에 3가지 상태 전달:
-                          - accountInfo: REST API 응답 데이터
-                          - loading: API 호출 중 여부
-                          - error: 에러 메시지 (없으면 null)
+                          pairLabel:
+                            - 상단 COINS 배열에서 선택된 코인의 라벨 (예: "BTC / USDT")
+                            - 현재는 UI 텍스트에만 사용되며, 실제 데이터는 여전히 BTCUSDT 기준.
                         */}
-                        <BinanceWallet
-                            accountInfo={accountInfo}
-                            loading={walletLoading}
-                            error={walletError}
+                        <BinanceTicker
+                            ticker={ticker}
+                            pairLabel={(COINS.find((c) => c.symbol === selectedSymbol) ?? COINS[0]).label}
                         />
                     </div>
+
+                    {/* ── 지갑 잔고 카드 (현재는 숨김) ───────────────────────────── */}
+                    {false && (
+                        <div style={{
+                            background: '#0f172a',
+                            border: '1px solid #1e293b',
+                            borderRadius: '16px',
+                            padding: '24px',
+                        }}>
+                            {/*
+                              BinanceWallet 컴포넌트에 3가지 상태 전달:
+                              - accountInfo: REST API 응답 데이터
+                              - loading: API 호출 중 여부
+                              - error: 에러 메시지 (없으면 null)
+                            */}
+                            <BinanceWallet
+                                accountInfo={accountInfo}
+                                loading={walletLoading}
+                                error={walletError}
+                            />
+                        </div>
+                    )}
 
                 </div>
             </div>

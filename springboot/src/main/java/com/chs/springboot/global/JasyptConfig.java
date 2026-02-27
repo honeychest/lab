@@ -94,7 +94,7 @@ public class JasyptConfig {
          */
         // 실행 시 환경변수나 VM 옵션으로 넘길 '마스터 암호'
         // -Djasypt.encryptor.password=내비밀번호
-        config.setPassword(System.getProperty("jasypt.encryptor.password"));
+        config.setPassword(System.getenv("JASYPT_ENCRYPTOR_PASSWORD"));
 
         /**
          * setAlgorithm: 암복호화 알고리즘.

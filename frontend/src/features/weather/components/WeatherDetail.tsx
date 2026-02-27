@@ -1,18 +1,72 @@
 // Purpose: 지역 클릭 시 표시되는 날씨 상세 팝업 — 기온/강수/습도/풍속 정보 표시
+
+/**
+ * ─────────────────────────────────────────────────────────────────
+ *  이 컴포넌트의 역할 (날씨 상세 팝업)
+ * ─────────────────────────────────────────────────────────────────
+ *  Cesium 3D 지도에서 지역(polygon)을 클릭하면 그 지역의 날씨 정보를
+ *  담은 팝업 카드를 화면에 띄우는 컴포넌트.
+ *
+ *  렌더링 위치:
+ *    - PC:     클릭한 좌표 기준 오른쪽 130px 위치에 고정
+ *    - 모바일: 화면 하단에서 위로 슬라이드되는 시트(bottom sheet) 형태
+ *
+ *  표시 정보:
+ *    기온(°C) / 강수확률(%) / 습도(%) / 풍속(m/s)
+ *    PC 전용 추가 항목: 강수량(mm) / 예보 시각
+ *
+ *  호출 구조:
+ *    useCesiumMap (클릭 감지) → App.jsx (상태 관리) → WeatherDetail (팝업 렌더링)
+ *
+ *  jQuery 비유:
+ *    $.ajax로 받아온 날씨 데이터를 기반으로
+ *    $('<div class="popup">...</div>').appendTo('body') 로 DOM에 붙이는 것과 유사.
+ *    단, React는 state 변화 시 자동으로 가상 DOM이 재계산되어 렌더링되므로
+ *    직접 DOM을 조작하지 않음.
+ * ─────────────────────────────────────────────────────────────────
+ */
 import React from 'react';
 
-// 날씨 데이터 타입 정의
+// ─────────────────────────────────────────────────────────────────
+//  타입 정의
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * WeatherData: 팝업에 표시할 날씨 데이터의 구조 정의.
+ *
+ * App.jsx에서 API 응답을 가공해 이 형태로 만들어 전달.
+ * Spring Boot WeatherService의 응답 필드(tmp, hum, wind, rain 등)와 매핑됨.
+ *
+ * jQuery 비유:
+ *   $.ajax success 콜백에서 data.tmp, data.hum... 로 접근하던 것을
+ *   TypeScript interface로 구조를 미리 선언해 오타/누락을 컴파일 타임에 방지.
+ */
 interface WeatherData {
+    /** 지역명. 예: "서울특별시", "강원도" */
     city: string;
+    /** 예보 시각 문자열. 예: "2025년 1월 1일 오후 3:00" */
     displayTime: string;
+    /** 기온 (°C, 정수) */
     tmp: number;
+    /** 강수확률 (%). 값이 없으면 "-" 문자열 */
     pop: string;
+    /** 습도 (%) */
     hum: string;
+    /** 풍속 (m/s) */
     wind: string;
+    /** 강수량 (mm). 없으면 "0" 또는 "강수없음" */
     rain: string;
 }
 
-// 컴포넌트 프롭스 타입 정의
+/**
+ * WeatherDetailProps: 부모 컴포넌트(App.jsx)에서 전달받는 props 구조.
+ *
+ * 각 prop의 역할:
+ *   weather   → 표시할 날씨 데이터 객체
+ *   onClose   → 닫기 버튼 클릭 시 실행할 콜백 (App.jsx에서 팝업 상태를 null로 초기화)
+ *   isMobile  → 화면 너비 기준 모바일 여부 (true면 하단 시트, false면 고정 위치 팝업)
+ *   popupPos  → 클릭한 화면 좌표 { x, y } (PC 팝업 위치 계산에 사용)
+ */
 interface WeatherDetailProps {
     weather: WeatherData;
     onClose: () => void;
@@ -20,9 +74,46 @@ interface WeatherDetailProps {
     popupPos: { x: number; y: number }; // prop 이름을 popupPos로 통일
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  메인 컴포넌트
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * WeatherDetail: 날씨 상세 팝업 컴포넌트.
+ *
+ * React.FC<WeatherDetailProps>:
+ *   FC = FunctionComponent. props 타입을 제네릭으로 지정.
+ *   ({ weather, onClose, isMobile, popupPos }) = 구조분해 할당으로 props 수신.
+ *   jQuery에서 function showPopup(weather, onClose, isMobile, pos) {...} 와 유사하지만,
+ *   React는 반환값이 DOM 문자열이 아닌 가상 DOM 객체(JSX).
+ */
 const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobile, popupPos }) => {
 
-    // 모바일 스타일 (기존 유지)
+    // ── 모바일 스타일 ────────────────────────────────────────────
+    /**
+     * mobileStyle: 모바일 환경에서 화면 하단 전체 너비로 표시되는 시트 스타일.
+     *
+     * position: 'fixed':
+     *   스크롤과 무관하게 화면(viewport) 기준으로 고정.
+     *   jQuery의 CSS position:fixed와 동일.
+     *   Cesium 지도가 스크롤되어도 팝업은 항상 제자리에 있음.
+     *
+     * bottom: '0', left: '0', width: '100%':
+     *   화면 맨 아래에 꽉 차게 배치. iOS/Android 바텀 시트 패턴.
+     *
+     * padding 하단에 env(safe-area-inset-bottom):
+     *   iPhone 홈 인디케이터(홈 버튼 없는 기종의 제스처 영역) 영역만큼 패딩 추가.
+     *   이 처리 없이는 내용이 홈 인디케이터 뒤에 가려질 수 있음.
+     *
+     * borderTopLeftRadius / borderTopRightRadius: '20px':
+     *   상단 모서리만 둥글게 → 시트가 아래에서 올라오는 시각적 느낌.
+     *
+     * animation: 'slideUp 0.3s ease-out':
+     *   아래에서 위로 슬라이드 애니메이션. 하단 <style> 태그에 @keyframes slideUp 정의됨.
+     *
+     * zIndex: 9999:
+     *   Cesium 캔버스(z-index 낮음) 위에 팝업이 표시되도록 최상단 레이어 배치.
+     */
     const mobileStyle: React.CSSProperties = {
         position: 'fixed',
         bottom: '0',
@@ -38,7 +129,34 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
         boxSizing: 'border-box'
     };
 
-    // PC 스타일 - 클릭 위치 기준 우측 130px
+    // ── PC 스타일 ────────────────────────────────────────────────
+    /**
+     * pcStyle: PC 환경에서 클릭 위치 기준 우측에 고정 표시되는 팝업 스타일.
+     *
+     * left: popupPos.x + 130px:
+     *   클릭한 지점의 X 좌표에서 오른쪽으로 130px 이동.
+     *   클릭한 polygon과 팝업이 겹치지 않도록 여백을 줌.
+     *
+     * top: popupPos.y, transform: 'translateY(-50%)':
+     *   팝업의 세로 중앙이 클릭 위치 Y 좌표에 맞춰지도록 설정.
+     *   popupPos.y는 클릭 지점의 top 값 → 팝업을 절반만큼 위로 올려 중앙 정렬.
+     *   jQuery에서 .css('top', pos.y - height/2 + 'px') 와 동일한 효과를
+     *   transform으로 더 간결하게 구현.
+     *
+     * width: '260px':
+     *   내용이 넘치지 않도록 고정 너비 설정.
+     *
+     * backdropFilter: 'blur(8px)':
+     *   팝업 뒤 배경을 흐리게 처리 (iOS 스타일 유리 효과).
+     *   CSS backdrop-filter. jQuery로는 구현하기 어려운 최신 CSS 기능.
+     *
+     * pointerEvents: 'auto':
+     *   팝업 영역에서 마우스/터치 이벤트를 정상 처리 (클릭, 스크롤 등).
+     *   Cesium 지도 위에 올라있으므로 명시적으로 설정 필요.
+     *
+     * animation: 'fadeIn 0.2s ease-out':
+     *   나타날 때 서서히 보이는 페이드인 효과. 하단 <style>에 @keyframes 정의됨.
+     */
     const pcStyle: React.CSSProperties = {
         position: 'fixed',
         // 클릭한 지점에서 우측으로 130px 이동
@@ -58,21 +176,56 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
         pointerEvents: 'auto'
     };
 
+    /**
+     * containerStyle: isMobile 여부에 따라 mobileStyle 또는 pcStyle 중 하나를 선택.
+     *
+     * jQuery 비유:
+     *   var containerStyle = isMobile ? mobileStyle : pcStyle;
+     *   $popup.css(containerStyle);
+     * 와 동일한 조건부 스타일 선택 로직.
+     */
     const containerStyle = isMobile ? mobileStyle : pcStyle;
 
+    // ── JSX 렌더링 ───────────────────────────────────────────────
     return (
         <div style={containerStyle}>
+            {/*
+              모바일 전용 드래그 핸들 (상단 회색 바):
+                - 모바일 바텀 시트에서 "여기를 잡아서 아래로 내릴 수 있다"는 시각적 힌트.
+                - isMobile이 false이면 렌더링하지 않음 (null 반환).
+                - jQuery 비유: if (isMobile) $popup.prepend('<div class="drag-handle">');
+            */}
             {isMobile && (
                 <div style={{ width: '36px', height: '4px', backgroundColor: '#f0f0f0', borderRadius: '2px', margin: '0 auto 12px' }} />
             )}
 
+            {/* ── 헤더: 지역명 + 예보시각 + 닫기 버튼 ─────────── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                {/* 좌측: 지역명 + 시각 */}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    {/*
+                      지역명 (weather.city):
+                        CITY_TO_PROVINCE 매핑으로 처리된 최종 지역명.
+                        예: "서울특별시", "강원도"
+                    */}
                     <h3 style={{ margin: 0, fontSize: isMobile ? '16px' : '17px', fontWeight: '800', color: '#111' }}>
                         {weather.city}
                     </h3>
+                    {/*
+                      예보 시각 (weather.displayTime):
+                        App.jsx에서 원본 시간(예: "2200")을 "22:00" 형태로 변환해 전달.
+                        기온 옆에 작게 표시해 "어느 시점의 예보인지" 명시.
+                    */}
                     <span style={{ fontSize: '11px', color: '#888' }}>{weather.displayTime}</span>
                 </div>
+                {/*
+                  닫기 버튼 (✕):
+                    onClick에서 e.preventDefault() + e.stopPropagation():
+                      - preventDefault: 버튼 클릭 시 form submit 등 기본 동작 방지
+                      - stopPropagation: 클릭 이벤트가 Cesium 지도로 전파되어
+                        의도치 않은 지도 클릭 이벤트가 발생하는 것을 차단.
+                    onClose(): 부모(App.jsx)의 setState를 호출해 팝업 데이터를 null로 초기화 → 팝업 제거.
+                */}
                 <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
                     style={{
@@ -84,12 +237,36 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
                 >✕</button>
             </div>
 
+            {/* ── 정보 박스 그리드 ───────────────────────────────── */}
+            {/*
+              레이아웃 전략:
+                - 모바일: display flex, overflow hidden → 4개 박스 가로 1줄 배치
+                - PC:     display grid, 2열 → 최대 6개 박스 2×3 그리드 배치
+
+              InfoBox 컴포넌트:
+                icon  = 이모지 아이콘 (시각적 구분)
+                label = 항목명 (기온, 강수 등)
+                value = 표시할 값 문자열
+
+              강수확률(pop) 처리:
+                pop === "-" → 기상청이 강수확률을 미제공한 경우. "0%"로 표시.
+                그 외 → pop 값 그대로 "%"를 붙여 표시. (예: "30%")
+
+              강수량(rain) 처리:
+                "0" 또는 "강수없음" → "0mm"로 표시.
+                그 외 → rain 값에 "mm"를 붙여 표시. (예: "5.0mm")
+            */}
             <div style={isMobile ? { display: 'flex', gap: '6px', overflow: 'hidden' } : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <InfoBox isMobile={isMobile} icon="🌡️" label="기온" value={`${weather.tmp}°C`} color="#ff4757" />
                 <InfoBox isMobile={isMobile} icon="💧" label="강수" value={weather.pop === "-" ? "0%" : `${weather.pop}%`} />
                 <InfoBox isMobile={isMobile} icon="💦" label="습도" value={`${weather.hum}%`} />
                 <InfoBox isMobile={isMobile} icon="💨" label="풍속" value={`${weather.wind}m/s`} />
 
+                {/*
+                  PC 전용 추가 항목:
+                    모바일은 화면 폭이 좁아 4개가 한 줄에 꽉 차므로 2개 추가 항목은 생략.
+                    PC에서만 강수량, 시각을 추가로 표시.
+                */}
                 {!isMobile && (
                     <>
                         <InfoBox isMobile={isMobile} icon="☔" label="강수량" value={weather.rain === "0" || weather.rain === "강수없음" ? "0mm" : `${weather.rain}mm`} />
@@ -98,6 +275,24 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
                 )}
             </div>
 
+            {/* ── 애니메이션 CSS 정의 ───────────────────────────── */}
+            {/*
+              <style> 태그를 JSX 내부에 인라인으로 삽입:
+                컴포넌트가 렌더링될 때 해당 애니메이션 CSS를 DOM에 주입.
+                별도 CSS 파일 없이도 이 컴포넌트 안에서 애니메이션이 동작.
+
+              @keyframes fadeIn:
+                팝업이 나타날 때 opacity 0 → 1로 부드럽게 전환 (PC 스타일 사용).
+
+              @keyframes slideUp:
+                모바일 시트가 아래(화면 밖)에서 위로 슬라이드되어 나타남.
+                transform: translateY(100%) = 화면 아래 완전히 숨겨진 상태
+                transform: translateY(0)   = 정상 위치
+
+              .cesium-widget-credits { display: none }:
+                Cesium이 렌더링하는 기본 저작권 표시("Cesium ion" 등)를 숨김.
+                오픈소스 Cesium을 사용하면 자동으로 표시되는 것을 UI 정리용으로 제거.
+            */}
             <style>{`
                 .cesium-widget-credits { display: none !important; }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -107,26 +302,57 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
     );
 };
 
-// 하단 정보 박스 컴포넌트
+// ─────────────────────────────────────────────────────────────────
+//  내부 서브 컴포넌트: InfoBox
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * InfoBoxProps: InfoBox 컴포넌트가 받는 props 타입.
+ */
 interface InfoBoxProps {
+    /** 모바일 여부. 글자 크기, 패딩 크기 조절에 사용 */
     isMobile: boolean;
+    /** 항목을 나타내는 이모지. 예: "🌡️", "💧" */
     icon: string;
+    /** 항목 라벨. 예: "기온", "강수" */
     label: string;
+    /** 표시할 값 문자열. 예: "23°C", "30%" */
     value: string;
+    /** 값 텍스트 색상. 기본값 '#111' (거의 검정). 기온에만 '#ff4757' (빨강) 적용 */
     color?: string;
 }
 
+/**
+ * InfoBox: 아이콘 + 라벨 + 값을 묶은 작은 정보 카드 컴포넌트.
+ *
+ * WeatherDetail 내부에서만 사용하는 재사용 가능한 서브 컴포넌트.
+ * 기온, 강수, 습도, 풍속 등 각 항목마다 같은 구조를 반복하므로
+ * 컴포넌트로 추출해 코드 중복 제거.
+ *
+ * jQuery 비유:
+ *   function renderInfoBox(isMobile, icon, label, value, color) {
+ *     return '<div class="info-box">...' + label + '...' + value + '...</div>';
+ *   }
+ *   $('#container').append(renderInfoBox(true, '🌡️', '기온', '23°C', '#ff4757'));
+ * 와 유사하나, React는 string이 아닌 가상 DOM 객체를 반환.
+ *
+ * 모바일/PC 사이즈 분기:
+ *   isMobile이 true면 글자/패딩을 작게 → 좁은 화면에서 4개가 한 줄에 들어오도록.
+ *   isMobile이 false면 조금 크게 → PC에서 여유 있는 레이아웃.
+ */
 const InfoBox: React.FC<InfoBoxProps> = ({ isMobile, icon, label, value, color = '#111' }) => (
     <div style={{
-        flex: isMobile ? '1' : '1',
-        minWidth: 0,
-        backgroundColor: '#f8f9fa',
+        flex: isMobile ? '1' : '1',       // 가로 공간을 균등하게 분배
+        minWidth: 0,                        // flex item이 텍스트 길이로 인해 넘치지 않도록
+        backgroundColor: '#f8f9fa',         // 연한 회색 카드 배경
         padding: isMobile ? '10px 2px' : '10px 5px',
         borderRadius: '8px',
         textAlign: 'center',
-        border: '1px solid #f1f1f1'
+        border: '1px solid #f1f1f1'         // 미세한 테두리
     }}>
+        {/* 상단: 아이콘 + 라벨 (흐린 회색, 작은 글자) */}
         <div style={{ fontSize: isMobile ? '9px' : '10px', color: '#999', marginBottom: '2px' }}>{icon} {label}</div>
+        {/* 하단: 값 (color prop으로 지정된 색상, 굵게) */}
         <div style={{ fontSize: isMobile ? '12px' : '13px', fontWeight: '800', color: color }}>{value}</div>
     </div>
 );

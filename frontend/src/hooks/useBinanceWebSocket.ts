@@ -159,14 +159,20 @@ export interface UseBinanceWebSocketResult {
  * useBinanceWebSocket
  *
  * 사용법 (컴포넌트에서):
- *   const { ticker, status } = useBinanceWebSocket();
+ *   const { ticker, status } = useBinanceWebSocket('BTCUSDT');
+ *   또는
+ *   const { ticker, status } = useBinanceWebSocket('ETHUSDT');
+ *
+ * @param selectedSymbol 구독할 코인 심볼 (예: 'BTCUSDT', 'ETHUSDT')
+ *   - 이 값이 변경되면 자동으로 기존 WebSocket을 종료하고 새 심볼로 재연결
+ *   - jQuery 플러그인으로 비유하면, 옵션 변경 시 플러그인을 destroy()했다가 새 옵션으로 재초기화하는 것과 유사
  *
  * React Custom Hook 개념:
  *   - 'use'로 시작하는 함수
  *   - useState, useRef, useEffect 같은 React 내장 훅을 조합한 재사용 가능한 로직
  *   - jQuery 플러그인을 $.fn에 등록해서 재사용하는 것과 유사한 개념
  */
-export function useBinanceWebSocket(): UseBinanceWebSocketResult {
+export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocketResult {
 
     // ── State (화면 갱신을 트리거하는 반응형 변수) ──────────────────
     //
@@ -239,11 +245,23 @@ export function useBinanceWebSocket(): UseBinanceWebSocketResult {
         //   예: 운영 환경 → "mysite.com"
         //
         // vite.config.js의 proxy 설정 덕분에:
-        //   ws://localhost:5173/ws/binance-price
-        //   → ws://localhost:8080/ws/binance-price  (Spring Boot 서버)
+        //   ws://localhost:5173/ws/binance-price?symbol=BTCUSDT
+        //   → ws://localhost:8080/ws/binance-price?symbol=BTCUSDT  (Spring Boot 서버)
         //   로 자동 프록시됨. jQuery에서 $.ajax url을 상대경로로 쓰는 것과 같은 개념.
+        //
+        // ⭐ 쿼리 파라미터로 selectedSymbol 전달:
+        //   - selectedSymbol이 'BTCUSDT' 또는 'ETHUSDT' 등으로 변경되면
+        //   - 백엔드는 이 파라미터를 읽어 해당 심볼의 Binance WebSocket을 구독
+        //   - 비유: $.ajax({ url: '/api/price?symbol=ETHUSDT' }) 처럼 쿼리 파라미터 사용
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/binance-price`);
+        // Vite 프록시 경유: window.location.host (포트 포함, 예: 121.170.210.60:5173)
+        // 브라우저 → ws://[host]/ws/binance-price → Vite 프록시 → ws://localhost:8080/ws/binance-price
+        // 네트워크 IP(공인 IP 등)로 접속해도 프록시가 서버 내부에서 localhost로 포워딩하므로
+        // Hairpin NAT 문제 없이 동작함.
+        const host = window.location.host;
+        const url = `${protocol}//${host}/ws/binance-price?symbol=${selectedSymbol}`;
+        console.log('[useBinanceWebSocket] 연결 시도 URL:', url); // debug
+        const ws = new WebSocket(url);
 
         // ── 이벤트 핸들러 등록 ──────────────────────────────────────
         //
@@ -333,6 +351,10 @@ export function useBinanceWebSocket(): UseBinanceWebSocketResult {
      *   → 반드시 useEffect 시작 시 isManualClose.current = false 로 초기화.
      */
     useEffect(() => {
+        // 심볼 변경 시 이전 코인 데이터 즉시 초기화 → BinanceTicker가 스켈레톤 표시
+        // 초기 마운트 시에는 이미 null이므로 시각적 변화 없음
+        setTicker(null);
+
         // StrictMode 대응: 재마운트 시 수동 종료 플래그 초기화
         isManualClose.current = false;
 
@@ -382,7 +404,8 @@ export function useBinanceWebSocket(): UseBinanceWebSocketResult {
          *
          * 실행 시점:
          *   1. 컴포넌트가 DOM에서 제거(언마운트)될 때
-         *   2. 개발 환경 StrictMode에서 재마운트 전 정리할 때
+         *   2. 의존성[selectedSymbol]이 변경될 때
+         *   3. 개발 환경 StrictMode에서 재마운트 전 정리할 때
          *
          * jQuery 비유:
          *   $(window).on('beforeunload', fn) 처럼 정리 작업을 수행.
@@ -403,7 +426,7 @@ export function useBinanceWebSocket(): UseBinanceWebSocketResult {
             // 열려있는 WebSocket 정상 종료
             wsRef.current?.close();
         };
-    }, []); // 빈 배열: 마운트 1회만 실행
+    }, [selectedSymbol]); // selectedSymbol 변경 시마다 재실행 (이전호출의 클린업 후 다시 연결)
 
     // ── 반환값 ──────────────────────────────────────────────────────
     // 컴포넌트에서 구조분해로 사용: const { ticker, status } = useBinanceWebSocket();

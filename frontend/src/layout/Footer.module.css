@@ -69,3 +69,10 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
+
+/* ─── 반응형: 모바일에서는 중앙 기술 스택 숨김 ───────────── */
+@media (max-width: 768px) {
+    .techPage {
+        display: none;
+    }
+}

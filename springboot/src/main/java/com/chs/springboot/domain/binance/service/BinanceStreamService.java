@@ -70,7 +70,22 @@ public class BinanceStreamService {
      *   btcusdt@trade    = 실시간 체결 내역
      *   btcusdt@kline_1m = 1분봉 캔들 데이터
      */
-    private static final String BINANCE_STREAM_URL = "wss://stream.binance.com:9443/ws/btcusdt@ticker";
+    // 기본 심볼 (소문자) - 초기값은 BTCUSDT
+    private static final String DEFAULT_SYMBOL = "btcusdt";
+
+    /**
+     * 현재 구독 중인 심볼. 소문자로 저장하여 URL 생성 시 대소문자 걱정 없음.
+     * 이 값은 클라이언트 요청에 따라 변경될 수 있으며, 변경 시 기존
+     * WebSocket을 닫고 새 URL로 재접속한다.
+     */
+    private volatile String currentSymbol = DEFAULT_SYMBOL;
+
+    /**
+     * Binance 스트림 URL 템플릿의 공통 접두사/접미사.
+     * 실제 접속 URL은 getStreamUrl() 메서드에서 currentSymbol을 끼워넣어 생성.
+     */
+    private static final String STREAM_URL_PREFIX = "wss://stream.binance.com:9443/ws/";
+    private static final String STREAM_URL_SUFFIX = "@ticker";
 
     /**
      * RECONNECT_DELAY_SEC: 재연결 시도 전 대기 시간 (초 단위).
@@ -136,6 +151,28 @@ public class BinanceStreamService {
     private volatile boolean running = true;
 
     /**
+     * connectionGeneration: 연결 세대(generation) 카운터.
+     *
+     * 문제 상황 (심볼 변경 시 연결 중복):
+     *   setSymbol() 호출 시:
+     *     ① 기존 연결에 sendClose() — 비동기라 즉시 닫히지 않음
+     *     ② connectToBinance() 호출 → 새 연결 시작
+     *     ③ 기존 리스너의 onClose()가 뒤늦게 실행 → scheduleReconnect() 호출
+     *     → 기존 + 신규 연결이 동시에 살아있어 같은 세션에 중복 broadcast → 충돌
+     *
+     * 해결:
+     *   connectToBinance() 호출 시마다 이 카운터를 증가시키고,
+     *   각 BinanceListener 인스턴스가 생성 시점의 세대 값을 기억.
+     *   onClose() / onError()에서 현재 세대와 다르면 재연결을 무시.
+     *
+     *   예시:
+     *     BTC 리스너 (generation=1) → onClose() 도착
+     *     현재 connectionGeneration=2 (이미 ETH로 교체됨)
+     *     1 ≠ 2 → 재연결 무시 ✅
+     */
+    private volatile int connectionGeneration = 0;
+
+    /**
      * 생성자 (Constructor Injection):
      * Spring이 BinancePriceWebSocketHandler와 NotificationService 빈을 찾아서
      * 자동으로 이 생성자를 호출해 주입.
@@ -164,6 +201,17 @@ public class BinanceStreamService {
     @PostConstruct
     public void connect() {
         connectToBinance();
+    }
+
+    /**
+     * SymbolChangeEvent 처리: Handler에서 클라이언트가 요청한 심볼을
+     * 전달하는 이벤트를 수신하면 setSymbol() 호출.
+     *
+     * @param evt 변경 요청 이벤트
+     */
+    @org.springframework.context.event.EventListener
+    public void handleSymbolChange(SymbolChangeEvent evt) {
+        setSymbol(evt.getSymbol());
     }
 
     /**
@@ -196,13 +244,17 @@ public class BinanceStreamService {
      */
     private void connectToBinance() {
         if (!running) return;
+        // 새 연결 시작 시 세대 카운터 증가 — 이전 리스너의 onClose가 재연결하지 못하도록 무효화
+        final int myGeneration = ++connectionGeneration;
         try {
+            String url = getStreamUrl();
+            log.info("[BinanceStream] {} 심볼로 연결 시도 (generation={})", currentSymbol, myGeneration);
             HttpClient.newHttpClient()
                     .newWebSocketBuilder()
-                    .buildAsync(URI.create(BINANCE_STREAM_URL), new BinanceListener())
+                    .buildAsync(URI.create(url), new BinanceListener(myGeneration))
                     .thenAccept(ws -> {
                         this.binanceWs = ws;
-                        log.info("[BinanceStream] 바이낸스 WebSocket 연결 성공");
+                        log.info("[BinanceStream] 바이낸스 WebSocket 연결 성공 ({} )", url);
                     })
                     .exceptionally(e -> {
                         log.error("[BinanceStream] 연결 실패: {}", e.getMessage());
@@ -238,6 +290,35 @@ public class BinanceStreamService {
         if (!running) return;
         log.info("[BinanceStream] {}초 후 재연결 시도", RECONNECT_DELAY_SEC);
         scheduler.schedule(this::connectToBinance, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+    }
+
+    /**
+     * setSymbol: 외부(Handler)에서 요청된 새 심볼로 변경.
+     *
+     * - 같은 심볼 요청은 무시하여 불필요한 재접속 방지.
+     * - 심볼은 소문자로 바꿔 저장.
+     * - 기존 WebSocket은 정상 종료 후 곧바로 새 연결을 시도.
+     */
+    public synchronized void setSymbol(String symbol) {
+        if (symbol == null || symbol.isEmpty()) return;
+        String lower = symbol.toLowerCase();
+        if (lower.equals(currentSymbol)) return;
+        log.info("[BinanceStream] 심볼 변경: {} -> {}", currentSymbol, lower);
+        currentSymbol = lower;
+        if (binanceWs != null) {
+            try {
+                binanceWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "symbol changed");
+            } catch (Exception ignored) {}
+        }
+        // 즉시 새 심볼로 연결 시도
+        connectToBinance();
+    }
+
+    /**
+     * getStreamUrl: 현재 심볼에 맞는 Binance WebSocket URL 생성
+     */
+    private String getStreamUrl() {
+        return STREAM_URL_PREFIX + currentSymbol + STREAM_URL_SUFFIX;
     }
 
     /**
@@ -298,6 +379,18 @@ public class BinanceStreamService {
      *   ws.on('error', listener.onError);
      */
     private class BinanceListener implements java.net.http.WebSocket.Listener {
+
+        /**
+         * generation: 이 리스너가 생성될 때의 connectionGeneration 값.
+         * onClose() / onError()에서 현재 connectionGeneration과 비교해
+         * 이 리스너가 여전히 "현재 연결"인지 확인하는 데 사용.
+         * 심볼 변경으로 새 연결이 시작되면 이 값이 현재 값과 달라져 재연결을 무시.
+         */
+        private final int generation;
+
+        BinanceListener(int generation) {
+            this.generation = generation;
+        }
 
         /**
          * buffer: 분할 수신된 메시지 조각을 모으는 임시 버퍼.
@@ -373,8 +466,13 @@ public class BinanceStreamService {
          */
         @Override
         public CompletionStage<?> onClose(java.net.http.WebSocket ws, int statusCode, String reason) {
-            log.warn("[BinanceStream] 연결 종료 ({}): {}", statusCode, reason);
-            scheduleReconnect();
+            log.warn("[BinanceStream] 연결 종료 (generation={}, status={}): {}", generation, statusCode, reason);
+            // 세대가 일치할 때만 재연결 — 심볼 변경으로 이미 새 연결이 시작됐다면 무시
+            if (generation == connectionGeneration) {
+                scheduleReconnect();
+            } else {
+                log.info("[BinanceStream] 구 연결 종료 무시 (generation={}, current={})", generation, connectionGeneration);
+            }
             return null;
         }
 
@@ -396,9 +494,14 @@ public class BinanceStreamService {
          */
         @Override
         public void onError(java.net.http.WebSocket ws, Throwable error) {
-            log.error("[BinanceStream] 스트림 오류: {}", error.getMessage());
-            notificationService.sendAlert("[BinanceStream] 오류: " + error.getMessage());
-            scheduleReconnect();
+            log.error("[BinanceStream] 스트림 오류 (generation={}): {}", generation, error.getMessage());
+            // 세대가 일치할 때만 알림 및 재연결
+            if (generation == connectionGeneration) {
+                notificationService.sendAlert("[BinanceStream] 오류: " + error.getMessage());
+                scheduleReconnect();
+            } else {
+                log.info("[BinanceStream] 구 연결 오류 무시 (generation={}, current={})", generation, connectionGeneration);
+            }
         }
     }
 }
