@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!--
+  Purpose: Nginx 레벨 5xx 에러 페이지 — 502/503/504 발생 시 Spring Boot 없이 독립 서빙
+  React/JS 프레임워크 없이 순수 HTML+CSS로 동작하므로, 백엔드 완전 다운 상태에서도 표시됨.
+  Vite 빌드 시 public/ 폴더 내용이 dist/ 로 그대로 복사됨.
+  Nginx 설정: error_page 502 503 504 /50x.html;
+-->
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>서버 오류</title>
+    <style>
+        /* ── 리셋 ── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── 전체 화면 다크 레이아웃 — 기존 NotFound/ServerError 톤 통일 ── */
+        body {
+            min-height: 100vh;
+            background-color: #0a0a0c;
+            color: #f1f5f9;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* ── 방사형 그라데이션 배경 (NotFound와 동일) ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            opacity: 0.8;
+            z-index: 0;
+        }
+
+        /* ── 은은한 블루 블러 장식 ── */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 600px;
+            height: 600px;
+            background: rgba(59, 130, 246, 0.04);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            filter: blur(80px);
+            z-index: 0;
+        }
+
+        /* ── 콘텐츠 카드 ── */
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 0 20px;
+            animation: fadeUp 0.6s ease-out both;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── 상태 뱃지 (SYSTEM OFFLINE 스타일) ── */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            /* 빨간 점 깜빡임 — 서버 다운 의미 */
+            animation: blink 1.4s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.2; }
+        }
+
+        /* ── 에러 코드 숫자 ── */
+        .error-code {
+            font-size: 120px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            background: linear-gradient(to bottom, #ffffff 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0;
+        }
+
+        /* ── 블루 구분선 (NotFound 스타일) ── */
+        .divider {
+            width: 40px;
+            height: 2px;
+            background-color: #3b82f6;
+            margin: 28px auto 28px;
+        }
+
+        /* ── 에러 제목 ── */
+        .error-title {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #f1f5f9;
+            margin-bottom: 16px;
+        }
+
+        /* ── 에러 설명 ── */
+        .error-desc {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #94a3b8;
+            margin-bottom: 40px;
+            max-width: 440px;
+            word-break: keep-all;
+        }
+
+        /* ── 에러별 메시지 표시: JS로 교체 ── */
+        .error-detail {
+            display: inline-block;
+            font-size: 12px;
+            color: #475569;
+            background: rgba(71, 85, 105, 0.15);
+            border: 1px solid #1e293b;
+            border-radius: 4px;
+            padding: 6px 14px;
+            letter-spacing: 1px;
+            margin-bottom: 40px;
+        }
+
+        /* ── 버튼 그룹 ── */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ── 공통 버튼 베이스 ── */
+        .btn {
+            padding: 13px 28px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        /* ── 기본(고스트) 버튼 — NotFound 스타일 ── */
+        .btn-ghost {
+            background-color: transparent;
+            color: #f8fafc;
+            border: 1px solid #475569;
+        }
+        .btn-ghost:hover {
+            background-color: #ffffff;
+            color: #0f172a;
+            border-color: #ffffff;
+        }
+
+        /* ── 보조 버튼 ── */
+        .btn-secondary {
+            background-color: transparent;
+            color: #64748b;
+            border: 1px solid #1e293b;
+        }
+        .btn-secondary:hover {
+            background-color: #1e293b;
+            color: #94a3b8;
+        }
+
+        /* ── 하단 상태 코드 ── */
+        .footer-code {
+            margin-top: 52px;
+            font-size: 11px;
+            color: #334155;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 상태 뱃지 -->
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            <span>SYSTEM OFFLINE</span>
+        </div>
+
+        <!-- 에러 코드 숫자 -->
+        <div class="error-code" id="errorCode">5xx</div>
+
+        <!-- 블루 구분선 -->
+        <div class="divider"></div>
+
+        <!-- 에러 제목 -->
+        <h1 class="error-title" id="errorTitle">서버 응답 없음</h1>
+
+        <!-- 에러 설명 -->
+        <p class="error-desc" id="errorDesc">
+            서버와의 통신에 일시적인 문제가 발생했습니다.<br />
+            잠시 후 다시 시도하거나, 개발자에게 문의해 주세요.
+        </p>
+
+        <!-- 에러 상세 코드 뱃지 -->
+        <div class="error-detail" id="errorDetail">STATUS: UNKNOWN</div>
+
+        <!-- 버튼 그룹 -->
+        <div class="btn-group">
+            <button class="btn btn-ghost" onclick="location.reload()">재시도</button>
+            <button class="btn btn-secondary" onclick="location.href='/'">메인으로</button>
+        </div>
+
+        <!-- 하단 상태 코드 -->
+        <div class="footer-code" id="footerCode">STATUS_CODE: 5XX_SERVER_ERROR</div>
+    </div>
+
+    <script>
+        /**
+         * Nginx error_page 지시어로 이 파일을 호출할 때,
+         * 쿼리스트링으로 코드를 넘기는 방식 대신 — Nginx가 원본 상태 코드를
+         * 유지한 채 내부 리다이렉트하므로 — 브라우저가 받은 HTTP 상태 코드를
+         * navigator/performance API로 직접 읽어 분기 처리한다.
+         *
+         * 단, 브라우저 performance API는 현재 문서의 상태 코드를
+         * 직접 노출하지 않으므로, URL에 Nginx가 $status 변수를 주입하는
+         * 방식을 함께 지원한다.
+         * → Nginx: error_page 502 /50x.html?code=502;
+         *
+         * 두 방법 모두 지원: URL 파라미터 우선, 없으면 제목에서 추측.
+         */
+        (function () {
+            // URL 쿼리스트링에서 code 파라미터 읽기 (Nginx가 주입)
+            var params = new URLSearchParams(window.location.search);
+            var code = params.get('code') || '';
+
+            // 에러 코드별 메시지 정의
+            var messages = {
+                '502': {
+                    title: '게이트웨이 오류',
+                    desc: '백엔드 서버(Spring Boot)가 응답하지 않습니다.\n서버가 재시작 중이거나 일시적으로 중단된 상태일 수 있습니다.',
+                    detail: 'STATUS: 502 BAD_GATEWAY'
+                },
+                '503': {
+                    title: '서비스 점검 중',
+                    desc: '현재 서버가 유지보수 또는 배포 중입니다.\n잠시 후 다시 접속해 주세요.',
+                    detail: 'STATUS: 503 SERVICE_UNAVAILABLE'
+                },
+                '504': {
+                    title: '응답 시간 초과',
+                    desc: '백엔드 서버의 응답이 너무 오래 걸리고 있습니다.\n네트워크 상태를 확인하거나 잠시 후 재시도해 주세요.',
+                    detail: 'STATUS: 504 GATEWAY_TIMEOUT'
+                }
+            };
+
+            var info = messages[code] || {
+                title: '서버 오류',
+                desc: '서버와의 통신에 일시적인 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.',
+                detail: 'STATUS: 5XX_SERVER_ERROR'
+            };
+
+            // DOM 업데이트
+            var codeEl   = document.getElementById('errorCode');
+            var titleEl  = document.getElementById('errorTitle');
+            var descEl   = document.getElementById('errorDesc');
+            var detailEl = document.getElementById('errorDetail');
+            var footerEl = document.getElementById('footerCode');
+
+            if (code) codeEl.textContent = code;
+            titleEl.textContent  = info.title;
+            // \n → <br> 변환
+            descEl.innerHTML = info.desc.replace(/\n/g, '<br />');
+            detailEl.textContent = info.detail;
+            footerEl.textContent = info.detail;
+        })();
+    </script>
+</body>
+</html>

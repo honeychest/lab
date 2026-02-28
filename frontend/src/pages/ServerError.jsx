@@ -23,9 +23,9 @@ function ServerError() {
                 <div style={{ width: '40px', height: '1px', backgroundColor: '#334155', margin: '0 auto 24px' }}></div>
 
                 <p style={{ color: '#94a3b8', lineHeight: '1.7', marginBottom: '35px', maxWidth: '450px', wordBreak: 'keep-all' }}>
-                    개발자 서버와의 통신이 원활하지 않습니다.<br/>
-                    현재 서버가 추가개발 중이거나 오프라인 상태일 수 있습니다.<br/>
-                    나중에 다시 시도해주세요. (클라우드 서버 확보전까지는...)<br/>
+                    chs 서버와의 통신이 원활하지 않습니다.<br/>
+                    현재 서버가 배포중이거나 오프라인 상태일 수 있습니다.<br/>
+                    나중에 다시 시도해주세요.<br/>
                 </p>
 
                 <button
