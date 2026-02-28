@@ -23,6 +23,8 @@ import com.chs.springboot.domain.weather.service.WeatherService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -79,8 +81,11 @@ public class WeatherController {
      */
     @GetMapping("/available-hours")
     public List<Integer> getAvailableHours() {
-        List<Integer> hours = weatherRepository.findDistinctHours();
-        System.out.println("Available hours: " + hours);
+        // DB 서버는 UTC 기준이므로 CURRENT_DATE를 쓰면 KST 자정 이후에도 어제 날짜가 반환됨.
+        // 앱 서버(KST)에서 오늘 날짜를 직접 계산해서 Repository에 전달해 DB 타임존 영향 차단.
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        List<Integer> hours = weatherRepository.findDistinctHours(today);
+        System.out.println("Available hours (KST " + today + "): " + hours);
         return hours;
     }
 
