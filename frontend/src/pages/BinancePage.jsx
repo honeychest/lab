@@ -158,13 +158,6 @@ function BinancePage() {
      */
     const [walletError, setWalletError]   = useState(null);
 
-    /**
-     * serverName: 백엔드 응답 헤더 X-Server-Name 에서 읽은 Docker 서버 식별자.
-     *   null     = 아직 API 응답 전 (배지 비활성 상태)
-     *   'docker1' = 8080 컨테이너가 처리
-     *   'docker2' = 8081 컨테이너가 처리
-     */
-    const [serverName, setServerName] = useState(null);
 
     // ── 지갑 잔고 REST API 호출 ──────────────────────────────────
     /**
@@ -205,10 +198,6 @@ function BinancePage() {
                 const res = await axios.get('/api/binance/account');
                 setAccountInfo(res.data); // 성공 시 데이터 저장 → BinanceWallet 컴포넌트 재렌더링
 
-                // 응답 헤더에서 서버 식별자 읽기 (ServerInfoFilter가 모든 API 응답에 주입)
-                // axios는 헤더명을 소문자로 정규화하므로 'x-server-name' 으로 접근
-                const sn = res.headers['x-server-name'];
-                if (sn) setServerName(sn);
             } catch (err) {
                 /**
                  * catch: axios 요청 실패 시 실행 (HTTP 4xx, 5xx, 네트워크 오류 등).
@@ -368,7 +357,7 @@ function BinancePage() {
      * React는 가상 DOM(Virtual DOM)에서 변경사항을 계산한 뒤 실제 DOM에 최소한만 반영.
      */
     return (
-        <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']} serverName={serverName}>
+        <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']}>
             {/* 전체 페이지 배경 */}
             <div style={{
                 minHeight: '100%',
