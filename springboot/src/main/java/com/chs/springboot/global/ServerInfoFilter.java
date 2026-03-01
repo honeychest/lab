@@ -32,11 +32,12 @@ public class ServerInfoFilter extends OncePerRequestFilter {
 
     /**
      * 현재 서버 포트.
-     * Spring Boot 기동 시 application.properties 또는 환경변수의
-     * server.port 값이 자동 주입된다.
+     * application.properties 또는 환경변수에 server.port 가 명시된 경우에만 주입됨.
+     * 설정되지 않은 경우 null → 헤더를 추가하지 않아 프론트 배지가 꺼진 상태를 유지.
+     * #{null} : SpEL(Spring Expression Language) 구문으로 기본값을 null로 지정.
      */
-    @Value("${server.port}")
-    private int serverPort;
+    @Value("${server.port:#{null}}")
+    private Integer serverPort;
 
     /**
      * 요청마다 1회 실행되는 핵심 필터 로직.
@@ -49,12 +50,16 @@ public class ServerInfoFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // 포트 기반으로 서버 이름 결정: 8081이면 docker2, 그 외(8080)면 docker1
-        String serverName = serverPort == 8081 ? "docker2" : "docker1";
+        // server.port 가 설정되지 않은 경우(로컬 개발 등) 헤더를 추가하지 않음
+        // → 프론트 배지가 둘 다 꺼진 상태를 유지 (잘못된 서버 표시 방지)
+        if (serverPort != null) {
+            // 포트 기반으로 서버 이름 결정: 8081이면 docker2, 그 외(8080)면 docker1
+            String serverName = serverPort == 8081 ? "docker2" : "docker1";
 
-        // 응답 헤더에 서버 이름 주입
-        // 프론트엔드에서 axios response.headers['x-server-name'] 로 읽을 수 있음
-        response.setHeader("X-Server-Name", serverName);
+            // 응답 헤더에 서버 이름 주입
+            // 프론트엔드에서 axios response.headers['x-server-name'] 로 읽을 수 있음
+            response.setHeader("X-Server-Name", serverName);
+        }
 
         // 다음 필터 또는 컨트롤러로 요청/응답 전달
         filterChain.doFilter(request, response);
