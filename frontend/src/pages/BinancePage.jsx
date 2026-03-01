@@ -49,6 +49,8 @@ import { useUpbitWebSocket } from '../hooks/useUpbitWebSocket';
  * 파일: frontend/src/features/binance/components/BinanceTicker.tsx
  */
 import BinanceTicker from '../features/binance/components/BinanceTicker';
+import BinanceTickerMobile from '../features/binance/components/BinanceTickerMobile';
+import pageStyles from './BinancePage.module.css';
 
 /**
  * BinanceWallet: 지갑 잔고 UI 컴포넌트 (보유 코인 목록)
@@ -278,11 +280,25 @@ function BinancePage() {
     const tickerWrapperRef = useRef(null);
     const savedHeightRef   = useRef(null);
 
+    // 모바일 전용 — PC 메커니즘과 완전히 분리
+    const mobileWrapperRef     = useRef(null);
+    const mobileSavedHeightRef = useRef(null);
+    const mobileSavedWidthRef  = useRef(null);
+
     useEffect(() => {
         // ticker가 있을 때마다 현재 패널 높이를 갱신 저장
         // (ticker가 null이 될 때 이미 저장된 값으로 minHeight 적용)
-        if (ticker !== null && tickerWrapperRef.current) {
-            savedHeightRef.current = tickerWrapperRef.current.offsetHeight;
+        if (ticker !== null) {
+            if (tickerWrapperRef.current) {
+                savedHeightRef.current = tickerWrapperRef.current.offsetHeight;
+            }
+            if (mobileWrapperRef.current) {
+                const mh = mobileWrapperRef.current.offsetHeight;
+                const mw = mobileWrapperRef.current.offsetWidth;
+                // display:none(=0)일 때 덮어쓰기 방지
+                if (mh > 0) mobileSavedHeightRef.current = mh;
+                if (mw > 0) mobileSavedWidthRef.current  = mw;
+            }
         }
     }, [ticker]);
 
@@ -451,12 +467,35 @@ function BinancePage() {
                                     : undefined,
                             }}
                         >
-                            <BinanceTicker
-                                ticker={ticker}
-                                upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
-                                usdtKrwTicker={usdtTicker}
-                                pairLabel={selectedCoin.label}
-                            />
+                            {/* PC 레이아웃 (>768px) */}
+                            <div className={pageStyles.pcOnly}>
+                                <BinanceTicker
+                                    ticker={ticker}
+                                    upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
+                                    usdtKrwTicker={usdtTicker}
+                                    pairLabel={selectedCoin.label}
+                                />
+                            </div>
+                            {/* 모바일 전용 레이아웃 (≤768px) */}
+                            <div
+                                ref={mobileWrapperRef}
+                                className={pageStyles.mobileOnly}
+                                style={{
+                                    minHeight: ticker === null && mobileSavedHeightRef.current
+                                        ? `${mobileSavedHeightRef.current}px`
+                                        : undefined,
+                                    minWidth: ticker === null && mobileSavedWidthRef.current
+                                        ? `${mobileSavedWidthRef.current}px`
+                                        : undefined,
+                                }}
+                            >
+                                <BinanceTickerMobile
+                                    ticker={ticker}
+                                    upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
+                                    usdtKrwTicker={usdtTicker}
+                                    pairLabel={selectedCoin.label}
+                                />
+                            </div>
                         </div>
                     </div>
 

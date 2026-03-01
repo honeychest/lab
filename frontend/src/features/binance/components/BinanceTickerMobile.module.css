@@ -1,0 +1,169 @@
+/* Purpose: BinanceTickerMobile 모바일 전용 레이아웃 — 고가/현재가/저가 · 프리미엄 · KRW · InfoBox 세로 스택 */
+
+/* ─── 섹션 1: 고가 / 현재가+등락 / 저가 ─────────────────────── */
+
+.highLine,
+.lowLine {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0;
+    font-size: 12px;
+}
+
+.highLowArrow {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.highLowLabel {
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+.highValue {
+    color: #2ecc71;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.lowValue {
+    color: #e74c3c;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.diffValue {
+    color: #a5b4fc;
+    font-size: 11px;
+}
+
+/* 고가↔현재가, 현재가↔저가 사이 구분선 */
+.priceDivider {
+    border-top: 1px solid #1e293b;
+}
+
+.currentPrice {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 800;
+    font-family: monospace;
+    color: #F3BA2F;
+    letter-spacing: -1px;
+    padding: 12px 0 6px;
+}
+
+.change {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: monospace;
+    padding-bottom: 12px;
+}
+
+/* ─── 섹션 2: 프리미엄 ───────────────────────────────────────── */
+/* border-top으로 priceSection과 구분, border-bottom은 없음 (krwSection이 자체 border-top 가짐) */
+
+.premiumSection {
+    border-top: 1px solid #1e293b;
+    padding: 14px 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.premiumLabel {
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.premiumAmount {
+    font-size: 18px;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+.premiumRate {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* ─── 섹션 3: KRW 2열 ────────────────────────────────────────── */
+
+.krwSection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid #1e293b;
+    padding: 14px 0;
+}
+
+/* 좌측 열 우측에 세로 구분선 */
+.krwCol:first-child {
+    border-right: 1px solid #1e293b;
+}
+
+.krwCol {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.krwLabel {
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.krwPrice {
+    font-size: 17px;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+/* ─── 섹션 4: InfoBox 2×2 그리드 ───────────────────────────── */
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.infoBox {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 10px 8px;
+    text-align: center;
+}
+
+.infoLabel {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.infoValue {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: monospace;
+    word-break: break-all; /* 긴 숫자·문자열 자동 줄바꿈 */
+}
+
+/* ─── 섹션 5: 집계 기간 ──────────────────────────────────────── */
+
+.period {
+    margin-top: 12px;
+    color: #475569;
+    font-size: 10px;
+    text-align: center;
+}

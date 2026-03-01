@@ -1,0 +1,20 @@
+/* Purpose: BinancePage PC/모바일 컴포넌트 전환 — display 토글만 담당 */
+
+/* PC(>768px)에서만 표시 */
+.pcOnly {
+    display: block;
+}
+
+/* 모바일(≤768px)에서만 표시 */
+.mobileOnly {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .pcOnly {
+        display: none;
+    }
+    .mobileOnly {
+        display: block;
+    }
+}
