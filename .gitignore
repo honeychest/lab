@@ -3,3 +3,5 @@ CLAUDE.md
 context.md
 chs-rules.md
 geminirules.md
+/.claude/settings.local.json
+/.vscode/settings.json
