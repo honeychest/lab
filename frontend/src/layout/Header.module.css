@@ -60,3 +60,62 @@
     color: #1a3a5c;
     font-weight: 700;
 }
+
+/* ─── Docker 서버 인디케이터 ─────────────────────────── */
+
+/* 배지 묶음: 헤더 우측 끝에 자동 배치 */
+.serverBadges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* 개별 배지: 점 + 텍스트 */
+.serverBadge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(70, 130, 180, 0.2);
+    background: transparent;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+/* 활성 배지: 배경 + 테두리 강조 */
+.serverBadgeActive {
+    background: rgba(70, 130, 180, 0.12);
+    border-color: rgba(70, 130, 180, 0.5);
+}
+
+/* 상태 점 (기본: 테두리만) */
+.serverDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #94a3b8;
+    background: transparent;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+/* 활성 점: 채워진 원 */
+.serverDotActive {
+    background: #4682b4;
+    border-color: #4682b4;
+}
+
+/* 배지 텍스트 (기본: 흐릿한 회색) */
+.serverLabel {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    transition: color 0.2s;
+}
+
+/* 활성 배지 텍스트: 헤더 테마 색 */
+.serverBadgeActive .serverLabel {
+    color: #1a3a5c;
+}

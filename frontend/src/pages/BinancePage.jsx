@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * axios: jQuery의 $.ajax와 동일한 역할을 하는 HTTP 요청 라이브러리.
@@ -106,6 +107,14 @@ const COINS = [
 
 function BinancePage() {
 
+    // ── 라우터 네비게이션 ─────────────────────────────────────────
+    /**
+     * useNavigate: react-router-dom 훅. navigate('/path') 호출 시 해당 경로로 이동.
+     * jQuery에서 window.location.href = '/error' 와 유사하지만,
+     * SPA 특성상 전체 페이지 새로고침 없이 라우터 내부 이동으로 처리됨.
+     */
+    const navigate = useNavigate();
+
     // ── 선택된 코인 상태 ──────────────────────────────────────────
     /**
      * selectedSymbol:
@@ -149,6 +158,14 @@ function BinancePage() {
      */
     const [walletError, setWalletError]   = useState(null);
 
+    /**
+     * serverName: 백엔드 응답 헤더 X-Server-Name 에서 읽은 Docker 서버 식별자.
+     *   null     = 아직 API 응답 전 (배지 비활성 상태)
+     *   'docker1' = 8080 컨테이너가 처리
+     *   'docker2' = 8081 컨테이너가 처리
+     */
+    const [serverName, setServerName] = useState(null);
+
     // ── 지갑 잔고 REST API 호출 ──────────────────────────────────
     /**
      * useEffect(() => {...}, []):
@@ -187,12 +204,32 @@ function BinancePage() {
                  */
                 const res = await axios.get('/api/binance/account');
                 setAccountInfo(res.data); // 성공 시 데이터 저장 → BinanceWallet 컴포넌트 재렌더링
-            } catch {
+
+                // 응답 헤더에서 서버 식별자 읽기 (ServerInfoFilter가 모든 API 응답에 주입)
+                // axios는 헤더명을 소문자로 정규화하므로 'x-server-name' 으로 접근
+                const sn = res.headers['x-server-name'];
+                if (sn) setServerName(sn);
+            } catch (err) {
                 /**
                  * catch: axios 요청 실패 시 실행 (HTTP 4xx, 5xx, 네트워크 오류 등).
                  * jQuery $.ajax의 error 콜백과 동일.
-                 * 에러 메시지를 state에 저장 → BinanceWallet에서 에러 UI 표시.
+                 *
+                 * 서버 다운 판별 기준:
+                 *   - err.response?.status: HTTP 응답 상태 코드.
+                 *   - status가 없음 (undefined): 네트워크 오류 — 서버에 아예 도달 못한 경우.
+                 *   - status >= 500: 백엔드 오류 (502 Bad Gateway = Nginx가 백엔드에 연결 불가 등).
+                 *   위 두 경우 모두 서버 문제로 판단해 에러 페이지로 이동.
+                 *
+                 * 4xx (예: 401 인증 실패, 403 권한 없음):
+                 *   서버는 살아있고 앱 레벨 오류이므로 에러 메시지만 표시.
                  */
+                const status = err?.response?.status;
+                if (!status || status >= 500) {
+                    // 서버 다운 → 에러 페이지 이동 (502가 기본, status 없으면 503으로 표시)
+                    navigate(`/error?code=${status ?? 503}`);
+                    return;
+                }
+                // 4xx 오류 → 에러 메시지 표시
                 setWalletError('잔고 조회에 실패했습니다.');
             } finally {
                 /**
@@ -331,7 +368,7 @@ function BinancePage() {
      * React는 가상 DOM(Virtual DOM)에서 변경사항을 계산한 뒤 실제 DOM에 최소한만 반영.
      */
     return (
-        <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']}>
+        <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']} serverName={serverName}>
             {/* 전체 페이지 배경 */}
             <div style={{
                 minHeight: '100%',
@@ -507,27 +544,27 @@ function BinancePage() {
                         </div>
                     </div>
 
-                    {/* ── 지갑 잔고 카드 (현재는 숨김) ───────────────────────────── */}
-                    {false && (
-                        <div style={{
-                            background: '#0f172a',
-                            border: '1px solid #1e293b',
-                            borderRadius: '16px',
-                            padding: '24px',
-                        }}>
-                            {/*
-                              BinanceWallet 컴포넌트에 3가지 상태 전달:
-                              - accountInfo: REST API 응답 데이터
-                              - loading: API 호출 중 여부
-                              - error: 에러 메시지 (없으면 null)
-                            */}
-                            <BinanceWallet
-                                accountInfo={accountInfo}
-                                loading={walletLoading}
-                                error={walletError}
-                            />
-                        </div>
-                    )}
+                    {/* ── 지갑 잔고 카드 ──────────────────────────────────────── */}
+                    <div style={{
+                        background: '#0f172a',
+                        border: '1px solid #1e293b',
+                        borderRadius: '16px',
+                        padding: '24px',
+                    }}>
+                        {/*
+                          BinanceWallet 컴포넌트에 3가지 상태 전달:
+                          - accountInfo: REST API 응답 데이터
+                          - loading: API 호출 중 여부
+                          - error: 에러 메시지 (없으면 null)
+                          서버 5xx/네트워크 오류는 fetchWallet catch에서 에러 페이지로 이동하므로
+                          여기까지 오는 error는 4xx 앱 레벨 오류만 해당.
+                        */}
+                        <BinanceWallet
+                            accountInfo={accountInfo}
+                            loading={walletLoading}
+                            error={walletError}
+                        />
+                    </div>
 
                 </div>
             </div>
