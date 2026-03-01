@@ -90,13 +90,19 @@ const FALLBACK: ErrorInfo = {
     action: 'home',
 };
 
-export default function ErrorPage() {
+/**
+ * @param codeProp - 인라인 렌더 시 부모 컴포넌트에서 직접 전달하는 에러 코드.
+ *                   미전달 시 URL ?code= 쿼리 파라미터로 fallback.
+ *                   덕분에 URL을 바꾸지 않고 현재 페이지에서 에러 UI를 표시할 수 있음.
+ */
+export default function ErrorPage({ code: codeProp }: { code?: string } = {}) {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const [mounted, setMounted] = useState(false);
     const [animData, setAnimData] = useState<object | null>(null);
 
-    const code = searchParams.get('code') ?? '';
+    // prop이 있으면 prop 우선, 없으면 URL searchParams에서 읽음
+    const code = codeProp ?? searchParams.get('code') ?? '';
     const info = ERROR_MAP[code] ?? FALLBACK;
 
     useEffect(() => {

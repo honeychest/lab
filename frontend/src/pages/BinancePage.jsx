@@ -36,6 +36,7 @@ import axios from 'axios';
  * footerCenter={[]} 로 하단 중앙 버튼 없이 표시.
  */
 import Layout from '../layout/Layout.jsx';
+import ErrorPage from './ErrorPage';
 
 /**
  * useBinanceWebSocket: WebSocket 연결 로직을 담은 커스텀 훅.
@@ -158,6 +159,16 @@ function BinancePage() {
      */
     const [walletError, setWalletError]   = useState(null);
 
+    /**
+     * serverError: 서버 다운 시 인라인으로 표시할 에러 코드.
+     *   null    = 정상 상태
+     *   '502'   = Nginx가 502를 가로채 HTML 반환 (백엔드 다운)
+     *   '503'   = 네트워크 완전 단절
+     *   '500' 등 = 기타 5xx 오류
+     * navigate 대신 이 state를 세팅해 URL을 바꾸지 않고 ErrorPage를 인라인 렌더.
+     */
+    const [serverError, setServerError] = useState(null);
+
 
     // ── 지갑 잔고 REST API 호출 ──────────────────────────────────
     /**
@@ -190,10 +201,6 @@ function BinancePage() {
                  * axios.get('/api/binance/account'):
                  *   Spring Boot BinanceController의 GET /api/binance/account 호출.
                  *   vite.config.js 프록시 설정으로 /api → http://localhost:8080 으로 전달.
-                 *
-                 *   await: Promise가 완료될 때까지 기다림.
-                 *   jQuery에서 $.ajax().done(function(data){...}) 의 data와 같은 것이
-                 *   res.data 에 담겨 옴.
                  */
                 const res = await axios.get('/api/binance/account');
 
@@ -202,36 +209,37 @@ function BinancePage() {
                  *   백엔드 다운 시 Nginx가 502를 가로채 /50x.html을 200 OK + text/html로 반환.
                  *   axios는 200이므로 에러로 인식하지 않아 catch가 타지 않음.
                  *   → Content-Type이 application/json이 아니면 서버 다운으로 판단.
+                 *   navigate 대신 setServerError로 URL을 유지하면서 에러 UI 표시.
                  */
                 const contentType = res.headers['content-type'] || '';
                 if (!contentType.includes('application/json')) {
-                    navigate('/error?code=502');
-                    return;
+                    setServerError('502');
+                    return; // walletLoading=true 유지 → return null 상태 지속
                 }
 
-                setAccountInfo(res.data); // 성공 시 데이터 저장 → BinanceWallet 컴포넌트 재렌더링
+                setAccountInfo(res.data);
+                setWalletLoading(false); // 성공 시에만 로딩 해제
 
             } catch (err) {
                 /**
-                 * catch: 네트워크 오류 또는 4xx/5xx (Nginx 미경유 직접 오류) 시 실행.
+                 * catch: 네트워크 오류 또는 5xx 직접 응답 시 실행.
                  *
-                 * status 없음: 네트워크 자체 단절 → 서버 다운으로 판단.
+                 * status 없음: 네트워크 자체 단절 → 503으로 표시.
                  * status >= 500: 백엔드 오류.
-                 * 4xx: 앱 레벨 오류 → 에러 메시지만 표시.
+                 * 4xx: 앱 레벨 오류 → 에러 메시지만 표시 후 로딩 해제.
+                 *
+                 * finally 미사용 이유:
+                 *   서버 다운 케이스에서 setWalletLoading(false)가 실행되면
+                 *   walletLoading=false → 페이지가 잠깐 렌더되어 헤더가 보이는 flash 발생.
+                 *   → 서버 오류 시 walletLoading=true를 유지해 return null 상태를 지속.
                  */
                 const status = err?.response?.status;
                 if (!status || status >= 500) {
-                    navigate(`/error?code=${status ?? 503}`);
-                    return;
+                    setServerError(String(status ?? 503));
+                    return; // walletLoading=true 유지
                 }
                 // 4xx 오류 → 에러 메시지 표시
                 setWalletError('잔고 조회에 실패했습니다.');
-            } finally {
-                /**
-                 * finally: 성공/실패 관계없이 항상 실행.
-                 * jQuery $.ajax의 complete 콜백과 동일.
-                 * 로딩 상태 종료 처리 (스피너 숨김).
-                 */
                 setWalletLoading(false);
             }
         };
@@ -363,6 +371,9 @@ function BinancePage() {
      *   에러 페이지로 navigate 하기까지 ~0.3초간 BinancePage가 노출됨.
      *   null을 반환하면 빈 화면으로 대기하다가 응답 후 정상 렌더 또는 에러 페이지로 이동.
      */
+    // 서버 다운 → URL 유지한 채 에러 페이지 인라인 렌더
+    if (serverError) return <ErrorPage code={serverError} />;
+
     if (walletLoading) return null;
 
     // ── JSX 렌더링 ───────────────────────────────────────────────
