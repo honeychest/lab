@@ -153,143 +153,154 @@ export function updateMapColors(ds, sorted, localMinT, localMaxT, viewer) {
 }
 
 /**
- * handleCesiumClick: Cesium 지도에서 지역 클릭 시 처리 함수.
- *
- * @param {Object} click  - Cesium LEFT_CLICK 이벤트 객체. { position: Cartesian2 }
- *   click.position.x, click.position.y = 클릭된 화면 픽셀 좌표
- *
- * @param {Cesium.Viewer} viewer - Cesium Viewer 인스턴스
- *
- * @param {Object} refs - useCesiumMap.js에서 전달된 ref 객체들
- *   selectedEntityRef       - 현재 선택된 Entity ref
- *   selectedEntityNameRef   - 선택된 지역 매핑 이름 ref
- *   selectedEntityMaterialRef - 선택 전 색상 저장 ref (fallback)
- *   weatherDataRef          - 최신 날씨 데이터 ref
- *   clickCallbackRef        - 부모 컴포넌트에 전달할 콜백 ref
- *
- * 처리 흐름:
- *   [A] 이전 선택 영역 스타일 복원
- *   [B] viewer.scene.pick()으로 클릭된 엔티티 확인
- *   [C] 엔티티가 있으면 → 선택 스타일(돌출 높이 증가, 경계선 강조) 적용 + 콜백
- *   [D] 빈 공간 클릭이면 → 선택 초기화 + null 콜백
- *
- * viewer.scene.pick(position):
- *   화면의 특정 픽셀 위치에 있는 Cesium 객체를 반환.
- *   클릭한 위치에 폴리곤이 있으면 { id: Entity } 반환,
- *   아무것도 없으면 undefined 반환.
- *   jQuery: $(e.target).closest('[data-region]') 처럼 클릭된 요소 찾기와 유사.
- *
- * Cesium.defined(pickedObject):
- *   pickedObject가 undefined/null이 아닌지 확인하는 Cesium 유틸.
- *   JavaScript의 pickedObject != null 과 동일하나 Cesium 관례상 사용.
- *
- * CallbackProperty:
- *   Cesium의 동적 속성. 매 렌더링 프레임마다 함수를 호출해 값을 계산.
- *   아래에서 extrudedHeight에 사용해 선택 시 높이가 점점 올라가는 애니메이션 구현.
- *   false = 값이 시간에 따라 변함 (isConstant = false).
- *
- * 돌출 높이 애니메이션:
- *   let h = 0;
- *   CallbackProperty(() => { if (h < 30000) h += 10000; return h; })
- *   매 프레임 h가 10000씩 증가해서 0 → 10000 → 20000 → 30000m 에서 멈춤.
- *   jQuery의 animate({ height: 30000 }) 와 유사한 효과를 Cesium에서 구현.
+ * GeoJSON 엔티티 이름에서 패널 표시용 매핑 이름을 계산.
+ */
+function getMappingName(fullName) {
+  let mappingName = null;
+  for (const [city, province] of Object.entries(CITY_TO_PROVINCE)) {
+    if (fullName.includes(city)) {
+      mappingName = province;
+      break;
+    }
+  }
+  if (!mappingName) {
+    mappingName = GEO_ORDER.find((name) => fullName.includes(name)) || null;
+  }
+  return mappingName;
+}
+
+/**
+ * 엔티티 현재 채움색을 안전하게 추출한다.
+ * updateMapColors가 Cesium.Color를 직접 할당하므로 대부분 Color 케이스로 처리된다.
+ */
+function resolveEntityColor(entity, currentTime) {
+  const fallback = Cesium.Color.fromCssColorString("#60a5fa");
+  const material = entity?.polygon?.material;
+
+  if (!material) return fallback;
+  if (material instanceof Cesium.Color) return material.clone();
+  if (material instanceof Cesium.ColorMaterialProperty) {
+    const color = material.color?.getValue?.(currentTime);
+    return color ? color.clone() : fallback;
+  }
+  return fallback;
+}
+
+/**
+ * 기존 선택 오버레이 제거 + 진행 중 애니메이션 취소.
+ */
+function clearSelectionOverlay(viewer, selectedOverlayRef, overlayAnimationFrameRef) {
+  if (overlayAnimationFrameRef.current) {
+    cancelAnimationFrame(overlayAnimationFrameRef.current);
+    overlayAnimationFrameRef.current = null;
+  }
+  if (selectedOverlayRef.current) {
+    selectedOverlayRef.current.show = false;
+  }
+}
+
+/**
+ * 선택 오버레이 엔티티를 1회 생성 후 재사용한다.
+ * add/remove 반복으로 인한 프레임 드랍을 줄이기 위함.
+ */
+function getOrCreateOverlayEntity(viewer, selectedOverlayRef) {
+  if (selectedOverlayRef.current) {
+    return selectedOverlayRef.current;
+  }
+
+  const overlayEntity = viewer.entities.add({
+    show: false,
+    polygon: {
+      hierarchy: undefined,
+      material: Cesium.Color.fromCssColorString("#60a5fa").withAlpha(0.95),
+      outline: true,
+      outlineColor: Cesium.Color.GRAY,
+      outlineWidth: 4,
+      extrudedHeight: BASE_HEIGHT,
+    },
+  });
+  selectedOverlayRef.current = overlayEntity;
+  return overlayEntity;
+}
+
+/**
+ * 선택 오버레이를 위로 올리는 애니메이션.
+ * 기본 폴리곤은 건드리지 않고 오버레이만 변경한다.
+ */
+function animateOverlayRise(viewer, overlayEntity, overlayAnimationFrameRef) {
+  const TARGET_HEIGHT = 10000;
+  const DURATION_MS = 200;
+  const START_RATIO = 0.25;
+  const startTs = performance.now();
+  const startHeight = Math.max(BASE_HEIGHT, TARGET_HEIGHT * START_RATIO);
+
+  // 첫 프레임 전에도 즉시 시각 변화가 보이도록 선반영
+  overlayEntity.polygon.extrudedHeight = startHeight;
+  viewer.scene.requestRender();
+
+  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+  const tick = () => {
+    const nowTs = performance.now();
+    const elapsed = nowTs - startTs;
+    const progress = Math.min(elapsed / DURATION_MS, 1);
+    const eased = easeOutCubic(progress);
+    const currentHeight = startHeight + (TARGET_HEIGHT - startHeight) * eased;
+
+    overlayEntity.polygon.extrudedHeight = Math.max(BASE_HEIGHT, currentHeight);
+    viewer.scene.requestRender();
+
+    if (progress < 1) {
+      overlayAnimationFrameRef.current = requestAnimationFrame(tick);
+    } else {
+      overlayAnimationFrameRef.current = null;
+    }
+  };
+
+  overlayAnimationFrameRef.current = requestAnimationFrame(tick);
+}
+
+/**
+ * handleCesiumClick: 선택 효과를 "기본 레이어"와 분리된 오버레이 레이어로 처리.
+ * 기본 지도 폴리곤의 material/extrudedHeight를 변경하지 않으므로 투명화 경로를 차단한다.
  */
 export function handleCesiumClick(click, viewer, refs) {
-  const { selectedEntityRef, selectedEntityNameRef, selectedEntityMaterialRef, weatherDataRef, clickCallbackRef } = refs;
+  const { selectedOverlayRef, overlayAnimationFrameRef, clickCallbackRef } = refs;
 
-  // [B] 클릭 위치의 Cesium 엔티티 감지
   const pickedObject = viewer.scene.pick(click.position);
 
-  // [A] 이전 선택 영역 스타일 복원
-  if (selectedEntityRef.current) {
-    const prev = selectedEntityRef.current;
+  // 항상 이전 오버레이를 먼저 정리하고 시작한다.
+  clearSelectionOverlay(viewer, selectedOverlayRef, overlayAnimationFrameRef);
 
-    // 경계선 원래대로 복원
-    prev.polygon.outlineColor = OUTLINE_COLOR;
-    prev.polygon.outlineWidth = OUTLINE_WIDTH;
+  if (Cesium.defined(pickedObject) && pickedObject.id?.polygon) {
+    const baseEntity = pickedObject.id;
+    const fullName = baseEntity.properties?.name?._value || "";
+    const mappingName = getMappingName(fullName);
 
-    // 높이 복원: 0 대신 BASE_HEIGHT(1) → ExtrudedPolygon 타입 유지
-    prev.polygon.extrudedHeight = BASE_HEIGHT;
+    // 선택 색상은 기본 지도 색상을 그대로 복제해 alpha만 높인다.
+    const overlayColor = resolveEntityColor(baseEntity, viewer.clock.currentTime).withAlpha(0.95);
 
-    // 기온 색상 복원 (2단계 시도)
-    const { weatherList: wl, minT: mn, maxT: mx } = weatherDataRef.current;
+    // 선택 효과 오버레이는 재사용: hierarchy/material만 갱신.
+    const overlayEntity = getOrCreateOverlayEntity(viewer, selectedOverlayRef);
+    overlayEntity.polygon.hierarchy = baseEntity.polygon.hierarchy;
+    overlayEntity.polygon.material = overlayColor;
+    overlayEntity.polygon.outlineColor = Cesium.Color.GRAY;
+    overlayEntity.polygon.outlineWidth = 4;
+    overlayEntity.polygon.extrudedHeight = BASE_HEIGHT;
+    overlayEntity.show = true;
 
-    // 1단계: weatherDataRef에서 이 지역 데이터 검색해 색상 재계산
-    const regionData = wl.find((d) => d.name === selectedEntityNameRef.current);
-    if (regionData) {
-      prev.polygon.material = Cesium.Color.fromCssColorString(
-          getRelativeColor(regionData.tmp, mn, mx)
-      );
-    } else if (selectedEntityMaterialRef.current) {
-      // 2단계 fallback: 클릭 전에 저장해둔 색상으로 복원
-      prev.polygon.material = selectedEntityMaterialRef.current;
-    }
-  }
+    animateOverlayRise(viewer, overlayEntity, overlayAnimationFrameRef);
 
-  if (Cesium.defined(pickedObject) && pickedObject.id) {
-    // [C] 폴리곤(지역)을 클릭한 경우
-
-    const entity = pickedObject.id;
-
-    // 클릭 전 현재 색상을 fallback용으로 저장
-    selectedEntityMaterialRef.current = entity.polygon.material;
-
-    // 선택 스타일 적용: 경계선 강조
-    let h = 0; // 높이 애니메이션 초기값
-    entity.polygon.outlineColor = Cesium.Color.GRAY;
-    entity.polygon.outlineWidth = 4;
-
-    /**
-     * extrudedHeight 애니메이션:
-     *   CallbackProperty = 매 렌더 프레임마다 호출되는 함수.
-     *   h가 30000 미만이면 10000씩 증가 → 30000m(30km)에서 멈춤.
-     *   지도에서 선택된 지역이 3D 기둥처럼 솟아오르는 효과.
-     */
-    entity.polygon.extrudedHeight = new Cesium.CallbackProperty(() => {
-      if (h < 30000) h += 10000;
-      return h;
-    }, false);
-
-    // 현재 선택 상태 업데이트
-    selectedEntityRef.current = entity;
-
-    // GeoJSON 이름에서 날씨 데이터 매핑 이름 추출
-    // (updateMapColors와 동일한 로직으로 이름 변환)
-    const fullName = entity.properties.name?._value || "";
-
-    let mappingName = null;
-    for (const [city, province] of Object.entries(CITY_TO_PROVINCE)) {
-      if (fullName.includes(city)) {
-        mappingName = province;
-        break;
-      }
-    }
-    if (!mappingName) {
-      mappingName = GEO_ORDER.find((name) => fullName.includes(name)) || null;
-    }
-
-    // deselect 시 색상 재계산을 위해 매핑 이름 저장
-    selectedEntityNameRef.current = mappingName;
-
-    // 부모 컴포넌트에 클릭 정보 전달
-    // 날씨 패널 표시, 지역 이름 표시 등에 사용됨
     if (clickCallbackRef.current) {
       clickCallbackRef.current({
-        fullName,        // GeoJSON 원본 이름 (예: "서울특별시")
-        mappingName,     // 날씨 데이터 매핑 이름 (예: "서울")
-        screenPosition: { x: click.position.x, y: click.position.y }, // 화면 픽셀 좌표
+        fullName,
+        mappingName,
+        screenPosition: { x: click.position.x, y: click.position.y },
       });
     }
-  } else {
-    // [D] 빈 공간(폴리곤 아닌 곳) 클릭 → 선택 초기화
-    selectedEntityRef.current = null;
-    selectedEntityNameRef.current = null;
-    selectedEntityMaterialRef.current = null;
-    if (clickCallbackRef.current) {
-      clickCallbackRef.current(null); // null 전달 = 선택 해제 알림
-    }
+  } else if (clickCallbackRef.current) {
+    clickCallbackRef.current(null);
   }
 
-  // 변경 사항 화면에 반영 (requestRenderMode: true 환경에서 필수)
   viewer.scene.requestRender();
 }

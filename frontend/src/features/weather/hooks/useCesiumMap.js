@@ -64,67 +64,25 @@ export function useCesiumMap({ weatherList, minT, maxT, onRegionClick }) {
   const viewerRef = useRef(null);
 
   /**
-   * selectedEntityRef: 현재 클릭 선택된 Cesium Entity 객체.
-   * 새 지역을 클릭할 때 이전 선택 영역의 스타일(색상, 높이)을 원래대로 복원하는데 사용.
-   * null = 아무것도 선택되지 않은 상태.
+   * selectedOverlayRef: 선택 강조(솟아오른 영역) 전용 오버레이 Entity.
+   * 기본 지도 폴리곤은 건드리지 않고, 선택 효과는 이 오버레이만 생성/제거한다.
    */
-  const selectedEntityRef = useRef(null);
+  const selectedOverlayRef = useRef(null);
 
   /**
-   * selectedEntityNameRef: 선택된 지역의 매핑 이름 (예: "서울", "경기").
-   * deselect(선택 해제) 시 색상을 재계산할 때 weatherDataRef에서 검색하는 키로 사용.
-   *
-   * ⚠️ 이 ref는 절대 제거하지 말 것.
-   * extrudedHeight를 CallbackProperty → 0으로 바꾸면 Cesium이 geometry를 재빌드하고,
-   * 재빌드 과정에서 polygon.material(기온 색상)이 초기화되어 투명해진다.
-   * 카메라가 기울어진 상태에서는 3D 프리즘 재빌드 시 property 참조가 stale해지므로
-   * weatherDataRef에서 색상을 직접 재계산하는 방식을 우선 사용하고, 없으면 fallback.
+   * overlayAnimationFrameRef: 선택 오버레이 상승 애니메이션 requestAnimationFrame ID.
+   * 새 선택/해제 시 기존 애니메이션을 취소해 상태 꼬임을 방지한다.
    */
-  const selectedEntityNameRef = useRef(null);
-
-  /**
-   * selectedEntityMaterialRef: 이전 선택 Entity의 polygon.material(색상) 저장.
-   * fallback용: weatherDataRef에서 regionData를 못 찾을 때 이 저장된 색상으로 복원.
-   * 색상이 저장된 Cesium.ColorMaterialProperty 객체.
-   */
-  const selectedEntityMaterialRef = useRef(null);
-
-  /**
-   * weatherDataRef: 최신 날씨 데이터의 스냅샷 보관.
-   *
-   * 왜 state가 아닌 ref인가?
-   *   handleCesiumClick은 Cesium 이벤트 핸들러(클로저)로 useEffect 안에서 한 번만 등록됨.
-   *   이 시점의 weatherList, minT, maxT 값이 클로저에 캡처되어 "고정됨".
-   *   이후 날씨 데이터가 바뀌어도 클릭 핸들러는 처음 값만 봄 (stale closure 문제).
-   *
-   *   해결: ref에 항상 최신 값을 동기화하고, 클릭 핸들러는 ref.current를 읽음.
-   *   jQuery 비유: 클로저 밖의 변수를 참조하는 것과 같음.
-   *     var latestData = {}; // 외부 변수
-   *     $('#map').on('click', function() { use(latestData); }); // 항상 최신 값 참조
-   */
-  const weatherDataRef = useRef({ weatherList: [], minT: 0, maxT: 0 });
+  const overlayAnimationFrameRef = useRef(null);
 
   /**
    * clickCallbackRef: onRegionClick 콜백 함수의 최신 버전 보관.
-   * 위 weatherDataRef와 동일한 이유로 ref 사용.
+   * Cesium 클릭 핸들러가 stale closure를 참조하지 않도록 ref 사용.
    * 클릭 핸들러가 항상 최신 콜백을 호출하도록 보장.
    */
   const clickCallbackRef = useRef(onRegionClick);
 
   // ── Ref 동기화 useEffect ─────────────────────────────────────
-
-  /**
-   * 날씨 데이터 ref 동기화:
-   * weatherList, minT, maxT가 변경될 때마다 weatherDataRef.current 업데이트.
-   * 의존성 배열 [weatherList, minT, maxT]: 이 값들이 바뀔 때마다 실행.
-   *
-   * 이 useEffect는 화면을 다시 그리지 않음 (ref 업데이트는 리렌더링 안 일으킴).
-   * 클릭 핸들러가 다음 클릭 시 weatherDataRef.current 를 읽으면 최신 데이터를 얻음.
-   */
-  useEffect(() => {
-    weatherDataRef.current = { weatherList, minT, maxT };
-  }, [weatherList, minT, maxT]);
-
   /**
    * 콜백 ref 동기화:
    * onRegionClick 함수가 바뀔 때마다 clickCallbackRef.current 업데이트.
@@ -180,6 +138,11 @@ export function useCesiumMap({ weatherList, minT, maxT, onRegionClick }) {
      */
     viewer.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(127.5, 36.0, 1300000.0),
+      orientation: {
+        heading: 0.0,
+        pitch: Cesium.Math.toRadians(-80.0),
+        roll: 0.0,
+      },
     });
 
     /**
@@ -200,7 +163,7 @@ export function useCesiumMap({ weatherList, minT, maxT, onRegionClick }) {
      *   var context = { selectedEl: null, data: {} };
      *   $canvas.on('click', function(e) { handleClick(e, context); });
      */
-    const refs = { selectedEntityRef, selectedEntityNameRef, selectedEntityMaterialRef, weatherDataRef, clickCallbackRef };
+    const refs = { selectedOverlayRef, overlayAnimationFrameRef, clickCallbackRef };
 
     /**
      * LEFT_CLICK 이벤트에 클릭 핸들러 등록:
@@ -225,6 +188,14 @@ export function useCesiumMap({ weatherList, minT, maxT, onRegionClick }) {
      * jQuery 비유: $.fn.plugin('destroy') 처럼 플러그인 정리.
      */
     return () => {
+      if (overlayAnimationFrameRef.current) {
+        cancelAnimationFrame(overlayAnimationFrameRef.current);
+        overlayAnimationFrameRef.current = null;
+      }
+      if (selectedOverlayRef.current) {
+        viewer.entities.remove(selectedOverlayRef.current);
+        selectedOverlayRef.current = null;
+      }
       handler.destroy();
       viewer.destroy();
     };

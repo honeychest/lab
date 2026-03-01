@@ -63,7 +63,7 @@ export interface WeatherData {
     wind: string;
     /** 강수량 (mm). 없으면 "0" 또는 "강수없음". 예: "5.0" */
     rain: string;
-    /** 표시용 시각 문자열. App.jsx에서 원본 time을 가공해 추가. 예: "22:00" */
+    /** 표시용 시각 문자열. CesiumPage.jsx에서 원본 time을 가공해 추가. 예: "22:00" */
     displayTime?: string;
     /** 원본 예보 시각 코드. 기상청 형식. 예: "2200" (22시), "0300" (03시) */
     time?: string;

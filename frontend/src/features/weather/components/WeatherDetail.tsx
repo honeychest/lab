@@ -16,7 +16,7 @@
  *    PC 전용 추가 항목: 강수량(mm) / 예보 시각
  *
  *  호출 구조:
- *    useCesiumMap (클릭 감지) → App.jsx (상태 관리) → WeatherDetail (팝업 렌더링)
+ *    useCesiumMap (클릭 감지) → CesiumPage.jsx (상태 관리) → WeatherDetail (팝업 렌더링)
  *
  *  jQuery 비유:
  *    $.ajax로 받아온 날씨 데이터를 기반으로
@@ -34,7 +34,7 @@ import React from 'react';
 /**
  * WeatherData: 팝업에 표시할 날씨 데이터의 구조 정의.
  *
- * App.jsx에서 API 응답을 가공해 이 형태로 만들어 전달.
+ * CesiumPage.jsx에서 API 응답을 가공해 이 형태로 만들어 전달.
  * Spring Boot WeatherService의 응답 필드(tmp, hum, wind, rain 등)와 매핑됨.
  *
  * jQuery 비유:
@@ -59,11 +59,11 @@ interface WeatherData {
 }
 
 /**
- * WeatherDetailProps: 부모 컴포넌트(App.jsx)에서 전달받는 props 구조.
+ * WeatherDetailProps: 부모 컴포넌트(CesiumPage.jsx)에서 전달받는 props 구조.
  *
  * 각 prop의 역할:
  *   weather   → 표시할 날씨 데이터 객체
- *   onClose   → 닫기 버튼 클릭 시 실행할 콜백 (App.jsx에서 팝업 상태를 null로 초기화)
+ *   onClose   → 닫기 버튼 클릭 시 실행할 콜백 (CesiumPage.jsx에서 팝업 상태를 null로 초기화)
  *   isMobile  → 화면 너비 기준 모바일 여부 (true면 하단 시트, false면 고정 위치 팝업)
  *   popupPos  → 클릭한 화면 좌표 { x, y } (PC 팝업 위치 계산에 사용)
  */
@@ -213,7 +213,7 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
                     </h3>
                     {/*
                       예보 시각 (weather.displayTime):
-                        App.jsx에서 원본 시간(예: "2200")을 "22:00" 형태로 변환해 전달.
+                        CesiumPage.jsx에서 원본 시간(예: "2200")을 "22:00" 형태로 변환해 전달.
                         기온 옆에 작게 표시해 "어느 시점의 예보인지" 명시.
                     */}
                     <span style={{ fontSize: '11px', color: '#888' }}>{weather.displayTime}</span>
@@ -224,7 +224,7 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
                       - preventDefault: 버튼 클릭 시 form submit 등 기본 동작 방지
                       - stopPropagation: 클릭 이벤트가 Cesium 지도로 전파되어
                         의도치 않은 지도 클릭 이벤트가 발생하는 것을 차단.
-                    onClose(): 부모(App.jsx)의 setState를 호출해 팝업 데이터를 null로 초기화 → 팝업 제거.
+                    onClose(): 부모(CesiumPage.jsx)의 setState를 호출해 팝업 데이터를 null로 초기화 → 팝업 제거.
                 */}
                 <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}

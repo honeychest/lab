@@ -1,11 +1,11 @@
 // Purpose: 앱 전체 라우팅 설정 — URL별 페이지 컴포넌트 연결
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import App from './App'; // 기존 날씨 지도 컴포넌트
+import CesiumPage from './pages/cesium/CesiumPage';
 import ErrorPage from './pages/ErrorPage';
 import ErrorTest from './pages/ErrorTest';
 import BinancePage from './pages/BinancePage';
 
-function AppRouter() {
+function MainRouter() {
     return (
         <Router>
             <Routes>
@@ -13,7 +13,7 @@ function AppRouter() {
                 <Route path="/" element={<BinancePage />} />
 
                 {/* Cesium 페이지 */}
-                <Route path="/cesium" element={<App />} />
+                <Route path="/cesium" element={<CesiumPage />} />
 
                 {/* 기존 /app 경로 호환: /cesium으로 리다이렉트 */}
                 <Route path="/app" element={<Navigate to="/cesium" replace />} />
@@ -31,4 +31,4 @@ function AppRouter() {
     );
 }
 
-export default AppRouter;
+export default MainRouter;

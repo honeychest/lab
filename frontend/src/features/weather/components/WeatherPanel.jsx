@@ -35,7 +35,7 @@ import { useEffect, useRef, useState } from 'react';
 import Draggable from 'react-draggable';
 
 import { getRelativeColor } from '../utils/weatherUtils.ts';
-import styles from '../../../App.module.css';
+import styles from '../../../pages/cesium/CesiumPage.module.css';
 
 /**
  * WeatherPanel 컴포넌트

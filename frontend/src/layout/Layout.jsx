@@ -8,7 +8,7 @@ function Layout({ children, footerCenter = [] }) {
     <div className={styles.layout}>
       <Header />
       <main className={styles.main}>
-        {/* 메인 컨텐츠 영역 (기존 App 내용이 들어감) */}
+        {/* 메인 컨텐츠 영역 (페이지 본문이 들어감) */}
         {children}
       </main>
       <Footer centerTech={footerCenter} />
@@ -17,4 +17,3 @@ function Layout({ children, footerCenter = [] }) {
 }
 
 export default Layout;
-
