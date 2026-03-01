@@ -4,7 +4,7 @@ import styles from './Header.module.css';
 
 const NAV_ITEMS = [
     { label: 'Binance', path: '/' },
-    { label: 'Cesium', path: '/app' },
+    { label: 'Cesium', path: '/cesium' },
 ];
 
 function Header() {

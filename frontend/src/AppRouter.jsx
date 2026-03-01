@@ -13,7 +13,10 @@ function AppRouter() {
                 <Route path="/" element={<BinancePage />} />
 
                 {/* Cesium 페이지 */}
-                <Route path="/app" element={<App />} />
+                <Route path="/cesium" element={<App />} />
+
+                {/* 기존 /app 경로 호환: /cesium으로 리다이렉트 */}
+                <Route path="/app" element={<Navigate to="/cesium" replace />} />
 
                 {/* 에러 페이지 — ?code= 파라미터로 4xx/5xx 분기 */}
                 <Route path="/error" element={<ErrorPage />} />

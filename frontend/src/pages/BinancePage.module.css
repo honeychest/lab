@@ -10,11 +10,36 @@
     display: none;
 }
 
+/* 코인 탭 컨테이너: 항목이 많아지면 가로 스크롤, 적으면 기존과 거의 동일한 배치 */
+.coinTabsScroll {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge legacy */
+}
+
+.coinTabsScroll::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Edge */
+}
+
 @media (max-width: 768px) {
     .pcOnly {
         display: none;
     }
     .mobileOnly {
         display: block;
+    }
+    .tickerHeaderRow {
+        justify-content: flex-start;
+        align-items: flex-start;
+    }
+    .liveStatusBlock {
+        width: 100%;
+        align-items: flex-start !important;
     }
 }

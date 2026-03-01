@@ -96,6 +96,8 @@ const STATUS_CONFIG = {
 const COINS = [
     { symbol: 'BTCUSDT', code: 'BTC', label: 'BTC / USDT', upbitCode: 'KRW-BTC' },
     { symbol: 'ETHUSDT', code: 'ETH', label: 'ETH / USDT', upbitCode: 'KRW-ETH' },
+    { symbol: 'SOLUSDT', code: 'SOL', label: 'SOL / USDT', upbitCode: 'KRW-SOL' },
+    { symbol: 'XRPUSDT', code: 'XRP', label: 'XRP / USDT', upbitCode: 'KRW-XRP' },
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -386,16 +388,19 @@ function BinancePage() {
                         marginBottom: '20px',
                     }}>
                         {/* 코인 선택 탭 + LIVE 상태 표시 (한 줄, space-between) */}
-                        <div style={{
+                        <div
+                            className={pageStyles.tickerHeaderRow}
+                            style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             marginBottom: '16px',
                             flexWrap: 'wrap',
                             gap: '8px',
-                        }}>
+                        }}
+                        >
                             {/* 좌측: 코인 선택 탭 */}
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <div className={pageStyles.coinTabsScroll}>
                                 {COINS.map((coin) => {
                                     const isActive = coin.symbol === selectedSymbol;
                                     return (
@@ -425,7 +430,10 @@ function BinancePage() {
                               USDT 가격을 LIVE 도트 바로 아래에 작게 표시.
                               TODO: 실데이터 연동 후 '₩9,999' → 실제 KRW-USDT 값으로 교체.
                             */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            <div
+                                className={pageStyles.liveStatusBlock}
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}
+                            >
                                 {/* LIVE 도트 + 상태 텍스트 */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     {/* 가격 갱신 시 내부가 채워지는 동그라미 */}
