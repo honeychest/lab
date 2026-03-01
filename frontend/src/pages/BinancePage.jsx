@@ -196,25 +196,31 @@ function BinancePage() {
                  *   res.data 에 담겨 옴.
                  */
                 const res = await axios.get('/api/binance/account');
+
+                /**
+                 * Nginx proxy_intercept_errors 대응:
+                 *   백엔드 다운 시 Nginx가 502를 가로채 /50x.html을 200 OK + text/html로 반환.
+                 *   axios는 200이므로 에러로 인식하지 않아 catch가 타지 않음.
+                 *   → Content-Type이 application/json이 아니면 서버 다운으로 판단.
+                 */
+                const contentType = res.headers['content-type'] || '';
+                if (!contentType.includes('application/json')) {
+                    navigate('/error?code=502');
+                    return;
+                }
+
                 setAccountInfo(res.data); // 성공 시 데이터 저장 → BinanceWallet 컴포넌트 재렌더링
 
             } catch (err) {
                 /**
-                 * catch: axios 요청 실패 시 실행 (HTTP 4xx, 5xx, 네트워크 오류 등).
-                 * jQuery $.ajax의 error 콜백과 동일.
+                 * catch: 네트워크 오류 또는 4xx/5xx (Nginx 미경유 직접 오류) 시 실행.
                  *
-                 * 서버 다운 판별 기준:
-                 *   - err.response?.status: HTTP 응답 상태 코드.
-                 *   - status가 없음 (undefined): 네트워크 오류 — 서버에 아예 도달 못한 경우.
-                 *   - status >= 500: 백엔드 오류 (502 Bad Gateway = Nginx가 백엔드에 연결 불가 등).
-                 *   위 두 경우 모두 서버 문제로 판단해 에러 페이지로 이동.
-                 *
-                 * 4xx (예: 401 인증 실패, 403 권한 없음):
-                 *   서버는 살아있고 앱 레벨 오류이므로 에러 메시지만 표시.
+                 * status 없음: 네트워크 자체 단절 → 서버 다운으로 판단.
+                 * status >= 500: 백엔드 오류.
+                 * 4xx: 앱 레벨 오류 → 에러 메시지만 표시.
                  */
                 const status = err?.response?.status;
                 if (!status || status >= 500) {
-                    // 서버 다운 → 에러 페이지 이동 (502가 기본, status 없으면 503으로 표시)
                     navigate(`/error?code=${status ?? 503}`);
                     return;
                 }

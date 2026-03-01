@@ -29,6 +29,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { GEO_ORDER } from "../features/weather/constants/regions";
 
 // ─────────────────────────────────────────────────────────────────
@@ -96,6 +97,8 @@ interface UseWeatherDataResult {
 
 export function useWeatherData(): UseWeatherDataResult {
 
+  const navigate = useNavigate();
+
   // ── State 선언 ──────────────────────────────────────────────
 
   /** 현재 선택된 시간의 전국 날씨 데이터 목록 */
@@ -141,21 +144,27 @@ export function useWeatherData(): UseWeatherDataResult {
     const fetchAvailableHours = async () => {
       try {
         const res = await fetch("/api/weather/available-hours");
+
+        /**
+         * Nginx proxy_intercept_errors 대응:
+         *   백엔드 다운 시 Nginx가 502를 가로채 200 OK + text/html로 반환.
+         *   Content-Type이 application/json이 아니면 서버 다운으로 판단해 에러 페이지로 이동.
+         */
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          navigate('/error?code=502');
+          return;
+        }
+
         const data: number[] = await res.json(); // 응답 JSON → 숫자 배열로 파싱
         if (data && data.length > 0) {
           setAvailableHours(data);
           setSelectedHour(data[data.length - 1]); // 가장 최근 시간을 기본 선택
-          return;
         }
       } catch {
-        // 서버 오류 무시 → fallback 실행
+        // 네트워크 자체 단절 등 fetch 실패 시 에러 페이지로 이동
+        navigate('/error?code=503');
       }
-
-      // fallback: 서버 응답 없을 때 현재 시각 기준으로 시간 목록 생성
-      const nowHour = new Date().getHours(); // 현재 시각 (0~23)
-      const fallback = Array.from({ length: nowHour + 1 }, (_, i) => i); // [0, 1, ..., nowHour]
-      setAvailableHours(fallback);
-      setSelectedHour(fallback[fallback.length - 1]); // 현재 시각을 기본 선택
     };
 
     fetchAvailableHours();
@@ -196,23 +205,39 @@ export function useWeatherData(): UseWeatherDataResult {
 
     setIsInitialLoading(true); // 데이터 조회 시작 → 로딩 표시
 
-    fetch(`/api/weather/all?hour=${selectedHour}`)
-      .then((res) => res.json())
-      .then((data) => {
+    /**
+     * Nginx proxy_intercept_errors 대응을 위해 async/await 방식으로 변환.
+     * content-type 체크 후 서버 다운 여부를 판별한다.
+     */
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch(`/api/weather/all?hour=${selectedHour}`);
+
+        // Content-Type이 JSON이 아니면 Nginx가 50x.html을 반환한 것 → 서버 다운
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          navigate('/error?code=502');
+          return;
+        }
+
+        const data = await res.json();
         // GEO_ORDER 순서로 데이터 정렬 + tmp 숫자 변환
         const sorted: WeatherDataItem[] = GEO_ORDER.map((name) => ({
           name,
-          ...(data?.[name] ?? {}),          // 해당 지역 날씨 데이터 병합
+          ...(data?.[name] ?? {}),               // 해당 지역 날씨 데이터 병합
           tmp: parseFloat(data?.[name]?.tmp ?? 0), // tmp 문자열 → 숫자 변환
         }));
 
         setWeatherList(sorted);
         setIsInitialLoading(false); // 로딩 완료
-      })
-      .catch(() => {
-        setWeatherList([]); // 실패 시 빈 목록
+      } catch {
+        // 네트워크 자체 단절 등 fetch 실패 시 에러 페이지로 이동
+        navigate('/error?code=503');
         setIsInitialLoading(false);
-      });
+      }
+    };
+
+    fetchWeather();
   }, [selectedHour]); // selectedHour 변경 시마다 재실행
 
   // ── 기온 범위 계산 ───────────────────────────────────────────
