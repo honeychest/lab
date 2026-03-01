@@ -355,6 +355,16 @@ function BinancePage() {
         return () => clearTimeout(timer);
     }, [ticker?.E]);
 
+    // ── 서버 응답 대기 중 렌더 차단 ──────────────────────────────
+    /**
+     * walletLoading이 true인 동안(= fetchWallet API 응답 전)은 아무것도 렌더하지 않음.
+     * 이유:
+     *   API 응답이 오기 전에 페이지를 렌더하면 서버 다운 시
+     *   에러 페이지로 navigate 하기까지 ~0.3초간 BinancePage가 노출됨.
+     *   null을 반환하면 빈 화면으로 대기하다가 응답 후 정상 렌더 또는 에러 페이지로 이동.
+     */
+    if (walletLoading) return null;
+
     // ── JSX 렌더링 ───────────────────────────────────────────────
     /**
      * JSX: JavaScript 안에서 HTML처럼 보이는 문법.
