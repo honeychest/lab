@@ -68,7 +68,7 @@ export const OUTLINE_WIDTH = 2;
  *   선택 시 extrudedHeight를 0→30000m로 애니메이션 하고,
  *   해제 시 1로 돌려놓음 (0이 아닌 1).
  */
-export const BASE_HEIGHT = 1;
+export const BASE_HEIGHT = 0;
 
 // ─────────────────────────────────────────────────────────────────
 //  함수 정의
@@ -111,7 +111,7 @@ export const BASE_HEIGHT = 1;
  *      requestRenderMode: true 설정 시 자동 렌더링이 없으므로 명시 호출 필요.
  *      jQuery 비유: 없음 (DOM 변경은 자동 반영되지만 WebGL은 수동 요청 필요)
  */
-export function updateMapColors(ds, sorted, localMinT, localMaxT, viewer) {
+export function updateMapColors(ds, sorted, localMinT, localMaxT, viewer, isFirstLoad = false) {
   ds.entities.values.forEach((entity) => {
     // GeoJSON에서 이 폴리곤의 지역명 읽기
     // 예: "서울특별시", "부산광역시", "경기도" 등
@@ -148,8 +148,20 @@ export function updateMapColors(ds, sorted, localMinT, localMaxT, viewer) {
     }
   });
 
-  // 색상 변경 후 화면 다시 그리기 요청
-  viewer.scene.requestRender();
+  // 초기 로드 시 남한 중심으로 카메라 위치 고정
+  if (isFirstLoad) {
+    viewer.camera.setView({
+      // 위도를 34.0으로 더 낮추고, 고도를 1,000,000(1000km)으로 조절하여 남쪽 위주로 배치
+      destination: Cesium.Cartesian3.fromDegrees(127.8, 31.0, 1000000),
+      orientation: {
+        heading: Cesium.Math.toRadians(0),
+        pitch: Cesium.Math.toRadians(-65), // 각도를 -45도로 완화하여 북쪽 노출 감소
+        roll: 0
+      }
+    });
+  } else {
+    viewer.scene.requestRender();
+  }
 }
 
 /**
@@ -195,7 +207,14 @@ function clearSelectionOverlay(viewer, selectedOverlayRef, overlayAnimationFrame
     overlayAnimationFrameRef.current = null;
   }
   if (selectedOverlayRef.current) {
-    selectedOverlayRef.current.show = false;
+    const entity = selectedOverlayRef.current;
+    entity.show = false;
+    // 테두리 잔상이 남지 않도록 높이 값을 즉시 초기화
+    entity.polygon.extrudedHeight = 0;
+    entity.polygon.height = 0;
+    // 3. 엔티티 숨김
+    entity.show = false;
+    viewer.scene.requestRender();
   }
 }
 
@@ -233,6 +252,9 @@ function animateOverlayRise(viewer, overlayEntity, overlayAnimationFrameRef) {
   const START_RATIO = 0.25;
   const startTs = performance.now();
   const startHeight = Math.max(BASE_HEIGHT, TARGET_HEIGHT * START_RATIO);
+
+  // 바닥면(height)을 지면보다 아래(-100m)로 내려서 지표면과 겹치는 현상(Z-fighting) 제거
+  overlayEntity.polygon.height = -100;
 
   // 첫 프레임 전에도 즉시 시각 변화가 보이도록 선반영
   overlayEntity.polygon.extrudedHeight = startHeight;
@@ -278,7 +300,7 @@ export function handleCesiumClick(click, viewer, refs) {
     const mappingName = getMappingName(fullName);
 
     // 선택 색상은 기본 지도 색상을 그대로 복제해 alpha만 높인다.
-    const overlayColor = resolveEntityColor(baseEntity, viewer.clock.currentTime).withAlpha(0.95);
+    const overlayColor = resolveEntityColor(baseEntity, viewer.clock.currentTime).withAlpha(1);
 
     // 선택 효과 오버레이는 재사용: hierarchy/material만 갱신.
     const overlayEntity = getOrCreateOverlayEntity(viewer, selectedOverlayRef);

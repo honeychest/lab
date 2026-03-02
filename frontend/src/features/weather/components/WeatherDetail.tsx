@@ -25,7 +25,8 @@
  *    직접 DOM을 조작하지 않음.
  * ─────────────────────────────────────────────────────────────────
  */
-import React from 'react';
+import React, {useRef} from 'react';
+import Draggable from "react-draggable";
 
 // ─────────────────────────────────────────────────────────────────
 //  타입 정의
@@ -88,7 +89,8 @@ interface WeatherDetailProps {
  *   React는 반환값이 DOM 문자열이 아닌 가상 DOM 객체(JSX).
  */
 const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobile, popupPos }) => {
-
+    // Draggable 이용을 위한 nodeRef 설정 없으면 findDOMNode 에런발생
+    const nodeRef = useRef(null);
     // ── 모바일 스타일 ────────────────────────────────────────────
     /**
      * mobileStyle: 모바일 환경에서 화면 하단 전체 너비로 표시되는 시트 스타일.
@@ -188,117 +190,71 @@ const WeatherDetail: React.FC<WeatherDetailProps> = ({ weather, onClose, isMobil
 
     // ── JSX 렌더링 ───────────────────────────────────────────────
     return (
-        <div style={containerStyle}>
-            {/*
-              모바일 전용 드래그 핸들 (상단 회색 바):
-                - 모바일 바텀 시트에서 "여기를 잡아서 아래로 내릴 수 있다"는 시각적 힌트.
-                - isMobile이 false이면 렌더링하지 않음 (null 반환).
-                - jQuery 비유: if (isMobile) $popup.prepend('<div class="drag-handle">');
-            */}
-            {isMobile && (
-                <div style={{ width: '36px', height: '4px', backgroundColor: '#f0f0f0', borderRadius: '2px', margin: '0 auto 12px' }} />
-            )}
-
-            {/* ── 헤더: 지역명 + 예보시각 + 닫기 버튼 ─────────── */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                {/* 좌측: 지역명 + 시각 */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    {/*
-                      지역명 (weather.city):
-                        CITY_TO_PROVINCE 매핑으로 처리된 최종 지역명.
-                        예: "서울특별시", "강원도"
-                    */}
-                    <h3 style={{ margin: 0, fontSize: isMobile ? '16px' : '17px', fontWeight: '800', color: '#111' }}>
-                        {weather.city}
-                    </h3>
-                    {/*
-                      예보 시각 (weather.displayTime):
-                        CesiumPage.jsx에서 원본 시간(예: "2200")을 "22:00" 형태로 변환해 전달.
-                        기온 옆에 작게 표시해 "어느 시점의 예보인지" 명시.
-                    */}
-                    <span style={{ fontSize: '11px', color: '#888' }}>{weather.displayTime}</span>
-                </div>
-                {/*
-                  닫기 버튼 (✕):
-                    onClick에서 e.preventDefault() + e.stopPropagation():
-                      - preventDefault: 버튼 클릭 시 form submit 등 기본 동작 방지
-                      - stopPropagation: 클릭 이벤트가 Cesium 지도로 전파되어
-                        의도치 않은 지도 클릭 이벤트가 발생하는 것을 차단.
-                    onClose(): 부모(CesiumPage.jsx)의 setState를 호출해 팝업 데이터를 null로 초기화 → 팝업 제거.
-                */}
-                <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
-                    style={{
-                        background: '#f5f5f5', border: 'none', borderRadius: '50%',
-                        width: '28px', height: '28px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#999', fontSize: '12px', padding: 0
-                    }}
-                >✕</button>
-            </div>
-
-            {/* ── 정보 박스 그리드 ───────────────────────────────── */}
-            {/*
-              레이아웃 전략:
-                - 모바일: display flex, overflow hidden → 4개 박스 가로 1줄 배치
-                - PC:     display grid, 2열 → 최대 6개 박스 2×3 그리드 배치
-
-              InfoBox 컴포넌트:
-                icon  = 이모지 아이콘 (시각적 구분)
-                label = 항목명 (기온, 강수 등)
-                value = 표시할 값 문자열
-
-              강수확률(pop) 처리:
-                pop === "-" → 기상청이 강수확률을 미제공한 경우. "0%"로 표시.
-                그 외 → pop 값 그대로 "%"를 붙여 표시. (예: "30%")
-
-              강수량(rain) 처리:
-                "0" 또는 "강수없음" → "0mm"로 표시.
-                그 외 → rain 값에 "mm"를 붙여 표시. (예: "5.0mm")
-            */}
-            <div style={isMobile ? { display: 'flex', gap: '6px', overflow: 'hidden' } : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <InfoBox isMobile={isMobile} icon="🌡️" label="기온" value={`${weather.tmp}°C`} color="#ff4757" />
-                <InfoBox isMobile={isMobile} icon="💧" label="강수" value={weather.pop === "-" ? "0%" : `${weather.pop}%`} />
-                <InfoBox isMobile={isMobile} icon="💦" label="습도" value={`${weather.hum}%`} />
-                <InfoBox isMobile={isMobile} icon="💨" label="풍속" value={`${weather.wind}m/s`} />
-
-                {/*
-                  PC 전용 추가 항목:
-                    모바일은 화면 폭이 좁아 4개가 한 줄에 꽉 차므로 2개 추가 항목은 생략.
-                    PC에서만 강수량, 시각을 추가로 표시.
-                */}
-                {!isMobile && (
-                    <>
-                        <InfoBox isMobile={isMobile} icon="☔" label="강수량" value={weather.rain === "0" || weather.rain === "강수없음" ? "0mm" : `${weather.rain}mm`} />
-                        <InfoBox isMobile={isMobile} icon="🕒" label="시각" value={weather.displayTime} />
-                    </>
+        /* 1. Draggable이 전체를 감싸야 제목과 내용이 같이 움직입니다. */
+        <Draggable nodeRef={nodeRef} bounds="parent" disabled={isMobile}>
+            <div
+                ref={nodeRef} /* 2. 반드시 여기에 ref를 달아줘야 DOM 에러가 안 납니다. */
+                style={containerStyle}
+            >
+                {/* 모바일 전용 핸들 */}
+                {isMobile && (
+                    <div style={{ width: '36px', height: '4px', backgroundColor: '#f0f0f0', borderRadius: '2px', margin: '0 auto 12px' }} />
                 )}
+
+                {/* ── 헤더: 지역명 + 예보시각 + 닫기 버튼 ─────────── */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '14px',
+                    cursor: isMobile ? 'default' : 'move' // PC에선 헤더를 잡고 옮길 수 있게 표시
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <h3 style={{ margin: 0, fontSize: isMobile ? '16px' : '17px', fontWeight: '800', color: '#111' }}>
+                            {weather.city}
+                        </h3>
+                        <span style={{ fontSize: '11px', color: '#888' }}>{weather.displayTime}</span>
+                    </div>
+                    <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
+                        style={{
+                            background: '#f5f5f5', border: 'none', borderRadius: '50%',
+                            width: '28px', height: '28px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#999', fontSize: '12px', padding: 0
+                        }}
+                    >✕</button>
+                </div>
+
+                {/* ── 정보 박스 그리드 ───────────────────────────────── */}
+                <div style={isMobile
+                    ? { display: 'flex', gap: '6px', overflow: 'hidden' }
+                    : {
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '8px'
+                    }
+                }>
+                    <InfoBox isMobile={isMobile} icon="🌡️" label="기온" value={`${weather.tmp}°C`} color="#ff4757" />
+                    <InfoBox isMobile={isMobile} icon="💧" label="강수" value={weather.pop === "-" ? "0%" : `${weather.pop}%`} />
+                    <InfoBox isMobile={isMobile} icon="💦" label="습도" value={`${weather.hum}%`} />
+                    <InfoBox isMobile={isMobile} icon="💨" label="풍속" value={`${weather.wind}m/s`} />
+
+                    {!isMobile && (
+                        <>
+                            <InfoBox isMobile={isMobile} icon="☔" label="강수량" value={weather.rain === "0" || weather.rain === "강수없음" ? "0mm" : `${weather.rain}mm`} />
+                            <InfoBox isMobile={isMobile} icon="🕒" label="시각" value={weather.displayTime} />
+                        </>
+                    )}
+                </div>
+
+                <style>{`
+                    .cesium-widget-credits { display: none !important; }
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+                `}</style>
             </div>
-
-            {/* ── 애니메이션 CSS 정의 ───────────────────────────── */}
-            {/*
-              <style> 태그를 JSX 내부에 인라인으로 삽입:
-                컴포넌트가 렌더링될 때 해당 애니메이션 CSS를 DOM에 주입.
-                별도 CSS 파일 없이도 이 컴포넌트 안에서 애니메이션이 동작.
-
-              @keyframes fadeIn:
-                팝업이 나타날 때 opacity 0 → 1로 부드럽게 전환 (PC 스타일 사용).
-
-              @keyframes slideUp:
-                모바일 시트가 아래(화면 밖)에서 위로 슬라이드되어 나타남.
-                transform: translateY(100%) = 화면 아래 완전히 숨겨진 상태
-                transform: translateY(0)   = 정상 위치
-
-              .cesium-widget-credits { display: none }:
-                Cesium이 렌더링하는 기본 저작권 표시("Cesium ion" 등)를 숨김.
-                오픈소스 Cesium을 사용하면 자동으로 표시되는 것을 UI 정리용으로 제거.
-            */}
-            <style>{`
-                .cesium-widget-credits { display: none !important; }
-                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-            `}</style>
-        </div>
+        </Draggable>
     );
 };
 

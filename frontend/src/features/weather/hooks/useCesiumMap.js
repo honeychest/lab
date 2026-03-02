@@ -231,11 +231,11 @@ export function useCesiumMap({ weatherList, minT, maxT, onRegionClick }) {
       // GeoJSON 최초 로드 (앱 시작 후 첫 번째 날씨 데이터 수신 시)
       Cesium.GeoJsonDataSource.load("/data/korea.json").then((ds) => {
         viewerRef.current.dataSources.add(ds);
-        updateMapColors(ds, weatherList, minT, maxT, viewerRef.current);
+        updateMapColors(ds, weatherList, minT, maxT, viewerRef.current, true);
       });
     } else {
       // 이미 GeoJSON이 로드된 상태 → 색상만 갱신 (재로드 없음)
-      updateMapColors(dataSources.get(0), weatherList, minT, maxT, viewerRef.current);
+      updateMapColors(dataSources.get(0), weatherList, minT, maxT, viewerRef.current, false);
     }
   }, [weatherList, minT, maxT]);
 
