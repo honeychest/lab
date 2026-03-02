@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -26,6 +27,7 @@ import java.io.IOException;
  *   요청당 정확히 1회만 실행됨을 보장한다.
  */
 @Component
+@Slf4j
 public class ServerInfoFilter extends OncePerRequestFilter {
 
     // 앱 기동 시 1회만 읽음 — 런타임 중 변경되지 않으므로 필드로 캐싱
@@ -33,13 +35,37 @@ public class ServerInfoFilter extends OncePerRequestFilter {
             System.getenv("SERVER_NAME") != null ? System.getenv("SERVER_NAME") : "LOCAL";
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        boolean skip = path != null && path.startsWith("/ws");
+        // ✅ 로그 1: 필터를 건너뛰는지 여부 확인
+        log.info("==> [Filter Check] Path: {}, ShouldSkip: {}", path, skip);
+        return skip;
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // 모든 응답에 서버명 주입
-        // 프론트엔드에서 axios response.headers['x-server-name'] 로 읽음
-        response.setHeader("X-Server-Name", SERVER_NAME);
+        String path = request.getServletPath();
+        log.info("==> [Filter Start] Processing path: {}", path);
 
-        filterChain.doFilter(request, response);
+        try {
+            // 헤더 추가
+            response.setHeader("X-Server-Name", SERVER_NAME);
+            log.info("==> [Filter Header] Added X-Server-Name: {}", SERVER_NAME);
+
+            // ✅ 로그 2: 다음 필터로 넘어가기 직전 확인
+            log.info("==> [Filter Progress] Calling filterChain.doFilter()...");
+            filterChain.doFilter(request, response);
+
+            // ✅ 로그 3: 요청 처리 완료 확인
+            log.info("==> [Filter End] Request finished for path: {}", path);
+
+        } catch (Exception e) {
+            // ✅ 로그 4: 에러 발생 시 출력
+            log.error("==> [Filter Error] Exception in ServerInfoFilter: ", e);
+            throw e; // 에러를 다시 던져서 500 에러를 명확히 유도함
+        }
     }
 }
