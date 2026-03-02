@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import CesiumPage from './pages/cesium/CesiumPage';
 import ErrorPage from './pages/ErrorPage';
 import ErrorTest from './pages/ErrorTest';
-import BinancePage from './pages/BinancePage';
+import BinancePage from './pages/binance/BinancePage.jsx';
 
 function MainRouter() {
     return (

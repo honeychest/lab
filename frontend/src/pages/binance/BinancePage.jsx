@@ -35,30 +35,30 @@ import axios from 'axios';
  * Layout: 헤더+푸터를 감싸는 전체 페이지 레이아웃 컴포넌트.
  * footerCenter={[]} 로 하단 중앙 버튼 없이 표시.
  */
-import Layout from '../layout/Layout.jsx';
-import ErrorPage from './ErrorPage';
+import Layout from '../../layout/Layout.jsx';
+import ErrorPage from '../ErrorPage.tsx';
 
 /**
  * useBinanceWebSocket: WebSocket 연결 로직을 담은 커스텀 훅.
  * 반환값: { ticker (최신 시세 데이터), status (연결 상태) }
  * 파일: frontend/src/hooks/useBinanceWebSocket.ts
  */
-import { useBinanceWebSocket } from '../hooks/useBinanceWebSocket';
-import { useUpbitWebSocket } from '../hooks/useUpbitWebSocket';
+import { useBinanceWebSocket } from '../../hooks/useBinanceWebSocket.ts';
+import { useUpbitWebSocket } from '../../hooks/useUpbitWebSocket.ts';
 
 /**
  * BinanceTicker: 실시간 시세 UI 컴포넌트 (현재가, 변동률, 고저가 등)
  * 파일: frontend/src/features/binance/components/BinanceTicker.tsx
  */
-import BinanceTicker from '../features/binance/components/BinanceTicker';
-import BinanceTickerMobile from '../features/binance/components/BinanceTickerMobile';
+import BinanceTicker from '../../features/binance/components/BinanceTicker.tsx';
+import BinanceTickerMobile from '../../features/binance/components/BinanceTickerMobile.tsx';
 import pageStyles from './BinancePage.module.css';
 
 /**
  * BinanceWallet: 지갑 잔고 UI 컴포넌트 (보유 코인 목록)
  * 파일: frontend/src/features/binance/components/BinanceWallet.tsx
  */
-import BinanceWallet from '../features/binance/components/BinanceWallet';
+import BinanceWallet from '../../features/binance/components/BinanceWallet.tsx';
 
 // ─────────────────────────────────────────────────────────────────
 //  연결 상태별 UI 설정
