@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,6 +34,7 @@ import java.io.IOException;
  *   forward/include 등으로 내부 재호출이 발생해도 중복 실행되지 않음.
  */
 @Component
+@Slf4j
 public class ServerInfoFilter extends OncePerRequestFilter {
 
     /**
@@ -49,11 +51,11 @@ public class ServerInfoFilter extends OncePerRequestFilter {
         // Nginx가 proxy_set_header X-Backend-Port $proxy_port 로 주입한 호스트 포트 읽기.
         // 로컬 개발 환경(Nginx 없음)에서는 null → 헤더 미추가 → 프론트 배지 꺼진 상태 유지.
         String backendPort = request.getHeader("X-Backend-Port");
-
+        log.info("[ServerInfoFilter] uri={}, x-backend-port={}", request.getRequestURI(), backendPort);
         if (backendPort != null) {
             // 호스트 포트 기반 서버명 결정: 8081이면 docker2, 그 외(8080)면 docker1
             String serverName = "8081".equals(backendPort) ? "docker2" : "docker1";
-
+            log.info("[ServerInfoFilter] resolved serverName={} from x-backend-port={}", serverName, backendPort);
             // 응답 헤더에 서버명 주입
             // 프론트엔드에서 axios response.headers['x-server-name'] 로 읽음
             response.setHeader("X-Server-Name", serverName);
