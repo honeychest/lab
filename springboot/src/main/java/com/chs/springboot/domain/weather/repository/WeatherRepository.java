@@ -7,11 +7,15 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface WeatherRepository extends JpaRepository<WeatherEntity, Long> {
 
     // 특정 지역과 예보 시간의 중복 여부 확인
     boolean existsByRegionAndFcstDateTime(String region, LocalDateTime fcstDateTime);
+
+    // 특정 지역 + 예보 시간의 단건 조회 (retry 전 DB 캐시 확인용)
+    Optional<WeatherEntity> findByRegionAndFcstDateTime(String region, LocalDateTime fcstDateTime);
 
     // 특정 예보 시간에 해당하는 모든 지역 데이터 조회
     @Query("SELECT w FROM WeatherEntity w WHERE w.fcstDateTime = :targetTime")

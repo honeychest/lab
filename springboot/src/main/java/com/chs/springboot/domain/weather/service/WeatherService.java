@@ -214,7 +214,7 @@ public class WeatherService {
 
             // 재귀 호출로 API 조회 (최대 5회 재시도)
             Map<String, String> weatherData = fetchWeatherRecursive(
-                    restTemplate, coords, targetHour, currentHourStr, 0);
+                    restTemplate, name, coords, targetHour, currentHourStr, 0, targetHour);
 
             if (weatherData == null || weatherData.isEmpty()) return;
 
@@ -285,41 +285,21 @@ public class WeatherService {
     /**
      * fetchWeatherRecursive: 기상청 API를 재귀 호출해 날씨 데이터를 가져옴.
      *
-     * @param restTemplate HTTP 클라이언트 (필드에서 전달)
-     * @param coords       격자 좌표 [nx, ny]
-     * @param dateTime     조회 기준 시각 (실패 시 minusHours(1)로 줄어듦)
-     * @param currentHour  목표 시각 문자열 "HH00" (예: "1400")
-     * @param retryCount   현재 재시도 횟수
-     * @return 날씨 데이터 맵. 5회 모두 실패 시 빈 맵 반환.
+     * @param regionName         지역명 (예: "서울특별시") — retry 전 DB 체크에 사용
+     * @param originalTargetHour 최초 요청 시각 — retry 시에도 변하지 않음. DB 체크 기준.
      *
-     * 재시도 전략:
-     *   기상청 API는 base_time 기준으로 데이터를 제공하는데,
-     *   매 정시 직후에는 데이터가 아직 없는 경우가 있음 (수분 지연).
-     *   1시간 전 데이터로 재시도하면 보통 데이터가 있음.
-     *
-     *   최대 5회 재시도 = 최대 4시간 전 데이터까지 허용.
-     *   retryCount >= 5이면 빈 맵 반환 → 해당 지역 데이터 없음으로 처리.
-     *
-     * URL 구성 예시:
-     *   {baseUrl}?serviceKey={key}&pageNo=1&numOfRows=1000
-     *   &dataType=JSON&base_date=20240226&base_time=1400&nx=60&ny=127
-     *   numOfRows=1000: 한 번에 최대 1000개 항목 수신 (전체 데이터를 한 번에)
-     *
-     * restTemplate.getForObject(url, String.class):
-     *   HTTP GET 요청 후 응답 본문을 String으로 반환.
-     *   jQuery: $.ajax({ method: 'GET', url: url, dataType: 'text' }) 와 동일.
-     *
-     * Thread.sleep(200):
-     *   연속 API 호출 사이에 200ms 대기.
-     *   기상청 API Rate Limit 방어 + 서버 부하 감소.
-     *   InterruptedException: sleep 중 스레드가 인터럽트되면 발생.
-     *   interrupt() 재설정: Java 스레드 인터럽트 정책에 따라 플래그를 복원.
+     * retry 전 DB 체크 흐름:
+     *   API 호출 실패 → 다른 컨테이너가 이미 저장했을 수 있으므로 DB 재조회
+     *   → 있으면 API 재시도 없이 DB 데이터 반환 (불필요한 API 호출 차단)
+     *   → 없으면 기존 방식대로 1시간 전 base_time으로 재시도
      */
     private Map<String, String> fetchWeatherRecursive(RestTemplate restTemplate,
+                                                      String regionName,
                                                       int[] coords,
                                                       LocalDateTime dateTime,
                                                       String currentHour,
-                                                      int retryCount) {
+                                                      int retryCount,
+                                                      LocalDateTime originalTargetHour) {
         if (retryCount >= 5) return new HashMap<>(); // 최대 5회 재시도 초과 → 포기
 
         // 기상청 API 파라미터 포맷팅
@@ -342,6 +322,24 @@ public class WeatherService {
             System.err.println("API call error: " + e.getMessage());
         }
 
+        // ── retry 전 DB 체크 ─────────────────────────────────────
+        // API 실패 후, 다른 컨테이너(또는 이전 시도)가 이미 저장했는지 확인.
+        // 있으면 API를 다시 부르지 않고 DB 데이터를 바로 반환.
+        Optional<WeatherEntity> cached =
+                weatherRepository.findByRegionAndFcstDateTime(regionName, originalTargetHour);
+        if (cached.isPresent()) {
+            WeatherEntity entity = cached.get();
+            Map<String, String> dbData = new HashMap<>();
+            dbData.put("tmp",      entity.getTmp());
+            dbData.put("hum",      entity.getHum());
+            dbData.put("rain",     entity.getRain());
+            dbData.put("wind",     entity.getWind());
+            dbData.put("fcstDate", entity.getFcstDateTime().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+            dbData.put("fcstTime", entity.getFcstDateTime().format(DateTimeFormatter.ofPattern("HHmm")));
+            System.out.println("DB cache hit on retry: " + regionName + " at " + originalTargetHour.getHour() + "시");
+            return dbData;
+        }
+
         // 연속 호출 방지 딜레이 (200ms)
         try {
             Thread.sleep(200);
@@ -349,10 +347,9 @@ public class WeatherService {
             Thread.currentThread().interrupt(); // 인터럽트 플래그 복원
         }
 
-        // 1시간 전 데이터로 재시도 (dateTime.minusHours(1))
-        // retryCount + 1로 카운터 증가
+        // 1시간 전 base_time으로 재시도 (기상청 데이터 발표 지연 대응)
         return fetchWeatherRecursive(
-                restTemplate, coords, dateTime.minusHours(1), currentHour, retryCount + 1);
+                restTemplate, regionName, coords, dateTime.minusHours(1), currentHour, retryCount + 1, originalTargetHour);
     }
 
     /**
