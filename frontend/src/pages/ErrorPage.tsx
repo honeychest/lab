@@ -29,21 +29,21 @@ const ERROR_MAP: Record<string, ErrorInfo> = {
         title: '인증이 필요합니다',
         desc: '이 페이지에 접근하려면 로그인이 필요합니다.\n로그인 후 다시 시도해 주세요.',
         detail: 'STATUS: 401 UNAUTHORIZED',
-        action: 'home',
+        action: 'back',
     },
     '403': {
         animation: alertAnim,
         title: '접근 권한 없음',
         desc: '이 페이지에 접근할 권한이 없습니다.\n계정 권한을 확인하거나 관리자에게 문의해 주세요.',
         detail: 'STATUS: 403 FORBIDDEN',
-        action: 'home',
+        action: 'back',
     },
     '404': {
         animation: denyAnim,
         title: '페이지를 찾을 수 없습니다',
         desc: '요청하신 주소가 존재하지 않습니다.\nURL을 다시 확인하거나 메인 페이지로 이동해 주세요.',
         detail: 'STATUS: 404 NOT_FOUND',
-        action: 'home',
+        action: 'back',
     },
     '429': {
         animation: alertAnim,
@@ -95,7 +95,7 @@ const FALLBACK: ErrorInfo = {
  *                   미전달 시 URL ?code= 쿼리 파라미터로 fallback.
  *                   덕분에 URL을 바꾸지 않고 현재 페이지에서 에러 UI를 표시할 수 있음.
  */
-export default function ErrorPage({ code: codeProp }: { code?: string } = {}) {
+export default function ErrorPage({ code: codeProp, onRetry }: { code?: string; onRetry?: () => void } = {}) {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const [mounted, setMounted] = useState(false);
@@ -121,13 +121,13 @@ export default function ErrorPage({ code: codeProp }: { code?: string } = {}) {
     const handleAction = () => {
         if (info.action === 'home')  navigate('/');
         if (info.action === 'back')  navigate(-1);
-        if (info.action === 'retry') window.location.reload();
+        if (info.action === 'retry') onRetry ? onRetry() : window.location.reload();
     };
 
     const actionLabel = {
         home:  '메인 페이지로 이동',
-        back:  '이전 페이지로 돌아가기',
-        retry: '다시 시도',
+        back:  '뒤로가기',
+        retry: '재시도',
     }[info.action];
 
     return (

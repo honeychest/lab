@@ -29,7 +29,6 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { GEO_ORDER } from "../features/weather/constants/regions";
 
 // ─────────────────────────────────────────────────────────────────
@@ -89,6 +88,10 @@ interface UseWeatherDataResult {
   minT: number;
   /** 현재 데이터셋의 최고 기온. 지도 색상 범위 계산용 */
   maxT: number;
+  /** API 오류 시 설정되는 HTTP 상태 코드 문자열. null = 정상 */
+  errorCode: string | null;
+  /** 에러 상태를 초기화하고 데이터를 처음부터 다시 요청 */
+  retry: () => void;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -96,8 +99,6 @@ interface UseWeatherDataResult {
 // ─────────────────────────────────────────────────────────────────
 
 export function useWeatherData(): UseWeatherDataResult {
-
-  const navigate = useNavigate();
 
   // ── State 선언 ──────────────────────────────────────────────
 
@@ -112,6 +113,12 @@ export function useWeatherData(): UseWeatherDataResult {
 
   /** 최초 데이터 로딩 중 여부 (Cesium 지도 위 로딩 인디케이터 표시용) */
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+
+  /** API 오류 시 설정되는 HTTP 상태 코드. null = 정상 */
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+
+  /** retry() 호출 시 increment → available-hours useEffect 재실행으로 전체 체인 재시도 */
+  const [retryKey, setRetryKey] = useState(0);
 
   // ── available-hours 조회 useEffect ──────────────────────────
   /**
@@ -145,14 +152,8 @@ export function useWeatherData(): UseWeatherDataResult {
       try {
         const res = await fetch("/api/weather/available-hours");
 
-        /**
-         * Nginx proxy_intercept_errors 대응:
-         *   백엔드 다운 시 Nginx가 502를 가로채 200 OK + text/html로 반환.
-         *   Content-Type이 application/json이 아니면 서버 다운으로 판단해 에러 페이지로 이동.
-         */
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          navigate('/error?code=502');
+        if (!res.ok) {
+          setErrorCode(String(res.status));
           return;
         }
 
@@ -162,13 +163,13 @@ export function useWeatherData(): UseWeatherDataResult {
           setSelectedHour(data[data.length - 1]); // 가장 최근 시간을 기본 선택
         }
       } catch {
-        // 네트워크 자체 단절 등 fetch 실패 시 에러 페이지로 이동
-        navigate('/error?code=503');
+        // 네트워크 자체 단절 등 fetch 자체 실패 시
+        setErrorCode('503');
       }
     };
 
     fetchAvailableHours();
-  }, []); // 마운트 1회만
+  }, [retryKey]); // retryKey 변경 시 재실행 (retry() 호출 시 재시도)
 
   // ── 날씨 데이터 조회 useEffect ───────────────────────────────
   /**
@@ -213,10 +214,9 @@ export function useWeatherData(): UseWeatherDataResult {
       try {
         const res = await fetch(`/api/weather/all?hour=${selectedHour}`);
 
-        // Content-Type이 JSON이 아니면 Nginx가 50x.html을 반환한 것 → 서버 다운
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          navigate('/error?code=502');
+        if (!res.ok) {
+          setErrorCode(String(res.status));
+          setIsInitialLoading(false);
           return;
         }
 
@@ -231,8 +231,8 @@ export function useWeatherData(): UseWeatherDataResult {
         setWeatherList(sorted);
         setIsInitialLoading(false); // 로딩 완료
       } catch {
-        // 네트워크 자체 단절 등 fetch 실패 시 에러 페이지로 이동
-        navigate('/error?code=503');
+        // 네트워크 자체 단절 등 fetch 자체 실패 시
+        setErrorCode('503');
         setIsInitialLoading(false);
       }
     };
@@ -261,6 +261,15 @@ export function useWeatherData(): UseWeatherDataResult {
   const maxT = allTemps.length > 0 ? Math.max(...allTemps) : 0;
 
   // ── 반환값 ──────────────────────────────────────────────────
+  const retry = () => {
+    setErrorCode(null);
+    setWeatherList([]);
+    setAvailableHours([]);
+    setSelectedHour(null);
+    setIsInitialLoading(true);
+    setRetryKey((k) => k + 1);
+  };
+
   return {
     weatherList,
     availableHours,
@@ -271,5 +280,7 @@ export function useWeatherData(): UseWeatherDataResult {
     isInitialLoading,
     minT,
     maxT,
+    errorCode,
+    retry,
   };
 }

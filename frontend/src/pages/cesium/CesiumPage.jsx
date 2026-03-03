@@ -28,6 +28,7 @@ import Layout from "../../layout/Layout.jsx";
 import WeatherDetail from '../../features/weather/components/WeatherDetail.tsx';
 import CesiumMap from '../../features/weather/components/CesiumMap.jsx';
 import WeatherPanel from '../../features/weather/components/WeatherPanel.jsx';
+import ErrorPage from '../ErrorPage.tsx';
 import styles from './CesiumPage.module.css';
 
 function CesiumPage() {
@@ -90,6 +91,8 @@ function CesiumPage() {
         isInitialLoading,
         minT,
         maxT,
+        errorCode,
+        retry,
     } = useWeatherData();
 
     /**
@@ -204,6 +207,8 @@ function CesiumPage() {
 
     return (
         <Layout footerCenter={footerCenter}>
+            {/* API 오류 시 URL 변경 없이 현재 페이지 위에 에러 오버레이 표시 */}
+            {errorCode && <ErrorPage code={errorCode} onRetry={retry} />}
             <div className={styles.root}>
                 {/* CesiumMap: 3D 지구본 지도. 지역 클릭 시 handleRegionClick 호출 */}
                 <CesiumMap

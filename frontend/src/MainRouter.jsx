@@ -1,5 +1,5 @@
 // Purpose: 앱 전체 라우팅 설정 — URL별 페이지 컴포넌트 연결
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; // Navigate: /app → /cesium 리다이렉트에 사용
 import CesiumPage from './pages/cesium/CesiumPage';
 import ErrorPage from './pages/ErrorPage';
 import ErrorTest from './pages/ErrorTest';
@@ -18,14 +18,11 @@ function MainRouter() {
                 {/* 기존 /app 경로 호환: /cesium으로 리다이렉트 */}
                 <Route path="/app" element={<Navigate to="/cesium" replace />} />
 
-                {/* 에러 페이지 — ?code= 파라미터로 4xx/5xx 분기 */}
-                <Route path="/error" element={<ErrorPage />} />
-
                 {/* 에러 페이지 테스트 (개발 환경에서만 노출) */}
                 {import.meta.env.DEV && <Route path="/error-test" element={<ErrorTest />} />}
 
-                {/* 그 외 모든 잘못된 주소는 404 에러 페이지로 연결 */}
-                <Route path="*" element={<Navigate to="/error?code=404" replace />} />
+                {/* 그 외 모든 잘못된 주소는 404 에러 페이지 직접 렌더 (URL 변경 없음) */}
+                <Route path="*" element={<ErrorPage code="404" />} />
             </Routes>
         </Router>
     );
