@@ -66,6 +66,7 @@ dependencies {
     // spring-boot-starter-test 하나면 JPA, Security, Validation 테스트 도구가 다 들어있습니다.
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

@@ -3,7 +3,8 @@ import styles from './Footer.module.css';
 
 const COMMON_TECH = ['AWS','Linux','Spring Boot','React','MySQL','Nginx'];
 
-function Footer({ centerTech = [] }) {
+// function Footer({ centerTech = [] }) {
+function Footer({ centerTech = [], onAdminClick }) {
     return (
         <footer className={styles.footer}>
             {/* 좌측: 공통 기술 스택 */}
@@ -19,9 +20,8 @@ function Footer({ centerTech = [] }) {
                     <li key={tech} className={styles.techTagPage}>{tech}</li>
                 ))}
             </ul>
-
             {/* 우측: by CHS */}
-            <div className={styles.brandWrapper}>
+            <div className={styles.brandWrapper} onClick={onAdminClick} title="관리자에게 문의하기">
                 <span className={styles.brand}>by CHS</span>
             </div>
         </footer>
