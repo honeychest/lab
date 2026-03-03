@@ -70,8 +70,24 @@
     background-clip: text;
 }
 
-/* ─── 반응형: 모바일에서는 중앙 기술 스택 숨김 ───────────── */
+/* ─── 반응형: 모바일 ───────────────────────────────────── */
 @media (max-width: 768px) {
+    .footer {
+        grid-template-columns: 1fr auto; /* 중앙 숨김 → 2단 */
+    }
+
+    /* 태그가 늘어나도 가로 슬라이드로 처리 */
+    .techCommon {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        min-width: 0; /* grid cell에서 overflow 동작하려면 필수 */
+        scrollbar-width: none;       /* Firefox */
+        -ms-overflow-style: none;    /* IE/Edge */
+    }
+    .techCommon::-webkit-scrollbar {
+        display: none;               /* Chrome/Safari */
+    }
+
     .techPage {
         display: none;
     }

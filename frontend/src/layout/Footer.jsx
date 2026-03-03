@@ -1,7 +1,7 @@
 // Purpose: 앱 전체 하단 푸터 - 공통 기술(좌) | 페이지별 기술(중앙) | 브랜드(우)
 import styles from './Footer.module.css';
 
-const COMMON_TECH = ['AWS','Linux','Spring Boot','React','MySQL'];
+const COMMON_TECH = ['AWS','Linux','Spring Boot','React','MySQL','Nginx'];
 
 function Footer({ centerTech = [] }) {
     return (
