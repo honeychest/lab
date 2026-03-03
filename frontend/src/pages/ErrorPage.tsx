@@ -2,6 +2,7 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Lottie from 'lottie-react';
+import TelegramPopup from '../components/common/TelegramPopup';
 
 // alert.json: 경고성 에러 (400, 401, 403, 429, 500)
 // denyX.json: 거부/없음 에러 (404, 502, 503, 504)
@@ -100,6 +101,7 @@ export default function ErrorPage({ code: codeProp, onRetry }: { code?: string; 
     const navigate = useNavigate();
     const [mounted, setMounted] = useState(false);
     const [animData, setAnimData] = useState<object | null>(null);
+    const [isContactOpen, setIsContactOpen] = useState(false);
 
     // prop이 있으면 prop 우선, 없으면 URL searchParams에서 읽음
     const code = codeProp ?? searchParams.get('code') ?? '';
@@ -237,33 +239,66 @@ export default function ErrorPage({ code: codeProp, onRetry }: { code?: string; 
                     {info.detail}
                 </div>
 
-                {/* 액션 버튼 */}
-                <button
-                    onClick={handleAction}
-                    style={{
-                        padding: '13px 28px',
-                        backgroundColor: 'transparent',
-                        color: '#f8fafc',
-                        border: '1px solid #475569',
-                        borderRadius: '4px',
-                        fontSize: '14px', fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        outline: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ffffff';
-                        (e.currentTarget as HTMLButtonElement).style.color = '#0f172a';
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
-                        (e.currentTarget as HTMLButtonElement).style.color = '#f8fafc';
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = '#475569';
-                    }}
-                >
-                    {actionLabel}
-                </button>
+                {/* 액션 버튼 + 문의하기 버튼 */}
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                    <button
+                        onClick={handleAction}
+                        style={{
+                            padding: '13px 28px',
+                            backgroundColor: 'transparent',
+                            color: '#f8fafc',
+                            border: '1px solid #475569',
+                            borderRadius: '4px',
+                            fontSize: '14px', fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            outline: 'none',
+                        }}
+                        onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ffffff';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#0f172a';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#f8fafc';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#475569';
+                        }}
+                    >
+                        {actionLabel}
+                    </button>
+
+                    <button
+                        onClick={() => setIsContactOpen(true)}
+                        style={{
+                            padding: '13px 28px',
+                            backgroundColor: 'transparent',
+                            color: '#60a5fa',
+                            border: '1px solid #1d4ed8',
+                            borderRadius: '4px',
+                            fontSize: '14px', fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            outline: 'none',
+                        }}
+                        onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#60a5fa';
+                        }}
+                    >
+                        문의하기
+                    </button>
+                </div>
+
+                <TelegramPopup
+                    isOpen={isContactOpen}
+                    onClose={() => setIsContactOpen(false)}
+                    onSent={(newId: string) => localStorage.setItem('chs_inquiry_id', newId)}
+                />
 
                 {/* 하단 상태 코드 */}
                 <div style={{
