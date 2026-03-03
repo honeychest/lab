@@ -7,3 +7,6 @@ geminirules.md
 /.vscode/settings.json
 /honeychest-home-main.txt
 /.claudeignore
+
+# 로컬 전용 테스트 파일
+springboot/src/test/java/com/chs/springboot/unitTest.java

@@ -6,6 +6,7 @@ import { sendTelegramInquiry } from '../../features/support/api/contactApi';
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
 const QUALITIES    = [0.9, 0.7, 0.5, 0.3];
+const STEPS        = ['XSS 처리', 'Safe Browsing', 'VirusTotal'];
 
 const compressImage = (file) => new Promise((resolve, reject) => {
     const img = new Image();
@@ -38,26 +39,55 @@ const compressImage = (file) => new Promise((resolve, reject) => {
     img.src = objectUrl;
 });
 
-const TelegramPopup = ({ isOpen, onClose }) => {
+const formatDate = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+};
+
+const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
     const [text, setText]       = useState('');
     const [status, setStatus]   = useState('idle');
     const [file, setFile]       = useState(null);
     const [preview, setPreview] = useState(null);
+    const [view, setView]       = useState('form'); // 'form' | 'history'
     const fileInputRef          = useRef(null);
+
+    const [checkStep, setCheckStep] = useState(0);
 
     const remaining   = MAX_LENGTH - text.length;
     const isOverLimit = remaining < 0;
     const isBusy      = status === 'compressing' || status === 'sending';
+    const isChecking  = status === 'sending' || status === 'success';
+    const isDone      = status === 'success' && checkStep >= 3;
 
     useEffect(() => {
         if (!isOpen) {
-            setText(''); setFile(null); setPreview(null); setStatus('idle');
+            setText(''); setFile(null); setPreview(null); setStatus('idle'); setCheckStep(0);
+        } else {
+            // 팝업 열릴 때: 답변 있으면 히스토리 뷰, 없으면 폼 뷰
+            setView(inquiry?.replyText ? 'history' : 'form');
         }
-    }, [isOpen]);
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         return () => { if (preview) URL.revokeObjectURL(preview); };
     }, [preview]);
+
+    // 1초마다 보안 체크 단계 진행 (전송 중 / 성공 상태에서 모두 동작)
+    useEffect(() => {
+        if (status !== 'sending' && status !== 'success') return;
+        if (checkStep >= 3) return;
+        const timer = setTimeout(() => setCheckStep(s => s + 1), 1000);
+        return () => clearTimeout(timer);
+    }, [status, checkStep]);
+
+    // 애니메이션 + API 모두 완료 시 자동 닫힘
+    useEffect(() => {
+        if (!isDone) return;
+        const t = setTimeout(() => onClose(), 1500);
+        return () => clearTimeout(t);
+    }, [isDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!isOpen) return null;
 
@@ -79,19 +109,21 @@ const TelegramPopup = ({ isOpen, onClose }) => {
 
     const handleSubmit = async () => {
         if (!text.trim() || isOverLimit || isBusy) return;
+        const newId = crypto.randomUUID();
         setStatus('sending');
         try {
-            await sendTelegramInquiry(text, file);
+            await sendTelegramInquiry(text, file, newId);
+            onSent?.(newId);
             setStatus('success');
-            setTimeout(() => onClose(), 1500);
         } catch {
             alert('전송에 실패했습니다.');
             setStatus('idle');
+            setCheckStep(0);
         }
     };
 
     return ReactDOM.createPortal(
-        <Overlay onClick={onClose}>
+        <Overlay onClick={isChecking ? undefined : onClose}>
             <Container onClick={(e) => e.stopPropagation()}>
 
                 {/* ── 헤더: 제목 + X ── */}
@@ -100,38 +132,82 @@ const TelegramPopup = ({ isOpen, onClose }) => {
                     <CloseBtn onClick={onClose} disabled={isBusy}>✕</CloseBtn>
                 </Header>
 
-                <SubText>에러 상황이나 궁금한 점을 남겨주세요.</SubText>
+                {isChecking ? (
+                    /* ── 보안 체크 뷰 ── */
+                    <CheckingBody>
 
-                {/* ── 텍스트 입력 (나머지 영역 전부) ── */}
-                <TextArea
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="내용을 입력하세요..."
-                    disabled={isBusy}
-                />
-                <Counter $over={isOverLimit}>{remaining}자 남음</Counter>
+                        <CheckingTitle $done={isDone}>
+                            {isDone ? '전송 완료!' : '보안 검사 중...'}
+                        </CheckingTitle>
+                        <StepList>
+                            {STEPS.map((step, i) => {
+                                const state = checkStep > i ? 'done' : checkStep === i ? 'active' : 'pending';
+                                return (
+                                    <StepItem key={step} $state={state}>
+                                        <StepIcon $state={state}>
+                                            {checkStep > i ? '✓' : checkStep === i ? '▸' : '·'}
+                                        </StepIcon>
+                                        <span>
+                                            {step}
+                                            {state === 'done' && ' 완료'}
+                                            {state === 'active' && ' 검사 중...'}
+                                        </span>
+                                    </StepItem>
+                                );
+                            })}
+                        </StepList>
+                        <CheckingHint>
+                            {isDone ? '메시지가 전송되었습니다' : '잠시만 기다려주세요'}
+                        </CheckingHint>
+                    </CheckingBody>
+                ) : view === 'history' && inquiry?.replyText ? (
+                    /* ── 히스토리 뷰: 이전 문의 + 관리자 답변 ── */
+                    <HistoryBody>
+                        <HistorySection>
+                            <HistoryLabel>내 문의 ({formatDate(inquiry.createdAt)})</HistoryLabel>
+                            <HistoryText>{inquiry.message}</HistoryText>
+                        </HistorySection>
+                        <HistoryDivider />
+                        <HistorySection>
+                            <HistoryLabel>관리자 답변 ({formatDate(inquiry.repliedAt)})</HistoryLabel>
+                            <HistoryText $reply>{inquiry.replyText}</HistoryText>
+                        </HistorySection>
+                        <NewInquiryBtn onClick={() => setView('form')}>새 문의하기</NewInquiryBtn>
+                    </HistoryBody>
+                ) : (
+                    /* ── 폼 뷰 ── */
+                    <>
+                        <SubText>에러 상황이나 궁금한 점을 남겨주세요.</SubText>
 
-                {/* ── 이미지 미리보기 ── */}
-                {preview && (
-                    <PreviewWrapper>
-                        <PreviewImg src={preview} alt="첨부 이미지" />
-                        <RemoveBtn onClick={() => { setFile(null); setPreview(null); }} disabled={isBusy}>✕</RemoveBtn>
-                    </PreviewWrapper>
+                        <TextArea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="내용을 입력하세요..."
+                            disabled={isBusy}
+                        />
+                        <Counter $over={isOverLimit}>{remaining}자 남음</Counter>
+
+                        {preview && (
+                            <PreviewWrapper>
+                                <PreviewImg src={preview} alt="첨부 이미지" />
+                                <RemoveBtn onClick={() => { setFile(null); setPreview(null); }} disabled={isBusy}>✕</RemoveBtn>
+                            </PreviewWrapper>
+                        )}
+
+                        <BottomRow>
+                            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+                            <AttachBtn onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
+                                {status === 'compressing' ? '압축 중...' : '📎 사진 첨부'}
+                            </AttachBtn>
+                            <BtnGroup>
+                                <CancelBtn onClick={onClose} disabled={isBusy}>취소</CancelBtn>
+                                <SendBtn onClick={handleSubmit} disabled={isBusy || isOverLimit || !text.trim()}>
+                                    보내기
+                                </SendBtn>
+                            </BtnGroup>
+                        </BottomRow>
+                    </>
                 )}
-
-                {/* ── 푸터: 사진첨부 + 취소 + 보내기 ── */}
-                <BottomRow>
-                    <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-                    <AttachBtn onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
-                        {status === 'compressing' ? '압축 중...' : '📎 사진 첨부'}
-                    </AttachBtn>
-                    <BtnGroup>
-                        <CancelBtn onClick={onClose} disabled={isBusy}>취소</CancelBtn>
-                        <SendBtn onClick={handleSubmit} disabled={isBusy || isOverLimit || !text.trim()}>
-                            {status === 'sending' ? '전송 중...' : status === 'success' ? '완료!' : '보내기'}
-                        </SendBtn>
-                    </BtnGroup>
-                </BottomRow>
 
             </Container>
         </Overlay>,
@@ -262,4 +338,93 @@ const SendBtn = styled.button`
     transition: background 0.15s;
     &:hover:not(:disabled) { background: #2563eb; }
     &:disabled { background: #1e3a5f; color: #475569; cursor: not-allowed; }
+`;
+
+// ── 보안 체크 뷰 ─────────────────────────────────────────────────────────────
+
+const CheckingBody = styled.div`
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px; padding: 24px;
+`;
+
+const CheckingTitle = styled.h3`
+    font-size: 16px; font-weight: 600; margin: 0;
+    color: ${({ $done }) => $done ? '#4ade80' : '#f1f5f9'};
+    transition: color 0.4s;
+`;
+
+const StepList = styled.ul`
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 14px;
+    width: 210px;
+`;
+
+const StepItem = styled.li`
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px;
+    color: ${({ $state }) =>
+        $state === 'done'   ? '#4ade80' :
+        $state === 'active' ? '#e2e8f0' : '#334155'};
+    transition: color 0.3s;
+`;
+
+const StepIcon = styled.span`
+    font-size: 13px; width: 16px; text-align: center; flex-shrink: 0;
+    color: ${({ $state }) =>
+        $state === 'done'   ? '#4ade80' :
+        $state === 'active' ? '#60a5fa' : '#334155'};
+`;
+
+const CheckingHint = styled.p`
+    font-size: 12px; color: #64748b; margin: 0;
+`;
+
+// ── 히스토리 뷰 ──────────────────────────────────────────────────────────────
+
+const HistoryBody = styled.div`
+    flex: 1;
+    display: flex; flex-direction: column;
+    padding: 16px 20px 20px;
+    gap: 16px;
+    overflow-y: auto;
+`;
+
+const HistorySection = styled.div`
+    display: flex; flex-direction: column; gap: 6px;
+`;
+
+const HistoryLabel = styled.span`
+    font-size: 11px; color: #64748b;
+`;
+
+const HistoryText = styled.p`
+    margin: 0;
+    font-size: 14px; line-height: 1.65;
+    color: ${({ $reply }) => $reply ? '#93c5fd' : '#cbd5e1'};
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    white-space: pre-wrap;
+`;
+
+const HistoryDivider = styled.div`
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    flex-shrink: 0;
+`;
+
+const NewInquiryBtn = styled.button`
+    margin-top: auto;
+    background: transparent;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    &:hover { border-color: rgba(59, 130, 246, 0.7); color: #93c5fd; }
 `;
