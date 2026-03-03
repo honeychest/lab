@@ -124,8 +124,13 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
             await sendTelegramInquiry(text, file, newId);
             onSent?.(newId);
             setStatus('success');
-        } catch {
-            alert('전송에 실패했습니다.');
+        } catch (error) {
+            const status = error?.response?.status;
+            if (status === 429) {
+                alert('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+            } else {
+                alert('전송에 실패했습니다.');
+            }
             setStatus('idle');
             setCheckStep(0);
         }
