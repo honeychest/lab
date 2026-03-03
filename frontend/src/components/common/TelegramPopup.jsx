@@ -39,6 +39,15 @@ const compressImage = (file) => new Promise((resolve, reject) => {
     img.src = objectUrl;
 });
 
+// crypto.randomUUID()는 HTTPS(보안 컨텍스트)에서만 동작 → HTTP 환경 폴백 포함
+const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+};
+
 const formatDate = (isoStr) => {
     if (!isoStr) return '';
     const d = new Date(isoStr);
@@ -109,7 +118,7 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
 
     const handleSubmit = async () => {
         if (!text.trim() || isOverLimit || isBusy) return;
-        const newId = crypto.randomUUID();
+        const newId = generateUUID();
         setStatus('sending');
         try {
             await sendTelegramInquiry(text, file, newId);
