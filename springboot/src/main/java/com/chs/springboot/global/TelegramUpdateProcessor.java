@@ -1,3 +1,6 @@
+// [AGENT] 텔레그램 update(메시지) 처리 공통 로직.
+// 역할: 관리자 답장 수신 → inquiryId 추출 → DB(contact_inquiry.replyText) 저장
+// 연관: TelegramPollingService.java, TelegramWebhookController.java, ContactInquiryRepository.java
 package com.chs.springboot.global;
 
 import com.chs.springboot.features.contact.entity.ContactInquiry;
@@ -41,8 +44,11 @@ public class TelegramUpdateProcessor {
             Map<String, Object> replyTo = (Map<String, Object>) message.get("reply_to_message");
             if (replyTo == null) return;
 
-            // 원본 메시지에서 inquiryId 앞 8자 추출
+            // 원본 메시지에서 inquiryId 앞 8자 추출 (이미지 첨부 메시지는 caption 필드 사용)
             String originalText = (String) replyTo.get("text");
+            if (originalText == null) {
+                originalText = (String) replyTo.get("caption");
+            }
             if (originalText == null) return;
 
             Matcher matcher = ID_PATTERN.matcher(originalText);
