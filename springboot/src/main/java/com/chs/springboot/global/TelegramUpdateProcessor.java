@@ -41,6 +41,7 @@ public class TelegramUpdateProcessor {
         try {
             log.info("[DIAG] process() called — update_id={}, thread={}",
                     update.get("update_id"), Thread.currentThread().getName());
+            // ↑ 이 줄이 몇 번 찍히는지가 핵심
 
             @SuppressWarnings("unchecked")
             Map<String, Object> message = (Map<String, Object>) update.get("message");
@@ -87,10 +88,12 @@ public class TelegramUpdateProcessor {
                     ? "[" + timestamp + "] " + newReply
                     : existing + "\n[" + timestamp + "] " + newReply;
 
+            log.info("[DIAG] existing='{}' → appending='{}'", existing, newReply);
             inquiry.setReplyText(appended);
             if (inquiry.getRepliedAt() == null) inquiry.setRepliedAt(LocalDateTime.now()); // 최초 답변 시각만 기록
             inquiry.setReadAt(null); // 새 답변 도착 → 읽음 초기화
             inquiryRepository.save(inquiry);
+            log.info("[DIAG] save done, replyText='{}'", inquiry.getReplyText());
 
             // SSE로 실시간 알림 (guestToken 없는 구 데이터는 무시)
             sseService.notify(inquiry.getGuestToken());
