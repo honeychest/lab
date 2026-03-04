@@ -1,3 +1,4 @@
+// [AGENT] 문의 요청 DTO — 현재 ContactController에서 미사용 (multipart로 직접 수신)
 package com.chs.springboot.features.contact.dto;
 
 import jakarta.validation.constraints.NotBlank;

@@ -1,15 +1,18 @@
 // [AGENT] 텔레그램 update(메시지) 처리 공통 로직.
-// 역할: 관리자 답장 수신 → inquiryId 추출 → DB(contact_inquiry.replyText) 저장
-// 연관: TelegramPollingService.java, TelegramWebhookController.java, ContactInquiryRepository.java
+// 역할: 관리자 답장 수신 → reply_to_message.text 또는 caption에서 inquiryId 추출
+//       → 복수 답장은 [HH:mm] 타임스탬프 구분자로 이어붙이기 → readAt 초기화
+// 연관: TelegramPollingService.java, TelegramWebhookController.java, ContactInquiry.java
 package com.chs.springboot.global;
 
 import com.chs.springboot.features.contact.entity.ContactInquiry;
 import com.chs.springboot.features.contact.repository.ContactInquiryRepository;
+import com.chs.springboot.features.contact.service.SupportSseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -28,6 +31,7 @@ public class TelegramUpdateProcessor {
     private static final Pattern ID_PATTERN = Pattern.compile("\\[문의 #([0-9a-f]{8})\\]");
 
     private final ContactInquiryRepository inquiryRepository;
+    private final SupportSseService         sseService;
 
     /**
      * Telegram update 객체를 받아 관리자 답변 여부를 확인하고 DB에 저장한다.
@@ -68,15 +72,25 @@ public class TelegramUpdateProcessor {
                 return;
             }
 
-            String replyText = (String) message.get("text");
-            if (replyText == null || replyText.isBlank()) return;
+            String newReply = (String) message.get("text");
+            if (newReply == null || newReply.isBlank()) return;
 
             ContactInquiry inquiry = opt.get();
-            if (inquiry.getReplyText() != null) return; // 이미 답변 완료된 문의
 
-            inquiry.setReplyText(replyText);
-            inquiry.setRepliedAt(LocalDateTime.now());
+            // 기존 답변에 타임스탬프 구분자로 이어붙이기 (복수 답변 지원)
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+            String existing  = inquiry.getReplyText();
+            String appended  = (existing == null || existing.isBlank())
+                    ? "[" + timestamp + "] " + newReply
+                    : existing + "\n[" + timestamp + "] " + newReply;
+
+            inquiry.setReplyText(appended);
+            if (inquiry.getRepliedAt() == null) inquiry.setRepliedAt(LocalDateTime.now()); // 최초 답변 시각만 기록
+            inquiry.setReadAt(null); // 새 답변 도착 → 읽음 초기화
             inquiryRepository.save(inquiry);
+
+            // SSE로 실시간 알림 (guestToken 없는 구 데이터는 무시)
+            sseService.notify(inquiry.getGuestToken());
 
             log.info("Reply saved for inquiryId={}", inquiry.getInquiryId());
 

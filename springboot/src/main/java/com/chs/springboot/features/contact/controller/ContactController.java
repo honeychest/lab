@@ -1,18 +1,28 @@
 package com.chs.springboot.features.contact.controller;
 
+// [AGENT] 문의 REST API — 전송/목록조회/읽음처리
+// 주요 엔드포인트: POST /inquiry, GET /inquiries, PATCH /reply/{id}/read
+// 연관: ContactInquiry.java, ContactInquiryRepository.java, contactApi.js
+
 import com.chs.springboot.features.contact.entity.ContactInquiry;
 import com.chs.springboot.features.contact.repository.ContactInquiryRepository;
+import com.chs.springboot.features.contact.service.SupportSseService;
 import com.chs.springboot.global.MagicBytesValidator;
 import com.chs.springboot.global.SafeBrowsingService;
 import com.chs.springboot.global.TelegramProvider;
 import com.chs.springboot.global.VirusTotalService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.HtmlUtils;
 
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,12 +38,15 @@ public class ContactController {
     private final SafeBrowsingService        safeBrowsingService;
     private final VirusTotalService          virusTotalService;
     private final ContactInquiryRepository   inquiryRepository;
+    private final SupportSseService          sseService;
 
     @PostMapping(value = "/inquiry", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> receiveInquiry(
-            @RequestParam("message") String message,
-            @RequestParam("inquiryId") String inquiryId,
-            @RequestPart(value = "file", required = false) MultipartFile file
+            @RequestParam("message")    String message,
+            @RequestParam("inquiryId")  String inquiryId,
+            @RequestParam("guestToken") String guestToken,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            HttpServletRequest request
     ) throws Exception {
 
         // 1. 입력값 검증
@@ -43,6 +56,9 @@ public class ContactController {
 
         // UUID 형식 간단 검증 (36자, 하이픈 포함)
         if (inquiryId == null || !inquiryId.matches("[0-9a-f\\-]{36}")) {
+            return ResponseEntity.badRequest().body("잘못된 요청입니다.");
+        }
+        if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
             return ResponseEntity.badRequest().body("잘못된 요청입니다.");
         }
 
@@ -86,27 +102,78 @@ public class ContactController {
         ContactInquiry inquiry = inquiryRepository.findByInquiryId(inquiryId)
                 .orElseGet(ContactInquiry::new);
         inquiry.setInquiryId(inquiryId);
+        inquiry.setGuestToken(guestToken);
+        inquiry.setClientIp(extractClientIp(request));
+        inquiry.setPlatform(extractPlatform(request.getHeader("User-Agent")));
         inquiry.setMessage(sanitized);
         inquiry.setReplyText(null);
         inquiry.setRepliedAt(null);
+        inquiry.setReadAt(null);
         inquiryRepository.save(inquiry);
 
         return ResponseEntity.ok("success");
     }
 
-    /** 관리자 답변 조회 — 프론트가 페이지 로드 시 호출 */
-    @GetMapping("/reply/{inquiryId}")
-    public ResponseEntity<?> getReply(@PathVariable String inquiryId) {
-        Optional<ContactInquiry> opt = inquiryRepository.findByInquiryId(inquiryId);
-        if (opt.isEmpty() || opt.get().getReplyText() == null) {
-            return ResponseEntity.noContent().build(); // 204 = 미답변
+    /** guestToken 기반 문의 목록 조회 (최신순) */
+    @GetMapping("/inquiries")
+    public ResponseEntity<?> getInquiries(@RequestParam String guestToken) {
+        if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
+            return ResponseEntity.badRequest().build();
         }
+        List<ContactInquiry> list = inquiryRepository.findByGuestTokenOrderByCreatedAtDesc(guestToken);
+        List<Map<String, Object>> result = list.stream().map(i -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("inquiryId", i.getInquiryId());
+            m.put("message",   i.getMessage());
+            m.put("createdAt", i.getCreatedAt().toString());
+            m.put("replyText", i.getReplyText());
+            m.put("repliedAt", i.getRepliedAt() != null ? i.getRepliedAt().toString() : null);
+            m.put("readAt",    i.getReadAt()    != null ? i.getReadAt().toString()    : null);
+            return m;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    /** 답변 읽음 처리 — guestToken 일치 확인 후 readAt 저장 */
+    @PatchMapping("/reply/{inquiryId}/read")
+    public ResponseEntity<?> markAsRead(
+            @PathVariable String inquiryId,
+            @RequestBody Map<String, String> body) {
+        String guestToken = body.get("guestToken");
+        Optional<ContactInquiry> opt = inquiryRepository.findByInquiryId(inquiryId);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
         ContactInquiry inquiry = opt.get();
-        return ResponseEntity.ok(Map.of(
-                "replyText",  inquiry.getReplyText(),
-                "repliedAt",  inquiry.getRepliedAt().toString(),
-                "message",    inquiry.getMessage(),
-                "createdAt",  inquiry.getCreatedAt().toString()
-        ));
+        if (inquiry.getGuestToken() == null || !inquiry.getGuestToken().equals(guestToken)) {
+            return ResponseEntity.status(403).build();
+        }
+        if (inquiry.getReadAt() != null) return ResponseEntity.ok().build(); // 이미 읽음
+        inquiry.setReadAt(LocalDateTime.now());
+        inquiryRepository.save(inquiry);
+        return ResponseEntity.ok().build();
+    }
+
+    /** SSE 구독 — guestToken 기반 실시간 답장 알림 (Nginx에서 항상 app1으로 라우팅) */
+    @GetMapping(value = "/notify", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribe(@RequestParam String guestToken) {
+        if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
+            throw new IllegalArgumentException("잘못된 guestToken");
+        }
+        return sseService.subscribe(guestToken);
+    }
+
+    /** X-Real-IP (Nginx 설정값) → remoteAddr 순으로 실제 IP 추출 */
+    private String extractClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isBlank()) return ip;
+        return request.getRemoteAddr();
+    }
+
+    /** User-Agent 기반 플랫폼 판별 */
+    private String extractPlatform(String userAgent) {
+        if (userAgent == null) return "unknown";
+        String ua = userAgent.toLowerCase();
+        if (ua.contains("iphone") || ua.contains("ipad") || ua.contains("ipod")) return "ios";
+        if (ua.contains("android")) return "android";
+        return "desktop";
     }
 }

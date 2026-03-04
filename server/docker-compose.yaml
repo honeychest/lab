@@ -1,0 +1,40 @@
+# Purpose: 로컬 .env 설정을 유지하면서, Docker 환경에서만 DB 주소를 가로채서 변경함
+
+services:
+  app1:
+    image: chsproject-docker
+    container_name: chs-app-1
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env  # 1. 일단 .env의 모든 값을 가져온 뒤
+    environment:
+      - JASYPT_ENCRYPTOR_PASSWORD=${JASYPT_ENCRYPTOR_PASSWORD}
+      # 2. 아래 값이 .env에 있는 DATASOURCE_URL을 덮어씁니다 (Overriding)
+      - DATASOURCE_URL=jdbc:mysql://mysql-db:3306/home-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      - SERVER_NAME=DOCKER1
+      - TELEGRAM_MODE=polling
+    networks:
+      - chs-network
+    restart: always
+
+  app2:
+    image: chsproject-docker
+    container_name: chs-app-2
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
+    environment:
+      - JASYPT_ENCRYPTOR_PASSWORD=${JASYPT_ENCRYPTOR_PASSWORD}
+      - DATASOURCE_URL=jdbc:mysql://mysql-db:3306/home-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      - SERVER_NAME=DOCKER2
+      - TELEGRAM_MODE=disabled
+    networks:
+      - chs-network
+    restart: always
+
+networks:
+  chs-network:
+    external:
+      name: ubuntu_default

@@ -1,7 +1,9 @@
+// [AGENT] 텔레그램 문의 팝업 — 폼/히스토리/보안체크 뷰, guestToken 기반 다중 문의 표시
+// 연관: contactApi.js, Layout.jsx, ErrorPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import styled from 'styled-components';
-import { sendTelegramInquiry } from '../api/contactApi.js';
+import { sendTelegramInquiry, getGuestToken } from '../api/contactApi.js';
 
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
@@ -60,13 +62,15 @@ const formatDate = (isoStr) => {
     return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 };
 
-const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
+const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries = [], onSent }) => {
+    const guestToken            = guestTokenProp || getGuestToken();
     const [text, setText]       = useState('');
     const [status, setStatus]   = useState('idle');
     const [file, setFile]       = useState(null);
     const [preview, setPreview] = useState(null);
     const [view, setView]       = useState('form'); // 'form' | 'history'
     const fileInputRef          = useRef(null);
+    const historyBodyRef        = useRef(null);
 
     const [checkStep, setCheckStep]     = useState(0);
     const [activeSteps, setActiveSteps] = useState([]);
@@ -77,12 +81,14 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
     const isChecking  = status === 'sending' || status === 'success';
     const isDone      = status === 'success' && checkStep >= activeSteps.length;
 
+    const hasAnyReply = inquiries.some(i => i.replyText);
+
     useEffect(() => {
         if (!isOpen) {
             setText(''); setFile(null); setPreview(null); setStatus('idle'); setCheckStep(0); setActiveSteps([]);
         } else {
             // 팝업 열릴 때: 답변 있으면 히스토리 뷰, 없으면 폼 뷰
-            setView(inquiry?.replyText ? 'history' : 'form');
+            setView(hasAnyReply ? 'history' : 'form');
         }
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,6 +103,13 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
         const timer = setTimeout(() => setCheckStep(s => s + 1), 1000);
         return () => clearTimeout(timer);
     }, [status, checkStep, activeSteps.length]);
+
+    // 히스토리 뷰 전환 또는 inquiries 갱신 시 스크롤 맨 아래로
+    useEffect(() => {
+        if (view === 'history' && historyBodyRef.current) {
+            historyBodyRef.current.scrollTop = historyBodyRef.current.scrollHeight;
+        }
+    }, [view, inquiries]);
 
     // 애니메이션 + API 모두 완료 시 자동 닫힘
     useEffect(() => {
@@ -131,8 +144,8 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
         setActiveSteps(steps);
         setStatus('sending');
         try {
-            await sendTelegramInquiry(text, file, newId);
-            onSent?.(newId);
+            await sendTelegramInquiry(text, file, newId, guestToken);
+            onSent?.();
             setStatus('success');
         } catch (error) {
             const status = error?.response?.status;
@@ -185,18 +198,28 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
                             {isDone ? '메시지가 전송되었습니다' : '잠시만 기다려주세요'}
                         </CheckingHint>
                     </CheckingBody>
-                ) : view === 'history' && inquiry?.replyText ? (
-                    /* ── 히스토리 뷰: 이전 문의 + 관리자 답변 ── */
-                    <HistoryBody>
-                        <HistorySection>
-                            <HistoryLabel>내 문의 ({formatDate(inquiry.createdAt)})</HistoryLabel>
-                            <HistoryText>{inquiry.message}</HistoryText>
-                        </HistorySection>
-                        <HistoryDivider />
-                        <HistorySection>
-                            <HistoryLabel>관리자 답변 ({formatDate(inquiry.repliedAt)})</HistoryLabel>
-                            <HistoryText $reply>{inquiry.replyText}</HistoryText>
-                        </HistorySection>
+                ) : view === 'history' && hasAnyReply ? (
+                    /* ── 히스토리 뷰: 문의 목록 (오래된 순, 최신이 아래) ── */
+                    <HistoryBody ref={historyBodyRef}>
+                        {[...inquiries].reverse().map((inq, idx) => (
+                            <HistoryItem key={inq.inquiryId}>
+                                <HistorySection>
+                                    <HistoryLabel>내 문의 ({formatDate(inq.createdAt)})</HistoryLabel>
+                                    <HistoryText>{inq.message}</HistoryText>
+                                </HistorySection>
+                                {inq.replyText && (
+                                    <>
+                                        <HistoryDivider />
+                                        <HistorySection>
+                                            <HistoryLabel>관리자 답변 ({formatDate(inq.repliedAt)})</HistoryLabel>
+                                            <HistoryText $reply>{inq.replyText}</HistoryText>
+                                        </HistorySection>
+                                    </>
+                                )}
+                                {idx < inquiries.length - 1 && <HistoryItemDivider />}
+
+                            </HistoryItem>
+                        ))}
                         <NewInquiryBtn onClick={() => setView('form')}>새 문의하기</NewInquiryBtn>
                     </HistoryBody>
                 ) : (
@@ -255,14 +278,16 @@ const Overlay = styled.div`
 
 const Container = styled.div`
     display: flex; flex-direction: column;
-    width: 420px; height: 400px;
+    width: 460px;
+    max-height: 80vh;
+    min-height: 400px;
     background: #1e293b;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     color: #e2e8f0;
     overflow: hidden;
     @media (max-width: 768px) {
-        width: 100%; height: auto; min-height: 400px;
+        width: 100%; max-height: 85vh; min-height: 400px;
         border-radius: 20px 20px 0 0;
     }
 `;
@@ -375,20 +400,20 @@ const CheckingBody = styled.div`
 `;
 
 const CheckingTitle = styled.h3`
-    font-size: 16px; font-weight: 600; margin: 0;
+    font-size: 22px; font-weight: 600; margin: 0;
     color: ${({ $done }) => $done ? '#4ade80' : '#f1f5f9'};
     transition: color 0.4s;
 `;
 
 const StepList = styled.ul`
     list-style: none; margin: 0; padding: 0;
-    display: flex; flex-direction: column; gap: 14px;
-    width: 210px;
+    display: flex; flex-direction: column; gap: 18px;
+    width: 260px;
 `;
 
 const StepItem = styled.li`
-    display: flex; align-items: center; gap: 10px;
-    font-size: 14px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 17px;
     color: ${({ $state }) =>
         $state === 'done'   ? '#4ade80' :
         $state === 'active' ? '#e2e8f0' : '#334155'};
@@ -396,14 +421,14 @@ const StepItem = styled.li`
 `;
 
 const StepIcon = styled.span`
-    font-size: 13px; width: 16px; text-align: center; flex-shrink: 0;
+    font-size: 16px; width: 20px; text-align: center; flex-shrink: 0;
     color: ${({ $state }) =>
         $state === 'done'   ? '#4ade80' :
         $state === 'active' ? '#60a5fa' : '#334155'};
 `;
 
 const CheckingHint = styled.p`
-    font-size: 12px; color: #64748b; margin: 0;
+    font-size: 14px; color: #64748b; margin: 0;
 `;
 
 // ── 히스토리 뷰 ──────────────────────────────────────────────────────────────
@@ -439,6 +464,17 @@ const HistoryDivider = styled.div`
     height: 1px;
     background: rgba(255, 255, 255, 0.07);
     flex-shrink: 0;
+`;
+
+const HistoryItem = styled.div`
+    display: flex; flex-direction: column; gap: 12px;
+`;
+
+const HistoryItemDivider = styled.div`
+    height: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 1px;
+    margin: 4px 0;
 `;
 
 const NewInquiryBtn = styled.button`

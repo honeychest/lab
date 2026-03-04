@@ -1,4 +1,6 @@
-// Purpose: Spring Security 설정 — REST API 및 WebSocket 엔드포인트 접근 허용
+// [AGENT] Spring Security 설정 — 현재 모든 요청 허용 (anyRequest().permitAll())
+// 로그인 추가 시 이 파일에서 requestMatchers로 세분화
+// 연관: WebSocketConfig.java
 
 /**
  * ─────────────────────────────────────────────────────────────────

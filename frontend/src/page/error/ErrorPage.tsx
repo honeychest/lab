@@ -1,8 +1,10 @@
-// Purpose: 통합 에러 페이지 — ?code= 쿼리 파라미터로 4xx/5xx 에러 코드별 안내 제공
+// [AGENT] 통합 에러 페이지 — ?code= 쿼리 파라미터로 4xx/5xx 에러 코드별 안내
+// 연관: TelegramPopup.jsx, MainRouter.jsx
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Lottie from 'lottie-react';
 import TelegramPopup from '../../domain/support/ui/TelegramPopup';
+import { getGuestToken } from '../../domain/support/api/contactApi.js';
 
 // alert.json: 경고성 에러 (400, 401, 403, 429, 500)
 // denyX.json: 거부/없음 에러 (404, 502, 503, 504)
@@ -297,7 +299,8 @@ export default function ErrorPage({ code: codeProp, onRetry }: { code?: string; 
                 <TelegramPopup
                     isOpen={isContactOpen}
                     onClose={() => setIsContactOpen(false)}
-                    onSent={(newId: string) => localStorage.setItem('chs_inquiry_id', newId)}
+                    guestToken={getGuestToken()}
+                    onSent={() => {}}
                 />
 
                 {/* 하단 상태 코드 */}
