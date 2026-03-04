@@ -1,6 +1,8 @@
 // [AGENT] 텔레그램 update(메시지) 처리 공통 로직.
 // 역할: 관리자 답장 수신 → reply_to_message.text 또는 caption에서 inquiryId 추출
 //       → 복수 답장은 [HH:mm] 타임스탬프 구분자로 이어붙이기 → readAt 초기화
+// 중복 방지: processedIds(LinkedHashSet, 최대 1000개)로 동일 update_id 재처리 차단
+//           (로컬+서버 동시 polling 등 다중 인스턴스 환경에서 방어막 역할)
 // 연관: TelegramPollingService.java, TelegramWebhookController.java, ContactInquiry.java
 package com.chs.springboot.global;
 
@@ -13,8 +15,11 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +35,16 @@ public class TelegramUpdateProcessor {
 
     private static final Pattern ID_PATTERN = Pattern.compile("\\[문의 #([0-9a-f]{8})\\]");
 
+    /** 이미 처리한 update_id 캐시 — 동일 JVM 내 중복 처리 방지 (최대 1000개, 오래된 것 자동 제거) */
+    private final Set<Long> processedIds = Collections.newSetFromMap(
+            Collections.synchronizedMap(new LinkedHashMap<>() {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Long, Boolean> eldest) {
+                    return size() > 1000;
+                }
+            })
+    );
+
     private final ContactInquiryRepository inquiryRepository;
     private final SupportSseService         sseService;
 
@@ -39,9 +54,14 @@ public class TelegramUpdateProcessor {
      */
     public void process(Map<String, Object> update) {
         try {
-            log.info("[DIAG] process() called — update_id={}, thread={}",
-                    update.get("update_id"), Thread.currentThread().getName());
-            // ↑ 이 줄이 몇 번 찍히는지가 핵심
+            // 동일 update_id 중복 처리 방지 (같은 인스턴스 내)
+            Long updateId = update.get("update_id") != null
+                    ? ((Number) update.get("update_id")).longValue()
+                    : null;
+            if (updateId != null && !processedIds.add(updateId)) {
+                log.warn("Duplicate update_id={}, skipping", updateId);
+                return;
+            }
 
             @SuppressWarnings("unchecked")
             Map<String, Object> message = (Map<String, Object>) update.get("message");
@@ -88,12 +108,10 @@ public class TelegramUpdateProcessor {
                     ? "[" + timestamp + "] " + newReply
                     : existing + "\n[" + timestamp + "] " + newReply;
 
-            log.info("[DIAG] existing='{}' → appending='{}'", existing, newReply);
             inquiry.setReplyText(appended);
             if (inquiry.getRepliedAt() == null) inquiry.setRepliedAt(LocalDateTime.now()); // 최초 답변 시각만 기록
             inquiry.setReadAt(null); // 새 답변 도착 → 읽음 초기화
             inquiryRepository.save(inquiry);
-            log.info("[DIAG] save done, replyText='{}'", inquiry.getReplyText());
 
             // SSE로 실시간 알림 (guestToken 없는 구 데이터는 무시)
             sseService.notify(inquiry.getGuestToken());
