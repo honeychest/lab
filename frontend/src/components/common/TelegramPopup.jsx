@@ -6,7 +6,13 @@ import { sendTelegramInquiry } from '../../features/support/api/contactApi';
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
 const QUALITIES    = [0.9, 0.7, 0.5, 0.3];
-const STEPS        = ['XSS 처리', 'Safe Browsing', 'VirusTotal'];
+
+// 각 단계는 조건에 따라 선택적으로 표시됨
+const ALL_STEPS = [
+    { label: 'XSS 처리',      check: ()           => true },
+    { label: 'Safe Browsing', check: (t)          => /https?:\/\/\S+/.test(t) },
+    { label: 'VirusTotal',    check: (t, hasFile) => hasFile },
+];
 
 const compressImage = (file) => new Promise((resolve, reject) => {
     const img = new Image();
@@ -62,17 +68,18 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
     const [view, setView]       = useState('form'); // 'form' | 'history'
     const fileInputRef          = useRef(null);
 
-    const [checkStep, setCheckStep] = useState(0);
+    const [checkStep, setCheckStep]     = useState(0);
+    const [activeSteps, setActiveSteps] = useState([]);
 
     const remaining   = MAX_LENGTH - text.length;
     const isOverLimit = remaining < 0;
     const isBusy      = status === 'compressing' || status === 'sending';
     const isChecking  = status === 'sending' || status === 'success';
-    const isDone      = status === 'success' && checkStep >= 3;
+    const isDone      = status === 'success' && checkStep >= activeSteps.length;
 
     useEffect(() => {
         if (!isOpen) {
-            setText(''); setFile(null); setPreview(null); setStatus('idle'); setCheckStep(0);
+            setText(''); setFile(null); setPreview(null); setStatus('idle'); setCheckStep(0); setActiveSteps([]);
         } else {
             // 팝업 열릴 때: 답변 있으면 히스토리 뷰, 없으면 폼 뷰
             setView(inquiry?.replyText ? 'history' : 'form');
@@ -86,10 +93,10 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
     // 1초마다 보안 체크 단계 진행 (전송 중 / 성공 상태에서 모두 동작)
     useEffect(() => {
         if (status !== 'sending' && status !== 'success') return;
-        if (checkStep >= 3) return;
+        if (checkStep >= activeSteps.length) return;
         const timer = setTimeout(() => setCheckStep(s => s + 1), 1000);
         return () => clearTimeout(timer);
-    }, [status, checkStep]);
+    }, [status, checkStep, activeSteps.length]);
 
     // 애니메이션 + API 모두 완료 시 자동 닫힘
     useEffect(() => {
@@ -119,6 +126,9 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
     const handleSubmit = async () => {
         if (!text.trim() || isOverLimit || isBusy) return;
         const newId = generateUUID();
+        // 실제 내용 기반으로 표시할 체크 단계만 추려서 설정
+        const steps = ALL_STEPS.filter(s => s.check(text, !!file)).map(s => s.label);
+        setActiveSteps(steps);
         setStatus('sending');
         try {
             await sendTelegramInquiry(text, file, newId);
@@ -133,6 +143,7 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
             }
             setStatus('idle');
             setCheckStep(0);
+            setActiveSteps([]);
         }
     };
 
@@ -154,7 +165,7 @@ const TelegramPopup = ({ isOpen, onClose, inquiry = null, onSent }) => {
                             {isDone ? '전송 완료!' : '보안 검사 중...'}
                         </CheckingTitle>
                         <StepList>
-                            {STEPS.map((step, i) => {
+                            {activeSteps.map((step, i) => {
                                 const state = checkStep > i ? 'done' : checkStep === i ? 'active' : 'pending';
                                 return (
                                     <StepItem key={step} $state={state}>
