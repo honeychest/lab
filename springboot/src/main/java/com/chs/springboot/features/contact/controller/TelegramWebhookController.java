@@ -1,3 +1,6 @@
+// [AGENT] 텔레그램 Webhook 수신 컨트롤러 — telegram.mode=webhook 일 때만 활성화
+// POST /api/telegram/webhook: X-Telegram-Bot-Api-Secret-Token 검증 후 TelegramUpdateProcessor 위임
+// 연관: TelegramUpdateProcessor.java, TelegramPollingService.java (polling 모드 대안)
 package com.chs.springboot.features.contact.controller;
 
 import com.chs.springboot.global.TelegramUpdateProcessor;

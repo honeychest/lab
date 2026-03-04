@@ -1,3 +1,6 @@
+// [AGENT] 텔레그램 전송 컴포넌트 — sendMessage(텍스트), sendPhoto(이미지+캡션)
+// 도배방지: 동일 메시지 1분 내 재전송 차단 (인메모리 ConcurrentHashMap 캐시)
+// 연관: ContactController.java (문의 수신 시 sendPhoto/sendMessage 호출)
 package com.chs.springboot.global;
 
 import lombok.extern.slf4j.Slf4j;

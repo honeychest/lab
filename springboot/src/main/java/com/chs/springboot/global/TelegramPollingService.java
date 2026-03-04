@@ -1,3 +1,7 @@
+// [AGENT] 텔레그램 폴링 서비스 — telegram.mode=polling 일 때만 활성화
+// @PostConstruct: getUpdates?offset=-1 로 최신 update_id 읽어 offset 초기화
+// @Scheduled(fixedDelay=30000): 30초마다 getUpdates, offset 전진으로 중복 방지 (인메모리 AtomicLong)
+// 연관: TelegramUpdateProcessor.java (update 처리), TelegramWebhookController.java (webhook 모드 대안)
 package com.chs.springboot.global;
 
 import jakarta.annotation.PostConstruct;

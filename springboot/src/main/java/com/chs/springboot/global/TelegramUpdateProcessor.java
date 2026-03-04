@@ -39,6 +39,9 @@ public class TelegramUpdateProcessor {
      */
     public void process(Map<String, Object> update) {
         try {
+            log.info("[DIAG] process() called — update_id={}, thread={}",
+                    update.get("update_id"), Thread.currentThread().getName());
+
             @SuppressWarnings("unchecked")
             Map<String, Object> message = (Map<String, Object>) update.get("message");
             if (message == null) return;
