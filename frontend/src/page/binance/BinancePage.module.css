@@ -1,3 +1,6 @@
+/* [AGENT] BinancePage 레이아웃 CSS Module
+   주요: PC/모바일 전환, 코인 탭 스크롤, 코인 탭 포커스 링(접근성)
+   연관: BinancePage.jsx */
 /* Purpose: BinancePage PC/모바일 컴포넌트 전환 — display 토글만 담당 */
 
 /* PC(>768px)에서만 표시 */
@@ -16,8 +19,9 @@
     gap: 8px;
     flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     max-width: 100%;
+    padding: 4px 5px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge legacy */
@@ -25,6 +29,18 @@
 
 .coinTabsScroll::-webkit-scrollbar {
     display: none; /* Chrome/Safari/Edge */
+}
+
+/* 코인 탭 버튼 호버 */
+.coinTab:hover {
+    filter: brightness(2);
+    transition: filter 0.15s ease;
+}
+
+/* 코인 탭 버튼 키보드 포커스 링 (접근성) */
+.coinTab:focus-visible {
+    outline: 2px solid #F3BA2F;
+    outline-offset: 2px;
 }
 
 @media (max-width: 768px) {

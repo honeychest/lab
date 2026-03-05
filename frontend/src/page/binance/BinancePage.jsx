@@ -1,3 +1,7 @@
+// [AGENT] BinancePage — Binance 대시보드 컨테이너 컴포넌트
+// 연관: BinanceTicker.tsx, BinanceTickerMobile.tsx, BinanceWallet.tsx
+// 훅: useBinanceWebSocket.ts, useUpbitWebSocket.ts
+// 주요기능: WebSocket 시세, Upbit KRW 환율, 지갑 잔고 REST, 패널 높이 고정(ref), 서버 오류 인라인 렌더
 // Purpose: Binance 대시보드 페이지 — 실시간 WebSocket 시세 및 지갑 잔고 표시
 
 /**
@@ -100,6 +104,9 @@ const COINS = [
     { symbol: 'SOLUSDT', code: 'SOL', label: 'SOL / USDT', upbitCode: 'KRW-SOL' },
     { symbol: 'XRPUSDT', code: 'XRP', label: 'XRP / USDT', upbitCode: 'KRW-XRP' },
 ];
+
+// prefers-reduced-motion: 애니메이션 민감 사용자 대응 (모듈 레벨 1회 감지)
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ─────────────────────────────────────────────────────────────────
 //  컴포넌트 본체
@@ -310,13 +317,10 @@ function BinancePage() {
      *   값 변경 시 리렌더링이 발생하지 않음 — 높이 저장은 부수 효과이므로 적합.
      */
     const tickerWrapperRef = useRef(null);
-    const savedHeightRef   = useRef(null);
     const [savedHeight, setSavedHeight] = useState(null);
 
     // 모바일 전용 — PC 메커니즘과 완전히 분리
-    const mobileWrapperRef     = useRef(null);
-    const mobileSavedHeightRef = useRef(null);
-    const mobileSavedWidthRef  = useRef(null);
+    const mobileWrapperRef = useRef(null);
     const [mobileSavedHeight, setMobileSavedHeight] = useState(null);
     const [mobileSavedWidth, setMobileSavedWidth] = useState(null);
 
@@ -325,21 +329,14 @@ function BinancePage() {
         // (ticker가 null이 될 때 이미 저장된 값으로 minHeight 적용)
         if (ticker !== null) {
             if (tickerWrapperRef.current) {
-                savedHeightRef.current = tickerWrapperRef.current.offsetHeight;
-                setSavedHeight(savedHeightRef.current);
+                setSavedHeight(tickerWrapperRef.current.offsetHeight);
             }
             if (mobileWrapperRef.current) {
                 const mh = mobileWrapperRef.current.offsetHeight;
                 const mw = mobileWrapperRef.current.offsetWidth;
                 // display:none(=0)일 때 덮어쓰기 방지
-                if (mh > 0) {
-                    mobileSavedHeightRef.current = mh;
-                    setMobileSavedHeight(mh);
-                }
-                if (mw > 0) {
-                    mobileSavedWidthRef.current  = mw;
-                    setMobileSavedWidth(mw);
-                }
+                if (mh > 0) setMobileSavedHeight(mh);
+                if (mw > 0) setMobileSavedWidth(mw);
             }
         }
     }, [ticker]);
@@ -441,6 +438,7 @@ function BinancePage() {
                                         <button
                                             key={coin.symbol}
                                             type="button"
+                                            className={pageStyles.coinTab}
                                             onClick={() => setSelectedSymbol(coin.symbol)}
                                             style={{
                                                 padding: '6px 12px',
@@ -451,6 +449,9 @@ function BinancePage() {
                                                 fontSize: '12px',
                                                 fontWeight: 700,
                                                 cursor: 'pointer',
+                                                touchAction: 'manipulation',
+                                                outline: isActive ? '2px solid #F3BA2F' : 'none',
+                                                outlineOffset: '2px',
                                             }}
                                         >
                                             {coin.code}
@@ -479,7 +480,7 @@ function BinancePage() {
                                         backgroundColor: status === 'connected' ? color : 'transparent',
                                         display: 'inline-block',
                                         boxSizing: 'border-box',
-                                        transition: 'background-color 0.15s ease-out',
+                                        transition: prefersReducedMotion ? 'none' : 'background-color 0.15s ease-out',
                                     }} />
                                     {/* 상태 텍스트: LIVE / 연결 중... / 연결 끊김 */}
                                     <span style={{ color, fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
@@ -487,7 +488,7 @@ function BinancePage() {
                                     </span>
                                 </div>
                                 {/* USDT 환율: 수신 완료 시 실값, 대기 중이면 '...' */}
-                                <span style={{ color: '#475569', fontSize: '11px', fontFamily: 'monospace' }}>
+                                <span style={{ color: '#475569', fontSize: '11px', fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
                                     {usdtTicker
                                         ? '1 USDT = ₩' + Math.round(usdtTicker.trade_price).toLocaleString('ko-KR')
                                         : '1 USDT = ...'}
