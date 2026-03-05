@@ -1,3 +1,5 @@
+// [AGENT] Cesium 지도 유틸 — updateMapColors(기온 색상 적용), handleCesiumClick(선택 오버레이+애니메이션)
+// 연관: useCesiumMap.js, regions.ts, weatherUtils.ts
 // Purpose: Cesium 지도 관련 상수, 색상 업데이트 및 클릭 핸들러 유틸리티
 
 /**

@@ -1,3 +1,4 @@
+// [AGENT] 역할: 날씨 데이터 조회 서비스 (DB 우선 → 기상청 API 폴백 → 재귀 재시도 최대 5회) | 연관파일: WeatherRepository.java, WeatherEntity.java, WeatherController.java, WeatherScheduler.java | 주요메서드: getWeatherByHour(), fetchWeatherRecursive(), saveIfAbsent(), extractFcstData()
 // Purpose: 날씨 데이터 조회 서비스 — DB 우선 조회 후 부족 시 기상청 API 호출 + DB 저장
 
 /**

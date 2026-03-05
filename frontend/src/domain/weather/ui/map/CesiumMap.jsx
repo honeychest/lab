@@ -1,3 +1,5 @@
+// [AGENT] Cesium 3D 지도 렌더링 컴포넌트 — useCesiumMap 훅 연결, ref → div 마운트
+// 연관: useCesiumMap.js, CesiumPage.jsx
 // Purpose: Cesium 3D 지도 렌더링 컴포넌트 — 날씨 데이터 기반 지역 색상 표시
 import { useCesiumMap } from "../../model/hook/useCesiumMap.js";
 import styles from "../../../../page/weather/CesiumPage.module.css";

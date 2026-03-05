@@ -1,3 +1,4 @@
+// [AGENT] useEffect 패턴 테스트용 — 개발 학습 전용 컴포넌트(/test 경로)
 import { useEffect, useState } from 'react';
 
   export default function EffectPatternsDemo() {

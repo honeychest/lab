@@ -1,3 +1,4 @@
+// [AGENT] 역할: 업비트 단일 WS 연결 유지 및 다중 코드 구독 중계 서비스 | 연관파일: UpbitPriceWebSocketHandler.java, NotificationService.java, UpbitSubscriptionChangeEvent.java | 주요메서드: handleSubscriptionChange()(@EventListener), applyRequestedCodes(), connectToUpbit(), scheduleReconnect(), disconnect()(@PreDestroy) | 핵심: connectionGeneration으로 구 리스너 재연결 무효화, 텍스트/바이너리 수신 모두 처리
 // Purpose: 업비트 단일 WebSocket 연결 유지 및 다중 코드 구독 중계 서비스
 
 package com.chs.springboot.domain.upbit.service;

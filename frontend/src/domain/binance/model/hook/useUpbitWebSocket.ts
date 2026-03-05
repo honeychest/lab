@@ -1,3 +1,5 @@
+// [AGENT] 업비트 WebSocket 훅 — KRW 티커 다중 코드 구독, 서버 중계 경로(/ws/upbit-price)
+// 연관: BinancePage.jsx
 // Purpose: 업비트 KRW 티커 WebSocket 연결을 관리하고 여러 코드의 trade_price를 실시간으로 반환
 
 import { useEffect, useRef, useState } from 'react';

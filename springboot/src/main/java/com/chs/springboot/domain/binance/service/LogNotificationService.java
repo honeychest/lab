@@ -1,3 +1,4 @@
+// [AGENT] 역할: NotificationService 기본 구현체 (WARN 레벨 로그 출력) | 연관파일: NotificationService.java(인터페이스), BinanceStreamService.java, UpbitStreamService.java | 주요메서드: sendAlert() → log.warn("[ALERT] {}") | 교체 방법: 새 구현체에 @Primary 추가
 // Purpose: NotificationService 기본 구현체 — 콘솔 로그로 알림 출력 (추후 텔레그램 등으로 교체)
 
 /**

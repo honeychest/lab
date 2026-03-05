@@ -1,3 +1,4 @@
+// [AGENT] 역할: 날씨 예보 DB 엔티티 (weather_history 테이블) | 연관파일: WeatherRepository.java, WeatherService.java | 주요필드: region·fcstDateTime(unique), tmp·hum·rain·wind, regDateTime(@PrePersist)
 package com.chs.springboot.domain.weather.model;
 
 import jakarta.persistence.*;

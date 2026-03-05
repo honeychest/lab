@@ -1,3 +1,5 @@
+// [AGENT] 날씨 상세 팝업 — 지역 클릭 시 기온/강수/습도/풍속 표시, Draggable PC/모바일 bottom sheet
+// 연관: CesiumPage.jsx, useCesiumMap.js
 // Purpose: 지역 클릭 시 표시되는 날씨 상세 팝업 — 기온/강수/습도/풍속 정보 표시
 
 /**

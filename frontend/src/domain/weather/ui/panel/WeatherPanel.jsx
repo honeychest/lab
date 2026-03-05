@@ -1,3 +1,5 @@
+// [AGENT] 전국 기온 패널 — Draggable 오버레이, 시간 선택 드롭다운, getRelativeColor 기온 색상
+// 연관: CesiumPage.jsx, weatherUtils.ts
 // Purpose: 드래그 가능한 전국 기온 패널 — 지역별 기온 목록 및 시간 선택 표시
 
 /**

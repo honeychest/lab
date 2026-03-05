@@ -1,3 +1,4 @@
+// [AGENT] 역할: 바이낸스 REST API 연동 서비스 (단발성 시세·계좌 조회, 실시간은 BinanceStreamService) | 연관파일: BinanceController.java | 주요메서드: init()(@PostConstruct, SpotClientImpl 초기화), getSymbolPrice(), getAccountInformation() | 보안: Jasypt ENC(...)로 API Key 복호화
 // Purpose: 바이낸스 API 연동 서비스 — 시세 조회 및 계좌 잔고 반환
 
 /**

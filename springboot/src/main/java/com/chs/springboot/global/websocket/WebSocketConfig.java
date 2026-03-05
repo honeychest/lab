@@ -1,3 +1,4 @@
+// [AGENT] 역할: WS 엔드포인트 등록 설정 | 연관파일: BinancePriceWebSocketHandler.java(/ws/binance-price), UpbitPriceWebSocketHandler.java(/ws/upbit-price) | 주의: Vite 프록시에서 /ws/binance-price와 /ws/upbit-price 각각 구체적으로 설정 필요 (/ws만 쓰면 HMR 충돌)
 // Purpose: WebSocket 엔드포인트 등록 — Binance/Upbit 가격 중계 경로를 핸들러에 연결
 
 /**

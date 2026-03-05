@@ -1,3 +1,5 @@
+// [AGENT] 바이낸스 모바일 시세 컴포넌트 — 세로 스택 레이아웃, BinancePage에서 ≤768px 표시
+// 연관: BinancePage.jsx, useBinanceWebSocket.ts, useUpbitWebSocket.ts
 // Purpose: 바이낸스 모바일 전용 시세 컴포넌트 — 고가/현재가/저가 · 프리미엄 · KRW · InfoBox 세로 스택
 
 /**

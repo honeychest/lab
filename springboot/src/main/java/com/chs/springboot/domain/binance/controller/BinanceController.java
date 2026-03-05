@@ -1,3 +1,4 @@
+// [AGENT] 역할: 바이낸스 REST API 엔드포인트 | 연관파일: BinanceService.java | 주요메서드: getBtcPrice() → GET /api/binance/price (503 폴백), getAccountInfo() → GET /api/binance/account (503 폴백)
 // Purpose: 바이낸스 REST API 엔드포인트 — 시세 및 계좌 잔고 요청 처리
 
 /**

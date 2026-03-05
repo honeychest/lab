@@ -1,3 +1,4 @@
+// [AGENT] 역할: Google Safe Browsing API v4 — 메시지 내 URL 악성 여부 검사 | 연관파일: ContactController.java | 동작: 텍스트에서 URL 추출→위협(MALWARE/SOCIAL_ENGINEERING/UNWANTED_SOFTWARE) 탐지, 429(할당량초과)→통과, API키 미설정→스킵 | 일일 한도 10,000회
 package com.chs.springboot.global;
 
 import lombok.extern.slf4j.Slf4j;

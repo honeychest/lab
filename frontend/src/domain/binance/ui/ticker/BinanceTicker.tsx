@@ -1,3 +1,5 @@
+// [AGENT] 바이낸스 시세 컴포넌트 — 현재가/변동/고저가/프리미엄/거래량, shimmer 스켈레톤
+// 연관: BinancePage.jsx, useBinanceWebSocket.ts, useUpbitWebSocket.ts
 // Purpose: 바이낸스 BTC/USDT 실시간 시세 표시 컴포넌트 — 현재가·변동률·고저가·호가·거래량 UI
 
 /**

@@ -1,3 +1,4 @@
+// [AGENT] 역할: 업비트 구독 코드 합집합 변경 ApplicationEvent | 연관파일: UpbitPriceWebSocketHandler.java(발행), UpbitStreamService.java(수신 — @EventListener) | codes: 전체 세션의 요청 코드 합집합(unmodifiable), 세션 연결/해제 시마다 발행
 // Purpose: 업비트 WebSocket 구독 코드 집합 변경을 전달하는 이벤트
 
 package com.chs.springboot.domain.upbit.service;

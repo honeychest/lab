@@ -1,3 +1,5 @@
+// [AGENT] 바이낸스 지갑 잔고 표시 — REST API 잔고 UI, props: accountInfo/loading/error
+// 연관: BinancePage.jsx
 // Purpose: 바이낸스 지갑 잔고 표시 컴포넌트 — REST API로 조회한 계좌 잔고 UI
 
 /**

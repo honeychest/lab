@@ -1,3 +1,4 @@
+// [AGENT] 역할: 날씨 REST API 엔드포인트 | 연관파일: WeatherService.java, WeatherRepository.java, useWeatherData.ts(FE) | 주요메서드: getAvailableHours() → GET /api/weather/available-hours, getAllWeather() → GET /api/weather/all?hour=N
 // Purpose: 날씨 REST API 엔드포인트 — 사용 가능 시간 목록 및 전국 날씨 데이터 제공
 
 /**

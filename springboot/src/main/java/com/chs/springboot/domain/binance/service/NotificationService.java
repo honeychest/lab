@@ -1,3 +1,4 @@
+// [AGENT] 역할: 외부 알림 발송 인터페이스 (Strategy Pattern) | 연관파일: LogNotificationService.java(구현체), BinanceStreamService.java, UpbitStreamService.java | 주요메서드: sendAlert(String message) | 교체 시 @Primary 어노테이션으로 구현체 전환
 // Purpose: 외부 알림 발송 인터페이스 — 텔레그램 등 구현체 교체 가능
 
 /**

@@ -1,3 +1,4 @@
+// [AGENT] 역할: 날씨 데이터 자동 수집 스케줄러 (cron "0 0/10 * * * *") | 연관파일: WeatherService.java, SpringbootApplication.java(@EnableScheduling) | 핵심: SCHEDULING_ENABLED=false 유지 필수(true 시 기상청 API 실호출) — @Value 타이밍 버그로 System.getProperty()로 런타임 조회
 // Purpose: 날씨 데이터 자동 수집 스케줄러 — 10분 주기로 전국 날씨를 DB에 저장
 
 /**

@@ -1,3 +1,5 @@
+// [AGENT] 날씨 지도 메인 페이지 — Cesium+WeatherPanel+WeatherDetail 조합, stale closure 대응 ref
+// 연관: CesiumMap.jsx, WeatherPanel.jsx, WeatherDetail.tsx, useWeatherData.ts
 // Purpose: 날씨 지도 메인 화면 — Cesium 지도와 날씨 패널/팝업 조합
 
 /**

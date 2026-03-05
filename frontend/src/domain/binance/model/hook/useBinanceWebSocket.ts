@@ -1,3 +1,5 @@
+// [AGENT] 바이낸스 WebSocket 훅 — BTC/USDT 실시간 시세, 자동 재연결, 탭 비활성화 처리
+// 연관: BinanceTicker.tsx, BinancePage.jsx
 // Purpose: 바이낸스 BTC/USDT 실시간 시세 WebSocket 연결 훅 — 자동 재연결, 탭 비활성화 처리 포함
 
 /**

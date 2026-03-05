@@ -1,3 +1,4 @@
+// [AGENT] 역할: 날씨 엔티티 JPA Repository | 연관파일: WeatherEntity.java, WeatherService.java, WeatherController.java | 주요메서드: existsByRegionAndFcstDateTime(), findByRegionAndFcstDateTime(), findAllByFcstDateTime(), findDistinctHours(LocalDate today) — today 파라미터로 DB UTC 타임존 버그 방지
 package com.chs.springboot.domain.weather.repository;
 
 import com.chs.springboot.domain.weather.model.WeatherEntity;

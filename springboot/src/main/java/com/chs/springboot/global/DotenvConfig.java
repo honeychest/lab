@@ -1,3 +1,4 @@
+// [AGENT] 역할: .env 파일을 JVM System 프로퍼티에 등록하는 @Configuration | 연관파일: JasyptConfig.java(password 읽기), WeatherScheduler.java(SCHEDULING_ENABLED), SpringbootApplication.java | 주의: JVM 옵션(-D) 선등록 값은 덮어쓰지 않음 (우선순위: JVM옵션 > .env)
 // Purpose: .env 파일의 환경변수를 JVM 시스템 프로퍼티에 등록하는 설정 클래스
 
 /**

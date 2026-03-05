@@ -1,3 +1,5 @@
+// [AGENT] 날씨 유틸 — WeatherData 타입, getRelativeColor(기온→색상), getPtyText(강수코드→텍스트)
+// 사용처: cesiumUtils.js, WeatherPanel.jsx
 // Purpose: 날씨 데이터 유틸리티 — 기온 기반 색상 계산 및 강수 형태 변환
 
 /**

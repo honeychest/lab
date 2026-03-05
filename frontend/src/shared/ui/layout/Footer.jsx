@@ -1,3 +1,5 @@
+// [AGENT] 앱 하단 푸터 — 공통/페이지 기술 태그, by CHS 배지(hasReply 시 빨간 점), onAdminClick 콜백
+// 연관: Layout.jsx
 // Purpose: 앱 전체 하단 푸터 - 공통 기술(좌) | 페이지별 기술(중앙) | 브랜드(우)
 import styles from './Footer.module.css';
 

@@ -1,3 +1,4 @@
+// [AGENT] 에러 페이지 테스트용 — 개발 환경 전용(/error-test 경로), MainRouter에서 DEV 조건부 등록
 // Purpose: 에러 페이지 테스트용 — 개발 환경에서만 사용
 import { useNavigate } from 'react-router-dom';
 

@@ -1,3 +1,5 @@
+// [AGENT] Cesium 지도 초기화 훅 — Viewer 생성, 날씨 색상 갱신, 지역 클릭 이벤트, 오버레이 애니메이션
+// 연관: CesiumMap.jsx, cesiumUtils.js
 // Purpose: Cesium viewer 초기화 및 날씨 데이터 연동 커스텀 훅
 
 /**

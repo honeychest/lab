@@ -1,3 +1,5 @@
+// [AGENT] 날씨 지역 상수 — GEO_ORDER(시도 순서), CITY_TO_PROVINCE(광역시→시도 매핑)
+// 사용처: cesiumUtils.js, useWeatherData.ts, WeatherPanel.jsx
 // Purpose: 지역 관련 상수 — 10개 시도 순서(GEO_ORDER) 및 도시-시도 매핑(CITY_TO_PROVINCE)
 
 /**

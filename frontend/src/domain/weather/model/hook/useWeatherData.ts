@@ -1,3 +1,5 @@
+// [AGENT] 날씨 데이터 패칭 훅 — available-hours 조회, 시간별 전국 날씨, minT/maxT 계산, retry
+// 연관: CesiumPage.jsx, regions.ts
 // Purpose: 날씨 데이터 패칭 커스텀 훅 — 사용 가능 시간 조회 및 시간별 전국 날씨 관리
 
 /**

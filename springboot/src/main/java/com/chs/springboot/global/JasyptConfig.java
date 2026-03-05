@@ -1,3 +1,4 @@
+// [AGENT] 역할: ENC(...)를 자동 복호화하는 Jasypt 설정 | 연관파일: DotenvConfig.java(password 등록), application.properties(ENC값), BinanceService.java | JASYPT_ENCRYPTOR_PASSWORD 환경변수 필수 — 알고리즘: PBEWithMD5AndDES, 출력: base64 | @Bean("jasyptStringEncryptor") 이름 고정
 // Purpose: application.properties의 ENC(...) 암호화 값을 자동 복호화하는 Jasypt 설정
 
 /**

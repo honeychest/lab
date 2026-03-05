@@ -1,3 +1,5 @@
+// [AGENT] 앱 라우팅 — BrowserRouter 기반, /app→/cesium 리다이렉트, DEV 전용 /error-test
+// 연관: BinancePage.jsx, CesiumPage.jsx, ErrorPage.tsx
 // Purpose: 앱 전체 라우팅 설정 — URL별 페이지 컴포넌트 연결
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; // Navigate: /app → /cesium 리다이렉트에 사용
 

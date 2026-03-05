@@ -1,3 +1,4 @@
+// [AGENT] 역할: 프론트엔드 바이낸스 WS 세션 관리 및 시세 브로드캐스트 허브 | 연관파일: BinanceStreamService.java(broadcastPrice 호출자), SymbolChangeEvent.java, WebSocketConfig.java | 주요메서드: afterConnectionEstablished(), afterConnectionClosed(), handleTransportError(), broadcastPrice(), getSessionCount() | ConcurrentWebSocketSessionDecorator로 동시 송신 직렬화
 // Purpose: 프론트엔드 WebSocket 세션 관리 — 연결/해제 처리 및 시세 브로드캐스트
 
 /**

@@ -1,3 +1,5 @@
+// [AGENT] 앱 상단 헤더 — NavLink 메뉴, /api/binance/price X-Server-Name 헤더로 서버 인디케이터 표시
+// 연관: Layout.jsx
 // Purpose: 앱 전체 상단 헤더 - 브랜드(Home), 메뉴 네비게이션, 서버 인디케이터
 
 import { useEffect, useState } from 'react';

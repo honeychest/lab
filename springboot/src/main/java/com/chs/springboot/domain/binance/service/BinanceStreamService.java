@@ -1,3 +1,4 @@
+// [AGENT] 역할: 바이낸스 WS 스트림 구독·중계 서비스 | 연관파일: BinancePriceWebSocketHandler.java, NotificationService.java, SymbolChangeEvent.java | 주요메서드: connect()(@PostConstruct), setSymbol(), connectToBinance(), scheduleReconnect(), disconnect()(@PreDestroy) | 핵심: connectionGeneration으로 심볼 변경 시 구 리스너 재연결 무효화
 // Purpose: 바이낸스 WebSocket 스트림 구독 — 실시간 시세를 프론트엔드 클라이언트로 중계
 
 /**

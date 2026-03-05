@@ -1,3 +1,4 @@
+// [AGENT] 역할: 프론트엔드 업비트 WS 세션 관리 및 시세 브로드캐스트 허브 | 연관파일: UpbitStreamService.java(broadcastPrice 호출자), UpbitSubscriptionChangeEvent.java, WebSocketConfig.java | 주요메서드: afterConnectionEstablished(), afterConnectionClosed(), broadcastPrice(), getAllRequestedCodesSnapshot(), parseRequestedCodes() | sessionCodes로 세션별 코드 관리, 세션 변동 시 합집합 이벤트 발행
 // Purpose: 프론트엔드 업비트 WebSocket 세션 관리 및 업비트 시세 브로드캐스트
 
 package com.chs.springboot.domain.upbit.websocket;
