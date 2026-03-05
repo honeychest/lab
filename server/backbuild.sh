@@ -18,7 +18,9 @@ docker tag chsproject-docker:latest chsproject-docker:old
 
 # 2. 소스 업데이트 및 빌드
 echo "Step 2: Pulling source and Building JAR..."
-git pull
+git fetch --all
+git reset --hard origin/main  # 1. 내용 강제 동기화 (충돌 방지)
+chmod +x ./gradlew            # 2. 실행 권한 부여 (Permission denied 방지)
 ./gradlew clean build -x test || { echo "Build failed!"; exit 1; }
 
 # 3. 새 이미지 빌드
@@ -27,7 +29,7 @@ docker build -t chsproject-docker:latest .
 
 # 4. app1 배포
 echo "Step 4: Updating app1..."
-sudo -E docker-compose up -d app1
+docker compose up -d app1
 
 # 5. app1 Health Check
 echo "Step 5: Waiting for app1..."
@@ -47,7 +49,7 @@ done
 
 # 6. app2 배포
 echo "Step 6: Updating app2..."
-sudo -E docker-compose up -d app2
+docker compose up -d app2
 
 # 7. app2 Health Check
 echo "Step 7: Waiting for app2..."

@@ -39,8 +39,7 @@ services:
       resources:
         limits:
           memory: 384M
-
 networks:
   chs-network:
-    external:
-      name: ubuntu_default
+    name: ubuntu_default
+    external: true
