@@ -4,6 +4,7 @@
 // 연관: TelegramUpdateProcessor.java (update 처리), TelegramWebhookController.java (webhook 모드 대안)
 package com.chs.springboot.global;
 
+import com.chs.springboot.global.redis.LeaderElectionService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,8 @@ public class TelegramPollingService {
 
     private final TelegramUpdateProcessor processor;
     private final RestTemplate restTemplate = new RestTemplate();
+
+    private final LeaderElectionService leaderElection;
 
     /** 다음 조회 시작 offset (중복 처리 방지) */
     private final AtomicLong offset = new AtomicLong(0);
@@ -67,6 +70,9 @@ public class TelegramPollingService {
     /** 30초마다 새 메시지 조회 */
     @Scheduled(fixedDelay = 30000)
     public void poll() {
+        if (!leaderElection.isLeader()) {
+            return;  // 리더 아니면 스킵
+        }
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(

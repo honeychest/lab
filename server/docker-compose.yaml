@@ -10,6 +10,8 @@ x-common: &common
       JASYPT_ENCRYPTOR_PASSWORD: ${JASYPT_ENCRYPTOR_PASSWORD}
       JAVA_OPTS: -Xms128m -Xmx384m -XX:+UseSerialGC
       DATASOURCE_URL: jdbc:mysql://mysql-db:3306/home-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      REDIS_HOST: chs-redis
+
 
 services:
   app1:
@@ -39,6 +41,19 @@ services:
       resources:
         limits:
           memory: 384M
+
+  redis:
+    image: redis:7-alpine
+    container_name: chs-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - chs-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 networks:
   chs-network:
     name: ubuntu_default

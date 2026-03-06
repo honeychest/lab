@@ -58,7 +58,7 @@ server {
 
     # SSE 실시간 알림 — 항상 app1(8080)으로 고정 (폴링 서버와 일치시켜야 함)
     location /api/support/notify {
-        proxy_pass http://backend_docker1;
+        proxy_pass http://$sticky_backend;
 
         proxy_http_version 1.1;
         proxy_set_header Connection '';          # SSE는 keep-alive (upgrade 아님)

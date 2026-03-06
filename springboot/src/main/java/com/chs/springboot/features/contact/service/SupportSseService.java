@@ -1,8 +1,9 @@
-// [AGENT] SSE emitter 관리 서비스 — guestToken별 구독/알림 처리
-// 연관: ContactController.java, TelegramUpdateProcessor.java
 package com.chs.springboot.features.contact.service;
 
+import com.chs.springboot.global.redis.RedisConfig;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -12,22 +13,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Server-Sent Events 기반 실시간 답장 알림 서비스.
- * guestToken 단위로 emitter 목록을 관리해 여러 탭에서 동시 구독을 지원한다.
- */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class SupportSseService {
 
-    private static final long TIMEOUT_MS = 30 * 60 * 1000L; // 30분
+    private static final long TIMEOUT_MS = 30 * 60 * 1000L;
 
-    /** guestToken → emitter 목록 (탭 여러 개 대응) */
+    private final StringRedisTemplate redisTemplate;
+
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
-    /**
-     * SSE 구독 — emitter 생성 후 timeout/completion/error 시 자동 제거
-     */
     public SseEmitter subscribe(String guestToken) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
 
@@ -45,7 +41,6 @@ public class SupportSseService {
         emitter.onCompletion(cleanup);
         emitter.onError(e -> cleanup.run());
 
-        // 초기 연결 확인 이벤트 (프록시가 빈 스트림을 끊는 것 방지)
         try {
             emitter.send(SseEmitter.event().name("connect").data("ok"));
         } catch (IOException e) {
@@ -57,10 +52,18 @@ public class SupportSseService {
     }
 
     /**
-     * 답장 알림 전송 — 해당 guestToken의 모든 emitter에 이벤트 전송
-     * 실패한 emitter는 즉시 제거
+     * Redis에 알림 발행 → 모든 서버가 수신
      */
     public void notify(String guestToken) {
+        if (guestToken == null) return;
+        redisTemplate.convertAndSend(RedisConfig.SSE_CHANNEL, guestToken);
+        log.debug("Redis SSE 알림 발행: guestToken={}", guestToken);
+    }
+
+    /**
+     * 로컬 emitter에만 알림 (Redis 구독자가 호출)
+     */
+    public void notifyLocal(String guestToken) {
         if (guestToken == null) return;
         List<SseEmitter> list = emitters.get(guestToken);
         if (list == null || list.isEmpty()) return;
