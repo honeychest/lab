@@ -1,3 +1,7 @@
+// [AGENT] global/redis/SseRedisSubscriber.java
+// 역할: Redis Pub/Sub 구독자 — SSE 알림 중계
+// - onMessage(guestToken, channel): Redis 메시지 수신 → SupportSseService.notifyLocal() 호출
+// 연관: RedisConfig(sseListenerAdapter), SupportSseService
 package com.chs.springboot.global.redis;
 
 import com.chs.springboot.features.contact.service.SupportSseService;

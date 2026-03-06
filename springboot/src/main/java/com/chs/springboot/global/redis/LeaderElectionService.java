@@ -1,3 +1,9 @@
+// [AGENT] global/redis/LeaderElectionService.java
+// 역할: Redis를 이용한 리더 선출 (텔레그램 폴링 단일 서버 실행 보장)
+// - refreshLeadership(): 5초마다 Redis SETNX로 리더 획득/유지, TTL=10s
+// - LEADER_KEY="telegram:leader", SERVER_NAME env로 서버 식별
+// - isLeader(): 현재 서버가 리더인지 반환
+// 연관: TelegramPollingService, StringRedisTemplate
 package com.chs.springboot.global.redis;
 
 import lombok.RequiredArgsConstructor;

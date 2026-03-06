@@ -36,7 +36,7 @@ services:
     environment:
       <<: *common-env
       SERVER_NAME: DOCKER2
-      TELEGRAM_MODE: disabled
+      TELEGRAM_MODE: polling
     deploy:
       resources:
         limits:

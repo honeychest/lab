@@ -1,3 +1,9 @@
+// [AGENT] features/contact/service/SupportSseService.java
+// 역할: SSE 구독 관리 서비스 (문의 답장 실시간 알림)
+// - subscribe(): guestToken별 SseEmitter 등록, 30분 타임아웃
+// - notify(): Redis 채널(sse:notify)에 guestToken 발행 → 멀티서버 전파
+// - notifyLocal(): 로컬 emitters에 reply 이벤트 전송 (SseRedisSubscriber 호출)
+// 연관: RedisConfig.SSE_CHANNEL, SseRedisSubscriber, ContactController
 package com.chs.springboot.features.contact.service;
 
 import com.chs.springboot.global.redis.RedisConfig;
