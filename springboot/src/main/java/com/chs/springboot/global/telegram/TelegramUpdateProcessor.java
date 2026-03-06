@@ -4,7 +4,7 @@
 // 중복 방지: processedIds(LinkedHashSet, 최대 1000개)로 동일 update_id 재처리 차단
 //           (로컬+서버 동시 polling 등 다중 인스턴스 환경에서 방어막 역할)
 // 연관: TelegramPollingService.java, TelegramWebhookController.java, ContactInquiry.java
-package com.chs.springboot.global;
+package com.chs.springboot.global.telegram;
 
 import com.chs.springboot.features.contact.entity.ContactInquiry;
 import com.chs.springboot.features.contact.repository.ContactInquiryRepository;

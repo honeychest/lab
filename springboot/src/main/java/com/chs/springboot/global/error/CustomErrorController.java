@@ -1,5 +1,5 @@
 // [AGENT] 역할: Spring 에러 라우터 (/error) | 연관파일: error-500.html(resources/templates), React index.html | 동작: 500↑ → error-500.html 렌더링, 4xx → forward:/index.html(React SPA 위임)
-package com.chs.springboot.global;
+package com.chs.springboot.global.error;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;

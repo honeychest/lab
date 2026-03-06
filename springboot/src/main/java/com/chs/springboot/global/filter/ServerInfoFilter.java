@@ -1,7 +1,7 @@
 // [AGENT] 역할: 모든 API 응답에 X-Server-Name 헤더 주입 (무중단 배포 컨테이너 식별) | 연관파일: docker-compose.yml(SERVER_NAME 환경변수 설정) | /ws 경로는 필터 스킵(shouldNotFilter) | SERVER_NAME 미설정 시 "LOCAL" 기본값
 // Purpose: 모든 API 응답에 X-Server-Name 헤더를 주입하는 필터 — 컨테이너 식별용
 
-package com.chs.springboot.global;
+package com.chs.springboot.global.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

@@ -1,5 +1,5 @@
 // [AGENT] 역할: VirusTotal API v3 — SHA-256 해시로 파일 악성코드 검사 | 연관파일: ContactController.java | 동작: 조회성공+malicious>0→차단, 404(미등록)→통과, 429(할당량초과)→통과, API키 미설정→스킵 | 일일 한도 500회(10회 이하 경고)
-package com.chs.springboot.global;
+package com.chs.springboot.global.security;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

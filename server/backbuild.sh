@@ -22,7 +22,9 @@ git fetch --all
 git reset --hard origin/main  # 1. 내용 강제 동기화 (충돌 방지)
 chmod +x ./gradlew            # 2. 실행 권한 부여 (Permission denied 방지)
 ./gradlew clean build -x test || { echo "Build failed!"; exit 1; }
-
+# 로그좀 복사해놓고 >>사용해서(append)  일별로 해서 저장
+docker logs chs-app-1 >> ./dockerlogs/app1_$(date +%Y%m%d).log
+docker logs chs-app-2 >> ./dockerlogs/app2_$(date +%Y%m%d).log
 # 3. 새 이미지 빌드
 echo "Step 3: Building new Docker image..."
 docker build -t chsproject-docker:latest .

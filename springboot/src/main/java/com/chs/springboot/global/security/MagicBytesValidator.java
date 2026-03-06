@@ -1,5 +1,5 @@
 // [AGENT] 역할: 업로드 파일 Magic Bytes 검증 유틸리티 (확장자/Content-Type 위조 방어) | 연관파일: ContactController.java(이미지 업로드 시 호출) | 지원 형식: JPEG(FF D8 FF), PNG(89 50 4E 47), GIF(47 49 46 38), WEBP(RIFF+WEBP)
-package com.chs.springboot.global;
+package com.chs.springboot.global.security;
 
 import org.springframework.web.multipart.MultipartFile;
 

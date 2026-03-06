@@ -26,7 +26,7 @@
  *  ⚠ .env 파일은 절대 git에 커밋하지 말 것 (.gitignore에 포함시킬 것)
  * ─────────────────────────────────────────────────────────────────
  */
-package com.chs.springboot.global;
+package com.chs.springboot.global.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.context.annotation.Configuration;

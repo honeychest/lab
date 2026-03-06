@@ -30,7 +30,7 @@
  *  ⚠ 마스터 암호(-Djasypt.encryptor.password)는 절대 git에 올리지 말 것
  * ─────────────────────────────────────────────────────────────────
  */
-package com.chs.springboot.global;
+package com.chs.springboot.global.config;
 
 import com.ulisesbocchio.jasyptspringboot.annotation.EnableEncryptableProperties;
 import org.jasypt.encryption.StringEncryptor;

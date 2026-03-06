@@ -3,7 +3,7 @@
 // 연관: TelegramUpdateProcessor.java, TelegramPollingService.java (polling 모드 대안)
 package com.chs.springboot.features.contact.controller;
 
-import com.chs.springboot.global.TelegramUpdateProcessor;
+import com.chs.springboot.global.telegram.TelegramUpdateProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
