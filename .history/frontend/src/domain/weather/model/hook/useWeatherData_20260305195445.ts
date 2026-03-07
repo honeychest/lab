@@ -31,7 +31,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import { useEffect, useState } from "react";
-import { GEO_ORDER } from "../regions";
+import { GEO_ORDER } from "../../../../entity/weather/model/regions";
 
 // ─────────────────────────────────────────────────────────────────
 //  타입 정의

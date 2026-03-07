@@ -8,10 +8,10 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/shared/ui/shadcn/select';
-import { Input } from '@/shared/ui/shadcn/input';
-import { Button } from '@/shared/ui/shadcn/button';
-import { Badge } from '@/shared/ui/shadcn/badge';
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
     Table,
     TableBody,
@@ -19,7 +19,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/shared/ui/shadcn/table';
+} from '@/components/ui/table';
 
 interface TradeRow {
     id: number;

@@ -6,16 +6,16 @@ import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useBinanceTradeSse } from '../../domain/binance/model/hook/useBinanceTradeSse.ts';
 import TradePanel from './TradePanel.tsx';
-import { Badge } from '@/shared/ui/shadcn/badge.js';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/shadcn/input-otp.js';
-import { Skeleton } from '@/shared/ui/shadcn/skeleton.js';
+import { Badge } from '@/components/ui/badge';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from '@/shared/ui/shadcn/sheet.js';
+} from '@/components/ui/sheet';
 import {
     Table,
     TableBody,
@@ -23,10 +23,19 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/shared/ui/shadcn/table.js';
+} from '@/components/ui/table';
 import styles from './TradePage.module.css';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────
+/** 숫자를 입력받아 천 단위 콤마 포맷. null/undefined/빈문자열/NaN 등 예외 처리 */
+const formatWithComma = (v) => {
+    if (v == null || v === '') return '';
+    const n = Number(v);
+    if (Number.isNaN(n)) return '';
+    if (!Number.isFinite(n)) return '';
+    return n.toLocaleString('en-US', { maximumFractionDigits: 20 });
+};
+
 const formatThreshold = (v) => {
     if (v == null) return '...';
     const n = Number(v);

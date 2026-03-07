@@ -25,7 +25,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useWeatherData } from "../../domain/weather/model/hook/useWeatherData.ts";
-import { GEO_ORDER } from "../../domain/weather/model/regions.js";
+import { GEO_ORDER } from "../../entity/weather/model/regions.ts";
 import Layout from "../../shared/ui/layout/Layout.jsx";
 import WeatherDetail from '../../domain/weather/ui/detail/WeatherDetail.tsx';
 import CesiumMap from '../../domain/weather/ui/map/CesiumMap.jsx';

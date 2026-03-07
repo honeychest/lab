@@ -6,16 +6,16 @@ import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useBinanceTradeSse } from '../../domain/binance/model/hook/useBinanceTradeSse.ts';
 import TradePanel from './TradePanel.tsx';
-import { Badge } from '@/shared/ui/shadcn/badge.js';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/shadcn/input-otp.js';
-import { Skeleton } from '@/shared/ui/shadcn/skeleton.js';
+import { Badge } from '@/components/ui/badge';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from '@/shared/ui/shadcn/sheet.js';
+} from '@/components/ui/sheet';
 import {
     Table,
     TableBody,
@@ -23,7 +23,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/shared/ui/shadcn/table.js';
+} from '@/components/ui/table';
 import styles from './TradePage.module.css';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────

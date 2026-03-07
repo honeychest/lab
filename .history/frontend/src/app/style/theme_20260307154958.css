@@ -1,0 +1,33 @@
+/* 전역 스타일 변수 정의 */
+:root {
+    /* Colors */
+    --dodger-blue: #1e96fcff;
+    --sunbeam-yellow: #feea00ff;
+    --dark-amethyst: #0c0a3eff;
+    --oxblood: #92140cff;
+    --amethyst: #a833b9ff;
+  
+    /* RGB Values (필요시 rgba() 조합용) */
+    --dodger-blue-rgb: 30, 150, 252;
+    --sunbeam-yellow-rgb: 254, 234, 0;
+    --dark-amethyst-rgb: 12, 10, 62;
+    --oxblood-rgb: 146, 20, 12;
+    --amethyst-rgb: 168, 51, 185;
+  }
+  
+  /* 참고: CSS에서는 SCSS의 '그라디언트 변수'를 직접 만들기보다, 
+     아래와 같이 유틸리티 클래스로 만들어 쓰는 것이 유지보수에 훨씬 효율적입니다.
+  */
+  
+  .bg-gradient-top {
+    background: linear-gradient(0deg, var(--dodger-blue), var(--sunbeam-yellow), var(--dark-amethyst), var(--oxblood), var(--amethyst));
+  }
+  
+  .bg-gradient-radial {
+    background: radial-gradient(var(--dodger-blue), var(--sunbeam-yellow), var(--dark-amethyst), var(--oxblood), var(--amethyst));
+  }
+  
+  /* 사용 예시: 
+     color: var(--dodger-blue); 
+     background-color: rgba(var(--dodger-blue-rgb), 0.5); 
+  */

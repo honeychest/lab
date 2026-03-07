@@ -6,7 +6,6 @@ import Footer from "./Footer.jsx";
 import TelegramPopup from "../../../domain/support/ui/TelegramPopup.jsx";
 import { fetchInquiries, markReplyRead, getGuestToken } from '../../../domain/support/api/contactApi.js';
 import styles from './Layout.module.css';
-import '@/app/style/coolors.css';
 
 /**
  * @param {React.ReactNode} children     - 페이지 본문

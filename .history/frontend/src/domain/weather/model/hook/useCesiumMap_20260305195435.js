@@ -28,7 +28,7 @@
 import { useEffect, useRef } from "react";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
-import { updateMapColors, handleCesiumClick } from "../../lib/cesiumUtils.js";
+import { updateMapColors, handleCesiumClick } from "../../../../entity/weather/lib/cesiumUtils.js";
 
 /**
  * useCesiumMap 훅
