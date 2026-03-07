@@ -1,6 +1,6 @@
-// [AGENT] 앱 상단 헤더 — NavLink 메뉴, /api/binance/price X-Server-Name 헤더로 서버 인디케이터 표시
-// 연관: Layout.jsx
-// Purpose: 앱 전체 상단 헤더 - 브랜드(Home), 메뉴 네비게이션, 서버 인디케이터
+// [AGENT] 앱 상단 헤더 — NavLink 메뉴 3탭(Trade/Binance/Cesium), X-Server-Name 서버 인디케이터
+// 연관: Layout.jsx, MainRouter.jsx
+// Purpose: 앱 전체 상단 헤더 - 메뉴 네비게이션, 서버 인디케이터
 
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
@@ -8,8 +8,9 @@ import axios from 'axios';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
-    { label: 'Binance', path: '/' },
-    { label: 'Cesium', path: '/cesium' },
+    { label: 'Trade',   path: '/trade' },
+    { label: 'Binance', path: '/binance' },
+    { label: 'Cesium',  path: '/cesium' },
 ];
 
 /**
@@ -36,8 +37,6 @@ function Header() {
 
     return (
         <header className={styles.header}>
-            <NavLink to="/" className={styles.brand}>Home</NavLink>
-
             {/* ── 네비게이션 ──────────────────────────────────── */}
             <nav>
                 <ul className={styles.nav}>

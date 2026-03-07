@@ -1,0 +1,25 @@
+/* TradePage 전용 — 스캔 빔 keyframe (Tailwind로 표현 불가한 animation만 여기에 정의) */
+
+@keyframes scanBeam {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+.scanBeam {
+    animation: scanBeam 2.5s linear infinite;
+}
+
+@keyframes rowSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.newRow {
+    animation: rowSlideIn 0.2s ease-out;
+}

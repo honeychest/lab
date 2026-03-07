@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,10 +35,13 @@ public class BinanceTradeService {
 
     private static final String SPOT_URL    = "wss://stream.binance.com:9443/ws/btcusdt@trade";
     private static final String FUTURES_URL = "wss://fstream.binance.com/ws/btcusdt@trade";
-    private static final String MARKET_SPOT    = "SPOT";
-    private static final String MARKET_FUTURES = "FUTURES";
-    private static final BigDecimal THRESHOLD  = new BigDecimal("300000");
-    private static final int RECONNECT_DELAY_SEC = 5;
+    private static final String MARKET_SPOT       = "SPOT";
+    private static final String MARKET_FUTURES    = "FUTURES";
+    private static final String THRESHOLD_KEY     = "threshold";
+    private static final BigDecimal DEFAULT_THRESHOLD = new BigDecimal("100000");
+    private static final int RECONNECT_DELAY_SEC  = 5;
+
+    private final AtomicReference<BigDecimal> threshold = new AtomicReference<>(DEFAULT_THRESHOLD);
 
     private final BinanceTradeRepository binanceTradeRepository;
     private final StringRedisTemplate redisTemplate;
@@ -67,6 +71,9 @@ public class BinanceTradeService {
 
     @PostConstruct
     public void init() {
+        String val = redisTemplate.opsForValue().get("config:" + THRESHOLD_KEY);
+        if (val != null) threshold.set(new BigDecimal(val));
+        log.info("[BinanceTrade] threshold 초기값: {}", threshold.get());
         connectSpot();
         connectFutures();
     }
@@ -171,7 +178,7 @@ public class BinanceTradeService {
             long tradedAt        = node.get("T").asLong();
 
             BigDecimal tradeValue = price.multiply(quantity);
-            if (tradeValue.compareTo(THRESHOLD) < 0) {
+            if (tradeValue.compareTo(threshold.get()) < 0) {
                 return;
             }
 
@@ -212,6 +219,18 @@ public class BinanceTradeService {
         } catch (Exception e) {
             log.warn("[BinanceTrade] {} 메시지 파싱 실패: {}", marketType, e.getMessage());
         }
+    }
+
+    // ── threshold 조회/변경 ───────────────────────────────────────────────
+
+    public BigDecimal getThreshold() {
+        return threshold.get();
+    }
+
+    public void updateThreshold(BigDecimal value) {
+        threshold.set(value);
+        redisTemplate.opsForValue().set("config:" + THRESHOLD_KEY, value.toPlainString());
+        log.info("[BinanceTrade] threshold 변경: {}", value);
     }
 
     // ── 종료 ─────────────────────────────────────────────────────────────
