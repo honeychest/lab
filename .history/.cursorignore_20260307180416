@@ -1,6 +1,0 @@
-.idea/
-.vscode/
-frontend/dist/
-frontend/public/cesium/
-springboot/build/
-springboot/.gradle/
