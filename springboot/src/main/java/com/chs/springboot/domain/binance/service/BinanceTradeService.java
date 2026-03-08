@@ -178,7 +178,10 @@ public class BinanceTradeService {
             long tradedAt        = node.get("T").asLong();
 
             BigDecimal tradeValue = price.multiply(quantity);
-            if (tradeValue.compareTo(threshold.get()) < 0) {
+            BigDecimal effectiveThreshold = MARKET_SPOT.equals(marketType)
+                    ? threshold.get().divide(new BigDecimal("2"), 0, java.math.RoundingMode.HALF_UP)
+                    : threshold.get();
+            if (tradeValue.compareTo(effectiveThreshold) < 0) {
                 return;
             }
 

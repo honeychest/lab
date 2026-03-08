@@ -25,14 +25,15 @@ import {
     TableRow,
 } from '@/shared/ui/shadcn/table.js';
 import styles from './TradePage.module.css';
+import { formatWithComma } from '@/shared/lib/utils.js';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────
 const formatThreshold = (v) => {
     if (v == null) return '...';
     const n = Number(v);
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
-    return String(n);
+    const futures = formatWithComma(n);
+    const spot = formatWithComma(Math.round(n / 2));
+    return `${futures} / ${spot} USD`;
 };
 const formatTime = (tradedAt) =>
     new Date(tradedAt).toLocaleTimeString('ko-KR', {
@@ -205,7 +206,7 @@ function TradePage() {
                                         </span>
                                         {!scanSlotExpanding && (
                                             <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} USD 이상</span>
+                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} 이상</span>
                                                 <div
                                                     className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                 />
@@ -222,9 +223,11 @@ function TradePage() {
                                         <TableHead className="text-[#475569] text-xs w-24">체결시각</TableHead>
                                         <TableHead className="text-[#475569] text-xs w-20">시장</TableHead>
                                         <TableHead className="text-[#475569] text-xs w-16">방향</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right">가격(USDT)</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right">수량(BTC)</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right">금액(USD)</TableHead>
+                                        /*
+                                        <TableHead className="text-[#475569] text-xs text-right">수량(BTC)</TableHead>
+                                        */
+                                        <TableHead className="text-[#475569] text-xs text-right">가격(USDT)</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right w-20">경과</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -250,7 +253,9 @@ function TradePage() {
                                                         <TableCell className="py-3"><Skeleton className="w-10 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-8 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-20 ml-auto bg-[#1e293b] h-4" /></TableCell>
+                                                        /*
                                                         <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
+                                                        */
                                                         <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-10 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                     </>
@@ -274,14 +279,16 @@ function TradePage() {
                                                         <TableCell className={`text-xs font-semibold py-2.5 ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                             {isSell ? '매도' : '매수'}
                                                         </TableCell>
-                                                        <TableCell className={`text-xs font-mono font-semibold py-2.5 text-right ${isSell ? 'text-red-400' : 'text-green-400'}`}>
-                                                            ${formatPrice(trade.price)}
+                                                        <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
+                                                            ${formatWithComma(trade.tradeValue)}
                                                         </TableCell>
+                                                        /*
                                                         <TableCell className="text-xs font-mono text-[#e5e7eb] py-2.5 text-right">
                                                             {formatQty(trade.quantity)}
                                                         </TableCell>
-                                                        <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
-                                                            {formatValue(trade.tradeValue)}
+                                                        */
+                                                        <TableCell className={`text-xs font-mono font-semibold py-2.5 text-right ${isSell ? 'text-red-400' : 'text-green-400'}`}>
+                                                            ${formatWithComma(trade.price)}
                                                         </TableCell>
                                                         <TableCell className="text-xs text-[#475569] font-mono py-2.5 text-right">
                                                             {getElapsed(trade.tradedAt)}
@@ -314,7 +321,7 @@ function TradePage() {
                                         </span>
                                         {!scanSlotExpanding && (
                                             <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} USD 이상</span>
+                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} 이상</span>
                                                 <div
                                                     className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                 />
@@ -415,13 +422,14 @@ function TradePage() {
                 <SheetContent
                     side="right"
                     aria-describedby={undefined}
-                    className="w-80 sm:w-96 p-0 border-[#1e293b] bg-[#0f172a]"
+                    className="md:w-80 md:sm:w-96 p-0 border-[#1e293b] bg-[#0f172a] md:max-w-96 w-full"
+                    showCloseButton={true}
                 >
-                    <SheetHeader className="px-4 py-3 border-b border-[#1e293b]">
+                    <SheetHeader className="px-4 py-3 border-b border-[#1e293b] flex flex-row items-center justify-between">
                         <SheetTitle className="text-[#e5e7eb] text-sm">체결 조회</SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-hidden h-[calc(100%-56px)]">
-                        <TradePanel threshold={threshold} onThresholdChange={setThreshold} />
+                        <TradePanel threshold={threshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
                     </div>
                 </SheetContent>
             </Sheet>

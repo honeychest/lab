@@ -59,16 +59,33 @@ const formatTime = (tradedAt: number) =>
         second: '2-digit',
     });
 
+const getElapsed = (tradedAt: number) => {
+    const diffMin = Math.floor((Date.now() - tradedAt) / 60_000);
+    if (diffMin < 1) return '방금';
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    return `${Math.floor(diffHour / 24)}일 전`;
+};
+
 interface TradePanelProps {
     threshold: number | null;
     onThresholdChange: (value: number) => void;
+    onClose?: () => void;
 }
 
-export default function TradePanel({ threshold, onThresholdChange }: TradePanelProps) {
+export default function TradePanel({ threshold, onThresholdChange, onClose }: TradePanelProps) {
     const [symbol, setSymbol]         = useState('BTCUSDT');
     const [marketType, setMarketType] = useState('ALL');
-    const [from, setFrom]             = useState('');
-    const [to, setTo]                 = useState('');
+    
+    // 오늘 날짜로 기본값 설정
+    const getTodayString = () => {
+        const now = new Date();
+        return now.toISOString().split('T')[0];
+    };
+    
+    const [from, setFrom]             = useState(getTodayString());
+    const [to, setTo]                 = useState(getTodayString());
     const [sort, setSort]             = useState('tradedAt');
     const [order, setOrder]           = useState('DESC');
     const [size, setSize]             = useState(30);
@@ -159,6 +176,14 @@ export default function TradePanel({ threshold, onThresholdChange }: TradePanelP
                 >
                     적용
                 </Button>
+                {onClose && (
+                    <Button
+                        onClick={onClose}
+                        className="bg-[#2B3139] hover:bg-[#334155] text-[#94a3b8] h-7 text-xs px-3 shrink-0"
+                    >
+                        닫기
+                    </Button>
+                )}
             </div>
 
             {/* 필터 영역 */}
@@ -306,10 +331,10 @@ export default function TradePanel({ threshold, onThresholdChange }: TradePanelP
                         <Table>
                             <TableHeader>
                                 <TableRow className="border-[#1e293b] hover:bg-transparent">
-                                    <TableHead className="text-[#475569] text-xs py-2">시각</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2">시장</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2 text-right">가격</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2 text-right">금액</TableHead>
+                                    <TableHead className="text-[#475569] text-xs py-2 flex-1">시장</TableHead>
+                                    <TableHead className="text-[#475569] text-xs py-2 text-right flex-1">가격</TableHead>
+                                    <TableHead className="text-[#475569] text-xs py-2 text-right flex-1">금액</TableHead>
+                                    <TableHead className="text-[#475569] text-xs py-2 text-right w-14">경과</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -320,10 +345,7 @@ export default function TradePanel({ threshold, onThresholdChange }: TradePanelP
                                             key={row.id}
                                             className="border-[#1e293b] hover:bg-[#1e293b]/50"
                                         >
-                                            <TableCell className="text-xs text-[#94a3b8] py-2 font-mono">
-                                                {formatTime(row.tradedAt)}
-                                            </TableCell>
-                                            <TableCell className="py-2">
+                                            <TableCell className="py-2 flex-1">
                                                 <Badge
                                                     className={`text-[10px] px-1.5 py-0 ${
                                                         row.marketType === 'SPOT'
@@ -335,11 +357,14 @@ export default function TradePanel({ threshold, onThresholdChange }: TradePanelP
                                                     {row.marketType}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className={`text-xs py-2 text-right font-mono font-semibold ${isSell ? 'text-red-400' : 'text-green-400'}`}>
+                                            <TableCell className={`text-xs py-2 text-right font-mono font-semibold flex-1 ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                 ${formatPrice(row.price)}
                                             </TableCell>
-                                            <TableCell className="text-xs py-2 text-right font-mono text-[#e5e7eb]">
+                                            <TableCell className="text-xs py-2 text-right font-mono text-[#e5e7eb] flex-1">
                                                 {formatValue(row.tradeValue)}
+                                            </TableCell>
+                                            <TableCell className="text-xs py-2 text-right text-[#475569] font-mono w-14">
+                                                {getElapsed(row.tradedAt)}
                                             </TableCell>
                                         </TableRow>
                                     );

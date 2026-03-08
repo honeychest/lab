@@ -9,5 +9,5 @@ export const formatWithComma = (v : number) => {
   const n = Number(v);
   if (Number.isNaN(n)) return '';
   if (!Number.isFinite(n)) return '';
-  return n.toLocaleString('en-US', { maximumFractionDigits: 20 });
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 };
