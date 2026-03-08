@@ -112,9 +112,12 @@ public class RawTickStorageService {
             int totalSaved = 0;
             long runStartMs = System.currentTimeMillis();
             while (true) {
+                long t0 = System.currentTimeMillis();
+                long freeBeforeBytes = Runtime.getRuntime().freeMemory();
                 List<String> values = redisTemplate.opsForList().leftPop(REDIS_QUEUE_KEY, LPOP_COUNT);
+                long t1 = System.currentTimeMillis();
                 if (values == null || values.isEmpty()) break;
-
+                log.info("[RawTick] LPOP: {}ms, {}건", t1 - t0, values.size());
                 long startMs = System.currentTimeMillis();
                 List<RawTick> entities = new ArrayList<>(values.size());
                 for (String value : values) {
@@ -126,8 +129,14 @@ public class RawTickStorageService {
                         log.warn("[RawTick] 파싱 스킵: {}", e.getMessage());
                     }
                 }
+                long t2 = System.currentTimeMillis();
+                log.info("[RawTick] 파싱: {}ms, 성공 {}건/원본 {}건", t2 - startMs, entities.size(), values.size());
                 if (!entities.isEmpty()) {
                     batchInsert(entities, startMs);
+                    long t3 = System.currentTimeMillis();
+                    long freeAfterBytes = Runtime.getRuntime().freeMemory();
+                    log.info("[RawTick] batchInsert: {}건, {}ms", entities.size(), t3 - t2);
+                    log.info("[RawTick] 메모리: freeBefore={}MB, freeAfter={}MB (GC 추정용)", freeBeforeBytes / 1024 / 1024, freeAfterBytes / 1024 / 1024);
                     totalSaved += entities.size();
                     long elapsed = System.currentTimeMillis() - startMs;
                     log.info("[RawTick] 배치 저장 완료: {}건, {}ms", entities.size(), elapsed);
