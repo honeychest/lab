@@ -133,9 +133,12 @@ public class RawTickStorageService {
                     log.info("[RawTick] 배치 저장 완료: {}건, {}ms", entities.size(), elapsed);
                 }
                 if (values.size() < LPOP_COUNT) break;
-            }
+            } // while end
             if (totalSaved > LPOP_COUNT) {
                 log.info("[RawTick] 이번 회차 총 저장: {}건, {}ms (큐 적체 후 한 번에 소진)", totalSaved, System.currentTimeMillis() - runStartMs);
+                if (totalSaved >= LPOP_COUNT) {
+                    flushExecutor.schedule(this::scheduleFlush, 0, TimeUnit.SECONDS);
+                }
             }
         } catch (Exception e) {
             log.error("[RawTick] scheduleFlush 실패: {}", e.getMessage());
