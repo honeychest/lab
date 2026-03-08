@@ -1,5 +1,5 @@
-// [AGENT] 역할: 날씨 데이터 자동 수집 스케줄러 (cron "0 0/10 * * * *") | 연관파일: WeatherService.java, SpringbootApplication.java(@EnableScheduling) | 핵심: SCHEDULING_ENABLED=false 유지 필수(true 시 기상청 API 실호출) — @Value 타이밍 버그로 System.getProperty()로 런타임 조회
-// Purpose: 날씨 데이터 자동 수집 스케줄러 — 10분 주기로 전국 날씨를 DB에 저장
+// [AGENT] 역할: 날씨 데이터 자동 수집 스케줄러 (cron "0 0/10 * * * *") | 연관파일: WeatherService.java, LeaderElectionService.java, SpringbootApplication.java(@EnableScheduling) | 핵심: SCHEDULING_ENABLED=true + 리더일 때만 실행(Redis 단일 실행 보장), 로컬은 false 유지
+// Purpose: 날씨 데이터 자동 수집 스케줄러 — 10분 주기로 전국 날씨를 DB에 저장 (리더 서버에서만 실행)
 
 /**
  * ─────────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@
 package com.chs.springboot.external;
 
 import com.chs.springboot.domain.weather.service.WeatherService;
+import com.chs.springboot.global.redis.LeaderElectionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -52,6 +53,9 @@ public class WeatherScheduler {
      */
     @Autowired
     private WeatherService weatherService;
+
+    @Autowired
+    private LeaderElectionService leaderElection;
 
     /**
      * collectWeatherData: 매 10분마다 실행되는 자동 수집 메서드.
@@ -89,6 +93,10 @@ public class WeatherScheduler {
         // 런타임에 시스템 프로퍼티 직접 확인 (DotenvConfig 로드 타이밍 문제 회피)
         if (!"true".equalsIgnoreCase(System.getProperty("SCHEDULING_ENABLED"))) {
             return; // 비활성화 상태면 즉시 종료 (아무것도 안 함)
+        }
+        // Redis 리더일 때만 실행 — 멀티 인스턴스에서 기상청 API 중복 호출 방지 (텔레그램 폴링과 동일 패턴)
+        if (!leaderElection.isLeader()) {
+            return;
         }
 
         System.out.println("--- [스케줄러] 10분 주기 자동 수집 시작: " + LocalDateTime.now() + " ---");
