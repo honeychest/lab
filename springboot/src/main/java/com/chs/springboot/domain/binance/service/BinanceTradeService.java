@@ -279,15 +279,6 @@ public class BinanceTradeService {
             buffer.append(data);
             if (last) {
                 String json = buffer.toString();
-                if (tickTradeSaveEnabled) {
-                    try {
-                        rawTickStorageService.enqueue(json, marketType);
-                    } catch (Exception e) {
-                        log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
-                    }
-                    parseAndSave(json, marketType);
-                }
-                // 틱 SSE는 저장 여부와 무관하게 유효한 체결만 전송 (바이낸스 0/0 이벤트 제외)
                 try {
                     JsonNode node = objectMapper.readTree(json);
                     String price = node.get("p").asText();
@@ -297,14 +288,21 @@ public class BinanceTradeService {
                     BigDecimal q = new BigDecimal(quantity);
                     if (p.compareTo(BigDecimal.ZERO) <= 0 || q.compareTo(BigDecimal.ZERO) <= 0) {
                         String snippet = json.length() > 200 ? json.substring(0, 200) + "..." : json;
-                        log.warn("[BinanceTrade] 틱 0/비정상 제외(미전송) p={}, q={}, marketType={}, snippet={}",
+                        log.warn("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
                                 price, quantity, marketType, snippet);
-                        // broadcast 하지 않음
                     } else {
+                        if (tickTradeSaveEnabled) {
+                            try {
+                                rawTickStorageService.enqueue(json, marketType);
+                            } catch (Exception e) {
+                                log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
+                            }
+                            parseAndSave(json, marketType);
+                        }
                         rawTickSseService.broadcast(new RawTickDto(price, quantity, isBuyerMaker, marketType));
                     }
                 } catch (Exception e) {
-                    log.warn("[BinanceTrade] 틱 broadcast 파싱 실패: {}", e.getMessage());
+                    log.warn("[BinanceTrade] 틱 파싱 실패(전체 스킵): {}", e.getMessage());
                 }
                 buffer.setLength(0);
             }
