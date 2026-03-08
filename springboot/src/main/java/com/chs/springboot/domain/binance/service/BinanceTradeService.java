@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -48,6 +49,9 @@ public class BinanceTradeService {
     private final BinanceTradeSseService sseService;
     private final RawTickStorageService rawTickStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${binance.tick-trade.save.enabled:true}")
+    private boolean tickTradeSaveEnabled;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
@@ -271,12 +275,14 @@ public class BinanceTradeService {
             buffer.append(data);
             if (last) {
                 String json = buffer.toString();
-                try {
-                    rawTickStorageService.enqueue(json, marketType);
-                } catch (Exception e) {
-                    log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
+                if (tickTradeSaveEnabled) {
+                    try {
+                        rawTickStorageService.enqueue(json, marketType);
+                    } catch (Exception e) {
+                        log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
+                    }
+                    parseAndSave(json, marketType);
                 }
-                parseAndSave(json, marketType);
                 buffer.setLength(0);
             }
             ws.request(1);

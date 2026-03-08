@@ -206,7 +206,7 @@ function TradePage() {
                                         </span>
                                         {!scanSlotExpanding && (
                                             <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} 이상</span>
+                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
                                                 <div
                                                     className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                 />
@@ -313,7 +313,7 @@ function TradePage() {
                                         </span>
                                         {!scanSlotExpanding && (
                                             <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> · {formatThreshold(threshold)} 이상</span>
+                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
                                                 <div
                                                     className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                 />

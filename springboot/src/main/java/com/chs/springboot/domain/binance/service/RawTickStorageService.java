@@ -12,6 +12,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,6 +47,9 @@ public class RawTickStorageService {
     private final JdbcTemplate jdbcTemplate;
     private final LeaderElectionService leaderElection;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${binance.tick-trade.save.enabled:true}")
+    private boolean tickTradeSaveEnabled;
 
     private final ConcurrentHashMap<String, Long> lastAlertTime = new ConcurrentHashMap<>();
     private final ScheduledExecutorService flushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -99,7 +103,7 @@ public class RawTickStorageService {
     /** Consumer: 10초마다 리더에서만 실행. 큐가 빌 때까지 반복 LPOP·저장. */
     private void scheduleFlush() {
         try {
-            if (!leaderElection.isLeader()) return;
+            if (!tickTradeSaveEnabled || !leaderElection.isLeader()) return;
             int totalSaved = 0;
             long runStartMs = System.currentTimeMillis();
             while (true) {
