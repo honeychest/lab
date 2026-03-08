@@ -24,9 +24,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,6 +36,9 @@ public class RawTickStorageService {
     private static final Logger log = LoggerFactory.getLogger(RawTickStorageService.class);
 
     private static final String REDIS_QUEUE_KEY = "rawtick:queue";
+    private static final String REDIS_DEDUP_KEY_PREFIX = "rawtick:dedup:";
+    /** Enqueue 시 중복 판별용 키 만료 시간(초). 이 시간 지나면 같은 tradeId도 다시 큐에 넣을 수 있음. */
+    private static final int DEDUP_TTL_SEC = 60;
     private static final int MAX_REDIS_QUEUE = 50_000;
     private static final int FLUSH_INTERVAL_SEC = 10;
     private static final int ALERT_COOLDOWN_SEC = 60;
@@ -88,9 +89,24 @@ public class RawTickStorageService {
         }
     }
 
-    /** Producer: 모든 서버에서 WS 수신 시 호출. */
+    /** Producer: 모든 서버에서 WS 수신 시 호출. Redis SET NX+TTL로 중복 제거 후 RPUSH. */
     public void enqueue(String json, String marketType) {
         try {
+            long tradeId;
+            try {
+                tradeId = objectMapper.readTree(json).get("t").asLong();
+            } catch (Exception e) {
+                log.warn("[RawTick] enqueue tradeId 파싱 실패, 큐에 그대로 적재: {}", e.getMessage());
+                tradeId = -1;
+            }
+            if (tradeId >= 0) {
+                String dedupKey = REDIS_DEDUP_KEY_PREFIX + marketType + ":" + tradeId;
+                Boolean added = redisTemplate.opsForValue().setIfAbsent(dedupKey, "1", Duration.ofSeconds(DEDUP_TTL_SEC));
+                if (!Boolean.TRUE.equals(added)) {
+                    log.debug("[RawTick] enqueue 건너뜀(중복): {} tradeId={}", marketType, tradeId);
+                    return;
+                }
+            }
             String value = objectMapper.writeValueAsString(new QueueItem(marketType, json));
             Long newSize = redisTemplate.opsForList().rightPush(REDIS_QUEUE_KEY, value);
             if (newSize == null) return;
@@ -115,41 +131,26 @@ public class RawTickStorageService {
             long runStartMs = System.currentTimeMillis();
             while (true) {
                 long t0 = System.currentTimeMillis();
-                long freeBeforeBytes = Runtime.getRuntime().freeMemory();
                 List<String> values = redisTemplate.opsForList().leftPop(REDIS_QUEUE_KEY, LPOP_COUNT);
                 long t1 = System.currentTimeMillis();
                 if (values == null || values.isEmpty()) break;
-                log.info("[RawTick] LPOP: {}ms, {}건", t1 - t0, values.size());
                 long startMs = System.currentTimeMillis();
                 List<RawTick> entities = new ArrayList<>(values.size());
-                Set<String> seenInBatch = new HashSet<>(values.size());
-                int dedupExcluded = 0;
                 for (String value : values) {
                     try {
                         QueueItem item = objectMapper.readValue(value, QueueItem.class);
                         RawTick tick = parseToRawTick(item.json(), item.marketType());
-                        if (tick == null) continue;
-                        String dedupKey = tick.getMarketType() + ":" + tick.getTradeId();
-                        if (!seenInBatch.add(dedupKey)) {
-                            dedupExcluded++;
-                            continue;
-                        }
-                        entities.add(tick);
+                        if (tick != null) entities.add(tick);
                     } catch (Exception e) {
                         log.warn("[RawTick] 파싱 스킵: {}", e.getMessage());
                     }
                 }
                 long t2 = System.currentTimeMillis();
-                log.info("[RawTick] 파싱: {}ms, 원본 {}건 → 중복제외 {}건, insert {}건", t2 - startMs, values.size(), dedupExcluded, entities.size());
                 if (!entities.isEmpty()) {
                     batchInsert(entities, startMs);
                     long t3 = System.currentTimeMillis();
-                    long freeAfterBytes = Runtime.getRuntime().freeMemory();
-                    log.info("[RawTick] batchInsert: {}건, {}ms", entities.size(), t3 - t2);
-                    log.info("[RawTick] 메모리: freeBefore={}MB, freeAfter={}MB (GC 추정용)", freeBeforeBytes / 1024 / 1024, freeAfterBytes / 1024 / 1024);
                     totalSaved += entities.size();
-                    long elapsed = System.currentTimeMillis() - startMs;
-                    log.info("[RawTick] 배치 저장 완료: {}건, {}ms", entities.size(), elapsed);
+                    log.info("[RawTick] 배치 저장: LPOP {}ms, 파싱 {}ms, insert {}ms | {}건", t1 - t0, t2 - startMs, t3 - t2, entities.size());
                 }
                 if (values.size() < LPOP_COUNT) break;
             } // while end
