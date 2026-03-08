@@ -237,7 +237,18 @@ public class BinanceTradeService {
 
     // ── threshold 조회/변경 ───────────────────────────────────────────────
 
+    /** 조회 시 Redis 우선 사용 — 다중 인스턴스에서 동일 값 보장 */
     public BigDecimal getThreshold() {
+        try {
+            String val = redisTemplate.opsForValue().get("config:" + THRESHOLD_KEY);
+            if (val != null) {
+                BigDecimal fromRedis = new BigDecimal(val);
+                threshold.set(fromRedis);
+                return fromRedis;
+            }
+        } catch (Exception e) {
+            log.warn("[BinanceTrade] threshold Redis 조회 실패, 메모리 값 사용: {}", e.getMessage());
+        }
         return threshold.get();
     }
 

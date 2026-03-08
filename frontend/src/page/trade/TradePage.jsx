@@ -83,10 +83,14 @@ function TradePage() {
         return () => clearInterval(id);
     }, []);
 
-    // threshold
+    // threshold (canEdit: 허용 IP에서만 true)
     const [threshold, setThreshold] = useState(null);
+    const [canEditThreshold, setCanEditThreshold] = useState(false);
     useEffect(() => {
-        axios.get('/api/binance/trades/threshold').then(r => setThreshold(r.data.value));
+        axios.get('/api/binance/trades/threshold').then(r => {
+            setThreshold(r.data.value);
+            setCanEditThreshold(!!r.data.canEdit);
+        });
     }, []);
 
     // 조회 사이드 패널 오픈 상태
@@ -447,7 +451,7 @@ function TradePage() {
                         <SheetTitle className="text-[#e5e7eb] text-sm">체결 조회</SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-hidden h-[calc(100%-56px)]">
-                        <TradePanel threshold={threshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
+                        <TradePanel threshold={threshold} canEditThreshold={canEditThreshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
                     </div>
                 </SheetContent>
             </Sheet>

@@ -70,11 +70,12 @@ const getElapsed = (tradedAt: number) => {
 
 interface TradePanelProps {
     threshold: number | null;
+    canEditThreshold?: boolean;
     onThresholdChange: (value: number) => void;
     onClose?: () => void;
 }
 
-export default function TradePanel({ threshold, onThresholdChange, onClose }: TradePanelProps) {
+export default function TradePanel({ threshold, canEditThreshold = false, onThresholdChange, onClose }: TradePanelProps) {
     const [symbol, setSymbol]         = useState('BTCUSDT');
     const [marketType, setMarketType] = useState('ALL');
     
@@ -149,33 +150,37 @@ export default function TradePanel({ threshold, onThresholdChange, onClose }: Tr
 
     return (
         <div className="flex flex-col h-full bg-[#0f172a] text-[#e5e7eb] overflow-hidden">
-            {/* threshold 변경 */}
+            {/* threshold (허용 IP에서만 변경 UI 표시) */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]">
                 <span className="text-xs text-[#475569] shrink-0">임계값</span>
                 <span className="text-xs text-[#94a3b8] font-mono shrink-0">
                     {threshold != null ? `${Number(threshold).toLocaleString()} USD` : '...'}
                 </span>
-                <Input
-                    type="number"
-                    placeholder="변경값 입력"
-                    min="1"
-                    max="10000000"
-                    step="1"
-                    value={thresholdInput}
-                    onChange={e => setThresholdInput(e.target.value)}
-                    onKeyDown={e => {
-                        if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
-                        if (e.key === 'Enter') handleThresholdApply();
-                    }}
-                    className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-7 text-xs flex-1"
-                />
-                <Button
-                    onClick={handleThresholdApply}
-                    disabled={thresholdLoading}
-                    className="bg-[#2B3139] hover:bg-[#334155] text-[#94a3b8] h-7 text-xs px-3 shrink-0"
-                >
-                    적용
-                </Button>
+                {canEditThreshold && (
+                    <>
+                        <Input
+                            type="number"
+                            placeholder="변경값 입력"
+                            min="1"
+                            max="10000000"
+                            step="1"
+                            value={thresholdInput}
+                            onChange={e => setThresholdInput(e.target.value)}
+                            onKeyDown={e => {
+                                if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
+                                if (e.key === 'Enter') handleThresholdApply();
+                            }}
+                            className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-7 text-xs flex-1"
+                        />
+                        <Button
+                            onClick={handleThresholdApply}
+                            disabled={thresholdLoading}
+                            className="bg-[#2B3139] hover:bg-[#334155] text-[#94a3b8] h-7 text-xs px-3 shrink-0"
+                        >
+                            적용
+                        </Button>
+                    </>
+                )}
                 {onClose && (
                     <Button
                         onClick={onClose}
