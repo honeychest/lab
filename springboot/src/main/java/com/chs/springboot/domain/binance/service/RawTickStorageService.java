@@ -24,7 +24,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -120,17 +122,25 @@ public class RawTickStorageService {
                 log.info("[RawTick] LPOP: {}ms, {}건", t1 - t0, values.size());
                 long startMs = System.currentTimeMillis();
                 List<RawTick> entities = new ArrayList<>(values.size());
+                Set<String> seenInBatch = new HashSet<>(values.size());
+                int dedupExcluded = 0;
                 for (String value : values) {
                     try {
                         QueueItem item = objectMapper.readValue(value, QueueItem.class);
                         RawTick tick = parseToRawTick(item.json(), item.marketType());
-                        if (tick != null) entities.add(tick);
+                        if (tick == null) continue;
+                        String dedupKey = tick.getMarketType() + ":" + tick.getTradeId();
+                        if (!seenInBatch.add(dedupKey)) {
+                            dedupExcluded++;
+                            continue;
+                        }
+                        entities.add(tick);
                     } catch (Exception e) {
                         log.warn("[RawTick] 파싱 스킵: {}", e.getMessage());
                     }
                 }
                 long t2 = System.currentTimeMillis();
-                log.info("[RawTick] 파싱: {}ms, 성공 {}건/원본 {}건", t2 - startMs, entities.size(), values.size());
+                log.info("[RawTick] 파싱: {}ms, 원본 {}건 → 중복제외 {}건, insert {}건", t2 - startMs, values.size(), dedupExcluded, entities.size());
                 if (!entities.isEmpty()) {
                     batchInsert(entities, startMs);
                     long t3 = System.currentTimeMillis();
