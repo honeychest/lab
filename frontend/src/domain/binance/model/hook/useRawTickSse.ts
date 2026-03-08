@@ -75,6 +75,35 @@ export function useRawTickSse() {
             };
         };
 
+        const reconnectOnVisible = () => {
+            if (closed) return;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
+            if (esRef.current) {
+                esRef.current.close();
+                esRef.current = null;
+            }
+            setIsConnecting(true);
+            setTicks([]);
+            queueRef.current = [];
+            hasReceivedTickRef.current = false;
+            connect();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) return;
+            reconnectOnVisible();
+        };
+
+        const handlePageShow = (e: PageTransitionEvent) => {
+            if (e.persisted) reconnectOnVisible();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pageshow', handlePageShow);
+
         const intervalId = setInterval(() => {
             if (closed) return;
             const q = queueRef.current;
@@ -90,6 +119,8 @@ export function useRawTickSse() {
 
         return () => {
             closed = true;
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pageshow', handlePageShow);
             clearInterval(intervalId);
             esRef.current?.close();
             esRef.current = null;

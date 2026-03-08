@@ -125,10 +125,8 @@ export function useBinanceTradeSse() {
             };
         };
 
-        const handleVisibilityChange = () => {
-            if (document.hidden) return;
-            console.log('[SSE visibility] tab visible, reconnecting');
-            // 탭이 다시 활성화되면 기존 연결 종료 후 재연결 + 최신 목록 머지(loadRecent 유지)
+        const reconnectOnVisible = () => {
+            if (closed) return;
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -137,15 +135,23 @@ export function useBinanceTradeSse() {
                 esRef.current.close();
                 esRef.current = null;
             }
-            if (!closed) {
-                setScanState('reconnecting');
-                isAnimatingRef.current = false;
-                connect();
-                loadRecent();
-            }
+            setScanState('reconnecting');
+            isAnimatingRef.current = false;
+            connect();
+            loadRecent();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) return;
+            reconnectOnVisible();
+        };
+
+        const handlePageShow = (e: PageTransitionEvent) => {
+            if (e.persisted) reconnectOnVisible();
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pageshow', handlePageShow);
 
         connect();
         loadRecent();
@@ -153,6 +159,7 @@ export function useBinanceTradeSse() {
         return () => {
             closed = true;
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pageshow', handlePageShow);
             esRef.current?.close();
             esRef.current = null;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
