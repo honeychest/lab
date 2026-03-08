@@ -1,5 +1,5 @@
 // [AGENT] 역할: BTC 대형 체결 수집 서비스 — 현물(@trade)·선물(@aggTrade) WS 구독, 300k USD 이상 체결을 Redis SETNX 중복 차단 후 DB 저장 → SSE broadcast
-// 연관파일: BinanceTrade.java, BinanceTradeRepository.java, BinanceTradeSseService.java, TelegramLog.java
+// 연관파일: BinanceTrade.java, BinanceTradeRepository.java, BinanceTradeSseService.java, RawTickStorageService.java, TelegramLog.java
 // 주요메서드: init()(@PostConstruct), connectSpot(), connectFutures(), parseAndSave(), scheduleReconnect(), destroy()(@PreDestroy)
 package com.chs.springboot.domain.binance.service;
 
@@ -46,6 +46,7 @@ public class BinanceTradeService {
     private final BinanceTradeRepository binanceTradeRepository;
     private final StringRedisTemplate redisTemplate;
     private final BinanceTradeSseService sseService;
+    private final RawTickStorageService rawTickStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -63,10 +64,12 @@ public class BinanceTradeService {
 
     public BinanceTradeService(BinanceTradeRepository binanceTradeRepository,
                                StringRedisTemplate redisTemplate,
-                               BinanceTradeSseService sseService) {
+                               BinanceTradeSseService sseService,
+                               RawTickStorageService rawTickStorageService) {
         this.binanceTradeRepository = binanceTradeRepository;
         this.redisTemplate = redisTemplate;
         this.sseService = sseService;
+        this.rawTickStorageService = rawTickStorageService;
     }
 
     @PostConstruct
@@ -267,7 +270,13 @@ public class BinanceTradeService {
         public CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
             buffer.append(data);
             if (last) {
-                parseAndSave(buffer.toString(), marketType);
+                String json = buffer.toString();
+                try {
+                    rawTickStorageService.enqueue(json, marketType);
+                } catch (Exception e) {
+                    log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
+                }
+                parseAndSave(json, marketType);
                 buffer.setLength(0);
             }
             ws.request(1);

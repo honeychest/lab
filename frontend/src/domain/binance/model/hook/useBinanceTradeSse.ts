@@ -37,10 +37,13 @@ export function useBinanceTradeSse() {
         seenIds.current.clear();
 
         const loadRecent = async () => {
+            const tag = '[SSE loadRecent]';
             try {
+                console.log(tag, 'start');
                 const res = await axios.get<TradeEntry[]>('/api/binance/trades/recent?limit=100');
                 if (closed) return;
                 const incoming = res.data;
+                console.log(tag, 'ok', incoming.length, 'rows');
                 incoming.forEach(t => seenIds.current.add(t.id));
                 setTrades(current => {
                     const existingIds = new Set(current.map(t => t.id));
@@ -49,7 +52,8 @@ export function useBinanceTradeSse() {
                     return isMobileRef.current ? merged : merged.slice(0, DESKTOP_MAX);
                 });
                 setInitError(false);
-            } catch {
+            } catch (err) {
+                console.warn(tag, 'fail', err);
                 if (!closed) setInitError(true);
             }
         };
@@ -61,8 +65,15 @@ export function useBinanceTradeSse() {
                 esRef.current = null;
             }
 
+            console.log('[SSE connect] new EventSource');
             const es = new EventSource('/api/binance/trades/sse');
             esRef.current = es;
+
+            es.addEventListener('open', () => {
+                if (closed) return;
+                console.log('[SSE connect] open');
+                setScanState('watching');
+            });
 
             es.addEventListener('trade', (e: MessageEvent) => {
                 if (closed) return;
@@ -70,6 +81,7 @@ export function useBinanceTradeSse() {
                     const trade: TradeEntry = JSON.parse(e.data);
                     if (seenIds.current.has(trade.id)) return;
                     seenIds.current.add(trade.id);
+                    console.log('[SSE trade]', trade.id, trade.tradeValue);
 
                     // 애니메이션 중 새 체결 → 즉시 삽입 (애니메이션 스킵)
                     if (isAnimatingRef.current) {
@@ -98,12 +110,14 @@ export function useBinanceTradeSse() {
 
             es.onerror = () => {
                 if (closed) return;
+                console.warn('[SSE connect] error, readyState=', es.readyState);
                 es.close();
                 esRef.current = null;
                 setScanState('reconnecting');
                 isAnimatingRef.current = false;
                 reconnectTimerRef.current = setTimeout(() => {
                     if (!closed) {
+                        console.log('[SSE connect] reconnect after delay');
                         connect();
                         loadRecent();
                     }
@@ -111,11 +125,34 @@ export function useBinanceTradeSse() {
             };
         };
 
+        const handleVisibilityChange = () => {
+            if (document.hidden) return;
+            console.log('[SSE visibility] tab visible, reconnecting');
+            // 탭이 다시 활성화되면 기존 연결 종료 후 재연결 + 최신 목록 머지(loadRecent 유지)
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
+            if (esRef.current) {
+                esRef.current.close();
+                esRef.current = null;
+            }
+            if (!closed) {
+                setScanState('reconnecting');
+                isAnimatingRef.current = false;
+                connect();
+                loadRecent();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         connect();
         loadRecent();
 
         return () => {
             closed = true;
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             esRef.current?.close();
             esRef.current = null;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);

@@ -224,9 +224,7 @@ function TradePage() {
                                         <TableHead className="text-[#475569] text-xs w-20">시장</TableHead>
                                         <TableHead className="text-[#475569] text-xs w-16">방향</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right">금액(USD)</TableHead>
-                                        /*
-                                        <TableHead className="text-[#475569] text-xs text-right">수량(BTC)</TableHead>
-                                        */
+                                        {/* <TableHead className="text-[#475569] text-xs text-right">수량(BTC)</TableHead> */}
                                         <TableHead className="text-[#475569] text-xs text-right">가격(USDT)</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right w-20">경과</TableHead>
                                     </TableRow>
@@ -253,9 +251,7 @@ function TradePage() {
                                                         <TableCell className="py-3"><Skeleton className="w-10 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-8 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-20 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        /*
-                                                        <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        */
+                                                        {/* <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell> */}
                                                         <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-10 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                     </>
@@ -282,11 +278,7 @@ function TradePage() {
                                                         <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
                                                             ${formatWithComma(trade.tradeValue)}
                                                         </TableCell>
-                                                        /*
-                                                        <TableCell className="text-xs font-mono text-[#e5e7eb] py-2.5 text-right">
-                                                            {formatQty(trade.quantity)}
-                                                        </TableCell>
-                                                        */
+                                                        {/* <TableCell className="text-xs font-mono text-[#e5e7eb] py-2.5 text-right">{formatQty(trade.quantity)}</TableCell> */}
                                                         <TableCell className={`text-xs font-mono font-semibold py-2.5 text-right ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                             ${formatWithComma(trade.price)}
                                                         </TableCell>
