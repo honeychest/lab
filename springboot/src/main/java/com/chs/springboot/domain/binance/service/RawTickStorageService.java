@@ -42,6 +42,9 @@ public class RawTickStorageService {
     private static final String REDIS_KEY_OVERFLOW = "rawtick:alert:overflow";
     private static final String REDIS_KEY_INS_FAIL = "rawtick:alert:insert-fail";
     private static final int LPOP_COUNT = 10_000;
+    /** 큐 적체 텔레그램 알림 구간: 60%, 90% */
+    private static final int QUEUE_WARN_60_PCT = (int) (MAX_REDIS_QUEUE * 0.60);
+    private static final int QUEUE_WARN_90_PCT = (int) (MAX_REDIS_QUEUE * 0.90);
 
     private final StringRedisTemplate redisTemplate;
     private final JdbcTemplate jdbcTemplate;
@@ -92,8 +95,10 @@ public class RawTickStorageService {
             if (newSize > MAX_REDIS_QUEUE) {
                 redisTemplate.opsForList().trim(REDIS_QUEUE_KEY, -MAX_REDIS_QUEUE, -1);
                 tryAlertOverflow();
-            } else if (newSize >= 5_000) {
-                tryAlertQueueWarn(newSize.intValue());
+            } else if (newSize >= QUEUE_WARN_90_PCT) {
+                tryAlertQueueWarn(90, newSize.intValue());
+            } else if (newSize >= QUEUE_WARN_60_PCT) {
+                tryAlertQueueWarn(60, newSize.intValue());
             }
         } catch (Exception e) {
             log.error("[RawTick] enqueue 실패: {}", e.getMessage());
@@ -208,12 +213,10 @@ public class RawTickStorageService {
         sendAlert("배치 insert 실패: " + count + "건, " + elapsedMs + "ms");
     }
 
-    private void tryAlertQueueWarn(int newSize) {
-        int bucket = (int) (newSize / 5_000);
-        if (bucket < 1) return;
-        String redisKey = "rawtick:alert:queue-warn:" + bucket;
+    private void tryAlertQueueWarn(int pct, int newSize) {
+        String redisKey = "rawtick:alert:queue-warn:" + pct;
         if (!isCooldownPassed(redisKey)) return;
-        sendAlert("큐 " + newSize + "건 — " + (bucket * 10) + "% (" + (bucket * 5_000) + "건 구간)");
+        sendAlert("큐 " + newSize + "건 — " + pct + "%");
     }
 
     @PreDestroy

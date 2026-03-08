@@ -5,6 +5,7 @@ package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.BinanceTrade;
 import com.chs.springboot.domain.binance.model.BinanceTradeDto;
+import com.chs.springboot.domain.binance.model.RawTickDto;
 import com.chs.springboot.domain.binance.repository.BinanceTradeRepository;
 import com.chs.springboot.global.telegram.TelegramLog;
 import jakarta.annotation.PostConstruct;
@@ -47,6 +48,7 @@ public class BinanceTradeService {
     private final BinanceTradeRepository binanceTradeRepository;
     private final StringRedisTemplate redisTemplate;
     private final BinanceTradeSseService sseService;
+    private final RawTickSseService rawTickSseService;
     private final RawTickStorageService rawTickStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -69,10 +71,12 @@ public class BinanceTradeService {
     public BinanceTradeService(BinanceTradeRepository binanceTradeRepository,
                                StringRedisTemplate redisTemplate,
                                BinanceTradeSseService sseService,
+                               RawTickSseService rawTickSseService,
                                RawTickStorageService rawTickStorageService) {
         this.binanceTradeRepository = binanceTradeRepository;
         this.redisTemplate = redisTemplate;
         this.sseService = sseService;
+        this.rawTickSseService = rawTickSseService;
         this.rawTickStorageService = rawTickStorageService;
     }
 
@@ -282,6 +286,25 @@ public class BinanceTradeService {
                         log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
                     }
                     parseAndSave(json, marketType);
+                }
+                // 틱 SSE는 저장 여부와 무관하게 유효한 체결만 전송 (바이낸스 0/0 이벤트 제외)
+                try {
+                    JsonNode node = objectMapper.readTree(json);
+                    String price = node.get("p").asText();
+                    String quantity = node.get("q").asText();
+                    boolean isBuyerMaker = node.get("m").asBoolean();
+                    BigDecimal p = new BigDecimal(price);
+                    BigDecimal q = new BigDecimal(quantity);
+                    if (p.compareTo(BigDecimal.ZERO) <= 0 || q.compareTo(BigDecimal.ZERO) <= 0) {
+                        String snippet = json.length() > 200 ? json.substring(0, 200) + "..." : json;
+                        log.warn("[BinanceTrade] 틱 0/비정상 제외(미전송) p={}, q={}, marketType={}, snippet={}",
+                                price, quantity, marketType, snippet);
+                        // broadcast 하지 않음
+                    } else {
+                        rawTickSseService.broadcast(new RawTickDto(price, quantity, isBuyerMaker, marketType));
+                    }
+                } catch (Exception e) {
+                    log.warn("[BinanceTrade] 틱 broadcast 파싱 실패: {}", e.getMessage());
                 }
                 buffer.setLength(0);
             }

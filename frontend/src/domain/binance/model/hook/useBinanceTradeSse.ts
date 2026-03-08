@@ -17,7 +17,7 @@ export interface TradeEntry {
 
 export type ScanState = 'watching' | 'expanding' | 'reconnecting';
 
-const DESKTOP_MAX = 200;
+const DESKTOP_MAX = 100;
 const RECONNECT_DELAY_MS = 1_000;
 const ANIMATION_MS = 500;
 

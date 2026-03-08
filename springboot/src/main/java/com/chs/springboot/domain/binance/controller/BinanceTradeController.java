@@ -1,10 +1,11 @@
-// [AGENT] BTC 체결 API 컨트롤러 | 연관파일: BinanceTradeSseService.java, BinanceTradeQueryService.java
-// 엔드포인트: GET /api/binance/trades/sse, GET /api/binance/trades/recent, GET /api/binance/trades
+// [AGENT] BTC 체결 API 컨트롤러 | 연관파일: BinanceTradeSseService.java, RawTickSseService.java, BinanceTradeQueryService.java
+// 엔드포인트: GET /api/binance/trades/sse, GET /api/binance/trades/tick-sse, GET /api/binance/trades/recent, GET /api/binance/trades
 package com.chs.springboot.domain.binance.controller;
 
 import com.chs.springboot.domain.binance.service.BinanceTradeQueryService;
 import com.chs.springboot.domain.binance.service.BinanceTradeSseService;
 import com.chs.springboot.domain.binance.service.BinanceTradeService;
+import com.chs.springboot.domain.binance.service.RawTickSseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,13 +21,20 @@ import java.util.Map;
 public class BinanceTradeController {
 
     private final BinanceTradeSseService sseService;
+    private final RawTickSseService rawTickSseService;
     private final BinanceTradeQueryService queryService;
     private final BinanceTradeService tradeService;
 
-    /** SSE 구독 */
+    /** 큰거래 SSE 구독 */
     @GetMapping(value = "/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe() {
         return sseService.subscribe();
+    }
+
+    /** 실시간 틱 SSE 구독 */
+    @GetMapping(value = "/tick-sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeTick() {
+        return rawTickSseService.subscribe();
     }
 
     /** 최신 N건 (id DESC). before 파라미터 있으면 before-id 기반 추가 로드 */

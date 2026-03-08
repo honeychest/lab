@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useBinanceTradeSse } from '../../domain/binance/model/hook/useBinanceTradeSse.ts';
+import { useRawTickSse } from '../../domain/binance/model/hook/useRawTickSse.ts';
 import TradePanel from './TradePanel.tsx';
+import TickTable from './TickTable.jsx';
 import { Badge } from '@/shared/ui/shadcn/badge.js';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/shadcn/input-otp.js';
 import { Skeleton } from '@/shared/ui/shadcn/skeleton.js';
@@ -63,9 +65,16 @@ const getElapsed = (tradedAt) => {
     return `${Math.floor(diffHour / 24)}일 전`;
 };
 
+const USD_KRW_RATE = 1450;
+const formatKrw = (usdValue) => {
+    const krw = Math.round(parseFloat(usdValue) * USD_KRW_RATE);
+    return `${formatWithComma(krw)}원`;
+};
+
 // ── 컴포넌트 ──────────────────────────────────────────────────
 function TradePage() {
     const { trades, scanState, initError, loadMore } = useBinanceTradeSse();
+    const { ticks, isConnecting: isTickConnecting } = useRawTickSse();
 
     // 1분마다 경과시간 재계산 (서버 호출 없이 로컬 setInterval)
     const [, setTick] = useState(0);
@@ -149,10 +158,10 @@ function TradePage() {
 
     return (
         <Layout footerCenter={['SSE', 'TypeScript', 'Binance API']}>
-            <div className="min-h-full bg-[#0a0f1e] p-4 md:p-8 box-border">
-                <div className="max-w-6xl mx-auto">
+            <div className="min-h-full md:h-full md:overflow-hidden bg-[#0a0f1e] p-4 md:p-8 box-border">
+                <div className="max-w-6xl mx-auto md:flex md:flex-col md:gap-2 md:h-full md:overflow-hidden">
 
-                    {/* ── 페이지 헤더 ──────────────────────────────── */}
+                    {/* ── 페이지 헤더 (전체 너비) ───────────────────── */}
                     {(() => {
                         const symbol = trades[0]?.symbol?.replace('USDT', '') ?? 'BTC';
                         return (
@@ -187,44 +196,47 @@ function TradePage() {
                         </div>
                     )}
 
-                    {/* ── 데스크탑 테이블 (md 이상) ────────────────── */}
+                    {/* ── 데스크탑: 2열 (큰거래 | 틱) ─────────────────── */}
                     {!initError && (
-                        <div className="hidden md:block bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden">
+                        <div className="hidden md:flex md:flex-1 md:min-h-0 md:gap-2">
+                            {/* 좌: 큰거래 테이블 (스캔 슬롯 + 테이블, 스크롤바는 부모로 클리핑) */}
+                            <div className="flex-1 min-h-0 flex flex-col bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden">
+                                {/* 스캔 슬롯 */}
+                                <div
+                                    className={`relative overflow-hidden border-b border-[#1e293b] flex items-center justify-center px-4 h-10 flex-shrink-0 transition-colors duration-500 ${
+                                        scanSlotExpanding ? 'bg-blue-950/30' : 'bg-[#0a0f1e]'
+                                    }`}
+                                >
+                                    {scanSlotReconnecting ? (
+                                        <span className="text-xs text-yellow-400 font-mono">재연결 중...</span>
+                                    ) : (
+                                        <>
+                                            <span className="text-xs text-[#475569] font-mono tracking-widest select-none">
+                                                {scanSlotExpanding ? '● 체결 감지' : '○ 감시중'}
+                                            </span>
+                                            {!scanSlotExpanding && (
+                                                <>
+                                                    <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
+                                                    <div
+                                                        className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
+                                                    />
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
 
-                            {/* 스캔 슬롯 */}
-                            <div
-                                className={`relative overflow-hidden border-b border-[#1e293b] flex items-center justify-center px-4 h-10 transition-colors duration-500 ${
-                                    scanSlotExpanding ? 'bg-blue-950/30' : 'bg-[#0a0f1e]'
-                                }`}
-                            >
-                                {scanSlotReconnecting ? (
-                                    <span className="text-xs text-yellow-400 font-mono">재연결 중...</span>
-                                ) : (
-                                    <>
-                                        <span className="text-xs text-[#475569] font-mono tracking-widest select-none">
-                                            {scanSlotExpanding ? '● 체결 감지' : '○ 감시중'}
-                                        </span>
-                                        {!scanSlotExpanding && (
-                                            <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
-                                                <div
-                                                    className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
-                                                />
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-
-                            {/* 테이블 */}
-                            <Table className="table-fixed w-full">
+                                {/* 테이블 스크롤 영역 (스크롤바는 아래 overflow-hidden이 잘라냄) */}
+                                <div className="flex-1 min-h-0 overflow-hidden">
+                                    <div className={styles.scrollbarClipWide}>
+                                <Table className="table-fixed w-full flex-shrink-0">
                                 <TableHeader>
                                     <TableRow className="border-[#1e293b] hover:bg-transparent">
                                         <TableHead className="text-[#475569] text-xs w-24">체결시각</TableHead>
                                         <TableHead className="text-[#475569] text-xs w-20">시장</TableHead>
                                         <TableHead className="text-[#475569] text-xs w-16">방향</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right">금액(USD)</TableHead>
-                                        {/* <TableHead className="text-[#475569] text-xs text-right">수량(BTC)</TableHead> */}
+                                        <TableHead className="text-[#475569] text-xs text-right">금액(원)</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right">가격(USDT)</TableHead>
                                         <TableHead className="text-[#475569] text-xs text-right w-20">경과</TableHead>
                                     </TableRow>
@@ -232,7 +244,7 @@ function TradePage() {
                                 <TableBody>
                                     {trades.length === 0 && !initError && (
                                         <TableRow className="border-[#1e293b] hover:bg-transparent">
-                                            <TableCell colSpan={7} className="text-center text-[#475569] text-sm py-12">
+                                            <TableCell colSpan={8} className="text-center text-[#475569] text-sm py-12">
                                                 체결 감시 중...
                                             </TableCell>
                                         </TableRow>
@@ -251,7 +263,7 @@ function TradePage() {
                                                         <TableCell className="py-3"><Skeleton className="w-10 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-8 bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-20 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        {/* <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell> */}
+                                                        <TableCell className="py-3"><Skeleton className="w-24 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                         <TableCell className="py-3"><Skeleton className="w-10 ml-auto bg-[#1e293b] h-4" /></TableCell>
                                                     </>
@@ -278,7 +290,9 @@ function TradePage() {
                                                         <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
                                                             ${formatWithComma(trade.tradeValue)}
                                                         </TableCell>
-                                                        {/* <TableCell className="text-xs font-mono text-[#e5e7eb] py-2.5 text-right">{formatQty(trade.quantity)}</TableCell> */}
+                                                        <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
+                                                            {formatKrw(trade.tradeValue)}
+                                                        </TableCell>
                                                         <TableCell className={`text-xs font-mono font-semibold py-2.5 text-right ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                             ${formatWithComma(trade.price)}
                                                         </TableCell>
@@ -292,6 +306,18 @@ function TradePage() {
                                     })}
                                 </TableBody>
                             </Table>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* 우: 틱 테이블 (스크롤바 클리핑) */}
+                            <div className="w-1/5 min-h-0 flex flex-col flex-shrink-0 border border-[#1e293b] rounded-2xl overflow-hidden bg-[#0f172a]">
+                                <div className="h-10 flex-shrink-0" aria-hidden />
+                                <div className="flex-1 min-h-0 overflow-hidden">
+                                    <div className={styles.scrollbarClip}>
+                                        <TickTable ticks={ticks} isConnecting={isTickConnecting} />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 

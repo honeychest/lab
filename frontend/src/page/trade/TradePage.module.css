@@ -23,3 +23,18 @@
 .newRow {
     animation: rowSlideIn 0.2s ease-out;
 }
+
+/* OS 기본 스크롤바: 부모로 잘라서 안 보이게 (CSS로 숨기 안 되는 환경 대비) */
+.scrollbarClip {
+    overflow-y: auto;
+    margin-right: -20px;
+    padding-right: 20px;
+    height: 100%;
+}
+/* 큰거래 테이블: table 레이아웃이라 스크롤바가 안쪽에 그려질 수 있어 클리핑 더 넓게 */
+.scrollbarClipWide {
+    overflow-y: auto;
+    margin-right: -40px;
+    padding-right: 40px;
+    height: 100%;
+}
