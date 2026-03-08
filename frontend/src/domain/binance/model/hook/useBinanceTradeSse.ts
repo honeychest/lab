@@ -61,7 +61,6 @@ export function useBinanceTradeSse() {
                 esRef.current = null;
             }
 
-            console.log('[TradeSse] connect()', new Date().toISOString(), 'visibility:', document.visibilityState);
             const es = new EventSource('/api/binance/trades/sse');
             esRef.current = es;
 
@@ -99,14 +98,12 @@ export function useBinanceTradeSse() {
 
             es.onerror = () => {
                 if (closed) return;
-                console.warn('[TradeSse] onerror', new Date().toISOString(), 'readyState:', es.readyState, 'visibility:', document.visibilityState);
                 es.close();
                 esRef.current = null;
                 setScanState('reconnecting');
                 isAnimatingRef.current = false;
                 reconnectTimerRef.current = setTimeout(() => {
                     if (!closed) {
-                        console.log('[TradeSse] reconnect timer fired', new Date().toISOString());
                         connect();
                         loadRecent();
                     }
@@ -114,17 +111,11 @@ export function useBinanceTradeSse() {
             };
         };
 
-        const onVisibilityChange = () => {
-            console.log('[TradeSse] visibilitychange →', document.visibilityState, new Date().toISOString(), 'esReadyState:', esRef.current?.readyState ?? 'none');
-        };
-        document.addEventListener('visibilitychange', onVisibilityChange);
-
         connect();
         loadRecent();
 
         return () => {
             closed = true;
-            document.removeEventListener('visibilitychange', onVisibilityChange);
             esRef.current?.close();
             esRef.current = null;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);

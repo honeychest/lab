@@ -56,8 +56,13 @@ server {
         try_files $uri /index.html;
     }
 
-    # SSE 실시간 알림 — 항상 app1(8080)으로 고정 (폴링 서버와 일치시켜야 함)
-    location /api/support/notify {
+    # ── SSE 전용 블록 ────────────────────────────────────────────────────────
+    # [컨벤션] SSE 엔드포인트는 반드시 /sse 로 끝나야 한다.
+    #   예) /api/binance/trades/sse, /api/support/notify/sse
+    #   이유: proxy_buffering off + proxy_read_timeout 3600s 가 필요한데
+    #         /api 블록(timeout 10s, buffering on)으로 들어가면 연결이 끊긴다.
+    #   신규 SSE 추가 시 URL을 /sse 로 끝내면 이 블록에 자동 적용되므로 별도 설정 불필요.
+    location ~ ^/api/.+/sse$ {
         proxy_pass http://$sticky_backend;
 
         proxy_http_version 1.1;

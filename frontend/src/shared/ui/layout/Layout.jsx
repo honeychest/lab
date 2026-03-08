@@ -34,7 +34,7 @@ function Layout({ children, footerCenter = [] }) {
 
     // SSE 구독 — 답장 도착 시 실시간으로 목록 갱신
     useEffect(() => {
-        const es = new EventSource(`/api/support/notify?guestToken=${guestToken}`);
+        const es = new EventSource(`/api/support/reply/sse?guestToken=${guestToken}`);
         es.addEventListener('reply', () => loadInquiries());
         return () => es.close();
     }, [guestToken, loadInquiries]);

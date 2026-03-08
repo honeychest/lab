@@ -152,8 +152,8 @@ public class ContactController {
         return ResponseEntity.ok().build();
     }
 
-    /** SSE 구독 — guestToken 기반 실시간 답장 알림 (Nginx에서 항상 app1으로 라우팅) */
-    @GetMapping(value = "/notify", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    /** SSE 구독 — guestToken 기반 실시간 답장 알림 */
+    @GetMapping(value = "/reply/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@RequestParam String guestToken) {
         if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
             throw new IllegalArgumentException("잘못된 guestToken");
