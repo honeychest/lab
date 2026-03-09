@@ -299,7 +299,7 @@ public class BinanceTradeService {
                     BigDecimal q = new BigDecimal(quantity);
                     if (p.compareTo(BigDecimal.ZERO) <= 0 || q.compareTo(BigDecimal.ZERO) <= 0) {
                         String snippet = json.length() > 200 ? json.substring(0, 200) + "..." : json;
-                        log.warn("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
+                        log.info("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
                                 price, quantity, marketType, snippet);
                     } else {
                         if (tickTradeSaveEnabled) {

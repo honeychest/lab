@@ -45,11 +45,6 @@ export function useRawTickSse() {
                 if (closed) return;
                 try {
                     const tick: RawTickEntry = JSON.parse(e.data);
-                    const p = parseFloat(tick.price);
-                    const qty = parseFloat(tick.quantity);
-                    if (p === 0 || qty === 0 || Number.isNaN(p) || Number.isNaN(qty)) {
-                        console.warn('[RawTickSse] 틱 0/비정상 수신', { price: tick.price, quantity: tick.quantity, marketType: tick.marketType });
-                    }
                     const q = queueRef.current;
                     q.push(tick);
                     if (q.length > QUEUE_MAX) q.shift();

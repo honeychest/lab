@@ -81,7 +81,6 @@ export function useBinanceTradeSse() {
                     const trade: TradeEntry = JSON.parse(e.data);
                     if (seenIds.current.has(trade.id)) return;
                     seenIds.current.add(trade.id);
-                    console.log('[SSE trade]', trade.id, trade.tradeValue);
 
                     // 애니메이션 중 새 체결 → 즉시 삽입 (애니메이션 스킵)
                     if (isAnimatingRef.current) {
