@@ -82,9 +82,9 @@ public class RawTickStorageService {
             if (ds instanceof HikariDataSource hikari) {
                 String url = hikari.getJdbcUrl() != null ? hikari.getJdbcUrl() : "";
                 boolean rewrite = url.contains("rewriteBatchedStatements=true");
-                log.info("[RawTick] JDBC rewriteBatchedStatements in URL: {} (배치 성능에 영향)", rewrite);
+                log.warn("[RawTick] JDBC rewriteBatchedStatements in URL: {} (배치 성능에 영향)", rewrite);
             } else {
-                log.info("[RawTick] DataSource is not Hikari, JDBC URL 확인 불가");
+                log.warn("[RawTick] DataSource is not Hikari, JDBC URL 확인 불가");
             }
         } catch (Exception e) {
             log.warn("[RawTick] 배치 설정 로그 실패: {}", e.getMessage());
@@ -95,7 +95,7 @@ public class RawTickStorageService {
             ch.qos.logback.classic.Logger binanceLogger = ctx.getLogger("com.chs.springboot.domain.binance.service.BinanceTradeService");
             Level rootLevel = rootLogger.getEffectiveLevel();
             Level binanceLevel = binanceLogger.getEffectiveLevel();
-            log.info("[RawTick] 시작 시 로그 레벨 - root: {}, BinanceTradeService: {}", rootLevel, binanceLevel);
+            log.warn("[RawTick] 시작 시 로그 레벨 - root: {}, BinanceTradeService: {}", rootLevel, binanceLevel);
         } catch (Exception e) {
             log.warn("[RawTick] 로그 레벨 조회 실패: {}", e.getMessage());
         }
@@ -154,7 +154,7 @@ public class RawTickStorageService {
                         RawTick tick = parseToRawTick(item.json(), item.marketType());
                         if (tick != null) entities.add(tick);
                     } catch (Exception e) {
-                        log.warn("[RawTick] 파싱 스킵: {}", e.getMessage());
+                        log.info("[RawTick] 파싱 스킵: {}", e.getMessage());
                     }
                 }
                 long t2 = System.currentTimeMillis();
@@ -162,7 +162,10 @@ public class RawTickStorageService {
                     batchInsert(entities, startMs);
                     long t3 = System.currentTimeMillis();
                     totalSaved += entities.size();
-                    log.info("[RawTick] 배치 저장: LPOP {}ms, 파싱 {}ms, insert {}ms | {}건", t1 - t0, t2 - startMs, t3 - t2, entities.size());
+                    Long remain = redisTemplate.opsForList().size(REDIS_QUEUE_KEY);
+                    long remainCount = remain != null ? remain : -1L;
+                    log.info("[RawTick] 배치 저장: LPOP {}ms, 파싱 {}ms, insert {}ms | {}건, 큐 잔여 {}건",
+                            t1 - t0, t2 - startMs, t3 - t2, entities.size(), remainCount);
                 }
                 if (values.size() < LPOP_COUNT) break;
             } // while end
