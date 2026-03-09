@@ -41,7 +41,7 @@ public class RawTickStorageService {
     private static final String REDIS_DEDUP_KEY_PREFIX = "rawtick:dedup:";
     /** Enqueue 시 중복 판별용 키 만료 시간(초). 이 시간 지나면 같은 tradeId도 다시 큐에 넣을 수 있음. */
     private static final int DEDUP_TTL_SEC = 60;
-    private static final int MAX_REDIS_QUEUE = 50_000;
+    private static final int MAX_REDIS_QUEUE = 150_000;
     private static final int FLUSH_INTERVAL_SEC = 10;
     private static final int ALERT_COOLDOWN_SEC = 60;
     private static final String REDIS_KEY_OVERFLOW = "rawtick:alert:overflow";
