@@ -2,6 +2,8 @@
 // 주요메서드: enqueue(), scheduleFlush(), sendAlert(), isCooldownPassed(), tryAlertOverflow/InsertFail/QueueWarn(), batchInsert(), destroy()(@PreDestroy)
 package com.chs.springboot.domain.binance.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import com.chs.springboot.domain.binance.model.RawTick;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.telegram.TelegramLog;
@@ -87,6 +89,16 @@ public class RawTickStorageService {
         } catch (Exception e) {
             log.warn("[RawTick] 배치 설정 로그 실패: {}", e.getMessage());
         }
+        try {
+            LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
+            ch.qos.logback.classic.Logger rootLogger = ctx.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            ch.qos.logback.classic.Logger binanceLogger = ctx.getLogger("com.chs.springboot.domain.binance.service.BinanceTradeService");
+            Level rootLevel = rootLogger.getEffectiveLevel();
+            Level binanceLevel = binanceLogger.getEffectiveLevel();
+            log.info("[RawTick] 시작 시 로그 레벨 - root: {}, BinanceTradeService: {}", rootLevel, binanceLevel);
+        } catch (Exception e) {
+            log.warn("[RawTick] 로그 레벨 조회 실패: {}", e.getMessage());
+        }
     }
 
     /** Producer: 모든 서버에서 WS 수신 시 호출. Redis SET NX+TTL로 중복 제거 후 RPUSH. */
@@ -155,7 +167,7 @@ public class RawTickStorageService {
                 if (values.size() < LPOP_COUNT) break;
             } // while end
             if (totalSaved > LPOP_COUNT) {
-                log.info("[RawTick] 이번 회차 총 저장: {}건, {}ms (큐 적체 후 한 번에 소진)", totalSaved, System.currentTimeMillis() - runStartMs);
+                log.info("[RawTick] 이번 회차 총 저장: {}건, {}ms (10초대기 없이 바로 insert)", totalSaved, System.currentTimeMillis() - runStartMs);
                 if (totalSaved >= LPOP_COUNT) {
                     flushExecutor.schedule(this::scheduleFlush, 0, TimeUnit.SECONDS);
                 }

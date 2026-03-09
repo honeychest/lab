@@ -299,7 +299,7 @@ public class BinanceTradeService {
                     BigDecimal q = new BigDecimal(quantity);
                     if (p.compareTo(BigDecimal.ZERO) <= 0 || q.compareTo(BigDecimal.ZERO) <= 0) {
                         String snippet = json.length() > 200 ? json.substring(0, 200) + "..." : json;
-                        log.info("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
+                        log.debug("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
                                 price, quantity, marketType, snippet);
                     } else {
                         if (tickTradeSaveEnabled) {
@@ -310,7 +310,11 @@ public class BinanceTradeService {
                             }
                             parseAndSave(json, marketType);
                         }
-                        rawTickSseService.broadcast(new RawTickDto(price, quantity, isBuyerMaker, marketType));
+                        try {
+                            rawTickSseService.broadcast(new RawTickDto(price, quantity, isBuyerMaker, marketType));
+                        } catch (Exception e) {
+                            log.debug("[BinanceTrade] SSE broadcast 실패(구독자 끊김 등): {}", e.getMessage());
+                        }
                     }
                 } catch (Exception e) {
                     log.warn("[BinanceTrade] 틱 파싱 실패(전체 스킵): {}", e.getMessage());

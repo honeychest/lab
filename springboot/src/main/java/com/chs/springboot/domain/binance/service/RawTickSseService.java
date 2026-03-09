@@ -59,9 +59,14 @@ public class RawTickSseService {
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().name("tick").data(json));
-            } catch (IOException e) {
-                emitter.completeWithError(e);
+            } catch (Exception e) {
+                try {
+                    emitter.completeWithError(e);
+                } catch (Exception ignored) {
+                    // 이미 완료된 emitter 등
+                }
                 dead.add(emitter);
+                log.debug("[RawTickSse] broadcast send 실패(emitter 제거): {}", e.getMessage());
             }
         }
         emitters.removeAll(dead);
