@@ -9,7 +9,7 @@ x-common: &common
     environment: &common-env
       JASYPT_ENCRYPTOR_PASSWORD: ${JASYPT_ENCRYPTOR_PASSWORD}
       JAVA_OPTS: -Xms128m -Xmx384m -XX:+UseSerialGC
-      DATASOURCE_URL: jdbc:mysql://mysql-db:3306/home-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DATASOURCE_URL: jdbc:mysql://mysql-db:3306/home-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
       REDIS_HOST: chs-redis
 
 
@@ -26,7 +26,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   app2:
     <<: *common

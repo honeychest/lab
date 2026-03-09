@@ -3,7 +3,7 @@
   Purpose: Nginx 레벨 5xx 에러 페이지 — 500/502/503/504 발생 시 Spring Boot 없이 독립 서빙
   React/JS 프레임워크 없이 순수 HTML+CSS로 동작하므로, 백엔드 완전 다운 상태에서도 표시됨.
   Vite 빌드 시 public/ 폴더 내용이 dist/ 로 그대로 복사됨.
-  Nginx 설정: error_page 502 503 504 /50x.html;
+  Nginx 설정: error_page 500 502 503 504 /50x.html;
 -->
 <html lang="ko">
 <head>
