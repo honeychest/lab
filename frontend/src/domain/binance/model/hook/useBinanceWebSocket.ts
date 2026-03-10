@@ -274,7 +274,13 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          * jQuery $.ajax의 beforeSend 이후 서버 응답이 200 OK 온 순간과 유사.
          * 이 시점부터 메시지를 수신할 수 있음.
          */
-        ws.onopen = () => setStatus('connected');
+        ws.onopen = () => {
+            if (isManualClose.current) {
+                ws.close();
+                return;
+            }
+            setStatus('connected');
+        };
 
         /**
          * onmessage: 서버에서 데이터를 push할 때마다 발생.
@@ -419,14 +425,18 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          *   - 페이지 이동 후에도 WebSocket 재연결이 계속 시도됨
          */
         return () => {
-            // 이벤트 리스너 제거 (등록한 것과 정확히 같은 함수 레퍼런스를 전달해야 함)
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            // 수동 종료 플래그 설정 → 클린업 중 onclose 발생 시 재연결 방지
             isManualClose.current = true;
-            // 대기 중인 재연결 타이머 취소
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            // 열려있는 WebSocket 정상 종료
-            wsRef.current?.close();
+            const ws = wsRef.current;
+            if (ws) {
+                // CONNECTING 상태에서 close()하면 브라우저가 "closed before the connection is established" 로그를 남김(Strict Mode 클린업). 닫지 않고 ref만 끊으면, 나중에 onopen 시 isManualClose로 닫음.
+                if (ws.readyState === WebSocket.CONNECTING) {
+                    wsRef.current = null;
+                } else {
+                    ws.close();
+                }
+            }
         };
     }, [selectedSymbol]); // selectedSymbol 변경 시마다 재실행 (이전호출의 클린업 후 다시 연결)
 

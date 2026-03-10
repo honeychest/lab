@@ -33,7 +33,7 @@
 
 /* 코인 탭 버튼 호버 */
 .coinTab:hover {
-    filter: brightness(2);
+    filter: brightness(1);
     transition: filter 0.15s ease;
 }
 
@@ -41,6 +41,15 @@
 .coinTab:focus-visible {
     outline: 2px solid #F3BA2F;
     outline-offset: 2px;
+}
+
+/* LIVE 도트: 데이터 갱신 시 한 번 깜빡임 (BinancePage.jsx에서 key로 리마운트해 재생) */
+@keyframes liveDotBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+.liveDotBlink {
+    animation: liveDotBlink 0.35s ease 1;
 }
 
 @media (max-width: 768px) {

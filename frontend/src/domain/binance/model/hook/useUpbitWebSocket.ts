@@ -126,6 +126,10 @@ export function useUpbitWebSocket(codes: string[]): UseUpbitWebSocketResult {
             ws.binaryType = 'arraybuffer';
 
             ws.onopen = () => {
+                if (isManualCloseRef.current) {
+                    ws.close();
+                    return;
+                }
                 setUpbitStatus('connected');
             };
 
@@ -191,7 +195,14 @@ export function useUpbitWebSocket(codes: string[]): UseUpbitWebSocketResult {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             isManualCloseRef.current = true;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            wsRef.current?.close();
+            const ws = wsRef.current;
+            if (ws) {
+                if (ws.readyState === WebSocket.CONNECTING) {
+                    wsRef.current = null;
+                } else {
+                    ws.close();
+                }
+            }
         };
     }, [codes]);
 

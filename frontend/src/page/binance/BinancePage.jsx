@@ -1,7 +1,7 @@
 // [AGENT] BinancePage — Binance 대시보드 컨테이너 컴포넌트
 // 연관: BinanceTicker.tsx, BinanceTickerMobile.tsx, BinanceWallet.tsx
 // 훅: useBinanceWebSocket.ts, useUpbitWebSocket.ts
-// 주요기능: WebSocket 시세, Upbit KRW 환율, 지갑 잔고 REST, 패널 높이 고정(ref), 서버 오류 인라인 렌더
+// 주요기능: WebSocket 시세, Upbit KRW 환율, 지갑 잔고 REST, 패널 크기 고정(스켈레톤 시), 서버 오류 인라인 렌더
 // Purpose: Binance 대시보드 페이지 — 실시간 WebSocket 시세 및 지갑 잔고 표시
 
 /**
@@ -318,26 +318,13 @@ function BinancePage() {
      */
     const tickerWrapperRef = useRef(null);
     const [savedHeight, setSavedHeight] = useState(null);
-
-    // 모바일 전용 — PC 메커니즘과 완전히 분리
-    const mobileWrapperRef = useRef(null);
-    const [mobileSavedHeight, setMobileSavedHeight] = useState(null);
-    const [mobileSavedWidth, setMobileSavedWidth] = useState(null);
+    const [savedWidth, setSavedWidth] = useState(null);
 
     useEffect(() => {
-        // ticker가 있을 때마다 현재 패널 높이를 갱신 저장
-        // (ticker가 null이 될 때 이미 저장된 값으로 minHeight 적용)
-        if (ticker !== null) {
-            if (tickerWrapperRef.current) {
-                setSavedHeight(tickerWrapperRef.current.offsetHeight);
-            }
-            if (mobileWrapperRef.current) {
-                const mh = mobileWrapperRef.current.offsetHeight;
-                const mw = mobileWrapperRef.current.offsetWidth;
-                // display:none(=0)일 때 덮어쓰기 방지
-                if (mh > 0) setMobileSavedHeight(mh);
-                if (mw > 0) setMobileSavedWidth(mw);
-            }
+        // ticker가 있을 때마다 패널 높이/너비 저장 → ticker가 null(스켈레톤)일 때 minHeight/minWidth로 적용해 줄어드는 현상 방지
+        if (ticker !== null && tickerWrapperRef.current) {
+            setSavedHeight(tickerWrapperRef.current.offsetHeight);
+            setSavedWidth(tickerWrapperRef.current.offsetWidth);
         }
     }, [ticker]);
 
@@ -471,17 +458,21 @@ function BinancePage() {
                             >
                                 {/* LIVE 도트 + 상태 텍스트 */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    {/* 가격 갱신 시 내부가 채워지는 동그라미 */}
-                                    <span style={{
-                                        width: '10px',
-                                        height: '10px',
-                                        borderRadius: '50%',
-                                        border: `2px solid ${color}`,
-                                        backgroundColor: status === 'connected' ? color : 'transparent',
-                                        display: 'inline-block',
-                                        boxSizing: 'border-box',
-                                        transition: prefersReducedMotion ? 'none' : 'background-color 0.15s ease-out',
-                                    }} />
+                                    {/* 가격 갱신 시 내부가 채워지는 동그라미. ticker.E 변경 시 key로 리마운트 → 데이터 변경마다 한 번 깜빡임 */}
+                                    <span
+                                        key={ticker ? String(ticker.E) : 'no-ticker'}
+                                        className={status === 'connected' && ticker && !prefersReducedMotion ? pageStyles.liveDotBlink : undefined}
+                                        style={{
+                                            width: '10px',
+                                            height: '10px',
+                                            borderRadius: '50%',
+                                            border: `2px solid ${color}`,
+                                            backgroundColor: status === 'connected' ? color : 'transparent',
+                                            display: 'inline-block',
+                                            boxSizing: 'border-box',
+                                            transition: prefersReducedMotion ? 'none' : 'background-color 0.15s ease-out',
+                                        }}
+                                    />
                                     {/* 상태 텍스트: LIVE / 연결 중... / 연결 끊김 */}
                                     <span style={{ color, fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
                                         {text}
@@ -497,16 +488,17 @@ function BinancePage() {
                         </div>
 
                         {/*
-                          tickerWrapperRef: 실데이터 표시 중 높이를 측정하기 위한 래퍼 div.
-                          ticker가 null(스켈레톤)일 때 savedHeightRef.current를 minHeight로 적용
-                          → 패널이 줄어들지 않고 스켈레톤이 그 안에서 교체됨.
-                          ticker가 non-null이면 minHeight 해제 → 실데이터가 높이를 자연스럽게 결정.
+                          tickerWrapperRef: 실데이터 표시 중 패널 크기 측정. ticker가 null(스켈레톤)일 때
+                          savedHeight/savedWidth를 minHeight/minWidth로 적용해 패널이 줄어들지 않게 함.
                         */}
                         <div
                             ref={tickerWrapperRef}
                             style={{
                                 minHeight: ticker === null && savedHeight
                                     ? `${savedHeight}px`
+                                    : undefined,
+                                minWidth: ticker === null && savedWidth
+                                    ? `${savedWidth}px`
                                     : undefined,
                             }}
                         >
@@ -520,18 +512,7 @@ function BinancePage() {
                                 />
                             </div>
                             {/* 모바일 전용 레이아웃 (≤768px) */}
-                            <div
-                                ref={mobileWrapperRef}
-                                className={pageStyles.mobileOnly}
-                                style={{
-                                    minHeight: ticker === null && mobileSavedHeight
-                                        ? `${mobileSavedHeight}px`
-                                        : undefined,
-                                    minWidth: ticker === null && mobileSavedWidth
-                                        ? `${mobileSavedWidth}px`
-                                        : undefined,
-                                }}
-                            >
+                            <div className={pageStyles.mobileOnly}>
                                 <BinanceTickerMobile
                                     ticker={ticker}
                                     upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}

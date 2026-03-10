@@ -23,6 +23,8 @@
 package com.chs.springboot.domain.binance.service;
 
 import com.binance.connector.client.impl.SpotClientImpl;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -167,13 +169,31 @@ public class BinanceService {
      *   바이낸스 API Key 생성 시 "Read Info" 권한이 필요.
      *   "Trading" 권한 없이도 조회 가능.
      */
+    /**
+     * 바이낸스 서버 시간 조회 (GET /api/v3/time).
+     * 로컬 시계가 어긋나 -1021이 나는 경우를 막기 위해, 계좌 등 서명 요청 시 이 시간을 timestamp로 사용.
+     */
+    private long fetchBinanceServerTime() throws Exception {
+        String timeJson = client.createMarket().time();
+        JsonNode node = new ObjectMapper().readTree(timeJson);
+        return node.get("serverTime").asLong();
+    }
+
     public String getAccountInformation() {
         try {
+            long serverTime = fetchBinanceServerTime();
             LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-            // SpotClient를 사용해 계정 정보를 요청합니다. (API Key 권한 필요)
+            parameters.put("timestamp", serverTime);
+            parameters.put("recvWindow", 60_000); // 허용 구간 60초 (로컬 시계 drift 대비)
             return client.createTrade().account(parameters);
         } catch (Exception e) {
-            log.error("[BinanceService] 계좌 정보 조회 실패: {}", e.getMessage());
+            log.error("[BinanceService] 계좌 정보 조회 실패 | 예외클래스={} | 메시지={} | toString={}",
+                    e.getClass().getName(), e.getMessage(), e.toString());
+            log.error("[BinanceService] cause={}", e.getCause() != null ? e.getCause().getMessage() : null);
+            if (e.getCause() != null) {
+                log.error("[BinanceService] cause 상세 | 클래스={} | 메시지={}", e.getCause().getClass().getName(), e.getCause().getMessage());
+            }
+            log.error("[BinanceService] 계좌 조회 실패 스택 트레이스", e);
             throw new RuntimeException("계좌 정보 조회에 실패했습니다.", e);
         }
     }

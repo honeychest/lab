@@ -24,6 +24,8 @@
 package com.chs.springboot.domain.binance.controller;
 
 import com.chs.springboot.domain.binance.service.BinanceService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,6 +53,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/binance")
 @RequiredArgsConstructor
 public class BinanceController {
+
+    private static final Logger log = LoggerFactory.getLogger(BinanceController.class);
 
     /**
      * binanceService: 실제 바이낸스 API 호출을 처리하는 서비스.
@@ -119,8 +123,15 @@ public class BinanceController {
     @GetMapping("/account")
     public ResponseEntity<String> getAccountInfo() {
         try {
-            return ResponseEntity.ok(binanceService.getAccountInformation());
+            String body = binanceService.getAccountInformation();
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
+            log.error("[BinanceController] GET /api/binance/account 실패 | 예외클래스={} | 메시지={} | cause={}",
+                    e.getClass().getName(), e.getMessage(), e.getCause() != null ? e.getCause().getMessage() : null);
+            if (e.getCause() != null) {
+                log.error("[BinanceController] cause 상세 | 클래스={} | 메시지={}", e.getCause().getClass().getName(), e.getCause().getMessage());
+            }
+            log.error("[BinanceController] 계좌 조회 실패 스택 트레이스", e);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body("계좌 정보 조회에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
