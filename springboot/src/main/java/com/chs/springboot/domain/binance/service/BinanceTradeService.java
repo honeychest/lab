@@ -302,9 +302,11 @@ public class BinanceTradeService {
                         log.debug("[BinanceTrade] 틱 0/비정상 제외 p={}, q={}, marketType={}, snippet={}",
                                 price, quantity, marketType, snippet);
                     } else {
+                        // 틱 저장
                         if (tickTradeSaveEnabled) {
                             try {
-                                rawTickStorageService.enqueue(json, marketType);
+                                // enqueue 큐에 들어가면 DB에 저장된다.
+                                // rawTickStorageService.enqueue(json, marketType);
                             } catch (Exception e) {
                                 log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
                             }

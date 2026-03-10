@@ -47,7 +47,7 @@ public class BinanceTrade {
     @Column(name = "trade_value", nullable = false, precision = 30, scale = 8)
     private BigDecimal tradeValue;
 
-    @Comment("매수자가 메이커 여부 (true = 매도 체결)")
+    @Comment("매수자가 메이커 여부 (true = 매도 체결 숏긁음, false = 매수 체결 롱긁음)")
     @Column(name = "is_buyer_maker", nullable = false)
     private Boolean isBuyerMaker;
 
