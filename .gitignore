@@ -14,3 +14,4 @@ springboot/src/test/java/com/chs/springboot/unitTest.java
 .cursor/
 .cursorignore*
 .history/
+/private/
