@@ -76,6 +76,17 @@ public class AggTradeStreamService {
                                 String json = buffer.toString();
                                 buffer.setLength(0);
                                 try {
+                                    // ENAUSDT FUTURES 디버그용 aggId 로그
+                                    if ("ENAUSDT".equals(symbolUpper) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                                        try {
+                                            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+                                            long aggId = node.get("a").asLong();
+                                            log.debug("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
+                                        } catch (Exception ignore) {
+                                            // 디버그용이므로 파싱 실패는 무시
+                                        }
+                                    }
+
                                     storageService.enqueue(json, symbolUpper, marketType);
                                     if (log.isDebugEnabled()) {
                                         log.debug("[AggTradeStream] enqueue 성공 {} {} (jsonLength={})",

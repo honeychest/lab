@@ -75,18 +75,27 @@ public class AggTradeStorageService {
             JsonNode node = objectMapper.readTree(json);
             long aggTradeId = node.get("a").asLong();
 
+            // ENAUSDT FUTURES 수신 디버그 로그
+            if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                log.debug("[AggTradeEnqueueDebug] ENAUSDT FUTURES enqueue 시도 aggId={}", aggTradeId);
+            }
+
             String dedupKey = DEDUP_KEY_PREFIX + symbol + ":" + marketType + ":" + aggTradeId;
             int dedupTtl = configService.getDedupTtlSec();
             Boolean added = redisTemplate.opsForValue()
                     .setIfAbsent(dedupKey, "1", Duration.ofSeconds(dedupTtl));
             if (!Boolean.TRUE.equals(added)) {
+                if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                    log.debug("[AggTradeEnqueueDebug] DEDUP HIT ENAUSDT FUTURES aggId={}", aggTradeId);
+                }
                 return;
             }
 
             int maxQueueSize = configService.getMaxQueueSize();
             Long currentSize = redisTemplate.opsForList().size(QUEUE_KEY);
             if (currentSize != null && currentSize >= maxQueueSize) {
-                TelegramLog.error("[AggTrade] 큐 오버플로우 — enqueue 차단, size=" + currentSize);
+                TelegramLog.error("[AggTrade] 큐 오버플로우 — enqueue 차단, size=" + currentSize
+                        + ", symbol=" + symbol + ", marketType=" + marketType + ", aggId=" + aggTradeId);
                 return;
             }
 
@@ -94,6 +103,11 @@ public class AggTradeStorageService {
             Long newSize = redisTemplate.opsForList().rightPush(QUEUE_KEY, value);
             if (newSize == null) {
                 return;
+            }
+
+            // ENAUSDT FUTURES 큐 사이즈 디버그 로그
+            if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                log.debug("[AggTradeEnqueueDebug] ENAUSDT FUTURES queued aggId={} queueSize={}", aggTradeId, newSize);
             }
 
             int warning60 = (int) (maxQueueSize * 0.6);
@@ -141,6 +155,17 @@ public class AggTradeStorageService {
                     }
                 }
                 if (!entities.isEmpty()) {
+                    // ENAUSDT FUTURES 배치 범위 디버그 로그
+                    var enaFutures = entities.stream()
+                            .filter(e -> "ENAUSDT".equals(e.getSymbol()) && "FUTURES".equals(e.getMarketType()))
+                            .toList();
+                    if (!enaFutures.isEmpty() && log.isDebugEnabled()) {
+                        long minId = enaFutures.stream().mapToLong(RawAggTrade::getAggTradeId).min().orElse(-1L);
+                        long maxId = enaFutures.stream().mapToLong(RawAggTrade::getAggTradeId).max().orElse(-1L);
+                        log.debug("[AggTradeFlushDebug] ENAUSDT FUTURES batch size={} aggIdRange={}~{}",
+                                enaFutures.size(), minId, maxId);
+                    }
+
                     long startMs = System.currentTimeMillis();
                     try {
                         batchInsert(entities, startMs);
@@ -199,6 +224,11 @@ public class AggTradeStorageService {
                     String symbol = parts[0];
                     String marketType = parts[1];
                     String checkpointKey = "aggtrade:checkpoint:" + symbol + ":" + marketType;
+
+                    if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                        log.debug("[AggTradeCheckpointDebug] ENAUSDT FUTURES checkpoint update aggId={}", maxId);
+                    }
+
                     setIfGreater(checkpointKey, maxId);
                 }));
     }

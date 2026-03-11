@@ -195,7 +195,8 @@ public class AggTradeBackfillService {
             }
 
             String body = response.body();
-            com.fasterxml.jackson.databind.JsonNode array = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode array = mapper.readTree(body);
             if (!array.isArray() || array.isEmpty()) {
                 log.info("[AggTradeBackfill] {} {} fromId={} 응답 0건, 종료", symbol, marketType, currentFromId);
                 break;
@@ -204,11 +205,13 @@ public class AggTradeBackfillService {
 
             List<RawAggTrade> entities = new java.util.ArrayList<>();
             long maxId = currentFromId;
+            long minId = Long.MAX_VALUE;
             for (com.fasterxml.jackson.databind.JsonNode node : array) {
                 RawAggTrade t = new RawAggTrade();
                 t.setSymbol(symbol);
                 t.setMarketType(marketType);
-                t.setAggTradeId(node.get("a").asLong());
+                long aggId = node.get("a").asLong();
+                t.setAggTradeId(aggId);
                 t.setPrice(new java.math.BigDecimal(node.get("p").asText()));
                 t.setQuantity(new java.math.BigDecimal(node.get("q").asText()));
                 t.setFirstTradeId(node.get("f").asLong());
@@ -216,9 +219,17 @@ public class AggTradeBackfillService {
                 t.setIsBuyerMaker(node.get("m").asBoolean());
                 t.setTradedAt(node.get("T").asLong());
                 entities.add(t);
-                if (t.getAggTradeId() > maxId) {
-                    maxId = t.getAggTradeId();
+                if (aggId > maxId) {
+                    maxId = aggId;
                 }
+                if (aggId < minId) {
+                    minId = aggId;
+                }
+            }
+
+            if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                log.debug("[AggTradeBackfillDebug] ENAUSDT FUTURES fromId={} batchSize={} aggIdRange={}~{}",
+                        currentFromId, array.size(), minId, maxId);
             }
 
             // 실제 구현에서는 RawAggTradeRepository.batchInsertIgnoreDuplicate 사용 필요
