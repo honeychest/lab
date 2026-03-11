@@ -36,6 +36,8 @@ export function useBinanceTradeSse() {
         let closed = false;
         seenIds.current.clear();
 
+        console.log('[SSE hook] mount');
+
         const loadRecent = async () => {
             const tag = '[SSE loadRecent]';
             try {
@@ -65,12 +67,14 @@ export function useBinanceTradeSse() {
                 esRef.current = null;
             }
 
+            console.log('[SSE hook] connect() called');
             console.log('[SSE connect] new EventSource');
             const es = new EventSource('/api/binance/trades/sse');
             esRef.current = es;
 
             es.addEventListener('open', () => {
                 if (closed) return;
+                console.log('[SSE hook] open event');
                 console.log('[SSE connect] open');
                 setScanState('watching');
             });
@@ -79,6 +83,7 @@ export function useBinanceTradeSse() {
                 if (closed) return;
                 try {
                     const trade: TradeEntry = JSON.parse(e.data);
+                    console.log('[SSE hook] trade event id=', trade.id);
                     if (seenIds.current.has(trade.id)) return;
                     seenIds.current.add(trade.id);
 
@@ -141,11 +146,13 @@ export function useBinanceTradeSse() {
         };
 
         const handleVisibilityChange = () => {
+            console.log('[SSE hook] visibilitychange, hidden=', document.hidden);
             if (document.hidden) return;
             reconnectOnVisible();
         };
 
         const handlePageShow = (e: PageTransitionEvent) => {
+            console.log('[SSE hook] pageshow, persisted=', e.persisted);
             if (e.persisted) reconnectOnVisible();
         };
 
@@ -157,6 +164,7 @@ export function useBinanceTradeSse() {
 
         return () => {
             closed = true;
+            console.log('[SSE hook] unmount');
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('pageshow', handlePageShow);
             esRef.current?.close();

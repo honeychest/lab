@@ -67,6 +67,15 @@ public class WeatherService {
     private String baseUrl;
 
     /**
+     * dailyLimit: 일(day) 단위 기상청 API 호출 상한.
+     *   - 기본값: 10000 (환경변수/프로퍼티로 덮어쓰기 가능)
+     *   - incrementDailyCallCount() 로 증가한 count 와 함께 로그로 남겨서
+     *     "429가 리밋 전인지 후인지"를 판별할 수 있게 한다.
+     */
+    @Value("${WEATHER_API_DAILY_LIMIT:10000}")
+    private long dailyLimit;
+
+    /**
      * weatherRepository: DB 조회/저장 담당 (JPA Repository).
      * @Autowired = Spring이 WeatherRepository 빈을 자동 주입.
      */
@@ -328,8 +337,11 @@ public class WeatherService {
         try {
             // ── [호출 카운트 증가 + 로그] ───────────────────────────
             callCount = incrementDailyCallCount(LocalDateTime.now());
-            log.info("[WeatherQuota] date={} count={} region={} baseDate={} baseTime={}",
-                    baseDate, callCount, regionName, baseDate, baseTime);
+            long remaining = (dailyLimit > 0 && callCount >= 0)
+                    ? Math.max(0, dailyLimit - callCount)
+                    : -1L;
+            log.info("[WeatherQuota] date={} count={} limit={} remaining={} region={} baseDate={} baseTime={}",
+                    baseDate, callCount, dailyLimit, remaining, regionName, baseDate, baseTime);
 
             // 기상청 API 호출 → JSON 문자열 반환
             String json = restTemplate.getForObject(url, String.class);
@@ -340,8 +352,11 @@ public class WeatherService {
             String msg = e.getMessage();
             System.err.println("API call error: " + msg);
             if (msg != null && msg.contains("429")) {
-                log.warn("[WeatherQuota] 429 Too Many Requests date={} count={} region={} baseDate={} baseTime={}",
-                        baseDate, callCount, regionName, baseDate, baseTime);
+                log.warn("[WeatherQuota] 429 Too Many Requests date={} count={} limit={} region={} baseDate={} baseTime={} msg={}",
+                        baseDate, callCount, dailyLimit, regionName, baseDate, baseTime, msg);
+            } else {
+                log.warn("[WeatherQuota] API error date={} count={} limit={} region={} baseDate={} baseTime={} msg={}",
+                        baseDate, callCount, dailyLimit, regionName, baseDate, baseTime, msg);
             }
         }
 

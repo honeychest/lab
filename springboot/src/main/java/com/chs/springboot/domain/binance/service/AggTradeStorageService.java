@@ -75,9 +75,9 @@ public class AggTradeStorageService {
             JsonNode node = objectMapper.readTree(json);
             long aggTradeId = node.get("a").asLong();
 
-            // ENAUSDT FUTURES 수신 추적 로그 (INFO)
+            // ENAUSDT FUTURES 수신 추적 로그 (DEBUG)
             if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
-                log.info("[AggTradeEnqueueDebug] ENAUSDT FUTURES enqueue 시도 aggId={}", aggTradeId);
+                log.debug("[AggTradeEnqueueDebug] ENAUSDT FUTURES enqueue 시도 aggId={}", aggTradeId);
             }
 
             String dedupKey = DEDUP_KEY_PREFIX + symbol + ":" + marketType + ":" + aggTradeId;
@@ -86,7 +86,7 @@ public class AggTradeStorageService {
                     .setIfAbsent(dedupKey, "1", Duration.ofSeconds(dedupTtl));
             if (!Boolean.TRUE.equals(added)) {
                 if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
-                    log.info("[AggTradeEnqueueDebug] DEDUP HIT ENAUSDT FUTURES aggId={}", aggTradeId);
+                    log.debug("[AggTradeEnqueueDebug] DEDUP HIT ENAUSDT FUTURES aggId={}", aggTradeId);
                 }
                 return;
             }
@@ -105,9 +105,9 @@ public class AggTradeStorageService {
                 return;
             }
 
-            // ENAUSDT FUTURES 큐 사이즈 추적 로그 (INFO)
+            // ENAUSDT FUTURES 큐 사이즈 추적 로그 (DEBUG)
             if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
-                log.info("[AggTradeEnqueueDebug] ENAUSDT FUTURES queued aggId={} queueSize={}", aggTradeId, newSize);
+                log.debug("[AggTradeEnqueueDebug] ENAUSDT FUTURES queued aggId={} queueSize={}", aggTradeId, newSize);
             }
 
             int warning60 = (int) (maxQueueSize * 0.6);
@@ -151,18 +151,18 @@ public class AggTradeStorageService {
                             entities.add(trade);
                         }
                     } catch (Exception ex) {
-                        log.info("[AggTrade] 파싱 스킵: {}", ex.getMessage());
+                        log.warn("[AggTrade] 파싱 스킵: {}", ex.getMessage());
                     }
                 }
                 if (!entities.isEmpty()) {
-                    // ENAUSDT FUTURES 배치 범위 추적 로그 (INFO)
+                    // ENAUSDT FUTURES 배치 범위 추적 로그 (DEBUG)
                     var enaFutures = entities.stream()
                             .filter(e -> "ENAUSDT".equals(e.getSymbol()) && "FUTURES".equals(e.getMarketType()))
                             .toList();
                     if (!enaFutures.isEmpty()) {
                         long minId = enaFutures.stream().mapToLong(RawAggTrade::getAggTradeId).min().orElse(-1L);
                         long maxId = enaFutures.stream().mapToLong(RawAggTrade::getAggTradeId).max().orElse(-1L);
-                        log.info("[AggTradeFlushDebug] ENAUSDT FUTURES batch size={} aggIdRange={}~{}",
+                        log.debug("[AggTradeFlushDebug] ENAUSDT FUTURES batch size={} aggIdRange={}~{}",
                                 enaFutures.size(), minId, maxId);
                     }
 
@@ -226,7 +226,7 @@ public class AggTradeStorageService {
                     String checkpointKey = "aggtrade:checkpoint:" + symbol + ":" + marketType;
 
                     if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
-                        log.info("[AggTradeCheckpointDebug] ENAUSDT FUTURES checkpoint update aggId={}", maxId);
+                        log.debug("[AggTradeCheckpointDebug] ENAUSDT FUTURES checkpoint update aggId={}", maxId);
                     }
 
                     setIfGreater(checkpointKey, maxId);

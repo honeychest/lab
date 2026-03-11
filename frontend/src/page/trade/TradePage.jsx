@@ -205,7 +205,7 @@ function TradePage() {
     const scanSlotReconnecting = scanState === 'reconnecting';
 
     return (
-        <Layout footerCenter={['SSE', 'TypeScript', 'Binance API']}>
+        <Layout footerCenter={['SSE', 'TypeScript', 'Binance API', 'shadcn/ui', 'Tailwind CSS']}>
             <div className="min-h-full md:h-full md:overflow-hidden bg-[#0a0f1e] p-4 md:p-8 box-border">
                 <div className="max-w-6xl mx-auto md:flex md:flex-col md:gap-2 md:h-full md:overflow-hidden">
 
@@ -363,7 +363,6 @@ function TradePage() {
                                 <div className="grid grid-cols-2 gap-x-4 text-right leading-tight flex-grow-1">
                                     <span className="text-xs text-[#94a3b8] font-mono text-center">매수 BTC</span>
                                     <span className="text-xs text-[#94a3b8] font-mono text-center">매도 BTC</span>
-                                    {/* 2행: 값 */}
                                     <span className="text-xs font-mono text-green-400 text-center">
                                         {formatTickQtyTotal(tickTotals.buy)}
                                     </span>
@@ -371,15 +370,6 @@ function TradePage() {
                                         {formatTickQtyTotal(tickTotals.sell)}
                                     </span>
                                 </div>
-                                    {/* <div className="flex flex-row items-center gap-2 leading-tight">
-                                        <span className="text-xs font-mono text-green-400">
-                                            매수 {formatTickQtyTotal(tickTotals.buy)} BTC
-                                        </span>
-                                        <span className="text-xs font-mono text-red-400">
-                                            매도 {formatTickQtyTotal(tickTotals.sell)} BTC
-                                        </span>
-                                    </div> */}
-
                                 </div>
                                 <div className="flex-1 min-h-0 overflow-hidden">
                                     <div className={styles.scrollbarClip}>

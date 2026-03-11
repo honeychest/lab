@@ -20,11 +20,15 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/binance/trades")
 @RequiredArgsConstructor
 public class BinanceTradeController {
+
+    private static final Logger log = LoggerFactory.getLogger(BinanceTradeController.class);
 
     private final BinanceTradeSseService sseService;
     private final RawTickSseService rawTickSseService;
@@ -54,6 +58,7 @@ public class BinanceTradeController {
     /** 큰거래 SSE 구독 */
     @GetMapping(value = "/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe() {
+        log.info("[TradeSse] subscribe called");
         return sseService.subscribe();
     }
 

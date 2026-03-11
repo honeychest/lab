@@ -223,6 +223,7 @@ public class BinanceTradeService {
 
             try {
                 binanceTradeRepository.save(tick);
+                log.debug("[BinanceTrade] will broadcast tradeId={} marketType={}", tradeId, marketType);
                 sseService.broadcast(BinanceTradeDto.from(tick)); // DB 저장 성공 시에만 broadcast
             } catch (DataIntegrityViolationException e) {
                 log.debug("[BinanceTrade] {} tradeId={} DB unique 위반 (최후 안전망)", marketType, tradeId);

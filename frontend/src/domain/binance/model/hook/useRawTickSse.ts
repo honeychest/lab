@@ -13,6 +13,7 @@ const QUEUE_MAX = 1000;
 const TICKS_MAX = 100;
 const BATCH_MS = 100;
 const RECONNECT_DELAY_MS = 1_000;
+const OUT_DELAY_MS = 180_000;
 
 export function useRawTickSse() {
     const [ticks, setTicks] = useState<RawTickEntry[]>([]);
@@ -22,6 +23,7 @@ export function useRawTickSse() {
     const esRef = useRef<EventSource | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hasReceivedTickRef = useRef(false);
+    const lastHiddenAtRef = useRef<number | null>(null);
 
     useEffect(() => {
         let closed = false;
@@ -70,7 +72,7 @@ export function useRawTickSse() {
             };
         };
 
-        const reconnectOnVisible = () => {
+        const reconnectNow = () => {
             if (closed) return;
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
@@ -88,12 +90,33 @@ export function useRawTickSse() {
         };
 
         const handleVisibilityChange = () => {
-            if (document.hidden) return;
-            reconnectOnVisible();
+            if (document.hidden) {
+                lastHiddenAtRef.current = Date.now();
+                return;
+            }
+            // 다시 보이게 되었을 때, 1분 이상 숨겨져 있었다면 재연결·초기화
+            const lastHiddenAt = lastHiddenAtRef.current;
+            lastHiddenAtRef.current = null;
+            if (lastHiddenAt != null) {
+                const hiddenMs = Date.now() - lastHiddenAt;
+                if (hiddenMs >= OUT_DELAY_MS) {
+                    reconnectNow();
+                }
+            }
         };
 
         const handlePageShow = (e: PageTransitionEvent) => {
-            if (e.persisted) reconnectOnVisible();
+            // bfcache 에서 복원된 경우, 마지막 hidden 시점 기준 1분 이상 지났으면 재연결
+            if (e.persisted) {
+                const lastHiddenAt = lastHiddenAtRef.current;
+                lastHiddenAtRef.current = null;
+                if (lastHiddenAt != null) {
+                    const hiddenMs = Date.now() - lastHiddenAt;
+                    if (hiddenMs >= OUT_DELAY_MS) {
+                        reconnectNow();
+                    }
+                }
+            }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);

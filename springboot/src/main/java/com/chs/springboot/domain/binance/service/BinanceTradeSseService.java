@@ -15,9 +15,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 @Slf4j
 @Service
 public class BinanceTradeSseService {
+
+    private static final Logger log = LoggerFactory.getLogger(BinanceTradeSseService.class);
 
     // 타임아웃 0 = 무제한 (Nginx proxy_read_timeout이 연결 관리)
     private static final long SSE_TIMEOUT_MS = 0L;
@@ -48,7 +52,7 @@ public class BinanceTradeSseService {
     /** DB 저장 성공 후 호출 — 전체 구독자에게 체결 이벤트 전송 */
     public void broadcast(BinanceTradeDto dto) {
         if (emitters.isEmpty()) return;
-
+        log.info("[TradeSse] broadcast id={} emitters={}", dto.id(), emitters.size());
         String json;
         try {
             json = objectMapper.writeValueAsString(dto);
