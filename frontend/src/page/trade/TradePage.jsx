@@ -71,6 +71,8 @@ const formatKrw = (usdValue) => {
     return `${formatWithComma(krw)}원`;
 };
 
+const formatTickQtyTotal = (v) => v.toFixed(4);
+
 // ── 컴포넌트 ──────────────────────────────────────────────────
 function TradePage() {
     const { trades, scanState, initError, loadMore } = useBinanceTradeSse();
@@ -136,6 +138,48 @@ function TradePage() {
             setIsLoadingMore(false);
         }
     };
+
+    // 틱 누적 수량 (페이지 생명주기 동안)
+    const [tickTotals, setTickTotals] = useState({ buy: 0, sell: 0 });
+    const prevTicksRef = useRef([]);
+
+    useEffect(() => {
+        // 재연결 중이면 초기화
+        if (isTickConnecting) {
+            prevTicksRef.current = [];
+            setTickTotals({ buy: 0, sell: 0 });
+            return;
+        }
+        const prev = prevTicksRef.current;
+        const current = ticks;
+        if (current.length === 0) {
+            prevTicksRef.current = current;
+            return;
+        }
+        const added = current.filter(t => !prev.includes(t));
+        if (added.length === 0) {
+            prevTicksRef.current = current;
+            return;
+        }
+        let buyDelta = 0;
+        let sellDelta = 0;
+        for (const t of added) {
+            const qtyNum = parseFloat(t.quantity ?? '0');
+            if (!Number.isFinite(qtyNum) || qtyNum <= 0) continue;
+            if (t.isBuyerMaker) {
+                sellDelta += qtyNum;
+            } else {
+                buyDelta += qtyNum;
+            }
+        }
+        if (buyDelta !== 0 || sellDelta !== 0) {
+            setTickTotals(prevTotals => ({
+                buy: prevTotals.buy + buyDelta,
+                sell: prevTotals.sell + sellDelta,
+            }));
+        }
+        prevTicksRef.current = current;
+    }, [ticks, isTickConnecting]);
 
     // 신규 체결 skeleton 표시 (500ms)
     const [newTradeIds, setNewTradeIds] = useState(() => new Set());
@@ -314,8 +358,29 @@ function TradePage() {
                                 </div>
                             </div>
                             {/* 우: 틱 테이블 (스크롤바 클리핑) */}
-                            <div className="w-1/5 min-h-0 flex flex-col flex-shrink-0 border border-[#1e293b] rounded-2xl overflow-hidden bg-[#0f172a]">
-                                <div className="h-10 flex-shrink-0" aria-hidden />
+                            <div className="w-3/18 min-h-0 flex flex-col flex-shrink-0 border border-[#1e293b] rounded-2xl overflow-hidden bg-[#0f172a]">
+                                <div className="h-10 flex-shrink-0 border-b border-[#1e293b] bg-[#0a0f1e] px-3 flex items-center justify-between">
+                                <div className="grid grid-cols-2 gap-x-4 text-right leading-tight flex-grow-1">
+                                    <span className="text-xs text-[#94a3b8] font-mono text-center">매수 BTC</span>
+                                    <span className="text-xs text-[#94a3b8] font-mono text-center">매도 BTC</span>
+                                    {/* 2행: 값 */}
+                                    <span className="text-xs font-mono text-green-400 text-center">
+                                        {formatTickQtyTotal(tickTotals.buy)}
+                                    </span>
+                                    <span className="text-xs font-mono text-red-400 text-center">
+                                        {formatTickQtyTotal(tickTotals.sell)}
+                                    </span>
+                                </div>
+                                    {/* <div className="flex flex-row items-center gap-2 leading-tight">
+                                        <span className="text-xs font-mono text-green-400">
+                                            매수 {formatTickQtyTotal(tickTotals.buy)} BTC
+                                        </span>
+                                        <span className="text-xs font-mono text-red-400">
+                                            매도 {formatTickQtyTotal(tickTotals.sell)} BTC
+                                        </span>
+                                    </div> */}
+
+                                </div>
                                 <div className="flex-1 min-h-0 overflow-hidden">
                                     <div className={styles.scrollbarClip}>
                                         <TickTable ticks={ticks} isConnecting={isTickConnecting} />
