@@ -81,7 +81,7 @@ public class AggTradeStreamService {
                                         try {
                                             var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
                                             long aggId = node.get("a").asLong();
-                                            log.info("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
+                                            log.debug("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
                                         } catch (Exception ignore) {
                                             // 추적용이므로 파싱 실패는 무시
                                         }

@@ -52,7 +52,7 @@ public class BinanceTradeSseService {
     /** DB 저장 성공 후 호출 — 전체 구독자에게 체결 이벤트 전송 */
     public void broadcast(BinanceTradeDto dto) {
         if (emitters.isEmpty()) return;
-        log.info("[TradeSse] broadcast id={} emitters={}", dto.id(), emitters.size());
+        log.debug("[TradeSse] broadcast id={} emitters={}", dto.id(), emitters.size());
         String json;
         try {
             json = objectMapper.writeValueAsString(dto);
