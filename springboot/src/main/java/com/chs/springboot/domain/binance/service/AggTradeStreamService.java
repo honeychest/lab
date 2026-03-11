@@ -76,14 +76,14 @@ public class AggTradeStreamService {
                                 String json = buffer.toString();
                                 buffer.setLength(0);
                                 try {
-                                    // ENAUSDT FUTURES 디버그용 aggId 로그
-                                    if ("ENAUSDT".equals(symbolUpper) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
+                                    // ENAUSDT FUTURES aggId 추적용 로그 (INFO)
+                                    if ("ENAUSDT".equals(symbolUpper) && "FUTURES".equals(marketType)) {
                                         try {
                                             var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
                                             long aggId = node.get("a").asLong();
-                                            log.debug("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
+                                            log.info("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
                                         } catch (Exception ignore) {
-                                            // 디버그용이므로 파싱 실패는 무시
+                                            // 추적용이므로 파싱 실패는 무시
                                         }
                                     }
 

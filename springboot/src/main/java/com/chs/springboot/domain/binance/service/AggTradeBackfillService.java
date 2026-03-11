@@ -227,8 +227,8 @@ public class AggTradeBackfillService {
                 }
             }
 
-            if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType) && log.isDebugEnabled()) {
-                log.debug("[AggTradeBackfillDebug] ENAUSDT FUTURES fromId={} batchSize={} aggIdRange={}~{}",
+            if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
+                log.info("[AggTradeBackfillDebug] ENAUSDT FUTURES fromId={} batchSize={} aggIdRange={}~{}",
                         currentFromId, array.size(), minId, maxId);
             }
 
