@@ -114,10 +114,10 @@ public class AggTradeBackfillService {
                 redisTemplate.delete(BACKFILL_LOCK_KEY);
             }
 
-            scheduleBackfillSeconds(30 * 60L);
+            scheduleBackfillSeconds(60L);
         } catch (Exception e) {
             log.error("[AggTradeBackfill] 예외 발생: {}", e.getMessage());
-            scheduleBackfillSeconds(30 * 60L);
+            scheduleBackfillSeconds(60L);
         }
     }
 
