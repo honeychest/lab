@@ -175,7 +175,26 @@ public class AggTradeBackfillService {
         String symbol = status.getSymbol();
         String marketType = status.getMarketType();
 
-        long lastBackfillIdBefore = status.getLastBackfillAggId() != null ? status.getLastBackfillAggId() : 0L;
+        Long lastBackfill = status.getLastBackfillAggId();
+        if (lastBackfill == null) {
+            String checkpointKey = "aggtrade:checkpoint:" + symbol + ":" + marketType;
+            String checkpoint = redisTemplate.opsForValue().get(checkpointKey);
+            if (checkpoint != null) {
+                try {
+                    lastBackfill = Long.parseLong(checkpoint);
+                    status.setLastBackfillAggId(lastBackfill);
+                    if (status.getLastStreamAggId() == null) {
+                        status.setLastStreamAggId(lastBackfill);
+                    }
+                } catch (NumberFormatException ignore) {
+                    lastBackfill = 0L;
+                }
+            } else {
+                lastBackfill = 0L;
+            }
+        }
+
+        long lastBackfillIdBefore = lastBackfill;
         long currentFromId = lastBackfillIdBefore > 0 ? lastBackfillIdBefore + 1 : lastBackfillIdBefore;
 
         HttpClient client = HttpClient.newHttpClient();
