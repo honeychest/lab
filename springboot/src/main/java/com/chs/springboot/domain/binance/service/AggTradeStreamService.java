@@ -43,7 +43,7 @@ public class AggTradeStreamService {
     }
 
     private void connectAll() {
-        // connect("btcusdt", "SPOT");
+        connect("btcusdt", "SPOT");
         // connect("btcusdt", "FUTURES");
         connect("enausdt", "SPOT");
         connect("enausdt", "FUTURES");

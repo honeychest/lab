@@ -1,6 +1,8 @@
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;
+import com.chs.springboot.domain.binance.model.AggTradeCollectStatus;
+import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.telegram.TelegramLog;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -37,6 +39,7 @@ public class AggTradeStorageService {
     private final AggTradeConfigService configService;
     private final LeaderElectionService leaderElectionService;
     private final AggTradeBackfillService backfillService;
+    private final AggTradeCollectStatusRepository statusRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${binance.agg-trade.save.enabled:true}")
@@ -52,12 +55,14 @@ public class AggTradeStorageService {
                                   JdbcTemplate jdbcTemplate,
                                   AggTradeConfigService configService,
                                   LeaderElectionService leaderElectionService,
-                                  AggTradeBackfillService backfillService) {
+                                  AggTradeBackfillService backfillService,
+                                  AggTradeCollectStatusRepository statusRepository) {
         this.redisTemplate = redisTemplate;
         this.jdbcTemplate = jdbcTemplate;
         this.configService = configService;
         this.leaderElectionService = leaderElectionService;
         this.backfillService = backfillService;
+        this.statusRepository = statusRepository;
     }
 
     public ScheduledExecutorService getFlushExecutor() {
@@ -230,6 +235,27 @@ public class AggTradeStorageService {
                     }
 
                     setIfGreater(checkpointKey, maxId);
+
+                    try {
+                        AggTradeCollectStatus status = statusRepository
+                                .findBySymbolAndMarketType(symbol, marketType)
+                                .orElseGet(() -> {
+                                    AggTradeCollectStatus s = new AggTradeCollectStatus();
+                                    s.setSymbol(symbol);
+                                    s.setMarketType(marketType);
+                                    s.setEnabled(Boolean.TRUE);
+                                    s.setBackfillIntervalMin(1);
+                                    return s;
+                                });
+                        Long currentLastStream = status.getLastStreamAggId();
+                        if (currentLastStream == null || maxId > currentLastStream) {
+                            status.setLastStreamAggId(maxId);
+                        }
+                        statusRepository.save(status);
+                    } catch (Exception ex) {
+                        log.warn("[AggTrade] collect_status 업데이트 실패 symbol={} marketType={} error={}",
+                                symbol, marketType, ex.getMessage());
+                    }
                 }));
     }
 

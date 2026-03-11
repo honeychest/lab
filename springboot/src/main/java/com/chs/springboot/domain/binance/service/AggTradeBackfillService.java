@@ -1,6 +1,8 @@
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;
+import com.chs.springboot.domain.binance.model.AggTradeCollectStatus;
+import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.telegram.TelegramLog;
 import jakarta.annotation.PostConstruct;
@@ -9,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +20,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +36,8 @@ public class AggTradeBackfillService {
     private final StringRedisTemplate redisTemplate;
     private final AggTradeConfigService configService;
     private final LeaderElectionService leaderElectionService;
+    private final AggTradeCollectStatusRepository statusRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(new CustomizableThreadFactory("aggtrade-backfill-"));
@@ -52,10 +58,14 @@ public class AggTradeBackfillService {
 
     public AggTradeBackfillService(StringRedisTemplate redisTemplate,
                                    AggTradeConfigService configService,
-                                   LeaderElectionService leaderElectionService) {
+                                   LeaderElectionService leaderElectionService,
+                                   AggTradeCollectStatusRepository statusRepository,
+                                   JdbcTemplate jdbcTemplate) {
         this.redisTemplate = redisTemplate;
         this.configService = configService;
         this.leaderElectionService = leaderElectionService;
+        this.statusRepository = statusRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @PostConstruct
@@ -123,7 +133,7 @@ public class AggTradeBackfillService {
 
     private void executeBackfill() throws Exception {
         List<Map.Entry<String, String>> targets = Arrays.asList(
-                // Map.entry("BTCUSDT", "SPOT"),
+                Map.entry("BTCUSDT", "SPOT"),
                 // Map.entry("BTCUSDT", "FUTURES"),
                 Map.entry("ENAUSDT", "SPOT"),
                 Map.entry("ENAUSDT", "FUTURES")
@@ -133,28 +143,50 @@ public class AggTradeBackfillService {
             String symbol = target.getKey();
             String marketType = target.getValue();
             try {
-                backfillOne(symbol, marketType);
+                AggTradeCollectStatus status = statusRepository
+                        .findBySymbolAndMarketType(symbol, marketType)
+                        .orElseGet(() -> {
+                            AggTradeCollectStatus s = new AggTradeCollectStatus();
+                            s.setSymbol(symbol);
+                            s.setMarketType(marketType);
+                            s.setEnabled(Boolean.TRUE);
+                            s.setBackfillIntervalMin(1);
+                            return s;
+                        });
+
+                if (!Boolean.TRUE.equals(status.getEnabled())) {
+                    continue;
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+                if (status.getNextBackfillAt() != null && status.getNextBackfillAt().isAfter(now)) {
+                    continue;
+                }
+
+                backfillOne(status);
+                statusRepository.save(status);
             } catch (Exception e) {
                 TelegramLog.error("[AggTradeBackfill] " + symbol + " / " + marketType + " 실패: " + e.getMessage());
             }
         }
     }
 
-    private void backfillOne(String symbol, String marketType) throws Exception {
-        String checkpointKey = "aggtrade:checkpoint:" + symbol + ":" + marketType;
-        String checkpoint = redisTemplate.opsForValue().get(checkpointKey);
-        long lastId;
-        if (checkpoint != null) {
-            lastId = Long.parseLong(checkpoint);
-        } else {
-            // DB MAX(agg_trade_id) 조회는 생략하고, 없으면 스킵 (실제 구현 시 Repository 주입 후 사용)
-            log.info("[AggTradeBackfill] {} / {} checkpoint·DB 없음, 스킵", symbol, marketType);
-            return;
-        }
+    private void backfillOne(AggTradeCollectStatus status) throws Exception {
+        String symbol = status.getSymbol();
+        String marketType = status.getMarketType();
+
+        long lastBackfillIdBefore = status.getLastBackfillAggId() != null ? status.getLastBackfillAggId() : 0L;
+        long currentFromId = lastBackfillIdBefore > 0 ? lastBackfillIdBefore + 1 : lastBackfillIdBefore;
 
         HttpClient client = HttpClient.newHttpClient();
         int weightLimit = configService.getWeightPerMinute();
-        long currentFromId = lastId;
+
+        long globalMaxId = lastBackfillIdBefore;
+        long globalMinId = Long.MAX_VALUE;
+        int newCandidateCount = 0;
+        boolean hitWeightLimit = false;
+
+        LocalDateTime now = LocalDateTime.now();
 
         while (true) {
             String path;
@@ -185,9 +217,14 @@ public class AggTradeBackfillService {
             int usedWeight = Integer.parseInt(usedWeightHeader);
             log.info("[AggTradeBackfill] {} {} fromId={} status={} usedWeight={}/{}",
                     symbol, marketType, currentFromId, response.statusCode(), usedWeight, weightLimit);
+
             if (usedWeight >= weightLimit * 0.9) {
-                TelegramLog.info("[AggTradeBackfill] weight 90% 초과, 60초 대기");
-                Thread.sleep(60_000L);
+                TelegramLog.info("[AggTradeBackfill] weight 90% 초과, symbol=" + symbol +
+                        ", marketType=" + marketType +
+                        ", fromId=" + currentFromId +
+                        ", usedWeight=" + usedWeight + "/" + weightLimit);
+                hitWeightLimit = true;
+                break;
             }
 
             if (response.statusCode() != 200) {
@@ -204,8 +241,8 @@ public class AggTradeBackfillService {
             log.info("[AggTradeBackfill] {} {} fromId={} 응답 {}건", symbol, marketType, currentFromId, array.size());
 
             List<RawAggTrade> entities = new java.util.ArrayList<>();
-            long maxId = currentFromId;
-            long minId = Long.MAX_VALUE;
+            long batchMaxId = currentFromId;
+            long batchMinId = Long.MAX_VALUE;
             for (com.fasterxml.jackson.databind.JsonNode node : array) {
                 RawAggTrade t = new RawAggTrade();
                 t.setSymbol(symbol);
@@ -219,27 +256,97 @@ public class AggTradeBackfillService {
                 t.setIsBuyerMaker(node.get("m").asBoolean());
                 t.setTradedAt(node.get("T").asLong());
                 entities.add(t);
-                if (aggId > maxId) {
-                    maxId = aggId;
+
+                if (aggId > batchMaxId) {
+                    batchMaxId = aggId;
                 }
-                if (aggId < minId) {
-                    minId = aggId;
+                if (aggId < batchMinId) {
+                    batchMinId = aggId;
+                }
+                if (aggId > globalMaxId) {
+                    newCandidateCount++;
+                    globalMaxId = aggId;
+                }
+                if (aggId < globalMinId) {
+                    globalMinId = aggId;
                 }
             }
 
             if ("ENAUSDT".equals(symbol) && "FUTURES".equals(marketType)) {
-                log.info("[AggTradeBackfillDebug] ENAUSDT FUTURES fromId={} batchSize={} aggIdRange={}~{}",
-                        currentFromId, array.size(), minId, maxId);
+                log.debug("[AggTradeBackfillDebug] ENAUSDT FUTURES fromId={} batchSize={} aggIdRange={}~{}",
+                        currentFromId, array.size(), batchMinId, batchMaxId);
             }
 
-            // 실제 구현에서는 RawAggTradeRepository.batchInsertIgnoreDuplicate 사용 필요
-            // 여기서는 저장 호출을 생략하고 checkpoint만 갱신
-            redisTemplate.opsForValue().set(checkpointKey, String.valueOf(maxId));
+            String sql = "INSERT INTO raw_agg_trade " +
+                    "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) " +
+                    "ON DUPLICATE KEY UPDATE id = id";
+
+            jdbcTemplate.batchUpdate(sql, new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
+                    RawAggTrade t = entities.get(i);
+                    ps.setString(1, t.getSymbol());
+                    ps.setString(2, t.getMarketType());
+                    ps.setLong(3, t.getAggTradeId());
+                    ps.setBigDecimal(4, t.getPrice());
+                    ps.setBigDecimal(5, t.getQuantity());
+                    ps.setLong(6, t.getFirstTradeId());
+                    ps.setLong(7, t.getLastTradeId());
+                    ps.setBoolean(8, Boolean.TRUE.equals(t.getIsBuyerMaker()));
+                    ps.setLong(9, t.getTradedAt());
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return entities.size();
+                }
+            });
 
             if (array.size() < 1000) {
                 break;
             }
-            currentFromId = maxId + 1;
+            currentFromId = batchMaxId + 1;
+        }
+
+        status.setLastBackfillCheckedAt(now);
+        if (globalMaxId > lastBackfillIdBefore) {
+            status.setLastBackfillAggId(globalMaxId);
+        }
+
+        Integer intervalMin = status.getBackfillIntervalMin() != null ? status.getBackfillIntervalMin() : 1;
+        if (hitWeightLimit) {
+            status.setNextBackfillAt(now.plusSeconds(60));
+        } else {
+            status.setNextBackfillAt(now.plusMinutes(intervalMin));
+        }
+
+        if (newCandidateCount > 0) {
+            log.info("[AggTradeBackfillFill] {} {} backfillInserted={} idRange={}~{} fromLastBackfill={}",
+                    symbol, marketType, newCandidateCount,
+                    globalMinId == Long.MAX_VALUE ? "-" : globalMinId,
+                    globalMaxId,
+                    lastBackfillIdBefore);
+
+            LocalDateTime lastNotifiedAt = status.getLastBackfillNotifiedAt();
+            boolean canNotify =
+                    lastNotifiedAt == null || lastNotifiedAt.plusMinutes(10).isBefore(now);
+
+            if (canNotify) {
+                // 1) 상세 정보 알림
+                TelegramLog.info("[AggTradeBackfillFill] symbol=" + symbol +
+                        ", marketType=" + marketType +
+                        ", inserted=" + newCandidateCount +
+                        ", idRange=" + (globalMinId == Long.MAX_VALUE ? "-" : globalMinId) + "~" + globalMaxId +
+                        ", fromLastBackfill=" + lastBackfillIdBefore +
+                        ", checkedAt=" + now);
+
+                // 2) 확인 방법 안내 (로그 grep 명령)
+                TelegramLog.info("[AggTradeBackfillFill] 확인법: "
+                        + "docker logs chs-app-2 --since 30m 2>&1 | grep \"[AggTradeBackfillFill]\"");
+
+                status.setLastBackfillNotifiedAt(now);
+            }
         }
     }
 

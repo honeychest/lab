@@ -40,7 +40,7 @@ public class ServerInfoFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         boolean skip = path != null && path.startsWith("/ws");
         // ✅ 로그 1: 필터를 건너뛰는지 여부 확인
-        log.info("==> [Filter Check] Path: {}, ShouldSkip: {}", path, skip);
+        log.debug("==> [Filter Check] Path: {}, ShouldSkip: {}", path, skip);
         return skip;
     }
 
@@ -49,19 +49,19 @@ public class ServerInfoFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getServletPath();
-        log.info("==> [Filter Start] Processing path: {}", path);
+        log.debug("==> [Filter Start] Processing path: {}", path);
 
         try {
             // 헤더 추가
             response.setHeader("X-Server-Name", SERVER_NAME);
-            log.info("==> [Filter Header] Added X-Server-Name: {}", SERVER_NAME);
+            log.debug("==> [Filter Header] Added X-Server-Name: {}", SERVER_NAME);
 
             // ✅ 로그 2: 다음 필터로 넘어가기 직전 확인
-            log.info("==> [Filter Progress] Calling filterChain.doFilter()...");
+            log.debug("==> [Filter Progress] Calling filterChain.doFilter()...");
             filterChain.doFilter(request, response);
 
             // ✅ 로그 3: 요청 처리 완료 확인
-            log.info("==> [Filter End] Request finished for path: {}", path);
+            log.debug("==> [Filter End] Request finished for path: {}", path);
 
         } catch (Exception e) {
             // ✅ 로그 4: 에러 발생 시 출력
