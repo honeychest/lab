@@ -32,17 +32,24 @@ import com.chs.springboot.domain.weather.model.WeatherEntity;
 import com.chs.springboot.domain.weather.repository.WeatherRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.Date;
 
 @Service
 public class WeatherService {
+
+    private static final Logger log = LoggerFactory.getLogger(WeatherService.class);
 
     /**
      * serviceKey: 기상청 API 인증 키.
@@ -65,6 +72,9 @@ public class WeatherService {
      */
     @Autowired
     private WeatherRepository weatherRepository;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     /**
      * restTemplate: 기상청 REST API를 호출하는 HTTP 클라이언트.
@@ -313,14 +323,26 @@ public class WeatherService {
                         "&base_date=%s&base_time=%s&nx=%d&ny=%d",
                 baseUrl, serviceKey, baseDate, baseTime, coords[0], coords[1]);
 
+        long callCount = -1L;
+
         try {
+            // ── [호출 카운트 증가 + 로그] ───────────────────────────
+            callCount = incrementDailyCallCount(LocalDateTime.now());
+            log.info("[WeatherQuota] date={} count={} region={} baseDate={} baseTime={}",
+                    baseDate, callCount, regionName, baseDate, baseTime);
+
             // 기상청 API 호출 → JSON 문자열 반환
             String json = restTemplate.getForObject(url, String.class);
             // JSON 파싱 → 목표 시각(currentHour)의 날씨 항목 추출
             Map<String, String> data = extractFcstData(json, currentHour);
             if (!data.isEmpty()) return data; // 데이터 있으면 반환
         } catch (Exception e) {
-            System.err.println("API call error: " + e.getMessage());
+            String msg = e.getMessage();
+            System.err.println("API call error: " + msg);
+            if (msg != null && msg.contains("429")) {
+                log.warn("[WeatherQuota] 429 Too Many Requests date={} count={} region={} baseDate={} baseTime={}",
+                        baseDate, callCount, regionName, baseDate, baseTime);
+            }
         }
 
         // ── retry 전 DB 체크 ─────────────────────────────────────
@@ -351,6 +373,37 @@ public class WeatherService {
         // 1시간 전 base_time으로 재시도 (기상청 데이터 발표 지연 대응)
         return fetchWeatherRecursive(
                 restTemplate, regionName, coords, dateTime.minusHours(1), currentHour, retryCount + 1, originalTargetHour);
+    }
+
+    /**
+     * 일(day) 단위 기상청 API 호출 카운트를 Redis에 저장하고 증가시킨다.
+     * key 예: weather:api:call-count:20260311
+     * 최초 생성 시 당일 23:59:59에 만료되도록 TTL을 설정한다.
+     *
+     * @param now 기준 시각 (서버 로컬 타임존)
+     * @return 증가 후 현재 카운트
+     */
+    private long incrementDailyCallCount(LocalDateTime now) {
+        if (redisTemplate == null) {
+            return -1L;
+        }
+        String dateStr = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String key = "weather:api:call-count:" + dateStr;
+        Long value = redisTemplate.opsForValue().increment(key);
+        long count = value != null ? value : -1L;
+
+        // 첫 증가라면(=오늘 처음 호출) 당일 23:59:59에 만료되도록 TTL 설정
+        if (count == 1L) {
+            LocalDateTime endOfDay = now.withHour(23).withMinute(59).withSecond(59).withNano(0);
+            Date expireAt = Date.from(endOfDay.atZone(ZoneId.systemDefault()).toInstant());
+            try {
+                redisTemplate.expireAt(key, expireAt);
+            } catch (Exception e) {
+                log.warn("[WeatherQuota] expireAt 설정 실패 key={} error={}", key, e.getMessage());
+            }
+        }
+
+        return count;
     }
 
     /**
