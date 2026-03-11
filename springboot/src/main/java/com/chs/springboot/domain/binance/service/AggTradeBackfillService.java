@@ -341,31 +341,13 @@ public class AggTradeBackfillService {
         }
 
         if (newCandidateCount > 0) {
+            // 백필로 실제 새 구간을 채웠다는 정보는 애플리케이션 로그에만 남기고,
+            // 텔레그램 알림은 전송하지 않는다 (너무 잦은 알림 방지).
             log.info("[AggTradeBackfillFill] {} {} backfillInserted={} idRange={}~{} fromLastBackfill={}",
                     symbol, marketType, newCandidateCount,
                     globalMinId == Long.MAX_VALUE ? "-" : globalMinId,
                     globalMaxId,
                     lastBackfillIdBefore);
-
-            LocalDateTime lastNotifiedAt = status.getLastBackfillNotifiedAt();
-            boolean canNotify =
-                    lastNotifiedAt == null || lastNotifiedAt.plusMinutes(10).isBefore(now);
-
-            if (canNotify) {
-                // 1) 상세 정보 알림
-                TelegramLog.info("[AggTradeBackfillFill] symbol=" + symbol +
-                        ", marketType=" + marketType +
-                        ", inserted=" + newCandidateCount +
-                        ", idRange=" + (globalMinId == Long.MAX_VALUE ? "-" : globalMinId) + "~" + globalMaxId +
-                        ", fromLastBackfill=" + lastBackfillIdBefore +
-                        ", checkedAt=" + now);
-
-                // 2) 확인 방법 안내 (로그 grep 명령)
-                TelegramLog.info("[AggTradeBackfillFill] 확인법: "
-                        + "docker logs chs-app-2 --since 30m 2>&1 | grep \"[AggTradeBackfillFill]\"");
-
-                status.setLastBackfillNotifiedAt(now);
-            }
         }
     }
 
