@@ -1,7 +1,7 @@
-// [AGENT] Signal Dashboard ShortPanel — 숏 누적 에너지 + 틱 테이프
-import { formatWithComma } from '../../shared/lib/utils.ts';
+// [AGENT] Signal Dashboard LongPanel — 롱 누적 에너지 + 틱 테이프
+import { formatWithComma } from '../../../shared/lib/utils.ts';
 
-export default function ShortPanel({ energy, trades, side, compact = false }) {
+export default function LongPanel({ energy, trades, side, compact = false }) {
     const formatEnergy = (val) => {
         return formatWithComma(Math.floor(val));
     };
@@ -17,8 +17,8 @@ export default function ShortPanel({ energy, trades, side, compact = false }) {
                 backgroundColor: '#0e0f18',
                 borderRadius: '10px',
                 padding: '10px',
-                borderRight: '3px solid #ff3b5c',
-                boxShadow: '4px 0 12px rgba(255,59,92,0.15)',
+                borderLeft: '3px solid #00e887',
+                boxShadow: '-4px 0 12px rgba(0,232,135,0.15)',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
@@ -32,14 +32,14 @@ export default function ShortPanel({ energy, trades, side, compact = false }) {
                     letterSpacing: '0.5px',
                 }}
             >
-                {compact ? '' : 'SHORT ENERGY'}
+                {compact ? '' : 'LONG ENERGY'}
             </div>
 
             <div
                 style={{
                     fontSize: compact ? '20px' : '36px',
                     fontWeight: '700',
-                    color: '#ff3b5c',
+                    color: '#00e887',
                     marginBottom: '4px',
                     textAlign: 'center',
                     fontFamily: "'Pretendard', sans-serif",
@@ -72,7 +72,7 @@ export default function ShortPanel({ energy, trades, side, compact = false }) {
                             animation: isLatest ? 'slideUpFromBottom 0.3s ease-out' : 'none',
                         }}
                     >
-                        <span style={{ color: trade.marketType === 'FUTURES' ? '#ff3b5c' : 'rgba(255,255,255,0.4)' }}>
+                        <span style={{ color: trade.marketType === 'FUTURES' ? '#00e887' : 'rgba(255,255,255,0.4)' }}>
                             [{trade.marketType === 'FUTURES' ? 'F' : 'S'}]
                         </span>
                         <span style={{ textAlign: 'right' }}>${formatPrice(trade.price)}</span>

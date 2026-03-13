@@ -26,7 +26,7 @@
  */
 package com.chs.springboot.domain.binance.websocket;
 
-import com.chs.springboot.domain.binance.service.SymbolChangeEvent;
+import com.chs.springboot.domain.binance.model.event.SymbolChangeEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -152,7 +152,7 @@ public class BinancePriceWebSocketHandler extends TextWebSocketHandler {
                     String symbol = param.substring("symbol=".length());
                     log.info("[WS] 클라이언트 {} 요청 심볼: {}", session.getId(), symbol);
                     // 이벤트 발행: Service가 이를 수신해 자체적으로 심볼을 변경한다.
-                    eventPublisher.publishEvent(new com.chs.springboot.domain.binance.service.SymbolChangeEvent(this, symbol));
+                    eventPublisher.publishEvent(new SymbolChangeEvent(this, symbol));
                     break;
                 }
             }

@@ -1,7 +1,7 @@
 // [AGENT] 역할: 클라이언트 요청 심볼 변경 ApplicationEvent | 연관파일: BinancePriceWebSocketHandler.java(발행 — ApplicationEventPublisher), BinanceStreamService.java(수신 — @EventListener) | 순환의존성 방지: Handler→EventPublisher만 참조, Service는 Handler 직접참조 없음
 // Purpose: 클라이언트가 요청한 WebSocket 심볼 변경을 전달하는 이벤트
 
-package com.chs.springboot.domain.binance.service;
+package com.chs.springboot.domain.binance.model.event;
 
 import org.springframework.context.ApplicationEvent;
 

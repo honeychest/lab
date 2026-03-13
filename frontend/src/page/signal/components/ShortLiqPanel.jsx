@@ -1,7 +1,7 @@
-// [AGENT] Signal Dashboard LiquidationPanel — 롱 청산 이벤트 목록 + 누계 합계
-import { formatWithComma } from '../../shared/lib/utils.ts';
+// [AGENT] Signal Dashboard ShortLiqPanel — 숏 청산 이벤트 목록 + 누계 합계
+import { formatWithComma } from '../../../shared/lib/utils.ts';
 
-export default function LiquidationPanel({ total = 0, events = [] }) {
+export default function ShortLiqPanel({ total = 0, events = [] }) {
     const formatTotal = (val) => formatWithComma(Math.floor(val));
     const formatValue = (price, qty) => {
         const val = parseFloat(price) * parseFloat(qty);
@@ -29,7 +29,7 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
                     letterSpacing: '0.5px',
                 }}
             >
-                롱 청산
+                숏 청산
             </div>
 
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -45,7 +45,7 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
                             animation: idx === 0 ? 'slideDown 0.2s ease-out' : 'none',
                         }}
                     >
-                        <span style={{ color: '#ff3b5c' }}>LONG LIQ</span>
+                        <span style={{ color: '#00e887' }}>SHORT LIQ</span>
                         <span>{formatValue(e.price, e.quantity)}</span>
                     </div>
                 ))}
@@ -59,8 +59,8 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
                     textAlign: 'right',
                 }}
             >
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '2px' }}>누계</div>
-                <div style={{ fontSize: '22px', fontWeight: '700', color: '#ff3b5c', fontFamily: "'Pretendard', sans-serif" }}>
+                {/*<div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '2px' }}>누계</div>*/}
+                <div style={{ fontSize: '22px', fontWeight: '700', color: '#00e887', fontFamily: "'Pretendard', sans-serif" }}>
                     ${formatTotal(total)}
                 </div>
             </div>

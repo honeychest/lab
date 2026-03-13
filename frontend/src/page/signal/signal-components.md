@@ -513,8 +513,8 @@ chart.subscribeCrosshairMove((param) => {
 | 항목 | 현재값 | 변경 가능 범위 |
 |---|---|---|
 | 에너지 글자 크기 | `36px` | 자유 |
-| 틱 목록 최대 표시 수 | `trades.slice(-10)` | `-N` 변경 |
-| 틱 투명도 감쇠 | `0.08` per row | 0~1 |
+| 틱 목록 최대 표시 수 | `trades.slice(-20)` | `-N` 변경 (SignalPage 버퍼도 동일하게) |
+| 틱 투명도 공식 | `1 - idx * 0.05` | 계수 조정 (idx=0 최상단 최밝음, 아래로 갈수록 어두워짐) |
 | 신규 틱 애니메이션 시간 | `0.3s` | CSS duration |
 | 신규 틱 이동 거리 | `translateY(20px)` | px 값 |
 | 왼쪽 보더 두께 (Long) | `3px solid #00e887` | 자유 |
@@ -575,27 +575,35 @@ chart.subscribeCrosshairMove((param) => {
 | `symbol` | string | 현재 선택된 심볼 |
 | `onSymbolChange` | fn | 심볼 변경 콜백 |
 | `timeRange` | string | 현재 시간 범위 |
-| `onTimeRangeChange` | fn | 시간 범위 변경 콜백 |
+| `onTimeRangeChange` | fn | 시간 범위 변경 콜백 (localStorage 저장 포함) |
 | `fundingRate` | number\|null | 펀딩비 (소수, 예: 0.0003) |
+| `timeRanges` | `{value,label,apiRange}[]` | SignalPage.jsx의 TIME_RANGES 배열 |
 
 ### 조절 포인트
 
 | 항목 | 현재값 | 변경 방법 |
 |---|---|---|
 | 심볼 목록 | `['BTCUSDT', 'ENAUSDT']` | 배열에 추가 |
-| 시간 범위 목록 | `['1m', '5m', '30m', '1h']` | 배열에 추가/제거 |
+| 시간 범위 목록 | `TIME_RANGES` (SignalPage.jsx) | **TIME_RANGES 배열만 수정** |
 | 펀딩비 깜빡임 임계 | `abs > 0.05` | 숫자 조정 |
 | 펀딩비 강조 임계 | `abs > 0.01` | 숫자 조정 |
 | 깜빡임 속도 | `4s ease-in-out` | CSS duration |
 | 높이 | `44px` | px 조정 |
+| 펀딩비 null 처리 | `visibility: hidden` | 레이아웃 공간 유지, 값 없을 때 숨김 |
 
 ### SignalPage의 timeRange → API range 매핑
 
 ```js
-// SignalPage.jsx 상단
-const DATA_RANGE_MAP = { '1m': '5m', '5m': '30m', '30m': '1h', '1h': '4h' };
-const getDataRange = (range) => DATA_RANGE_MAP[range] ?? range;
-// API 호출: /api/signal/history?symbol=BTCUSDT&range=5m
+// SignalPage.jsx 상단 — 여기만 수정하면 TopBar 라벨/버튼/API 범위 모두 반영
+const TIME_RANGES = [
+    { value: '1m',  label: '1m',   apiRange: '10m' },
+    { value: '5m',  label: '5m',   apiRange: '50m' },
+    { value: '30m', label: '30m',  apiRange: '5h'  },
+    { value: '1h',  label: '1h',   apiRange: '10h' },
+    { value: '4h',  label: '~40h', apiRange: '40h' },
+];
+const getDataRange = (range) => TIME_RANGES.find((r) => r.value === range)?.apiRange ?? range;
+// API 호출: /api/signal/history?symbol=BTCUSDT&range=10m
 ```
 
 ---

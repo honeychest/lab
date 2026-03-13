@@ -10,6 +10,7 @@ import TestTest from '../../page/error/TestTest.jsx';
 import BinancePage from '../../page/binance/BinancePage.jsx';
 import TradePage from '../../page/trade/TradePage.jsx';
 import SignalPage from '../../page/signal/SignalPage.jsx';
+import AdminPage from '../../page/admin/AdminPage.jsx';
 
 function MainRouter() {
     return (
@@ -29,6 +30,9 @@ function MainRouter() {
 
                 {/* Cesium 페이지 */}
                 <Route path="/cesium" element={<CesiumPage />} />
+
+                {/* Admin 페이지 */}
+                <Route path="/admin" element={<AdminPage />} />
 
                 {/* 기존 /app 경로 호환 */}
                 <Route path="/app" element={<Navigate to="/cesium" replace />} />

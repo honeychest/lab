@@ -5,14 +5,14 @@ import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useSignalSse } from '../../domain/binance/model/hook/useSignalSse.ts';
 import TopBar from './TopBar.jsx';
-import LongPanel from './LongPanel.jsx';
-import ShortPanel from './ShortPanel.jsx';
-import ShortLiqPanel from './ShortLiqPanel.jsx';
-import LiquidationPanel from './LiquidationPanel.jsx';
-import MainCore from './MainCore.jsx';
-import PatternStrip from './PatternStrip.jsx';
-import EnergyGauge from './EnergyGauge.jsx';
-import TugOfWar from './TugOfWar.jsx';
+import LongPanel from './components/LongPanel.jsx';
+import ShortPanel from './components/ShortPanel.jsx';
+import ShortLiqPanel from './components/ShortLiqPanel.jsx';
+import LiquidationPanel from './components/LiquidationPanel.jsx';
+import MainCore from './components/MainCore.jsx';
+import PatternStrip from './components/PatternStrip.jsx';
+import EnergyGauge from './components/EnergyGauge.jsx';
+import TugOfWar from './components/TugOfWar.jsx';
 
 const TIME_RANGES = [
     { value: '1m',  label: '1m',   apiRange: '10m' },

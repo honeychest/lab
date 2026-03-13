@@ -31,6 +31,7 @@
  */
 package com.chs.springboot.domain.binance.service;
 
+import com.chs.springboot.domain.binance.model.event.SymbolChangeEvent;
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

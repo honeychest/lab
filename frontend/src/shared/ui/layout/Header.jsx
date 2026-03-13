@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { label: 'Trade',   path: '/trade' },
     { label: 'Signal',  path: '/signal' },
     { label: 'Cesium',  path: '/cesium' },
+    { label: 'Admin',   path: '/admin'  },
 ];
 
 /**

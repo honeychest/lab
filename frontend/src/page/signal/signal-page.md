@@ -79,22 +79,26 @@ col→  1    2    3    4    5    6    7    8    9   10   11   12
 | `timeRange` | string | 선택된 봉 단위 (1m / 5m / 30m / 1h) |
 | `longEnergy` | number | 롱 누적 에너지 (USD) |
 | `shortEnergy` | number | 숏 누적 에너지 (USD) |
-| `longTrades` | array | 롱 체결 tape (최근 12개) |
-| `shortTrades` | array | 숏 체결 tape (최근 12개) |
-| `longLiqEvents` | array | 롱 청산 이벤트 목록 (최근 50개) |
-| `shortLiqEvents` | array | 숏 청산 이벤트 목록 (최근 50개) |
+| `longTrades` | array | 롱 체결 tape (최근 20개) |
+| `shortTrades` | array | 숏 체결 tape (최근 20개) |
+| `longLiqEvents` | array | 롱 청산 이벤트 목록 (히스토리 top10 + SSE 실시간) |
+| `shortLiqEvents` | array | 숏 청산 이벤트 목록 (히스토리 top10 + SSE 실시간) |
 | `longLiqTotal` | number | 롱 청산 누계 (USD) |
 | `shortLiqTotal` | number | 숏 청산 누계 (USD) |
 | `oiDataHistory` | array | OI 시계열 데이터 (최근 100개) |
 
-**타임프레임 → 실제 조회 범위 매핑**
+**타임프레임 설정 (`TIME_RANGES` — SignalPage.jsx 상단 단일 수정 포인트)**
 
-| 선택 | 실제 API 조회 |
-|---|---|
-| 1m | 5m |
-| 5m | 30m |
-| 30m | 1h |
-| 1h | 4h |
+| value | label | apiRange |
+|---|---|---|
+| `1m` | 1m | 10m |
+| `5m` | 5m | 50m |
+| `30m` | 30m | 5h |
+| `1h` | 1h | 10h |
+| `4h` | ~40h | 40h |
+
+> 타임프레임 추가/변경 시 `TIME_RANGES` 배열만 수정하면 TopBar 라벨·버튼·API 범위 모두 자동 반영.
+> 기본 선택: localStorage 없을 때 가운데 항목(`TIME_RANGES[Math.floor(length/2)]`)
 
 ---
 
@@ -106,10 +110,12 @@ col→  1    2    3    4    5    6    7    8    9   10   11   12
 | `symbol` | string | 현재 선택 심볼 |
 | `onSymbolChange` | fn | 심볼 변경 콜백 |
 | `timeRange` | string | 현재 선택 봉 단위 |
-| `onTimeRangeChange` | fn | 봉 단위 변경 콜백 |
+| `onTimeRangeChange` | fn | 봉 단위 변경 콜백 (localStorage 저장 포함) |
 | `fundingRate` | number\|null | 펀딩 비율 (0.01 = 1%) |
+| `timeRanges` | `{value,label,apiRange}[]` | SignalPage의 TIME_RANGES 전달 |
 
-> 펀딩레이트 색: `abs > 0.05` → 주황 깜빡임 / `abs > 0.01` → 주황 / 기본 → 미표시
+> 펀딩레이트: null이어도 공간 유지 (`visibility: hidden`) — 초기 로드 레이아웃 흔들림 없음
+> 펀딩레이트 색: `abs > 0.05` → 주황 깜빡임 / `abs > 0.01` → 주황
 
 ---
 
