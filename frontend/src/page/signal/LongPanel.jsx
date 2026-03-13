@@ -65,8 +65,8 @@ export default function LongPanel({ energy, trades, side, compact = false }) {
                     <div
                         key={`${trade.tradedAt}-${idx}`}
                         style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
+                            display: 'grid',
+                            gridTemplateColumns: '28px 1fr 1fr',
                             color: 'rgba(255,255,255,0.6)',
                             opacity: 1 - idx * 0.05,
                             animation: isLatest ? 'slideUpFromBottom 0.3s ease-out' : 'none',
@@ -75,8 +75,8 @@ export default function LongPanel({ energy, trades, side, compact = false }) {
                         <span style={{ color: trade.marketType === 'FUTURES' ? '#00e887' : 'rgba(255,255,255,0.4)' }}>
                             [{trade.marketType === 'FUTURES' ? 'F' : 'S'}]
                         </span>
-                        <span>${formatPrice(trade.price)}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>{formatQty(trade.quantity)}</span>
+                        <span style={{ textAlign: 'right' }}>${formatPrice(trade.price)}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{formatQty(trade.quantity)}</span>
                     </div>
                     );
                 })}
