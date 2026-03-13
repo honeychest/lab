@@ -235,7 +235,7 @@ export default function SignalPage() {
                 <LongPanel energy={longEnergy} trades={longTrades} side="LONG" />
             </div>
 
-            <div style={{ gridColumn: '1 / 4', gridRow: '3' }}>
+            <div style={{ gridColumn: '1 / 4', gridRow: '3', overflow: 'hidden' }}>
                 <ShortLiqPanel total={shortLiqTotal} events={shortLiqEvents} />
             </div>
 
@@ -252,7 +252,7 @@ export default function SignalPage() {
                 <ShortPanel energy={shortEnergy} trades={shortTrades} side="SHORT" />
             </div>
 
-            <div style={{ gridColumn: '10 / 13', gridRow: '3' }}>
+            <div style={{ gridColumn: '10 / 13', gridRow: '3', overflow: 'hidden' }}>
                 <LiquidationPanel total={longLiqTotal} events={longLiqEvents} />
             </div>
 
