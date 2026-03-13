@@ -8,7 +8,7 @@ import Layout from '../../shared/ui/layout/Layout.jsx';
 
 const CHECKS = [
     { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (7일)', days: 7,    desc: 'agg_trade_id 연속성 갭 · 최근 7일' },
-    { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (전체)', days: null, desc: 'agg_trade_id 연속성 갭 · 전체 (느림)' },
+    { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (전체)', days: null, desc: 'agg_trade_id 연속성 갭 · 전체 (느림)', danger: true },
     { type: 'AGG_1M',        label: '1분봉',               days: null, desc: 'candle_time_ms 1분 간격 초과' },
     { type: 'AGG_5M',        label: '5분봉',               days: null, desc: 'candle_time_ms 5분 간격 초과' },
     { type: 'OI',            label: 'Open Interest',      days: null, desc: '10분 이상 공백' },
@@ -137,6 +137,7 @@ export default function AdminPage() {
             const jobs2 = await axios.get('/api/admin/backfill/jobs');
             setJobs(jobs2.data);
             setSelectedRows(new Set());
+            if (activeCheck) handleCheck(activeCheck.type, activeCheck.days);
         } catch (e) {
             setCollectError(e.response?.data?.error ?? '수집 요청 실패');
         } finally {
@@ -210,7 +211,7 @@ export default function AdminPage() {
                 {/* ─────────── 갭 조회 섹션 ─────────── */}
                 <div style={S.sectionLabel}>갭 조회</div>
                 <div style={S.btnGroup}>
-                    {CHECKS.map(({ type, label, desc, days }) => {
+                    {CHECKS.filter(c => !c.danger).map(({ type, label, desc, days }) => {
                         const key = `${type}_${days ?? 'all'}`;
                         return (
                             <button
@@ -381,6 +382,27 @@ export default function AdminPage() {
                     )}
                 </div>
             </div>
+
+                {/* ─────────── 위험 구역 ─────────── */}
+                <div style={S.dangerZone}>
+                    <div style={S.dangerLabel}>⚠ 느린 조회 (주의)</div>
+                    <div style={S.btnGroup}>
+                        {CHECKS.filter(c => c.danger).map(({ type, label, desc, days }) => {
+                            const key = `${type}_${days ?? 'all'}`;
+                            return (
+                                <button
+                                    key={key}
+                                    onClick={() => handleCheck(type, days)}
+                                    disabled={loading}
+                                    style={{ ...S.btn, ...S.btnDanger, ...(activeKey === key ? S.btnDangerActive : {}) }}
+                                    title={desc}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
         </Layout>
     );
 }
@@ -519,5 +541,32 @@ const S = {
         justifyContent: 'center',
         minHeight: '100%',
         background: '#0a0f1e',
+    },
+    dangerZone: {
+        marginTop: '48px',
+        padding: '16px',
+        border: '1px dashed #3f2020',
+        borderRadius: '10px',
+        background: '#0f0a0a',
+        alignSelf: 'flex-start',
+        display: 'inline-block',
+    },
+    dangerLabel: {
+        color: '#7f3a3a',
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+        marginBottom: '10px',
+    },
+    btnDanger: {
+        border: '1px solid #3f2020',
+        color: '#7f3a3a',
+        background: '#0f0a0a',
+    },
+    btnDangerActive: {
+        border: '1px solid #ef4444',
+        color: '#fca5a5',
+        background: '#3f1010',
     },
 };

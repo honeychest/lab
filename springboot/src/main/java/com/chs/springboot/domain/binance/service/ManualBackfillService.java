@@ -171,58 +171,59 @@ public class ManualBackfillService {
     // ─── AGG_1M rollup ───────────────────────────────────────────────────────
 
     /**
-     * 1. raw_agg_trade 있는 구간 → SQL rollup (정확한 데이터)
-     * 2. 이후 여전히 빈 1분봉 구간 → Binance klines로 채움 (ON DUPLICATE KEY → raw 결과 덮어쓰지 않음)
+     * 1. agg_trade_1s 있는 구간 → SQL rollup (정확한 데이터)
+     * 2. 이후 여전히 빈 1분봉 구간 → Binance klines로 채움 (ON DUPLICATE KEY → 1s 결과 덮어쓰지 않음)
      */
     private int collectRollup1m(String symbol, String marketType, Long fromMs, Long toMs) throws Exception {
         int total = 0;
 
-        // 1. raw 데이터 있으면 rollup
-        Long rawCount = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM raw_agg_trade WHERE symbol=? AND market_type=? AND traded_at >= ? AND traded_at < ?",
+        // 1. agg_trade_1s 데이터 있으면 rollup
+        Long s1Count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM agg_trade_1s WHERE symbol=? AND market_type=? AND candle_time_ms >= ? AND candle_time_ms < ?",
             Long.class, symbol, marketType, fromMs, toMs
         );
-        if (rawCount != null && rawCount > 0) {
+        if (s1Count != null && s1Count > 0) {
             String sql = """
                 INSERT INTO agg_trade_1m
                     (symbol, market_type, candle_time_ms,
                      open_price, high_price, low_price, close_price, vwap,
                      buy_volume, sell_volume, total_volume,
-                     buy_quantity, sell_quantity,
+                     buy_quantity, sell_quantity, delta,
                      buy_trade_count, sell_trade_count, trade_count,
                      min_agg_trade_id, max_agg_trade_id,
                      min_first_trade_id, max_last_trade_id)
                 SELECT
                     symbol, market_type,
-                    FLOOR(traded_at / 60000) * 60000                                                AS candle_time_ms,
-                    SUBSTRING_INDEX(MIN(CONCAT(LPAD(traded_at,20,'0'),'|',price)),'|',-1)           AS open_price,
-                    MAX(price)                                                                       AS high_price,
-                    MIN(price)                                                                       AS low_price,
-                    SUBSTRING_INDEX(MAX(CONCAT(LPAD(traded_at,20,'0'),'|',price)),'|',-1)           AS close_price,
-                    CASE WHEN SUM(quantity) = 0 THEN 0
-                         ELSE SUM(quantity * price) / SUM(quantity) END                             AS vwap,
-                    SUM(CASE WHEN is_buyer_maker = 0 THEN quantity * price ELSE 0 END)              AS buy_volume,
-                    SUM(CASE WHEN is_buyer_maker = 1 THEN quantity * price ELSE 0 END)              AS sell_volume,
-                    SUM(quantity * price)                                                            AS total_volume,
-                    SUM(CASE WHEN is_buyer_maker = 0 THEN quantity ELSE 0 END)                      AS buy_quantity,
-                    SUM(CASE WHEN is_buyer_maker = 1 THEN quantity ELSE 0 END)                      AS sell_quantity,
-                    COUNT(CASE WHEN is_buyer_maker = 0 THEN 1 END)                                  AS buy_trade_count,
-                    COUNT(CASE WHEN is_buyer_maker = 1 THEN 1 END)                                  AS sell_trade_count,
-                    COUNT(*)                                                                         AS trade_count,
-                    MIN(agg_trade_id)                                                                AS min_agg_trade_id,
-                    MAX(agg_trade_id)                                                                AS max_agg_trade_id,
-                    MIN(first_trade_id)                                                              AS min_first_trade_id,
-                    MAX(last_trade_id)                                                               AS max_last_trade_id
-                FROM raw_agg_trade
-                WHERE symbol = ? AND market_type = ? AND traded_at >= ? AND traded_at < ?
-                GROUP BY symbol, market_type, FLOOR(traded_at / 60000) * 60000
+                    FLOOR(candle_time_ms / 60000) * 60000                                                     AS candle_time_ms,
+                    SUBSTRING_INDEX(MIN(CONCAT(LPAD(candle_time_ms,20,'0'),'|',open_price)),'|',-1)           AS open_price,
+                    MAX(high_price)                                                                           AS high_price,
+                    MIN(low_price)                                                                            AS low_price,
+                    SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1)         AS close_price,
+                    CASE WHEN SUM(buy_quantity + sell_quantity) = 0 THEN 0
+                         ELSE SUM(total_volume) / SUM(buy_quantity + sell_quantity) END                       AS vwap,
+                    SUM(buy_volume)                                                                           AS buy_volume,
+                    SUM(sell_volume)                                                                          AS sell_volume,
+                    SUM(total_volume)                                                                         AS total_volume,
+                    SUM(buy_quantity)                                                                         AS buy_quantity,
+                    SUM(sell_quantity)                                                                        AS sell_quantity,
+                    SUM(buy_quantity) - SUM(sell_quantity)                                                    AS delta,
+                    SUM(buy_trade_count)                                                                      AS buy_trade_count,
+                    SUM(sell_trade_count)                                                                     AS sell_trade_count,
+                    SUM(trade_count)                                                                          AS trade_count,
+                    MIN(min_agg_trade_id)                                                                     AS min_agg_trade_id,
+                    MAX(max_agg_trade_id)                                                                     AS max_agg_trade_id,
+                    MIN(min_first_trade_id)                                                                   AS min_first_trade_id,
+                    MAX(max_last_trade_id)                                                                    AS max_last_trade_id
+                FROM agg_trade_1s
+                WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+                GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
                 ON DUPLICATE KEY UPDATE id = id
                 """;
-            int rawInserted = jdbc.update(sql, symbol, marketType, fromMs, toMs);
-            log.info("[ManualBackfill] 1m {} {} raw rollup {}건", symbol, marketType, rawInserted);
-            total += rawInserted;
+            int s1Inserted = jdbc.update(sql, symbol, marketType, fromMs, toMs);
+            log.info("[ManualBackfill] 1m {} {} 1s rollup {}건", symbol, marketType, s1Inserted);
+            total += s1Inserted;
         } else {
-            log.info("[ManualBackfill] 1m {} {} raw 없음 → klines 단독 수집", symbol, marketType);
+            log.info("[ManualBackfill] 1m {} {} 1s 없음 → klines 단독 수집", symbol, marketType);
         }
 
         // 2. 여전히 빈 구간 → klines로 채움 (raw 결과는 ON DUPLICATE KEY로 보호)
@@ -247,10 +248,10 @@ public class ManualBackfillService {
             (symbol, market_type, candle_time_ms,
              open_price, high_price, low_price, close_price, vwap,
              buy_volume, sell_volume, total_volume,
-             buy_quantity, sell_quantity,
+             buy_quantity, sell_quantity, delta,
              buy_trade_count, sell_trade_count, trade_count,
              min_agg_trade_id, max_agg_trade_id, min_first_trade_id, max_last_trade_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE id = id
             """;
 
@@ -290,7 +291,7 @@ public class ManualBackfillService {
                     symbol, marketType, openTime,
                     open, high, low, close, vwap,
                     buyVol, sellVol, totalVol,
-                    buyQty, sellQty,
+                    buyQty, sellQty, buyQty.subtract(sellQty),
                     0L, 0L, trades,   // buy/sell_trade_count 불가 → 0
                     0L, 0L, 0L, 0L    // agg_trade_id 관련 불가 → 0
                 });
@@ -325,7 +326,7 @@ public class ManualBackfillService {
                 (symbol, market_type, candle_time_ms,
                  open_price, high_price, low_price, close_price, vwap,
                  buy_volume, sell_volume, total_volume,
-                 buy_quantity, sell_quantity,
+                 buy_quantity, sell_quantity, delta,
                  buy_trade_count, sell_trade_count, trade_count,
                  min_agg_trade_id, max_agg_trade_id,
                  min_first_trade_id, max_last_trade_id)
@@ -343,6 +344,7 @@ public class ManualBackfillService {
                 SUM(total_volume)                                                                             AS total_volume,
                 SUM(buy_quantity)                                                                             AS buy_quantity,
                 SUM(sell_quantity)                                                                            AS sell_quantity,
+                SUM(buy_quantity) - SUM(sell_quantity)                                                       AS delta,
                 SUM(buy_trade_count)                                                                         AS buy_trade_count,
                 SUM(sell_trade_count)                                                                        AS sell_trade_count,
                 SUM(trade_count)                                                                             AS trade_count,
