@@ -231,7 +231,7 @@ public class AggTradeBackfillService {
             try {
                 response = client.send(request, HttpResponse.BodyHandlers.ofString());
             } catch (Exception e) {
-                log.error("[AggTradeBackfill] REST 실패: {}", e.getMessage());
+                log.error("[AggTradeBackfill] REST 실패: {} {} fromId={} url={} error={}", symbol, marketType, currentFromId, url, e.getMessage());
                 throw e;
             }
 

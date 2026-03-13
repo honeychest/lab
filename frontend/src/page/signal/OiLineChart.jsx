@@ -22,6 +22,8 @@ export default function OiLineChart({ oiData = [] }) {
                 // 차트 생성
                 const chart = createChart(containerRef.current, {
                     autoSize: true,
+                    handleScale: false,
+                    handleScroll: false,
                     layout: {
                         background: { color: '#0e0f18' },
                         textColor: 'rgba(255,255,255,0.3)',

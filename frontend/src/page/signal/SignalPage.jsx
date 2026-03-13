@@ -14,8 +14,14 @@ import PatternStrip from './PatternStrip.jsx';
 import EnergyGauge from './EnergyGauge.jsx';
 import TugOfWar from './TugOfWar.jsx';
 
-const DATA_RANGE_MAP = { '1m': '10m', '5m': '50m', '30m': '5h', '1h': '10h', '4h': '40h' };
-const getDataRange = (range) => DATA_RANGE_MAP[range] ?? range;
+const TIME_RANGES = [
+    { value: '1m',  label: '1m',   apiRange: '10m' },
+    { value: '5m',  label: '5m',   apiRange: '50m' },
+    { value: '30m', label: '30m',  apiRange: '5h'  },
+    { value: '1h',  label: '1h',   apiRange: '10h' },
+    { value: '4h',  label: '~40h', apiRange: '40h' },
+];
+const getDataRange = (range) => TIME_RANGES.find((r) => r.value === range)?.apiRange ?? range;
 
 export default function SignalPage() {
     const [symbol, setSymbol] = useState('BTCUSDT');
@@ -186,6 +192,7 @@ export default function SignalPage() {
                         timeRange={timeRange}
                         onTimeRangeChange={handleTimeRangeChange}
                         fundingRate={commonProps.fundingRate}
+                        timeRanges={TIME_RANGES}
                         compact
                     />
                     <div style={{ backgroundColor: '#0e0f18', borderRadius: '10px', padding: '10px', position: 'relative', height: '200px', flexShrink: 0 }}>
@@ -228,6 +235,7 @@ export default function SignalPage() {
                     timeRange={timeRange}
                     onTimeRangeChange={setTimeRange}
                     fundingRate={commonProps.fundingRate}
+                    timeRanges={TIME_RANGES}
                 />
             </div>
 

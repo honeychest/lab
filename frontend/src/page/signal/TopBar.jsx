@@ -6,6 +6,7 @@ export default function TopBar({
     timeRange,
     onTimeRangeChange,
     fundingRate,
+    timeRanges = [],
     compact = false,
 }) {
     const getFundingStyle = () => {
@@ -76,8 +77,8 @@ export default function TopBar({
                         onChange={(e) => onTimeRangeChange(e.target.value)}
                         style={selectStyle}
                     >
-                        {['1m', '5m', '30m', '1h', '4h'].map((range) => (
-                            <option key={range} value={range}>{range}</option>
+                        {timeRanges.map(({ value, label }) => (
+                            <option key={value} value={value}>{label}</option>
                         ))}
                     </select>
                 </div>
@@ -105,22 +106,22 @@ export default function TopBar({
                         ))}
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                        {['1m', '5m', '30m', '1h', '4h'].map((range) => (
+                        {timeRanges.map(({ value, label }) => (
                             <button
-                                key={range}
-                                onClick={() => onTimeRangeChange(range)}
+                                key={value}
+                                onClick={() => onTimeRangeChange(value)}
                                 style={{
                                     padding: '4px 10px',
                                     borderRadius: '3px',
-                                    border: timeRange === range ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                                    backgroundColor: timeRange === range ? 'rgba(255,255,255,0.06)' : 'transparent',
-                                    color: timeRange === range ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+                                    border: timeRange === value ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                                    backgroundColor: timeRange === value ? 'rgba(255,255,255,0.06)' : 'transparent',
+                                    color: timeRange === value ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
                                     fontSize: '11px',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
                                 }}
                             >
-                                {range}
+                                {label}
                             </button>
                         ))}
                     </div>
@@ -128,20 +129,19 @@ export default function TopBar({
             )}
 
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {fundingRate !== null && (
-                    <div
-                        style={{
-                            padding: '4px 10px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: fundingRate >= 0 ? '#00e887' : '#ff3b5c',
-                            ...getFundingStyle(),
-                        }}
-                    >
-                        {fundingRate >= 0 ? '+' : ''}{(fundingRate * 100).toFixed(3)}%
-                    </div>
-                )}
+                <div
+                    style={{
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: fundingRate !== null ? (fundingRate >= 0 ? '#00e887' : '#ff3b5c') : 'transparent',
+                        visibility: fundingRate !== null ? 'visible' : 'hidden',
+                        ...getFundingStyle(),
+                    }}
+                >
+                    {fundingRate !== null ? `${fundingRate >= 0 ? '+' : ''}${(fundingRate * 100).toFixed(3)}%` : '0.000%'}
+                </div>
             </div>
         </div>
     );

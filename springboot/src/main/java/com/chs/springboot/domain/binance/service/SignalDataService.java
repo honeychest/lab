@@ -76,13 +76,27 @@ public class SignalDataService {
         BigDecimal longEnergy  = toBd(energyRow.get("long_energy"));
         BigDecimal shortEnergy = toBd(energyRow.get("short_energy"));
 
-        var forceOrders = forceOrderRepository.findBySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, fromMs, nowMs);
+        // 누계: SUM 집계 쿼리 (전체 범위, 목록 조회 없음)
         BigDecimal longLiqTotal  = BigDecimal.ZERO;
         BigDecimal shortLiqTotal = BigDecimal.ZERO;
+        var liqSums = forceOrderRepository.sumLiqTotalBySymbolAndTimeRange(symbol, fromMs, nowMs);
+        for (Object[] row : liqSums) {
+            String side      = (String) row[0];
+            BigDecimal total = toBd(row[1]);
+            if ("SELL".equals(side)) {
+                longLiqTotal = total;
+                longEnergy   = longEnergy.subtract(total);
+            } else {
+                shortLiqTotal = total;
+                shortEnergy   = shortEnergy.subtract(total);
+            }
+        }
+
+        // 이벤트 목록: 최근 10건만
         List<Map<String, Object>> longLiqEvents  = new java.util.ArrayList<>();
         List<Map<String, Object>> shortLiqEvents = new java.util.ArrayList<>();
-        for (var fo : forceOrders) {
-            BigDecimal foValue = fo.getPrice().multiply(fo.getOriginalQuantity());
+        var top10 = forceOrderRepository.findTop10BySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, fromMs, nowMs);
+        for (var fo : top10) {
             Map<String, Object> event = new HashMap<>();
             event.put("side",        fo.getSide());
             event.put("price",       fo.getPrice().toPlainString());
@@ -90,12 +104,8 @@ public class SignalDataService {
             event.put("quantity",    fo.getOriginalQuantity().toPlainString());
             event.put("tradeTimeMs", fo.getTradeTimeMs());
             if ("SELL".equals(fo.getSide())) {
-                longEnergy   = longEnergy.subtract(foValue);
-                longLiqTotal = longLiqTotal.add(foValue);
                 longLiqEvents.add(event);
             } else {
-                shortEnergy   = shortEnergy.subtract(foValue);
-                shortLiqTotal = shortLiqTotal.add(foValue);
                 shortLiqEvents.add(event);
             }
         }

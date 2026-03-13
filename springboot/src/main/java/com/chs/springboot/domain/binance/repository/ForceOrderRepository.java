@@ -13,8 +13,19 @@ import java.util.List;
 
 public interface ForceOrderRepository extends JpaRepository<ForceOrder, Long> {
 
-    List<ForceOrder> findBySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(
+    List<ForceOrder> findTop10BySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(
             String symbol, long fromMs, long toMs);
+
+    @Query(value = """
+        SELECT side, SUM(price * original_quantity) as total
+        FROM force_order
+        WHERE symbol = :symbol AND trade_time_ms BETWEEN :fromMs AND :toMs
+        GROUP BY side
+        """, nativeQuery = true)
+    List<Object[]> sumLiqTotalBySymbolAndTimeRange(
+            @Param("symbol") String symbol,
+            @Param("fromMs") long fromMs,
+            @Param("toMs") long toMs);
 
     @Transactional
     @Modifying
