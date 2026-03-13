@@ -75,7 +75,7 @@ export default function LongPanel({ energy, trades, side, compact = false }) {
                         <span style={{ color: trade.marketType === 'FUTURES' ? '#00e887' : 'rgba(255,255,255,0.4)' }}>
                             [{trade.marketType === 'FUTURES' ? 'F' : 'S'}]
                         </span>
-                        <span>{formatPrice(trade.price)}</span>
+                        <span>${formatPrice(trade.price)}</span>
                         <span style={{ color: 'rgba(255,255,255,0.5)' }}>{formatQty(trade.quantity)}</span>
                     </div>
                     );
