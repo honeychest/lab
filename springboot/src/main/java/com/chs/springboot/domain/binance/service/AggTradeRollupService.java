@@ -1,6 +1,7 @@
-// [AGENT] 1분봉·5분봉 롤업 스케줄러 — raw_agg_trade → agg_trade_1m / agg_trade_1m → agg_trade_5m
-// 연관파일: AggTrade1m.java, AggTrade5m.java, AggTrade1mRepository.java, AggTrade5mRepository.java
+// [AGENT] 1분봉·5분봉 롤업 스케줄러 — agg_trade_1s → agg_trade_1m / agg_trade_1m → agg_trade_5m
+// 연관파일: AggTrade1m.java, AggTrade5m.java, AggTrade1mRepository.java, AggTrade5mRepository.java, AggTrade1sRollupService.java
 // 주요메서드: rollup1m() @Scheduled(10 * * * * *), rollup5m() @Scheduled(30 */5 * * * *)
+// catchUp(): 1s catchUp 완료 후 체이닝 실행 (CompletableFuture)
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.AggTrade1m;
@@ -22,7 +23,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -37,12 +37,22 @@ public class AggTradeRollupService {
     private final AggTradeCollectStatusRepository statusRepository;
     private final StringRedisTemplate redisTemplate;
     private final JdbcTemplate jdbcTemplate;
+    private final AggTrade1sRollupService agg1sRollupService;
 
-    // ─── 기동 시 catch-up (누락 구간 일괄 롤업) ──────────────────────────────
+    // ─── 기동 시 catch-up (1s catchUp 완료 후 체이닝) ────────────────────
 
     @PostConstruct
     public void catchUp() {
-        CompletableFuture.runAsync(this::runCatchUp);
+        log.info("[RollupCatchUp] catchUp() 호출됨, 1s future 대기 시작");
+        agg1sRollupService.getCatchUpFuture()
+            .exceptionally(e -> {
+                log.error("[RollupCatchUp] 1s catchUp 실패로 1m/5m catchUp 미실행: {}", e.getMessage(), e);
+                return null;
+            })
+            .thenRunAsync(() -> {
+                log.info("[RollupCatchUp] 1s future 완료, runCatchUp 진입");
+                runCatchUp();
+            });
     }
 
     private void runCatchUp() {
@@ -76,12 +86,31 @@ public class AggTradeRollupService {
         Long lastMs = agg1mRepository
             .findMaxCandleTimeMsBySymbolAndMarketType(symbol, marketType)
             .orElse(null);
+        long fromMs;
         if (lastMs == null) {
-            log.info("[RollupCatchUp] {} {} 1m 데이터 없음, skip", symbol, marketType);
+            Long firstMs = jdbcTemplate.queryForObject(
+                "SELECT MIN(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
+                Long.class, symbol, marketType);
+            Long lastAvailMs = jdbcTemplate.queryForObject(
+                "SELECT MAX(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
+                Long.class, symbol, marketType);
+            log.info("[RollupCatchUp] {} {} 1m lastMs=null, 1s범위={} ~ {}", symbol, marketType, firstMs, lastAvailMs);
+            if (firstMs == null) {
+                log.info("[RollupCatchUp] {} {} 1s 데이터 없음, skip", symbol, marketType);
+                return;
+            }
+            fromMs = (firstMs / 60_000L) * 60_000L;
+        } else {
+            Long lastAvailMs = jdbcTemplate.queryForObject(
+                "SELECT MAX(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
+                Long.class, symbol, marketType);
+            log.info("[RollupCatchUp] {} {} 1m lastMs={}, 1s MAX={}", symbol, marketType, lastMs, lastAvailMs);
+            fromMs = lastMs + 60_000L;
+        }
+        if (fromMs >= nowMs) {
+            log.info("[RollupCatchUp] {} {} 1m fromMs={} >= nowMs={}, skip", symbol, marketType, fromMs, nowMs);
             return;
         }
-        long fromMs = lastMs + 60_000L;
-        if (fromMs >= nowMs) return;
 
         log.info("[RollupCatchUp] {} {} 1m catch-up {} ~ {}", symbol, marketType, fromMs, nowMs);
 
@@ -90,34 +119,35 @@ public class AggTradeRollupService {
                 (symbol, market_type, candle_time_ms,
                  open_price, high_price, low_price, close_price, vwap,
                  buy_volume, sell_volume, total_volume,
-                 buy_quantity, sell_quantity,
+                 buy_quantity, sell_quantity, delta,
                  buy_trade_count, sell_trade_count, trade_count,
                  min_agg_trade_id, max_agg_trade_id,
                  min_first_trade_id, max_last_trade_id)
             SELECT
                 symbol, market_type,
-                FLOOR(traded_at / 60000) * 60000                                                AS candle_time_ms,
-                SUBSTRING_INDEX(MIN(CONCAT(LPAD(traded_at,20,'0'),'|',price)),'|',-1)           AS open_price,
-                MAX(price)                                                                       AS high_price,
-                MIN(price)                                                                       AS low_price,
-                SUBSTRING_INDEX(MAX(CONCAT(LPAD(traded_at,20,'0'),'|',price)),'|',-1)           AS close_price,
-                CASE WHEN SUM(quantity) = 0 THEN 0
-                     ELSE SUM(quantity * price) / SUM(quantity) END                             AS vwap,
-                SUM(CASE WHEN is_buyer_maker = 0 THEN quantity * price ELSE 0 END)              AS buy_volume,
-                SUM(CASE WHEN is_buyer_maker = 1 THEN quantity * price ELSE 0 END)              AS sell_volume,
-                SUM(quantity * price)                                                            AS total_volume,
-                SUM(CASE WHEN is_buyer_maker = 0 THEN quantity ELSE 0 END)                      AS buy_quantity,
-                SUM(CASE WHEN is_buyer_maker = 1 THEN quantity ELSE 0 END)                      AS sell_quantity,
-                COUNT(CASE WHEN is_buyer_maker = 0 THEN 1 END)                                  AS buy_trade_count,
-                COUNT(CASE WHEN is_buyer_maker = 1 THEN 1 END)                                  AS sell_trade_count,
-                COUNT(*)                                                                         AS trade_count,
-                MIN(agg_trade_id)                                                                AS min_agg_trade_id,
-                MAX(agg_trade_id)                                                                AS max_agg_trade_id,
-                MIN(first_trade_id)                                                              AS min_first_trade_id,
-                MAX(last_trade_id)                                                               AS max_last_trade_id
-            FROM raw_agg_trade
-            WHERE symbol = ? AND market_type = ? AND traded_at >= ? AND traded_at < ?
-            GROUP BY symbol, market_type, FLOOR(traded_at / 60000) * 60000
+                FLOOR(candle_time_ms / 60000) * 60000                                                          AS candle_time_ms,
+                SUBSTRING_INDEX(MIN(CONCAT(LPAD(candle_time_ms,20,'0'),'|',open_price)),'|',-1)                AS open_price,
+                MAX(high_price)                                                                                AS high_price,
+                MIN(low_price)                                                                                 AS low_price,
+                SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1)               AS close_price,
+                CASE WHEN SUM(buy_quantity + sell_quantity) = 0 THEN 0
+                     ELSE SUM(total_volume) / SUM(buy_quantity + sell_quantity) END                            AS vwap,
+                SUM(buy_volume)                                                                                AS buy_volume,
+                SUM(sell_volume)                                                                               AS sell_volume,
+                SUM(total_volume)                                                                              AS total_volume,
+                SUM(buy_quantity)                                                                              AS buy_quantity,
+                SUM(sell_quantity)                                                                             AS sell_quantity,
+                SUM(buy_quantity) - SUM(sell_quantity)                                                         AS delta,
+                SUM(buy_trade_count)                                                                           AS buy_trade_count,
+                SUM(sell_trade_count)                                                                          AS sell_trade_count,
+                SUM(trade_count)                                                                               AS trade_count,
+                MIN(min_agg_trade_id)                                                                          AS min_agg_trade_id,
+                MAX(max_agg_trade_id)                                                                          AS max_agg_trade_id,
+                MIN(min_first_trade_id)                                                                        AS min_first_trade_id,
+                MAX(max_last_trade_id)                                                                         AS max_last_trade_id
+            FROM agg_trade_1s
+            WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+            GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
             ON DUPLICATE KEY UPDATE id = id
             """;
         int rows = jdbcTemplate.update(sql, symbol, marketType, fromMs, nowMs);
@@ -128,11 +158,19 @@ public class AggTradeRollupService {
         Long lastMs = agg5mRepository
             .findMaxCandleTimeMsBySymbolAndMarketType(symbol, marketType)
             .orElse(null);
+        long fromMs;
         if (lastMs == null) {
-            log.info("[RollupCatchUp] {} {} 5m 데이터 없음, skip", symbol, marketType);
-            return;
+            Long firstMs = jdbcTemplate.queryForObject(
+                "SELECT MIN(candle_time_ms) FROM agg_trade_1m WHERE symbol = ? AND market_type = ?",
+                Long.class, symbol, marketType);
+            if (firstMs == null) {
+                log.info("[RollupCatchUp] {} {} 1m 데이터 없음, skip", symbol, marketType);
+                return;
+            }
+            fromMs = (firstMs / 300_000L) * 300_000L;
+        } else {
+            fromMs = lastMs + 300_000L;
         }
-        long fromMs = lastMs + 300_000L;
         long to5mMs = (nowMs / 300_000L) * 300_000L; // nowMs 기준 현재 5분 구간 시작 (미완료 구간 제외)
         if (fromMs >= to5mMs) return;
 
@@ -143,7 +181,7 @@ public class AggTradeRollupService {
                 (symbol, market_type, candle_time_ms,
                  open_price, high_price, low_price, close_price, vwap,
                  buy_volume, sell_volume, total_volume,
-                 buy_quantity, sell_quantity,
+                 buy_quantity, sell_quantity, delta,
                  buy_trade_count, sell_trade_count, trade_count,
                  min_agg_trade_id, max_agg_trade_id,
                  min_first_trade_id, max_last_trade_id)
@@ -161,6 +199,7 @@ public class AggTradeRollupService {
                 SUM(total_volume)                                                                             AS total_volume,
                 SUM(buy_quantity)                                                                             AS buy_quantity,
                 SUM(sell_quantity)                                                                            AS sell_quantity,
+                SUM(buy_quantity) - SUM(sell_quantity)                                                        AS delta,
                 SUM(buy_trade_count)                                                                         AS buy_trade_count,
                 SUM(sell_trade_count)                                                                        AS sell_trade_count,
                 SUM(trade_count)                                                                             AS trade_count,
@@ -177,7 +216,7 @@ public class AggTradeRollupService {
         log.info("[RollupCatchUp] {} {} 5m {}건 삽입", symbol, marketType, rows);
     }
 
-    // ─── 1분봉 롤업 (매 분 :10초) — raw_agg_trade → agg_trade_1m ───────────
+    // ─── 1분봉 롤업 (매 분 :10초) — agg_trade_1s → agg_trade_1m ────────────
 
     @Scheduled(cron = "10 * * * * *")
     public void rollup1m() {
@@ -186,10 +225,10 @@ public class AggTradeRollupService {
         long endMs   = currentMinuteStartMs();
         long startMs = endMs - 60_000L;
 
-        List<Map<String, Object>> rows = aggregateFrom1mRaw(startMs, endMs);
+        List<Map<String, Object>> rows = aggregateFrom1sCandles(startMs, endMs);
         for (Map<String, Object> row : rows) {
             AggTrade1m candle = new AggTrade1m();
-            fill1mCandle(candle, row, startMs, endMs);
+            fill1mCandle(candle, row, startMs);
             agg1mRepository.insertIgnoreDuplicate(candle);
             log.debug("[Rollup1m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
         }
@@ -214,29 +253,31 @@ public class AggTradeRollupService {
         }
     }
 
-    // ─── 1m: raw_agg_trade 집계 ───────────────────────────────────────────
+    // ─── 1m: agg_trade_1s 집계 ───────────────────────────────────────────
 
-    private List<Map<String, Object>> aggregateFrom1mRaw(long startMs, long endMs) {
+    private List<Map<String, Object>> aggregateFrom1sCandles(long startMs, long endMs) {
         String sql = """
             SELECT
                 symbol,
                 market_type,
-                MIN(price)                                                          AS low_price,
-                MAX(price)                                                          AS high_price,
-                SUM(CASE WHEN is_buyer_maker = 0 THEN quantity * price ELSE 0 END) AS buy_volume,
-                SUM(CASE WHEN is_buyer_maker = 1 THEN quantity * price ELSE 0 END) AS sell_volume,
-                SUM(quantity * price)                                               AS total_volume,
-                SUM(CASE WHEN is_buyer_maker = 0 THEN quantity ELSE 0 END)         AS buy_quantity,
-                SUM(CASE WHEN is_buyer_maker = 1 THEN quantity ELSE 0 END)         AS sell_quantity,
-                COUNT(CASE WHEN is_buyer_maker = 0 THEN 1 END)                     AS buy_trade_count,
-                COUNT(CASE WHEN is_buyer_maker = 1 THEN 1 END)                     AS sell_trade_count,
-                COUNT(*)                                                            AS trade_count,
-                MIN(agg_trade_id)                                                   AS min_agg_trade_id,
-                MAX(agg_trade_id)                                                   AS max_agg_trade_id,
-                MIN(first_trade_id)                                                 AS min_first_trade_id,
-                MAX(last_trade_id)                                                  AS max_last_trade_id
-            FROM raw_agg_trade
-            WHERE traded_at >= ? AND traded_at < ?
+                SUBSTRING_INDEX(MIN(CONCAT(LPAD(candle_time_ms,20,'0'),'|',open_price)),'|',-1)  AS open_price,
+                MAX(high_price)                                                                   AS high_price,
+                MIN(low_price)                                                                    AS low_price,
+                SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1) AS close_price,
+                SUM(buy_volume)                                                                   AS buy_volume,
+                SUM(sell_volume)                                                                  AS sell_volume,
+                SUM(total_volume)                                                                 AS total_volume,
+                SUM(buy_quantity)                                                                 AS buy_quantity,
+                SUM(sell_quantity)                                                                AS sell_quantity,
+                SUM(buy_trade_count)                                                              AS buy_trade_count,
+                SUM(sell_trade_count)                                                             AS sell_trade_count,
+                SUM(trade_count)                                                                  AS trade_count,
+                MIN(min_agg_trade_id)                                                             AS min_agg_trade_id,
+                MAX(max_agg_trade_id)                                                             AS max_agg_trade_id,
+                MIN(min_first_trade_id)                                                           AS min_first_trade_id,
+                MAX(max_last_trade_id)                                                            AS max_last_trade_id
+            FROM agg_trade_1s
+            WHERE candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type
             """;
         return jdbcTemplate.queryForList(sql, startMs, endMs);
@@ -249,19 +290,19 @@ public class AggTradeRollupService {
             SELECT
                 symbol,
                 market_type,
-                MIN(candle_time_ms)    AS candle_time_ms,
-                MIN(low_price)         AS low_price,
-                MAX(high_price)        AS high_price,
-                SUM(buy_volume)        AS buy_volume,
-                SUM(sell_volume)       AS sell_volume,
-                SUM(total_volume)      AS total_volume,
-                SUM(buy_quantity)      AS buy_quantity,
-                SUM(sell_quantity)     AS sell_quantity,
-                SUM(buy_trade_count)   AS buy_trade_count,
-                SUM(sell_trade_count)  AS sell_trade_count,
-                SUM(trade_count)       AS trade_count,
-                MIN(min_agg_trade_id)  AS min_agg_trade_id,
-                MAX(max_agg_trade_id)  AS max_agg_trade_id,
+                MIN(candle_time_ms)     AS candle_time_ms,
+                MIN(low_price)          AS low_price,
+                MAX(high_price)         AS high_price,
+                SUM(buy_volume)         AS buy_volume,
+                SUM(sell_volume)        AS sell_volume,
+                SUM(total_volume)       AS total_volume,
+                SUM(buy_quantity)       AS buy_quantity,
+                SUM(sell_quantity)      AS sell_quantity,
+                SUM(buy_trade_count)    AS buy_trade_count,
+                SUM(sell_trade_count)   AS sell_trade_count,
+                SUM(trade_count)        AS trade_count,
+                MIN(min_agg_trade_id)   AS min_agg_trade_id,
+                MAX(max_agg_trade_id)   AS max_agg_trade_id,
                 MIN(min_first_trade_id) AS min_first_trade_id,
                 MAX(max_last_trade_id)  AS max_last_trade_id
             FROM agg_trade_1m
@@ -273,22 +314,20 @@ public class AggTradeRollupService {
 
     // ─── fillCandle ───────────────────────────────────────────────────────
 
-    private void fill1mCandle(AggTrade1m c, Map<String, Object> row, long startMs, long endMs) {
-        String symbol     = (String) row.get("symbol");
-        String marketType = (String) row.get("market_type");
-
-        c.setSymbol(symbol);
-        c.setMarketType(marketType);
+    private void fill1mCandle(AggTrade1m c, Map<String, Object> row, long startMs) {
+        c.setSymbol((String) row.get("symbol"));
+        c.setMarketType((String) row.get("market_type"));
         c.setCandleTimeMs(startMs);
-        c.setLowPrice(toBd(row.get("low_price")));
+        c.setOpenPrice(toBd(row.get("open_price")));
         c.setHighPrice(toBd(row.get("high_price")));
-        c.setOpenPrice(getRawFirstPrice(symbol, marketType, startMs, endMs));
-        c.setClosePrice(getRawLastPrice(symbol, marketType, startMs, endMs));
+        c.setLowPrice(toBd(row.get("low_price")));
+        c.setClosePrice(toBd(row.get("close_price")));
         c.setBuyVolume(toBd(row.get("buy_volume")));
         c.setSellVolume(toBd(row.get("sell_volume")));
         c.setTotalVolume(toBd(row.get("total_volume")));
         c.setBuyQuantity(toBd(row.get("buy_quantity")));
         c.setSellQuantity(toBd(row.get("sell_quantity")));
+        c.setDelta(c.getBuyQuantity().subtract(c.getSellQuantity()));
         c.setBuyTradeCount(toLong(row.get("buy_trade_count")));
         c.setSellTradeCount(toLong(row.get("sell_trade_count")));
         c.setTradeCount(toLong(row.get("trade_count")));
@@ -297,7 +336,6 @@ public class AggTradeRollupService {
         c.setMinFirstTradeId(toLong(row.get("min_first_trade_id")));
         c.setMaxLastTradeId(toLong(row.get("max_last_trade_id")));
 
-        // VWAP = total_volume / (buy_quantity + sell_quantity)
         BigDecimal totalQty = c.getBuyQuantity().add(c.getSellQuantity());
         c.setVwap(totalQty.compareTo(BigDecimal.ZERO) == 0
             ? BigDecimal.ZERO
@@ -305,23 +343,22 @@ public class AggTradeRollupService {
     }
 
     private void fill5mCandle(AggTrade5m c, Map<String, Object> row) {
-        String symbol     = (String) row.get("symbol");
-        String marketType = (String) row.get("market_type");
-        long   startMs    = toLong(row.get("candle_time_ms"));
-        long   endMs      = startMs + 300_000L;
+        long startMs = toLong(row.get("candle_time_ms"));
+        long endMs   = startMs + 300_000L;
 
-        c.setSymbol(symbol);
-        c.setMarketType(marketType);
+        c.setSymbol((String) row.get("symbol"));
+        c.setMarketType((String) row.get("market_type"));
         c.setCandleTimeMs(startMs);
-        c.setLowPrice(toBd(row.get("low_price")));
+        c.setOpenPrice(get1mFirstPrice((String) row.get("symbol"), (String) row.get("market_type"), startMs, endMs));
+        c.setClosePrice(get1mLastPrice((String) row.get("symbol"), (String) row.get("market_type"), startMs, endMs));
         c.setHighPrice(toBd(row.get("high_price")));
-        c.setOpenPrice(get1mFirstPrice(symbol, marketType, startMs, endMs));
-        c.setClosePrice(get1mLastPrice(symbol, marketType, startMs, endMs));
+        c.setLowPrice(toBd(row.get("low_price")));
         c.setBuyVolume(toBd(row.get("buy_volume")));
         c.setSellVolume(toBd(row.get("sell_volume")));
         c.setTotalVolume(toBd(row.get("total_volume")));
         c.setBuyQuantity(toBd(row.get("buy_quantity")));
         c.setSellQuantity(toBd(row.get("sell_quantity")));
+        c.setDelta(c.getBuyQuantity().subtract(c.getSellQuantity()));
         c.setBuyTradeCount(toLong(row.get("buy_trade_count")));
         c.setSellTradeCount(toLong(row.get("sell_trade_count")));
         c.setTradeCount(toLong(row.get("trade_count")));
@@ -336,29 +373,7 @@ public class AggTradeRollupService {
             : c.getTotalVolume().divide(totalQty, 8, RoundingMode.HALF_UP));
     }
 
-    // ─── open/close 가격 조회 ─────────────────────────────────────────────
-
-    private BigDecimal getRawFirstPrice(String symbol, String marketType, long startMs, long endMs) {
-        String sql = """
-            SELECT price FROM raw_agg_trade
-            WHERE symbol = ? AND market_type = ? AND traded_at >= ? AND traded_at < ?
-            ORDER BY traded_at ASC, id ASC
-            LIMIT 1
-            """;
-        List<BigDecimal> result = jdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
-        return result.isEmpty() ? BigDecimal.ZERO : result.get(0);
-    }
-
-    private BigDecimal getRawLastPrice(String symbol, String marketType, long startMs, long endMs) {
-        String sql = """
-            SELECT price FROM raw_agg_trade
-            WHERE symbol = ? AND market_type = ? AND traded_at >= ? AND traded_at < ?
-            ORDER BY traded_at DESC, id DESC
-            LIMIT 1
-            """;
-        List<BigDecimal> result = jdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
-        return result.isEmpty() ? BigDecimal.ZERO : result.get(0);
-    }
+    // ─── open/close 가격 조회 (5m용) ─────────────────────────────────────
 
     private BigDecimal get1mFirstPrice(String symbol, String marketType, long startMs, long endMs) {
         String sql = """

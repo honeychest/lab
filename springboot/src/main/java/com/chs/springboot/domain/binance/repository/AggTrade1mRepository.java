@@ -39,7 +39,7 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
             (symbol, market_type, candle_time_ms,
              open_price, high_price, low_price, close_price, vwap,
              buy_volume, sell_volume, total_volume,
-             buy_quantity, sell_quantity,
+             buy_quantity, sell_quantity, delta,
              buy_trade_count, sell_trade_count, trade_count,
              min_agg_trade_id, max_agg_trade_id,
              min_first_trade_id, max_last_trade_id)
@@ -47,7 +47,7 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
             (:#{#c.symbol}, :#{#c.marketType}, :#{#c.candleTimeMs},
              :#{#c.openPrice}, :#{#c.highPrice}, :#{#c.lowPrice}, :#{#c.closePrice}, :#{#c.vwap},
              :#{#c.buyVolume}, :#{#c.sellVolume}, :#{#c.totalVolume},
-             :#{#c.buyQuantity}, :#{#c.sellQuantity},
+             :#{#c.buyQuantity}, :#{#c.sellQuantity}, :#{#c.delta},
              :#{#c.buyTradeCount}, :#{#c.sellTradeCount}, :#{#c.tradeCount},
              :#{#c.minAggTradeId}, :#{#c.maxAggTradeId},
              :#{#c.minFirstTradeId}, :#{#c.maxLastTradeId})
