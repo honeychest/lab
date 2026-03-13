@@ -25,7 +25,7 @@ const getDataRange = (range) => TIME_RANGES.find((r) => r.value === range)?.apiR
 
 export default function SignalPage() {
     const [symbol, setSymbol] = useState('BTCUSDT');
-    const [timeRange, setTimeRange] = useState(() => localStorage.getItem('signal_timeRange') || '1m');
+    const [timeRange, setTimeRange] = useState(() => localStorage.getItem('signal_timeRange') || TIME_RANGES[Math.floor(TIME_RANGES.length / 2)].value);
     const [initData, setInitData] = useState(null);
     const [historyData, setHistoryData] = useState(null);
     const [isDesktopView, setIsDesktopView] = useState(false);
@@ -233,7 +233,7 @@ export default function SignalPage() {
                     symbol={symbol}
                     onSymbolChange={handleSymbolChange}
                     timeRange={timeRange}
-                    onTimeRangeChange={setTimeRange}
+                    onTimeRangeChange={handleTimeRangeChange}
                     fundingRate={commonProps.fundingRate}
                     timeRanges={TIME_RANGES}
                 />
