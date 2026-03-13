@@ -47,7 +47,7 @@ public class OpenInterestPollingService {
 
                 JsonNode node = objectMapper.readTree(response);
                 String oiValue = node.get("openInterest").asText();
-                long timestamp = node.get("time").asLong();
+                long timestamp = node.get("time").asLong() / 300_000L * 300_000L;
 
                 // 현재가 조회
                 BigDecimal price = null;
