@@ -92,23 +92,29 @@ public class SignalDataService {
             }
         }
 
-        // 이벤트 목록: 최근 10건만
-        List<Map<String, Object>> longLiqEvents  = new java.util.ArrayList<>();
-        List<Map<String, Object>> shortLiqEvents = new java.util.ArrayList<>();
-        var top10 = forceOrderRepository.findTop10BySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, fromMs, nowMs);
-        for (var fo : top10) {
+        // 이벤트 목록: side별 최근 10건
+        var longTop10  = forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, "SELL", fromMs, nowMs);
+        var shortTop10 = forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, "BUY",  fromMs, nowMs);
+
+        List<Map<String, Object>> longLiqEvents = longTop10.stream().map(fo -> {
             Map<String, Object> event = new HashMap<>();
             event.put("side",        fo.getSide());
             event.put("price",       fo.getPrice().toPlainString());
             event.put("avgPrice",    fo.getAvgPrice().toPlainString());
             event.put("quantity",    fo.getOriginalQuantity().toPlainString());
             event.put("tradeTimeMs", fo.getTradeTimeMs());
-            if ("SELL".equals(fo.getSide())) {
-                longLiqEvents.add(event);
-            } else {
-                shortLiqEvents.add(event);
-            }
-        }
+            return event;
+        }).toList();
+
+        List<Map<String, Object>> shortLiqEvents = shortTop10.stream().map(fo -> {
+            Map<String, Object> event = new HashMap<>();
+            event.put("side",        fo.getSide());
+            event.put("price",       fo.getPrice().toPlainString());
+            event.put("avgPrice",    fo.getAvgPrice().toPlainString());
+            event.put("quantity",    fo.getOriginalQuantity().toPlainString());
+            event.put("tradeTimeMs", fo.getTradeTimeMs());
+            return event;
+        }).toList();
 
         var oiList = openInterestRepository
                 .findBySymbolAndCollectedAtMsBetweenOrderByCollectedAtMsAsc(symbol, fromMs, nowMs);

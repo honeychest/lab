@@ -13,8 +13,8 @@ import java.util.List;
 
 public interface ForceOrderRepository extends JpaRepository<ForceOrder, Long> {
 
-    List<ForceOrder> findTop10BySymbolAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(
-            String symbol, long fromMs, long toMs);
+    List<ForceOrder> findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(
+            String symbol, String side, long fromMs, long toMs);
 
     @Query(value = """
         SELECT side, SUM(price * original_quantity) as total

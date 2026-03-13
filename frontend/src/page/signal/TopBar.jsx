@@ -69,7 +69,7 @@ export default function TopBar({
                         style={selectStyle}
                     >
                         {['BTCUSDT', 'ENAUSDT'].map((sym) => (
-                            <option key={sym} value={sym}>{sym.replace('USDT', '')}</option>
+                            <option key={sym} value={sym} style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}>{sym.replace('USDT', '')}</option>
                         ))}
                     </select>
                     <select
@@ -78,7 +78,7 @@ export default function TopBar({
                         style={selectStyle}
                     >
                         {timeRanges.map(({ value, label }) => (
-                            <option key={value} value={value}>{label}</option>
+                            <option key={value} value={value} style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}>{label}</option>
                         ))}
                     </select>
                 </div>

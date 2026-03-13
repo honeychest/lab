@@ -116,7 +116,7 @@ public class ContactController {
 
     /** guestToken 기반 문의 목록 조회 (최신순) */
     @GetMapping("/inquiries")
-    public ResponseEntity<?> getInquiries(@RequestParam String guestToken) {
+    public ResponseEntity<?> getInquiries(@RequestParam("guestToken") String guestToken) {
         if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
             return ResponseEntity.badRequest().build();
         }
@@ -137,7 +137,7 @@ public class ContactController {
     /** 답변 읽음 처리 — guestToken 일치 확인 후 readAt 저장 */
     @PatchMapping("/reply/{inquiryId}/read")
     public ResponseEntity<?> markAsRead(
-            @PathVariable String inquiryId,
+            @PathVariable("inquiryId") String inquiryId,
             @RequestBody Map<String, String> body) {
         String guestToken = body.get("guestToken");
         Optional<ContactInquiry> opt = inquiryRepository.findByInquiryId(inquiryId);
@@ -154,7 +154,7 @@ public class ContactController {
 
     /** SSE 구독 — guestToken 기반 실시간 답장 알림 */
     @GetMapping(value = "/reply/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@RequestParam String guestToken) {
+    public SseEmitter subscribe(@RequestParam("guestToken") String guestToken) {
         if (guestToken == null || !guestToken.matches("[0-9a-f\\-]{36}")) {
             throw new IllegalArgumentException("잘못된 guestToken");
         }
