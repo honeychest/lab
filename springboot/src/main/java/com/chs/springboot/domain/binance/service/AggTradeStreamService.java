@@ -1,5 +1,7 @@
+// [AGENT] 역할: Binance aggTrade WebSocket 스트림 구독 서비스 (SPOT/FUTURES) | 연관파일: AggTradeStorageService.java(→enqueue), SignalSseService.java(→broadcastAggTrade) | 핵심: @PostConstruct에서 btcusdt SPOT, enausdt SPOT/FUTURES 연결, java.net.http.WebSocket 사용, generation 기반 재연결 제어, 5초 후 자동 reconnect
 package com.chs.springboot.domain.binance.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -9,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +26,8 @@ public class AggTradeStreamService {
     private static final String FUTURES_WS_BASE = "wss://fstream.binance.com/ws/"; // FUTURES 웹소켓 기본 주소
 
     private final AggTradeStorageService storageService;
+    private final SignalSseService signalSseService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -33,8 +39,9 @@ public class AggTradeStreamService {
     private volatile boolean running = true;
     private volatile int generation = 0;
 
-    public AggTradeStreamService(AggTradeStorageService storageService) {
+    public AggTradeStreamService(AggTradeStorageService storageService, SignalSseService signalSseService) {
         this.storageService = storageService;
+        this.signalSseService = signalSseService;
     }
 
     @PostConstruct
@@ -44,7 +51,7 @@ public class AggTradeStreamService {
 
     private void connectAll() {
         connect("btcusdt", "SPOT");
-        // connect("btcusdt", "FUTURES");
+        connect("btcusdt", "FUTURES");
         connect("enausdt", "SPOT");
         connect("enausdt", "FUTURES");
     }
@@ -79,7 +86,7 @@ public class AggTradeStreamService {
                                     // ENAUSDT FUTURES aggId 추적용 로그 (INFO)
                                     if ("ENAUSDT".equals(symbolUpper) && "FUTURES".equals(marketType)) {
                                         try {
-                                            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+                                            var node = objectMapper.readTree(json);
                                             long aggId = node.get("a").asLong();
                                             log.debug("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
                                         } catch (Exception ignore) {
@@ -88,6 +95,22 @@ public class AggTradeStreamService {
                                     }
 
                                     storageService.enqueue(json, symbolUpper, marketType);
+                                    
+                                    // Signal Dashboard SSE 브로드캐스트
+                                    try {
+                                        var node = objectMapper.readTree(json);
+                                        Map<String, Object> dto = new HashMap<>();
+                                        dto.put("symbol", symbolUpper);
+                                        dto.put("marketType", marketType);
+                                        dto.put("price", node.get("p").asText());
+                                        dto.put("quantity", node.get("q").asText());
+                                        dto.put("isBuyerMaker", node.get("m").asBoolean());
+                                        dto.put("tradedAt", node.get("T").asLong());
+                                        signalSseService.broadcastAggTrade(dto);
+                                    } catch (Exception ignore) {
+                                        // SSE 브로드캐스트 실패는 무시 (DB 저장은 계속)
+                                    }
+                                    
                                     if (log.isDebugEnabled()) {
                                         log.debug("[AggTradeStream] enqueue 성공 {} {} (jsonLength={})",
                                                 symbolUpper, marketType, json.length());

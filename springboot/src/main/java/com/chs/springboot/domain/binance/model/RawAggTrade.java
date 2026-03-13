@@ -1,3 +1,4 @@
+// [AGENT] 역할: Binance aggTrade 원본 저장 엔티티 (raw_agg_trade 테이블) | 연관파일: RawAggTradeRepository.java, AggTradeStorageService.java, AggTradeStreamService.java | 주요필드: symbol·marketType·aggTradeId(a)·price(p)·quantity(q)·firstTradeId(f)·lastTradeId(l)·isBuyerMaker(m)·tradedAt(T)·savedAt | UK: (agg_trade_id, symbol, market_type)
 package com.chs.springboot.domain.binance.model;
 
 import jakarta.persistence.*;
@@ -17,7 +18,10 @@ import java.time.LocalDateTime;
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_raw_agg_trade",
                 columnNames = {"agg_trade_id", "symbol", "market_type"}
-        )
+        ),
+        indexes = {
+                @Index(name = "idx_raw_traded_at", columnList = "traded_at")
+        }
 )
 public class RawAggTrade {
 

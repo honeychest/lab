@@ -1,3 +1,6 @@
+// [AGENT] 역할: aggTrade 과거 데이터 백필 서비스 (Binance REST → DB) | 연관파일: AggTradeCollectStatusRepository.java, AggTradeConfigService.java, LeaderElectionService.java, AggTradeStorageService.java(→rescheduleMinutes 호출받음)
+// 핵심흐름: @PostConstruct → 스케줄 예약 → runBackfill() Redis 분산락(2분 TTL + heartbeat 30초) → executeBackfill() 심볼별 루프 → backfillOne() REST /aggTrades?fromId=&limit=1000 반복, JDBC batchInsert, collect_status 갱신
+// 대상: BTCUSDT SPOT, ENAUSDT SPOT/FUTURES | weight 90% 도달 시 60초 후 재시도 | rescheduleMinutes()로 flush 부하 시 4분 연기
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;

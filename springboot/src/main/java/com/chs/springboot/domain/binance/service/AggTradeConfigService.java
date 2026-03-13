@@ -1,3 +1,4 @@
+// [AGENT] 역할: aggTrade 수집 설정 관리 (Redis 우선, fallback @Value) | 연관파일: AggTradeStorageService.java, AggTradeFlushScheduler.java, AggTradeBackfillService.java, AggTradeAdminController.java | 설정키: max-queue-size·flush-threshold·batch-size·flush-interval-sec·dedup-ttl-sec·weight-per-minute | 핵심: Redis에 값 있으면 사용, 없으면 application.properties 기본값
 package com.chs.springboot.domain.binance.service;
 
 import org.springframework.beans.factory.annotation.Value;

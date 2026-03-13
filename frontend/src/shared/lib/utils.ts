@@ -1,3 +1,4 @@
+// [AGENT] 공용 유틸 함수 — cn() (clsx+twMerge, Tailwind 클래스 병합), formatWithComma() (천단위 콤마)
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 

@@ -1,4 +1,4 @@
-// 서버 기동 시 적용 중인 로그 레벨 출력 (ERROR 레벨에서도 보이도록 log.error로 출력)
+// [AGENT] 역할: 서버 기동 시 로그 레벨 출력 (@EventListener ApplicationReadyEvent) | 연관파일: SpringbootApplication.java, BinanceTradeService.java | 핵심: root + BinanceTradeService 로거 레벨을 log.error로 출력 (ERROR 레벨에서도 확인 가능하도록)
 package com.chs.springboot.global.config;
 
 import ch.qos.logback.classic.Level;

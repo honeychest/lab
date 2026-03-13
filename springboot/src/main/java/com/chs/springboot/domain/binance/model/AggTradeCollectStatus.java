@@ -1,3 +1,4 @@
+// [AGENT] 역할: aggTrade 수집/백필 진행 상태 엔티티 (aggtrade_collect_status 테이블) | 연관파일: AggTradeCollectStatusRepository.java, AggTradeStorageService.java, AggTradeBackfillService.java | 주요필드: symbol·marketType·lastStreamAggId(실시간 마지막)·lastBackfillAggId(백필 마지막)·backfillIntervalMin·nextBackfillAt·enabled | UK: (symbol, market_type)
 package com.chs.springboot.domain.binance.model;
 
 import jakarta.persistence.*;

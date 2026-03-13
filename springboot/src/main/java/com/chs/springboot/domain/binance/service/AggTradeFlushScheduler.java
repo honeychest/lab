@@ -1,3 +1,4 @@
+// [AGENT] 역할: aggTrade 큐 → DB 플러시 스케줄러 (@Scheduled fixedRate=1초) | 연관파일: AggTradeStorageService.java, AggTradeConfigService.java | 핵심: 1초마다 tick()에서 flushIntervalSec 경과 확인 후 storageService.doFlush() 비동기 실행
 package com.chs.springboot.domain.binance.service;
 
 import org.slf4j.Logger;

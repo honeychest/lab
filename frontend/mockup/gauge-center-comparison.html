@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gauge Center Element — A / C / D Comparison</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root {
+    --void: #06060c;
+    --surface: #0c0c14;
+    --card: #0e0f18;
+    --border: rgba(255,255,255,0.06);
+    --border-glow: rgba(255,255,255,0.1);
+    --text-dim: rgba(255,255,255,0.35);
+    --text-mid: rgba(255,255,255,0.6);
+    --text-bright: rgba(255,255,255,0.9);
+    --long-green: #00e887;
+    --long-green-dim: rgba(0,232,135,0.25);
+    --short-red: #ff3b5c;
+    --short-red-dim: rgba(255,59,92,0.25);
+    --neutral-gold: #f0c040;
+    --neutral-gold-dim: rgba(240,192,64,0.2);
+  }
+
+  html { background: var(--void); }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Oxanium', sans-serif;
+    color: var(--text-bright);
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,232,135,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255,59,92,0.03) 0%, transparent 60%),
+      var(--void);
+    overflow-x: hidden;
+    padding: 40px 20px;
+  }
+
+  /* ── page header ── */
+  .page-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .page-header h1 {
+    font-size: 14px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .page-header h2 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, var(--long-green), var(--neutral-gold), var(--short-red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── card grid ── */
+  .comparison-grid {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1200px;
+  }
+
+  .card {
+    width: 350px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.4s;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.02) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .card:hover {
+    border-color: var(--border-glow);
+  }
+
+  .card-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .card-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 28px;
+    color: var(--text-mid);
+  }
+
+  /* ── gauge container ── */
+  .gauge-wrap {
+    width: 280px;
+    height: 180px;
+    position: relative;
+    margin-bottom: 28px;
+  }
+
+  /* ── SVG gauge arc ── */
+  .gauge-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── needle ── */
+  .needle-pivot {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+  }
+  .needle {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    height: 105px;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(var(--needle-angle, 0deg));
+    animation: needle-drift 8s ease-in-out infinite;
+  }
+  .needle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0.15));
+    border-radius: 1px;
+  }
+  .needle::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+  }
+
+  @keyframes needle-drift {
+    0%   { transform: translateX(-50%) rotate(-8deg); }
+    25%  { transform: translateX(-50%) rotate(12deg); }
+    50%  { transform: translateX(-50%) rotate(-5deg); }
+    75%  { transform: translateX(-50%) rotate(15deg); }
+    100% { transform: translateX(-50%) rotate(-8deg); }
+  }
+
+  /* ── center element area ── */
+  .center-element {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── description ── */
+  .card-desc {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    text-align: center;
+    max-width: 300px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .card-desc strong {
+    color: var(--text-mid);
+    font-weight: 400;
+  }
+
+  /* ══════════════════════════════════════
+     (a) WAVE / RIPPLE
+     ══════════════════════════════════════ */
+  .ripple-container {
+    width: 80px;
+    height: 80px;
+    position: relative;
+  }
+  .ripple-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    animation: ripple-expand 3s ease-out infinite;
+  }
+  .ripple-ring:nth-child(2) { animation-delay: 1s; }
+  .ripple-ring:nth-child(3) { animation-delay: 2s; }
+
+  @keyframes ripple-expand {
+    0%   { transform: scale(0.4); opacity: 0.7; border-color: rgba(255,255,255,0.25); }
+    100% { transform: scale(1.6); opacity: 0; border-color: rgba(255,255,255,0.0); }
+  }
+
+  .ripple-core {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 70%, transparent 100%);
+    box-shadow: 0 0 20px rgba(255,255,255,0.08);
+    animation: ripple-core-pulse 4s ease-in-out infinite;
+  }
+
+  /* wave surface inside core */
+  .ripple-core::before {
+    content: '';
+    position: absolute;
+    top: 40%; left: 10%; right: 10%;
+    height: 2px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    animation: wave-line 2.5s ease-in-out infinite;
+    box-shadow: 0 6px 0 rgba(255,255,255,0.12), 0 -6px 0 rgba(255,255,255,0.12);
+  }
+
+  @keyframes ripple-core-pulse {
+    0%, 100% { transform: translate(-50%,-50%) scale(1); box-shadow: 0 0 20px rgba(255,255,255,0.08); }
+    50%      { transform: translate(-50%,-50%) scale(1.08); box-shadow: 0 0 30px rgba(255,255,255,0.15); }
+  }
+
+  @keyframes wave-line {
+    0%, 100% { transform: translateY(0) scaleX(1); }
+    25%      { transform: translateY(-2px) scaleX(0.92); }
+    50%      { transform: translateY(1px) scaleX(1.05); }
+    75%      { transform: translateY(-1px) scaleX(0.97); }
+  }
+
+
+  /* ══════════════════════════════════════
+     (c) TUG-OF-WAR
+     ══════════════════════════════════════ */
+  .tug-container {
+    width: 140px;
+    height: 40px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tug-line {
+    position: absolute;
+    top: 50%;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-50%);
+  }
+  .tug-line::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--long-green-dim), transparent 35%, transparent 65%, var(--short-red-dim));
+    transform: translateY(-50%);
+  }
+
+  .tug-node {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transform: translateY(-50%);
+  }
+  .tug-node-long {
+    left: 8px;
+    background: var(--long-green);
+    box-shadow: 0 0 12px var(--long-green-dim), 0 0 4px var(--long-green-dim);
+    animation: tug-pull-left 3s ease-in-out infinite;
+  }
+  .tug-node-short {
+    right: 8px;
+    background: var(--short-red);
+    box-shadow: 0 0 12px var(--short-red-dim), 0 0 4px var(--short-red-dim);
+    animation: tug-pull-right 3s ease-in-out infinite;
+  }
+
+  .tug-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    animation: tug-vibrate 0.15s linear infinite;
+  }
+
+  /* tension marks */
+  .tug-tension {
+    position: absolute;
+    top: 50%;
+    width: 3px;
+    height: 8px;
+    border-radius: 1px;
+    opacity: 0.15;
+    transform: translateY(-50%);
+  }
+  .tug-tension:nth-child(4) { left: 35%; background: var(--long-green); animation: tension-flicker 2s ease infinite; }
+  .tug-tension:nth-child(5) { left: 42%; background: rgba(255,255,255,0.3); animation: tension-flicker 2s ease infinite 0.3s; }
+  .tug-tension:nth-child(6) { right: 42%; background: rgba(255,255,255,0.3); animation: tension-flicker 2s ease infinite 0.6s; }
+  .tug-tension:nth-child(7) { right: 35%; background: var(--short-red); animation: tension-flicker 2s ease infinite 0.9s; }
+
+  @keyframes tug-pull-left {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    30%      { transform: translateY(-50%) translateX(-4px); }
+    70%      { transform: translateY(-50%) translateX(3px); }
+  }
+  @keyframes tug-pull-right {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    30%      { transform: translateY(-50%) translateX(4px); }
+    70%      { transform: translateY(-50%) translateX(-3px); }
+  }
+  @keyframes tug-vibrate {
+    0%   { transform: translate(-50%,-50%) translateX(-1px); }
+    50%  { transform: translate(-50%,-50%) translateX(1px); }
+    100% { transform: translate(-50%,-50%) translateX(-1px); }
+  }
+  @keyframes tension-flicker {
+    0%, 100% { opacity: 0.1; }
+    50%      { opacity: 0.35; }
+  }
+
+
+  /* ══════════════════════════════════════
+     (d) ENERGY ORB
+     ══════════════════════════════════════ */
+  .orb-container {
+    width: 80px;
+    height: 80px;
+    position: relative;
+  }
+
+  .orb-core {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.35), rgba(255,255,255,0.08) 60%, transparent 100%);
+    box-shadow:
+      0 0 20px rgba(255,255,255,0.12),
+      0 0 40px rgba(255,255,255,0.05),
+      inset 0 0 15px rgba(255,255,255,0.08);
+    animation: orb-breathe 3.5s ease-in-out infinite;
+  }
+
+  .orb-shell {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.07);
+    animation: orb-shell-rotate 12s linear infinite;
+  }
+  .orb-shell::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 25%;
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.3);
+  }
+  .orb-shell::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; right: 20%;
+    width: 6px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.2);
+  }
+
+  /* floating particles */
+  .orb-particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+  }
+  .orb-particle:nth-child(3) {
+    top: 20%; left: 30%;
+    animation: particle-float-1 4s ease-in-out infinite;
+  }
+  .orb-particle:nth-child(4) {
+    top: 60%; right: 25%;
+    animation: particle-float-2 5s ease-in-out infinite 1s;
+  }
+  .orb-particle:nth-child(5) {
+    top: 35%; right: 30%;
+    animation: particle-float-3 3.5s ease-in-out infinite 0.5s;
+  }
+  .orb-particle:nth-child(6) {
+    bottom: 25%; left: 35%;
+    animation: particle-float-1 4.5s ease-in-out infinite 2s;
+  }
+  .orb-particle:nth-child(7) {
+    top: 45%; left: 22%;
+    animation: particle-float-2 3.8s ease-in-out infinite 0.8s;
+  }
+  .orb-particle:nth-child(8) {
+    top: 25%; right: 22%;
+    width: 1.5px; height: 1.5px;
+    animation: particle-float-3 5.2s ease-in-out infinite 1.5s;
+  }
+
+  @keyframes orb-breathe {
+    0%, 100% { transform: translate(-50%,-50%) scale(1); box-shadow: 0 0 20px rgba(255,255,255,0.12), 0 0 40px rgba(255,255,255,0.05), inset 0 0 15px rgba(255,255,255,0.08); }
+    50%      { transform: translate(-50%,-50%) scale(1.1); box-shadow: 0 0 30px rgba(255,255,255,0.18), 0 0 60px rgba(255,255,255,0.08), inset 0 0 20px rgba(255,255,255,0.12); }
+  }
+  @keyframes orb-shell-rotate {
+    from { transform: translate(-50%,-50%) rotate(0deg); }
+    to   { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+  @keyframes particle-float-1 {
+    0%, 100% { transform: translate(0, 0); opacity: 0.4; }
+    25%      { transform: translate(4px, -6px); opacity: 0.8; }
+    50%      { transform: translate(-2px, -10px); opacity: 0.3; }
+    75%      { transform: translate(3px, -4px); opacity: 0.7; }
+  }
+  @keyframes particle-float-2 {
+    0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+    33%      { transform: translate(-5px, -5px); opacity: 0.7; }
+    66%      { transform: translate(3px, -8px); opacity: 0.4; }
+  }
+  @keyframes particle-float-3 {
+    0%, 100% { transform: translate(0, 0); opacity: 0.5; }
+    50%      { transform: translate(-4px, -7px); opacity: 0.8; }
+  }
+
+  /* ── gauge tick marks ── */
+  .gauge-ticks {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 260px;
+    height: 140px;
+  }
+
+  /* ── status badge ── */
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--neutral-gold);
+    border: 1px solid var(--neutral-gold-dim);
+    margin-bottom: 16px;
+    animation: badge-pulse 4s ease-in-out infinite;
+  }
+  @keyframes badge-pulse {
+    0%, 100% { border-color: var(--neutral-gold-dim); }
+    50%      { border-color: rgba(240,192,64,0.4); }
+  }
+
+  /* ── divider ── */
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: var(--border-glow);
+    margin: 20px 0 16px;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Signal Dashboard</h1>
+  <h2>Gauge Center Element</h2>
+</div>
+
+<div class="comparison-grid">
+
+  <!-- ═══════ CARD A: WAVE/RIPPLE ═══════ -->
+  <div class="card">
+    <div class="card-label">option a</div>
+    <div class="card-title">Wave / Ripple</div>
+
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 280 180" fill="none">
+        <!-- gauge arc segments -->
+        <!-- Strong Long (green) -->
+        <path d="M 24 170 A 120 120 0 0 1 56 74" stroke="rgba(0,232,135,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <!-- Moderate Long -->
+        <path d="M 58 72 A 120 120 0 0 1 100 36" stroke="rgba(0,232,135,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <!-- Neutral zone -->
+        <path d="M 102 35 A 120 120 0 0 1 178 35" stroke="rgba(240,192,64,0.2)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <!-- Moderate Short -->
+        <path d="M 180 36 A 120 120 0 0 1 222 72" stroke="rgba(255,59,92,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <!-- Strong Short (red) -->
+        <path d="M 224 74 A 120 120 0 0 1 256 170" stroke="rgba(255,59,92,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+        <!-- outer faint ring -->
+        <path d="M 16 170 A 128 128 0 0 1 264 170" stroke="rgba(255,255,255,0.03)" stroke-width="1" fill="none"/>
+
+        <!-- tick marks -->
+        <line x1="24" y1="170" x2="30" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="56" y1="74" x2="60" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="140" y1="30" x2="140" y2="36" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="224" y1="74" x2="220" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="256" y1="170" x2="250" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+
+        <!-- LONG / SHORT labels -->
+        <text x="42" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(0,232,135,0.4)" letter-spacing="1">LONG</text>
+        <text x="218" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(255,59,92,0.4)" letter-spacing="1">SHORT</text>
+      </svg>
+
+      <!-- Needle -->
+      <div class="needle" style="position:absolute; bottom:10px; left:50%; --needle-angle: 0deg;"></div>
+
+      <!-- Center element: Ripple -->
+      <div class="center-element" style="bottom: 30px;">
+        <div class="ripple-container">
+          <div class="ripple-ring"></div>
+          <div class="ripple-ring"></div>
+          <div class="ripple-ring"></div>
+          <div class="ripple-core"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-badge">neutral — balanced</div>
+    <div class="divider"></div>
+    <p class="card-desc">
+      <strong>Neutral:</strong> white/gray ripples radiate outward<br>
+      <strong>Long dominant:</strong> ripples shift green<br>
+      <strong>Short dominant:</strong> ripples shift red<br>
+      Calm water → disturbed surface on imbalance
+    </p>
+  </div>
+
+
+  <!-- ═══════ CARD C: TUG-OF-WAR ═══════ -->
+  <div class="card">
+    <div class="card-label">option c</div>
+    <div class="card-title">Tug-of-War</div>
+
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 280 180" fill="none">
+        <path d="M 24 170 A 120 120 0 0 1 56 74" stroke="rgba(0,232,135,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 58 72 A 120 120 0 0 1 100 36" stroke="rgba(0,232,135,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 102 35 A 120 120 0 0 1 178 35" stroke="rgba(240,192,64,0.2)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 180 36 A 120 120 0 0 1 222 72" stroke="rgba(255,59,92,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 224 74 A 120 120 0 0 1 256 170" stroke="rgba(255,59,92,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 16 170 A 128 128 0 0 1 264 170" stroke="rgba(255,255,255,0.03)" stroke-width="1" fill="none"/>
+        <line x1="24" y1="170" x2="30" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="56" y1="74" x2="60" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="140" y1="30" x2="140" y2="36" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="224" y1="74" x2="220" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="256" y1="170" x2="250" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <text x="42" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(0,232,135,0.4)" letter-spacing="1">LONG</text>
+        <text x="218" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(255,59,92,0.4)" letter-spacing="1">SHORT</text>
+      </svg>
+
+      <div class="needle" style="position:absolute; bottom:10px; left:50%; --needle-angle: 0deg;"></div>
+
+      <!-- Center element: Tug of War -->
+      <div class="center-element" style="bottom: 40px;">
+        <div class="tug-container">
+          <div class="tug-line"></div>
+          <div class="tug-node tug-node-long"></div>
+          <div class="tug-node tug-node-short"></div>
+          <div class="tug-center"></div>
+          <div class="tug-tension"></div>
+          <div class="tug-tension"></div>
+          <div class="tug-tension"></div>
+          <div class="tug-tension"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-badge">neutral — tension</div>
+    <div class="divider"></div>
+    <p class="card-desc">
+      <strong>Neutral:</strong> center point vibrates with tension<br>
+      <strong>Long dominant:</strong> center pulls toward green node<br>
+      <strong>Short dominant:</strong> center pulls toward red node<br>
+      Physical force metaphor — instant readability
+    </p>
+  </div>
+
+
+  <!-- ═══════ CARD D: ENERGY ORB ═══════ -->
+  <div class="card">
+    <div class="card-label">option d</div>
+    <div class="card-title">Energy Orb</div>
+
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 280 180" fill="none">
+        <path d="M 24 170 A 120 120 0 0 1 56 74" stroke="rgba(0,232,135,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 58 72 A 120 120 0 0 1 100 36" stroke="rgba(0,232,135,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 102 35 A 120 120 0 0 1 178 35" stroke="rgba(240,192,64,0.2)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 180 36 A 120 120 0 0 1 222 72" stroke="rgba(255,59,92,0.25)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 224 74 A 120 120 0 0 1 256 170" stroke="rgba(255,59,92,0.5)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M 16 170 A 128 128 0 0 1 264 170" stroke="rgba(255,255,255,0.03)" stroke-width="1" fill="none"/>
+        <line x1="24" y1="170" x2="30" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="56" y1="74" x2="60" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="140" y1="30" x2="140" y2="36" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="224" y1="74" x2="220" y2="78" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <line x1="256" y1="170" x2="250" y2="170" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <text x="42" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(0,232,135,0.4)" letter-spacing="1">LONG</text>
+        <text x="218" y="165" font-family="Share Tech Mono, monospace" font-size="8" fill="rgba(255,59,92,0.4)" letter-spacing="1">SHORT</text>
+      </svg>
+
+      <div class="needle" style="position:absolute; bottom:10px; left:50%; --needle-angle: 0deg;"></div>
+
+      <!-- Center element: Energy Orb -->
+      <div class="center-element" style="bottom: 30px;">
+        <div class="orb-container">
+          <div class="orb-shell"></div>
+          <div class="orb-core"></div>
+          <div class="orb-particle"></div>
+          <div class="orb-particle"></div>
+          <div class="orb-particle"></div>
+          <div class="orb-particle"></div>
+          <div class="orb-particle"></div>
+          <div class="orb-particle"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-badge">neutral — dormant</div>
+    <div class="divider"></div>
+    <p class="card-desc">
+      <strong>Neutral:</strong> white orb pulses softly, particles drift<br>
+      <strong>Long dominant:</strong> orb shifts green, glow intensifies<br>
+      <strong>Short dominant:</strong> orb shifts red, particles agitate<br>
+      Sci-fi aesthetic — matches HUD cockpit theme
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

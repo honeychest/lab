@@ -1,3 +1,5 @@
+// [AGENT] 역할: RawAggTrade JPA Repository | 연관파일: RawAggTrade.java, AggTradeStorageService.java
+// 주요메서드: insertIgnoreDuplicate (네이티브 INSERT ON DUPLICATE KEY UPDATE), batchInsertIgnoreDuplicate (반복 호출)
 package com.chs.springboot.domain.binance.repository;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;

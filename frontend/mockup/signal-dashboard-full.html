@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Signal Dashboard — Full Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+  :root {
+    --void:        #06060c;
+    --surface:     #0a0a12;
+    --card:        #0e0f18;
+    --card-raised: #12131e;
+    --border:      rgba(255,255,255,0.06);
+    --border-h:    rgba(255,255,255,0.12);
+    --g:           #00e887;
+    --g-dim:       rgba(0,232,135,0.18);
+    --g-glow:      rgba(0,232,135,0.08);
+    --r:           #ff3b5c;
+    --r-dim:       rgba(255,59,92,0.18);
+    --r-glow:      rgba(255,59,92,0.08);
+    --gold:        #f0c040;
+    --gold-dim:    rgba(240,192,64,0.18);
+    --t1:          rgba(255,255,255,0.92);
+    --t2:          rgba(255,255,255,0.6);
+    --t3:          rgba(255,255,255,0.35);
+    --t4:          rgba(255,255,255,0.18);
+    --font-head:   'Oxanium', sans-serif;
+    --font-mono:   'Share Tech Mono', monospace;
+  }
+
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: var(--void);
+    font-family: var(--font-head);
+    color: var(--t1);
+  }
+
+  /* ════════════════════════════════════════
+     DASHBOARD GRID
+     ════════════════════════════════════════ */
+  .dashboard {
+    width: 1920px;
+    height: 1080px;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: 44px 1fr 1fr 110px;
+    gap: 6px;
+    padding: 6px;
+    background:
+      radial-gradient(ellipse 60% 40% at 25% 40%, var(--g-glow), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 75% 40%, var(--r-glow), transparent 70%),
+      var(--void);
+  }
+
+  /* ════════════════════════════════════════
+     TOP BAR
+     ════════════════════════════════════════ */
+  .topbar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .topbar-left, .topbar-center, .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sym-tab {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--t3);
+    cursor: pointer;
+    transition: all .25s;
+    background: transparent;
+  }
+  .sym-tab.active {
+    color: var(--t1);
+    border-color: var(--t2);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .time-tab {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--t3);
+    cursor: pointer;
+    transition: all .25s;
+    background: transparent;
+  }
+  .time-tab.active {
+    color: var(--gold);
+    border-color: var(--gold-dim);
+    background: rgba(240,192,64,0.06);
+  }
+
+  .oi-display {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--t3);
+    margin-right: 12px;
+  }
+  .oi-display .oi-val {
+    color: var(--t2);
+    font-weight: 500;
+  }
+  .oi-display .oi-age {
+    color: var(--t4);
+    font-size: 9px;
+    margin-left: 4px;
+  }
+
+  .funding-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    animation: badge-glow 4s ease-in-out infinite;
+  }
+  @keyframes badge-glow {
+    0%, 100% { box-shadow: 0 0 0 transparent; }
+    50%      { box-shadow: 0 0 8px rgba(240,192,64,0.1); }
+  }
+
+  /* ════════════════════════════════════════
+     SIDE PANELS (shared)
+     ════════════════════════════════════════ */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--t4);
+    margin-bottom: 4px;
+  }
+
+  /* ── Left Top: Long Accumulation ── */
+  .long-panel {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+  .long-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--g), transparent 80%);
+    border-radius: 10px 0 0 10px;
+    opacity: 0.6;
+  }
+  .long-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 0% 30%, var(--g-glow), transparent 60%);
+    pointer-events: none;
+  }
+
+  .accum-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .accum-title.long { color: var(--g); }
+  .accum-title.short { color: var(--r); }
+
+  .accum-value {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .accum-value.long { color: var(--g); text-shadow: 0 0 30px var(--g-glow); }
+  .accum-value.short { color: var(--r); text-shadow: 0 0 30px var(--r-glow); }
+
+  .accum-unit {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--t4);
+    letter-spacing: 2px;
+  }
+
+  .accum-rate {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--t3);
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  /* ── Right Top: Short Accumulation ── */
+  .short-panel {
+    grid-column: 10 / -1;
+    grid-row: 2;
+  }
+  .short-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--r), transparent 80%);
+    border-radius: 0 10px 10px 0;
+    opacity: 0.6;
+  }
+  .short-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 100% 30%, var(--r-glow), transparent 60%);
+    pointer-events: none;
+  }
+  .short-panel .accum-value,
+  .short-panel .accum-title,
+  .short-panel .accum-unit,
+  .short-panel .accum-rate {
+    text-align: right;
+  }
+  .short-panel .panel-label { text-align: right; }
+
+  /* ── Left Bottom: Large Trades ── */
+  .trades-panel {
+    grid-column: 1 / 4;
+    grid-row: 3;
+  }
+
+  .event-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    flex: 1;
+  }
+
+  .event-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    transition: all .3s;
+  }
+  .event-item:nth-child(1) { opacity: 1; }
+  .event-item:nth-child(2) { opacity: 0.6; }
+  .event-item:nth-child(3) { opacity: 0.35; }
+
+  .event-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .event-dot.buy { background: var(--g); box-shadow: 0 0 8px var(--g-dim); }
+  .event-dot.sell { background: var(--r); box-shadow: 0 0 8px var(--r-dim); }
+
+  .event-text { color: var(--t2); flex: 1; }
+  .event-text .ev-dir { font-weight: 600; }
+  .event-text .ev-dir.buy { color: var(--g); }
+  .event-text .ev-dir.sell { color: var(--r); }
+  .event-time {
+    font-size: 9px;
+    color: var(--t4);
+    white-space: nowrap;
+  }
+
+  /* ── Right Bottom: Liquidations ── */
+  .liq-panel {
+    grid-column: 10 / -1;
+    grid-row: 3;
+  }
+
+  .liq-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+  }
+  .liq-item:nth-child(1) { opacity: 1; }
+  .liq-item:nth-child(2) { opacity: 0.55; }
+  .liq-item:nth-child(3) { opacity: 0.3; }
+
+  .liq-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .liq-text { color: var(--t2); flex: 1; }
+  .liq-text .liq-type { font-weight: 600; }
+  .liq-text .liq-type.long-liq { color: var(--r); }
+  .liq-text .liq-type.short-liq { color: var(--g); }
+  .liq-amount { font-weight: 600; }
+  .liq-amount.long-liq { color: var(--r); }
+  .liq-amount.short-liq { color: var(--g); }
+  .liq-time { font-size: 9px; color: var(--t4); white-space: nowrap; }
+
+  /* ════════════════════════════════════════
+     MAIN CORE
+     ════════════════════════════════════════ */
+  .main-core {
+    grid-column: 4 / 10;
+    grid-row: 2 / 4;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    padding: 20px 24px 16px;
+  }
+  .main-core::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  }
+
+  /* ── Gauge Area ── */
+  .gauge-area {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .gauge-container {
+    position: relative;
+    width: 480px;
+    height: 280px;
+  }
+
+  .gauge-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Needle */
+  .needle-assembly {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .needle-line {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    height: 180px;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(-15deg);
+    animation: needle-slow-drift 10s ease-in-out infinite;
+  }
+  .needle-line::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.85), rgba(255,255,255,0.1));
+    border-radius: 1px;
+  }
+  .needle-line::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 0 12px rgba(255,255,255,0.3);
+  }
+  .needle-pivot {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    box-shadow: 0 0 12px rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  @keyframes needle-slow-drift {
+    0%   { transform: translateX(-50%) rotate(-15deg); }
+    20%  { transform: translateX(-50%) rotate(-8deg); }
+    40%  { transform: translateX(-50%) rotate(-18deg); }
+    60%  { transform: translateX(-50%) rotate(-5deg); }
+    80%  { transform: translateX(-50%) rotate(-20deg); }
+    100% { transform: translateX(-50%) rotate(-15deg); }
+  }
+
+  /* Tug of War */
+  .tug-wrap {
+    position: absolute;
+    bottom: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 180px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  .tug-line-bg {
+    position: absolute;
+    top: 50%; left: 18px; right: 18px;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-50%);
+  }
+  .tug-line-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--g-dim), transparent 40%, transparent 60%, var(--r-dim));
+  }
+
+  .tug-node {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translateY(-50%);
+  }
+  .tug-node.tug-l {
+    left: 10px;
+    background: var(--g);
+    box-shadow: 0 0 10px var(--g-dim);
+    animation: tug-l 4s ease-in-out infinite;
+  }
+  .tug-node.tug-r {
+    right: 10px;
+    background: var(--r);
+    box-shadow: 0 0 10px var(--r-dim);
+    animation: tug-r 4s ease-in-out infinite;
+  }
+  .tug-center-pt {
+    position: absolute;
+    top: 50%; left: calc(50% - 5px);
+    transform: translateY(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.65);
+    box-shadow: 0 0 8px rgba(255,255,255,0.2);
+    animation: tug-vib 0.12s linear infinite;
+  }
+
+  .tug-mark {
+    position: absolute;
+    top: 50%;
+    width: 2px;
+    height: 6px;
+    border-radius: 1px;
+    transform: translateY(-50%);
+    opacity: 0.12;
+  }
+  .tug-mark:nth-of-type(1) { left: 32%; background: var(--g); animation: flick 2.5s ease infinite; }
+  .tug-mark:nth-of-type(2) { left: 40%; background: rgba(255,255,255,0.3); animation: flick 2.5s ease infinite .4s; }
+  .tug-mark:nth-of-type(3) { right: 40%; background: rgba(255,255,255,0.3); animation: flick 2.5s ease infinite .8s; }
+  .tug-mark:nth-of-type(4) { right: 32%; background: var(--r); animation: flick 2.5s ease infinite 1.2s; }
+
+  @keyframes tug-l {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    30%      { transform: translateY(-50%) translateX(-3px); }
+    60%      { transform: translateY(-50%) translateX(2px); }
+  }
+  @keyframes tug-r {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    30%      { transform: translateY(-50%) translateX(3px); }
+    60%      { transform: translateY(-50%) translateX(-2px); }
+  }
+  @keyframes tug-vib {
+    0%   { transform: translateY(-50%) translateX(-0.8px); }
+    50%  { transform: translateY(-50%) translateX(0.8px); }
+  }
+  @keyframes flick {
+    0%, 100% { opacity: 0.08; }
+    50%      { opacity: 0.28; }
+  }
+
+  /* Gauge labels */
+  .gauge-label {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+  }
+  .gauge-label.gl-long {
+    bottom: 22px;
+    left: calc(50% - 200px);
+    color: rgba(0,232,135,0.35);
+  }
+  .gauge-label.gl-short {
+    bottom: 22px;
+    right: calc(50% - 210px);
+    color: rgba(255,59,92,0.35);
+  }
+
+  /* ── Mini Charts ── */
+  .mini-charts {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .mini-chart {
+    background: rgba(255,255,255,0.015);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px 6px;
+    height: 100px;
+  }
+  .mini-chart-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--t4);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .mini-chart svg { width: 100%; height: 60px; }
+
+  /* ════════════════════════════════════════
+     PATTERN STRIP
+     ════════════════════════════════════════ */
+  .pattern-strip {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .pattern-title {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--t4);
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .pattern-cards {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .pattern-card {
+    flex: 1;
+    max-width: 200px;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: opacity .3s;
+  }
+  .pattern-card:nth-child(5) {
+    opacity: 0.45;
+  }
+
+  .pattern-card svg { width: 100%; height: 42px; margin-bottom: 4px; }
+
+  .pattern-pct {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pattern-pct.pos { color: var(--g); }
+  .pattern-pct.neg { color: var(--r); }
+
+  .pattern-date {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--t4);
+    letter-spacing: 1px;
+  }
+
+  /* ════════════════════════════════════════
+     AMBIENT SCANLINES (ultra subtle)
+     ════════════════════════════════════════ */
+  .dashboard::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+
+  <!-- ═══════ TOP BAR ═══════ -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="sym-tab active">BTC</button>
+      <button class="sym-tab">ENA</button>
+    </div>
+    <div class="topbar-center">
+      <button class="time-tab active">0</button>
+      <button class="time-tab">1m</button>
+      <button class="time-tab">5m</button>
+      <button class="time-tab">30m</button>
+      <button class="time-tab">1h</button>
+    </div>
+    <div class="topbar-right">
+      <span class="oi-display">
+        OI: <span class="oi-val">142,381</span>
+        <span class="oi-age">(12s ago)</span>
+      </span>
+      <span class="funding-badge">FUNDING 0.01%</span>
+    </div>
+  </div>
+
+  <!-- ═══════ LEFT TOP: LONG ACCUMULATION ═══════ -->
+  <div class="panel long-panel">
+    <div class="panel-label">accumulation</div>
+    <div class="accum-title long">LONG</div>
+    <div class="accum-value long">+2,412,847</div>
+    <div class="accum-unit">USD</div>
+    <div class="accum-rate">▲ +82K / s</div>
+  </div>
+
+  <!-- ═══════ LEFT BOTTOM: LARGE TRADES ═══════ -->
+  <div class="panel trades-panel">
+    <div class="panel-label">large trades</div>
+    <div class="event-stack">
+      <div class="event-item">
+        <div class="event-dot buy"></div>
+        <div class="event-text"><span class="ev-dir buy">BUY</span> 142 BTC</div>
+        <div class="event-time">3s</div>
+      </div>
+      <div class="event-item">
+        <div class="event-dot buy"></div>
+        <div class="event-text"><span class="ev-dir buy">BUY</span> ×3 (+89 BTC)</div>
+        <div class="event-time">12s</div>
+      </div>
+      <div class="event-item">
+        <div class="event-dot sell"></div>
+        <div class="event-text"><span class="ev-dir sell">SELL</span> 67 BTC</div>
+        <div class="event-time">28s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ MAIN CORE ═══════ -->
+  <div class="main-core">
+    <div class="gauge-area">
+      <div class="gauge-container">
+
+        <!-- Gauge SVG — true semicircle -->
+        <svg class="gauge-svg" viewBox="0 0 480 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Glow filters -->
+            <filter id="glow-g" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glow-r" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Outer faint guide ring -->
+          <path d="M 30 250 A 210 210 0 0 1 450 250"
+                stroke="rgba(255,255,255,0.025)" stroke-width="1" fill="none"/>
+
+          <!--
+            Gauge arc: center=(240,250), radius=195
+            180° = left (30,250) to 0° = right (450,250)
+            5 segments of 36° each
+          -->
+
+          <!-- Segment 1: Strong Long (180° → 144°) -->
+          <path d="M 45.27 250 A 195 195 0 0 1 97.24 136.53"
+                stroke="rgba(0,232,135,0.6)" stroke-width="8" stroke-linecap="round" fill="none"
+                filter="url(#glow-g)"/>
+
+          <!-- Segment 2: Moderate Long (144° → 108°) -->
+          <path d="M 100.7 133.6 A 195 195 0 0 1 179.74 72.72"
+                stroke="rgba(0,232,135,0.25)" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+          <!-- Segment 3: Neutral (108° → 72°) -->
+          <path d="M 183.9 70.9 A 195 195 0 0 1 296.1 70.9"
+                stroke="rgba(240,192,64,0.2)" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+          <!-- Segment 4: Moderate Short (72° → 36°) -->
+          <path d="M 300.26 72.72 A 195 195 0 0 1 379.3 133.6"
+                stroke="rgba(255,59,92,0.25)" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+          <!-- Segment 5: Strong Short (36° → 0°) -->
+          <path d="M 382.76 136.53 A 195 195 0 0 1 434.73 250"
+                stroke="rgba(255,59,92,0.6)" stroke-width="8" stroke-linecap="round" fill="none"
+                filter="url(#glow-r)"/>
+
+          <!-- Tick marks -->
+          <line x1="45" y1="250" x2="55" y2="250" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+          <line x1="97" y1="137" x2="103" y2="142" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+          <line x1="240" y1="55" x2="240" y2="65" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+          <line x1="383" y1="137" x2="377" y2="142" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+          <line x1="435" y1="250" x2="425" y2="250" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+
+        </svg>
+
+        <!-- Needle -->
+        <div class="needle-assembly">
+          <div class="needle-line"></div>
+          <div class="needle-pivot"></div>
+        </div>
+
+        <!-- Tug-of-War -->
+        <div class="tug-wrap">
+          <div class="tug-line-bg"></div>
+          <div class="tug-node tug-l"></div>
+          <div class="tug-node tug-r"></div>
+          <div class="tug-mark"></div>
+          <div class="tug-mark"></div>
+          <div class="tug-mark"></div>
+          <div class="tug-mark"></div>
+          <div class="tug-center-pt"></div>
+        </div>
+
+        <!-- Labels -->
+        <span class="gauge-label gl-long">LONG</span>
+        <span class="gauge-label gl-short">SHORT</span>
+      </div>
+    </div>
+
+    <!-- Mini Charts -->
+    <div class="mini-charts">
+      <!-- OI Change -->
+      <div class="mini-chart">
+        <div class="mini-chart-label">OI Change</div>
+        <svg viewBox="0 0 200 60" preserveAspectRatio="none">
+          <polyline points="0,45 20,42 40,38 60,40 80,32 100,28 120,22 140,25 160,20 180,22 200,18"
+                    fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+          <polyline points="0,45 20,42 40,38 60,40 80,32 100,28 120,22 140,25 160,20 180,22 200,18"
+                    fill="url(#oi-fill)" stroke="none"/>
+          <defs>
+            <linearGradient id="oi-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.06)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+            </linearGradient>
+          </defs>
+          <!-- close the fill area -->
+          <polygon points="0,45 20,42 40,38 60,40 80,32 100,28 120,22 140,25 160,20 180,22 200,18 200,60 0,60"
+                   fill="rgba(255,255,255,0.03)"/>
+        </svg>
+      </div>
+
+      <!-- Volume -->
+      <div class="mini-chart">
+        <div class="mini-chart-label">Volume</div>
+        <svg viewBox="0 0 200 60" preserveAspectRatio="none">
+          <rect x="5"   y="38" width="12" height="22" rx="1" fill="rgba(0,232,135,0.25)"/>
+          <rect x="22"  y="30" width="12" height="30" rx="1" fill="rgba(0,232,135,0.3)"/>
+          <rect x="39"  y="42" width="12" height="18" rx="1" fill="rgba(255,59,92,0.25)"/>
+          <rect x="56"  y="20" width="12" height="40" rx="1" fill="rgba(0,232,135,0.4)"/>
+          <rect x="73"  y="35" width="12" height="25" rx="1" fill="rgba(0,232,135,0.25)"/>
+          <rect x="90"  y="44" width="12" height="16" rx="1" fill="rgba(255,59,92,0.2)"/>
+          <rect x="107" y="40" width="12" height="20" rx="1" fill="rgba(255,59,92,0.25)"/>
+          <rect x="124" y="25" width="12" height="35" rx="1" fill="rgba(0,232,135,0.35)"/>
+          <rect x="141" y="32" width="12" height="28" rx="1" fill="rgba(0,232,135,0.3)"/>
+          <rect x="158" y="10" width="12" height="50" rx="1" fill="rgba(0,232,135,0.5)"/>
+          <rect x="175" y="28" width="12" height="32" rx="1" fill="rgba(0,232,135,0.35)"/>
+        </svg>
+      </div>
+
+      <!-- Liquidations -->
+      <div class="mini-chart">
+        <div class="mini-chart-label">Liquidations</div>
+        <svg viewBox="0 0 200 60" preserveAspectRatio="none">
+          <!-- Long liquidations (red area) -->
+          <polygon points="0,58 20,55 40,50 60,52 80,40 100,45 120,30 140,42 160,48 180,35 200,50 200,60 0,60"
+                   fill="rgba(255,59,92,0.15)"/>
+          <polyline points="0,58 20,55 40,50 60,52 80,40 100,45 120,30 140,42 160,48 180,35 200,50"
+                    fill="none" stroke="rgba(255,59,92,0.4)" stroke-width="1"/>
+          <!-- Short liquidations (green area, smaller) -->
+          <polygon points="0,58 20,57 40,55 60,56 80,52 100,54 120,48 140,53 160,55 180,50 200,56 200,60 0,60"
+                   fill="rgba(0,232,135,0.1)"/>
+          <polyline points="0,58 20,57 40,55 60,56 80,52 100,54 120,48 140,53 160,55 180,50 200,56"
+                    fill="none" stroke="rgba(0,232,135,0.3)" stroke-width="1"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ RIGHT TOP: SHORT ACCUMULATION ═══════ -->
+  <div class="panel short-panel">
+    <div class="panel-label">accumulation</div>
+    <div class="accum-title short">SHORT</div>
+    <div class="accum-value short">-1,847,293</div>
+    <div class="accum-unit">USD</div>
+    <div class="accum-rate">▼ -64K / s</div>
+  </div>
+
+  <!-- ═══════ RIGHT BOTTOM: LIQUIDATIONS ═══════ -->
+  <div class="panel liq-panel">
+    <div class="panel-label">liquidations</div>
+    <div class="event-stack">
+      <div class="liq-item">
+        <span class="liq-icon">⚡</span>
+        <div class="liq-text"><span class="liq-type long-liq">LONG LIQ</span></div>
+        <span class="liq-amount long-liq">$890K</span>
+        <span class="liq-time">2s</span>
+      </div>
+      <div class="liq-item">
+        <span class="liq-icon">⚡</span>
+        <div class="liq-text"><span class="liq-type short-liq">SHORT LIQ</span></div>
+        <span class="liq-amount short-liq">$120K</span>
+        <span class="liq-time">41s</span>
+      </div>
+      <div class="liq-item">
+        <span class="liq-icon">⚡</span>
+        <div class="liq-text"><span class="liq-type long-liq">LONG LIQ</span></div>
+        <span class="liq-amount long-liq">$340K</span>
+        <span class="liq-time">1m</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PATTERN STRIP ═══════ -->
+  <div class="pattern-strip">
+    <div class="pattern-title">similar patterns</div>
+    <div class="pattern-cards">
+
+      <!-- Pattern 1 -->
+      <div class="pattern-card">
+        <svg viewBox="0 0 140 42" preserveAspectRatio="none">
+          <polygon points="0,40 20,32 40,28 60,22 80,18 100,24 120,20 140,16 140,42 0,42"
+                   fill="rgba(0,232,135,0.15)"/>
+          <polyline points="0,40 20,32 40,28 60,22 80,18 100,24 120,20 140,16"
+                    fill="none" stroke="rgba(0,232,135,0.4)" stroke-width="1"/>
+          <polygon points="0,40 20,36 40,34 60,30 80,32 100,28 120,30 140,26 140,42 0,42"
+                   fill="rgba(255,59,92,0.12)"/>
+          <polyline points="0,40 20,36 40,34 60,30 80,32 100,28 120,30 140,26"
+                    fill="none" stroke="rgba(255,59,92,0.35)" stroke-width="1"/>
+        </svg>
+        <div class="pattern-pct pos">+2.1%</div>
+        <div class="pattern-date">2025.01.08</div>
+      </div>
+
+      <!-- Pattern 2 -->
+      <div class="pattern-card">
+        <svg viewBox="0 0 140 42" preserveAspectRatio="none">
+          <polygon points="0,30 20,26 40,22 60,28 80,32 100,35 120,34 140,38 140,42 0,42"
+                   fill="rgba(0,232,135,0.12)"/>
+          <polyline points="0,30 20,26 40,22 60,28 80,32 100,35 120,34 140,38"
+                    fill="none" stroke="rgba(0,232,135,0.35)" stroke-width="1"/>
+          <polygon points="0,34 20,30 40,26 60,24 80,22 100,26 120,24 140,28 140,42 0,42"
+                   fill="rgba(255,59,92,0.15)"/>
+          <polyline points="0,34 20,30 40,26 60,24 80,22 100,26 120,24 140,28"
+                    fill="none" stroke="rgba(255,59,92,0.4)" stroke-width="1"/>
+        </svg>
+        <div class="pattern-pct neg">-0.8%</div>
+        <div class="pattern-date">2024.12.22</div>
+      </div>
+
+      <!-- Pattern 3 -->
+      <div class="pattern-card">
+        <svg viewBox="0 0 140 42" preserveAspectRatio="none">
+          <polygon points="0,38 20,30 40,20 60,14 80,10 100,12 120,8 140,6 140,42 0,42"
+                   fill="rgba(0,232,135,0.18)"/>
+          <polyline points="0,38 20,30 40,20 60,14 80,10 100,12 120,8 140,6"
+                    fill="none" stroke="rgba(0,232,135,0.45)" stroke-width="1"/>
+          <polygon points="0,40 20,38 40,35 60,32 80,34 100,30 120,32 140,28 140,42 0,42"
+                   fill="rgba(255,59,92,0.1)"/>
+          <polyline points="0,40 20,38 40,35 60,32 80,34 100,30 120,32 140,28"
+                    fill="none" stroke="rgba(255,59,92,0.3)" stroke-width="1"/>
+        </svg>
+        <div class="pattern-pct pos">+4.2%</div>
+        <div class="pattern-date">2024.12.03</div>
+      </div>
+
+      <!-- Pattern 4 -->
+      <div class="pattern-card">
+        <svg viewBox="0 0 140 42" preserveAspectRatio="none">
+          <polygon points="0,28 20,30 40,34 60,36 80,38 100,35 120,38 140,40 140,42 0,42"
+                   fill="rgba(0,232,135,0.1)"/>
+          <polyline points="0,28 20,30 40,34 60,36 80,38 100,35 120,38 140,40"
+                    fill="none" stroke="rgba(0,232,135,0.3)" stroke-width="1"/>
+          <polygon points="0,24 20,22 40,20 60,18 80,22 100,20 120,22 140,24 140,42 0,42"
+                   fill="rgba(255,59,92,0.18)"/>
+          <polyline points="0,24 20,22 40,20 60,18 80,22 100,20 120,22 140,24"
+                    fill="none" stroke="rgba(255,59,92,0.45)" stroke-width="1"/>
+        </svg>
+        <div class="pattern-pct neg">-1.3%</div>
+        <div class="pattern-date">2024.11.15</div>
+      </div>
+
+      <!-- Pattern 5 (oldest — dimmed) -->
+      <div class="pattern-card">
+        <svg viewBox="0 0 140 42" preserveAspectRatio="none">
+          <polygon points="0,36 20,32 40,28 60,26 80,24 100,26 120,22 140,20 140,42 0,42"
+                   fill="rgba(0,232,135,0.12)"/>
+          <polyline points="0,36 20,32 40,28 60,26 80,24 100,26 120,22 140,20"
+                    fill="none" stroke="rgba(0,232,135,0.35)" stroke-width="1"/>
+          <polygon points="0,38 20,36 40,34 60,32 80,30 100,32 120,30 140,28 140,42 0,42"
+                   fill="rgba(255,59,92,0.1)"/>
+          <polyline points="0,38 20,36 40,34 60,32 80,30 100,32 120,30 140,28"
+                    fill="none" stroke="rgba(255,59,92,0.3)" stroke-width="1"/>
+        </svg>
+        <div class="pattern-pct pos">+0.5%</div>
+        <div class="pattern-date">2024.10.29</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

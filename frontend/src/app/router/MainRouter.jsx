@@ -9,6 +9,7 @@ import ErrorTest from '../../page/error/ErrorTest.tsx';
 import TestTest from '../../page/error/TestTest.jsx';
 import BinancePage from '../../page/binance/BinancePage.jsx';
 import TradePage from '../../page/trade/TradePage.jsx';
+import SignalPage from '../../page/signal/SignalPage.jsx';
 
 function MainRouter() {
     return (
@@ -22,6 +23,9 @@ function MainRouter() {
 
                 {/* Binance 페이지 (경로 변경: / → /binance) */}
                 <Route path="/binance" element={<BinancePage />} />
+
+                {/* Signal 페이지 */}
+                <Route path="/signal" element={<SignalPage />} />
 
                 {/* Cesium 페이지 */}
                 <Route path="/cesium" element={<CesiumPage />} />

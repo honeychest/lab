@@ -1,3 +1,6 @@
+// [AGENT] 역할: aggTrade Redis 큐 적재 + DB 배치 flush 서비스 | 연관파일: AggTradeStreamService.java(→enqueue), AggTradeFlushScheduler.java(→doFlush), AggTradeConfigService.java, AggTradeBackfillService.java, AggTradeCollectStatusRepository.java
+// 핵심흐름: enqueue(json) → Redis SETNX dedup → RPUSH 큐 → 임계치 초과 시 flush | doFlush() → 리더만 실행, LPOP batch → JSON→Entity → JDBC batchInsert(ON DUPLICATE KEY) → checkpoint·collect_status 갱신
+// 큐 경고: 60% info, 90% error (Telegram), 100% 차단
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;
@@ -45,6 +48,9 @@ public class AggTradeStorageService {
     @Value("${binance.agg-trade.save.enabled:true}")
     private boolean aggTradeSaveEnabled;
 
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
+
     private final ScheduledExecutorService flushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "aggtrade-flush");
         t.setDaemon(false);
@@ -67,6 +73,10 @@ public class AggTradeStorageService {
 
     public ScheduledExecutorService getFlushExecutor() {
         return flushExecutor;
+    }
+
+    private boolean isLocalProfile() {
+        return "local".equalsIgnoreCase(activeProfile);
     }
 
     /**
@@ -137,7 +147,7 @@ public class AggTradeStorageService {
      * 단일 스레드 executor에서만 실행되는 flush 로직.
      */
     public void doFlush() {
-        if (!aggTradeSaveEnabled || !leaderElectionService.isLeader()) {
+        if (!aggTradeSaveEnabled || !leaderElectionService.isLeader() || isLocalProfile()) {
             return;
         }
         try {
@@ -174,6 +184,7 @@ public class AggTradeStorageService {
                     long startMs = System.currentTimeMillis();
                     try {
                         batchInsert(entities, startMs);
+                        // DB insert 성공 시에만 checkpoint 업데이트
                         updateCheckpoints(entities);
 
                         Long remain = redisTemplate.opsForList().size(QUEUE_KEY);
@@ -189,8 +200,9 @@ public class AggTradeStorageService {
                                 entities.size(), remainCount, bySymbolMarket);
                     } catch (Exception ex) {
                         long elapsed = System.currentTimeMillis() - startMs;
-                        log.error("[AggTrade] 배치 insert 실패: {}건, {}ms", entities.size(), elapsed, ex);
-                        TelegramLog.error("[AggTrade] 배치 insert 실패: " + entities.size() + "건, " + elapsed + "ms");
+                        log.error("[AggTrade] 배치 insert 실패: {}건, {}ms, checkpoint 업데이트 스킵", entities.size(), elapsed, ex);
+                        TelegramLog.error("[AggTrade] 배치 insert 실패: " + entities.size() + "건, " + elapsed + "ms, checkpoint 업데이트 스킵");
+                        // checkpoint 업데이트 안 함 → 다음 flush에서 재시도
                     }
                 }
                 if (values.size() < batchSize) {

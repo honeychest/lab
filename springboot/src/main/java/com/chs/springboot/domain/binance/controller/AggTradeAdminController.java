@@ -1,3 +1,5 @@
+// [AGENT] 역할: aggTrade 수집 설정 어드민 API | 연관파일: AggTradeConfigService.java
+// 엔드포인트: GET /admin/aggtrade/config (현재 설정 조회), PATCH /admin/aggtrade/config (설정 변경 — maxQueueSize·flushThreshold·batchSize·flushIntervalSec·dedupTtlSec·weightPerMinute)
 package com.chs.springboot.domain.binance.controller;
 
 import com.chs.springboot.domain.binance.service.AggTradeConfigService;

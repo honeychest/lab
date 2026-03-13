@@ -8,8 +8,9 @@ import axios from 'axios';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
-    { label: 'Trade',   path: '/trade' },
     { label: 'Binance', path: '/binance' },
+    { label: 'Trade',   path: '/trade' },
+    { label: 'Signal',  path: '/signal' },
     { label: 'Cesium',  path: '/cesium' },
 ];
 

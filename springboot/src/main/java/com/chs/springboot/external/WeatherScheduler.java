@@ -88,7 +88,7 @@ public class WeatherScheduler {
      * WeatherService 내부에서 DB 우선 조회 → 없으면 API 호출 → DB 저장.
      * 스케줄러는 이 메서드 하나만 호출하면 수집부터 저장까지 모두 처리됨.
      */
-    @Scheduled(cron = "0 0/10 * * * *")
+    @Scheduled(cron = "0 2/10 * * * *")
     public void collectWeatherData() {
         // 런타임에 시스템 프로퍼티 직접 확인 (DotenvConfig 로드 타이밍 문제 회피)
         if (!"true".equalsIgnoreCase(System.getProperty("SCHEDULING_ENABLED"))) {
