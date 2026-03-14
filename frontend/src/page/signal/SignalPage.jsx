@@ -102,6 +102,7 @@ export default function SignalPage() {
         const value = qty * price;
 
         if (latest.isBuyerMaker) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setShortEnergy((prev) => prev + value);
             setShortTrades((prev) => [...prev, latest].slice(-20));
         } else {
@@ -123,6 +124,7 @@ export default function SignalPage() {
         const value = qty * price;
 
         if (latest.side === 'SELL') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLongEnergy((prev) => Math.max(0, prev - value));
             setLongLiqTotal((prev) => prev + value);
             setLongLiqEvents((prev) => [latest, ...prev].slice(0, 50));
@@ -139,6 +141,7 @@ export default function SignalPage() {
 
         if (latestOi.symbol !== symbol) return;
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setOiDataHistory((prev) => {
             const updated = [...prev, latestOi].slice(-500); // 최근 500개 유지 (5분봉 40h = 480개)
             return updated;

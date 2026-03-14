@@ -1,5 +1,5 @@
 // [AGENT] Signal Dashboard EnergyGauge — ECharts Grade Gauge (뒤집힌 반원, 중앙 아래)
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 
 const getRealColor = (ratio) => {
@@ -15,7 +15,11 @@ export default function EnergyGauge({ longEnergy, shortEnergy, compact = false }
     const prevRatioRef = useRef(50);
     const realRatioRef = useRef(50);
     const jitterTimerRef = useRef(null);
-    const [labelState, setLabelState] = useState({ text: 'Long', color: getRealColor(50) });
+
+    const _total = longEnergy + shortEnergy;
+    const _ratio = _total > 0 ? (shortEnergy / _total) * 100 : 50;
+    const labelText = _ratio <= 50 ? 'Long' : 'Short';
+    const labelColor = getRealColor(_ratio);
 
     useEffect(() => {
         if (!chartRef.current) return;
@@ -100,8 +104,6 @@ export default function EnergyGauge({ longEnergy, shortEnergy, compact = false }
         const shortRatio = total > 0 ? (shortEnergy / total) * 100 : prevRatioRef.current;
         prevRatioRef.current = shortRatio;
         realRatioRef.current = shortRatio;
-        setLabelState({ text: shortRatio <= 50 ? 'Long' : 'Short', color: getRealColor(shortRatio) });
-
         instanceRef.current.setOption({
             series: [{
                 data: [{ value: shortRatio }],
@@ -143,11 +145,11 @@ export default function EnergyGauge({ longEnergy, shortEnergy, compact = false }
                 transform: 'translate(-50%, -50%)',
                 fontSize: compact ? 13 : 16,
                 fontWeight: 'bold',
-                color: labelState.color,
+                color: labelColor,
                 pointerEvents: 'none',
                 fontFamily: "'Pretendard', sans-serif",
             }}>
-                {labelState.text}
+                {labelText}
             </div>
         </div>
     );

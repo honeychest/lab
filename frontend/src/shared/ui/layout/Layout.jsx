@@ -29,7 +29,8 @@ function Layout({ children, footerCenter = [] }) {
         }
     }, [guestToken]);
 
-    // 페이지 로드 시 문의 목록 조회
+    // 페이지 로드 시 문의 목록 조회 (loadInquiries는 async — setState가 비동기로 호출됨)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadInquiries(); }, [loadInquiries]);
 
     // SSE 구독 — 답장 도착 시 실시간으로 목록 갱신
