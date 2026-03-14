@@ -186,8 +186,8 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨
-            rm -rf ~/project/home/backend/build/libs/*
-            rm -rf ~/project/home/frontend/from_actions/*
+            rm -rf /home/ubuntu/project/home/backend/build/libs/*
+            rm -rf /home/ubuntu/project/home/frontend/from_actions/*
 
       - name: Copy JAR to Server # 백엔드를 서버로 전송
         uses: appleboy/scp-action@master
@@ -196,7 +196,7 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./artifacts/springboot-jar/*.jar"
-          target: "~/project/home/springboot/build/libs/" #서버의 jar 위치 Dockerfile 이 사용
+          target: "/home/ubuntu/project/home/springboot/build/libs/" #서버의 jar 위치 Dockerfile 이 사용
           strip_components: 1 # 바로 위 폴더명 무시 (springboot-jar 는여기서 이름으로 사용하려다 만든것 뿐)
 
       - name: Copy Frontend to Server # 프론트엔드를 서버로 전송
@@ -206,7 +206,7 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./artifacts/frontend-dist/*"
-          target: "~/project/home/frontend/from_actions/"
+          target: "/home/ubuntu/project/home/frontend/from_actions/"
       - name: Deploy to Server # 서버에 배포전용 유저로 배포하기
         uses: appleboy/ssh-action@master
         with:
@@ -214,5 +214,5 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨
-            ~/project/home/springboot/deploy-back-only.sh
-            ~/project/home/frontend/deploy-front-only.sh
+            /home/ubuntu/project/home/springboot/deploy-back-only.sh
+            /home/ubuntu/project/home/frontend/deploy-front-only.sh
