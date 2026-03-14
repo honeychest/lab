@@ -12,7 +12,7 @@ on: # 워크플로우가 실행되는 트리거(조건) 설정
     paths:
       - "frontend/**"
       - "springboot/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/ci-play.yml"
   workflow_dispatch: # Actions 탭에서 수동으로 실행 가능하게 함
     inputs: # 수동 실행 시 받을 입력값 정의
       run_frontend: # 프론트엔드 실행 여부 선택
