@@ -207,6 +207,7 @@ jobs: # 실행할 작업 단위(Job)들
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./artifacts/frontend-dist/*"
           target: "/home/ubuntu/project/home/frontend/from_actions/"
+          strip_components: 2
       - name: Deploy to Server # 서버에 배포전용 유저로 배포하기
         uses: appleboy/ssh-action@master
         with:
