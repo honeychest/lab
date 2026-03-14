@@ -93,7 +93,7 @@ jobs: # 실행할 작업 단위(Job)들
         run: npm run build # 빌드
 
       - name: Upload frontend artifact # 결과물 저장
-        if: matrix.node == 24 # 노드 20 버전에서만 실행
+        if: matrix.node == 24 # 노드 24 버전에서만 실행
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist # Deploy Job 머신이 참조하는게 여기의 이름임

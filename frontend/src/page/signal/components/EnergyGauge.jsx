@@ -127,7 +127,7 @@ export default function EnergyGauge({ longEnergy, shortEnergy, compact = false }
                 });
             }, 100);
         }
-    }, [longEnergy, shortEnergy]);
+    }, [longEnergy, shortEnergy, compact]);
 
     useEffect(() => {
         return () => { if (jitterTimerRef.current) clearInterval(jitterTimerRef.current); };
