@@ -1,0 +1,190 @@
+name: Monorepo CI Playground # GitHub Actions 탭에 표시될 워크플로우의 이름
+
+on: # 워크플로우가 실행되는 트리거(조건) 설정
+  pull_request: # PR 생성/수정 시 실행
+    paths: # 특정 폴더 내의 파일이 변경되었을 때만 트리거
+      - "frontend/**"
+      - "springboot/**"
+      - ".github/workflows/ci-play.yml"
+  push: # 메인 브랜치에 코드 푸시 시 실행
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - "springboot/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch: # Actions 탭에서 수동으로 실행 가능하게 함
+    inputs: # 수동 실행 시 받을 입력값 정의
+      run_frontend: # 프론트엔드 실행 여부 선택
+        description: "Run frontend jobs" # 실행 화면에 표시될 설명 문구
+        required: false # 필수 입력값이 아님
+        default: true # 수동 실행 시 기본적으로 체크된 상태로 시작
+        type: boolean # 입력 타입을 불리언(true/false)으로 제한
+      run_backend: # 백엔드 실행 여부 선택
+        description: "Run backend jobs"
+        required: false
+        default: true
+        type: boolean
+
+concurrency: # 중복 실행 방지 설정
+  group: ci-${{ github.workflow }}-${{ github.ref }} # 그룹명: 워크플로우명 + 브랜치명
+  cancel-in-progress: true # 실행 중인 동일 그룹 작업이 있으면 새로 실행될 때 취소
+
+permissions: # GITHUB_TOKEN의 권한 설정
+  contents: read # 코드 읽기 권한만 부여
+
+jobs: # 실행할 작업 단위(Job)들
+  changes: # 변경된 폴더를 감지하는 첫 번째 작업
+    name: Detect changed areas # 작업 이름
+    runs-on: ubuntu-latest # 실행 환경
+    outputs: # 다른 작업(frontend, backend)에서 사용할 출력값 정의
+      frontend: ${{ steps.filter.outputs.frontend }}
+      springboot: ${{ steps.filter.outputs.springboot }}
+    steps:
+      - name: Checkout # 소스 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: Detect path changes # 실제 변경된 파일 필터링
+        id: filter # step의 식별자
+        uses: dorny/paths-filter@v3 # 외부 경로 필터 액션 사용
+        with:
+          filters: | # 변경사항 감지 규칙 정의
+            frontend:
+              - 'frontend/**'
+            springboot:
+              - 'springboot/**'
+
+  frontend: # 프론트엔드 빌드 작업
+    name: Frontend (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    needs: changes # 'changes' 작업이 먼저 완료되어야 함
+    if: | # 조건부 실행
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.frontend == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_frontend)
+    strategy: # 매트릭스 빌드 설정
+      fail-fast: false # 하나가 실패해도 나머지는 계속 실행
+      matrix: # 여러 버전에서 테스트
+        node: [20, 22]
+
+    defaults: # 공통 실행 설정
+      run:
+        working-directory: frontend # 모든 명령을 frontend 폴더 안에서 실행
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm # npm 캐시 활성화
+          cache-dependency-path: frontend/package-lock.json
+      - name: Audit dependencies
+        run: npm audit --audit-level=high #취약점 라이브러리 검사
+
+      - name: Install dependencies
+        run: npm ci # 종속성 설치
+
+      - name: Lint
+        run: npm run lint # 코드 스타일 검사
+
+      - name: Build
+        run: npm run build # 빌드
+
+      - name: Upload frontend artifact # 결과물 저장
+        if: matrix.node == 20 # 노드 20 버전에서만 실행
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error # 파일 없으면 에러 발생
+
+  backend: # 백엔드 빌드 작업
+    name: Backend (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    needs: changes
+    if: | # 조건부 실행
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.springboot == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_backend)
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [17, 21]
+
+    defaults:
+      run:
+        working-directory: springboot
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+
+      - name: Grant execute permission for Gradle wrapper # 실행 권한 부여
+        run: chmod +x gradlew
+
+      - name: Run tests
+        run: ./gradlew check --x test --no-daemon
+
+      - name: Build
+        run: ./gradlew build --no-daemon
+
+      - name: Upload backend artifact
+        if: matrix.java == 17
+        uses: actions/upload-artifact@v4
+        with:
+          name: springboot-jar
+          path: springboot/build/libs/*.jar
+          if-no-files-found: error
+
+  summary: # 최종 결과 요약 작업
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs:
+      - frontend # 프론트엔드 작업 완료 대기
+      - backend # 백엔드 작업 완료 대기
+    if: always() # 이전 작업 결과와 상관없이 항상 실행
+    steps:
+      - name: Final result
+        run: | # 셸 스크립트로 결과 출력 및 조건부 실패 처리
+          echo "Frontend result: ${{ needs.frontend.result }}"
+          echo "Backend result:  ${{ needs.backend.result }}"
+
+          if [ "${{ needs.frontend.result }}" = "failure" ] || [ "${{ needs.backend.result }}" = "failure" ]; then
+            echo "At least one required job failed."
+            exit 1 # 하나라도 실패 시 최종 상태를 failure로 설정
+          fi
+  deploy:
+    name: Deploy to AWS
+    needs: [ summary ] # CI가 성공해야 배포 시작
+    if: success() # 'summary' 작업이 성공했을때만 실행
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get my JAR # 빌드 단계에서 만든 파일 가져오기
+        uses: actions/download-artifact@v4
+        with:
+          name: springboot-jar
+          path: ./build/libs # 기본 빌드폴더
+      - name: Copy JAR to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./build/libs/*.jar"
+          target: "~project/home/springboot/build/" #서버 내 배포 폴더
+      - name: Deploy to Server # 서버에 배포전용 유저로 배포하기
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USER_DEPLOY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ~/project/home/springboot/deploy-only.sh # 서버에 있는 스크립트 실행
