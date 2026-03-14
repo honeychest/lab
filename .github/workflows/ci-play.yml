@@ -182,6 +182,9 @@ jobs: # 실행할 작업 단위(Job)들
       - name: Cleanup Sever Directories # 서버의 예전 결과물 청소
         uses: appleboy/ssh-action@master
         with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨
             rm -rf ~/project/home/backend/build/libs/*
             rm -rf ~/project/home/frontend/from_actions/*
