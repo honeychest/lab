@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import cesium from 'vite-plugin-cesium'; // 이 플러그인을 쓰면 설정이 제일 쉽습니다.
 import tailwindcss from '@tailwindcss/vite';
 import * as path from "node:path"; // v4 플러그인
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [react(), cesium(), tailwindcss()],

@@ -27,8 +27,6 @@ export default function SignalPage() {
     const [symbol, setSymbol] = useState('BTCUSDT');
     const [timeRange, setTimeRange] = useState(() => localStorage.getItem('signal_timeRange') || TIME_RANGES[Math.floor(TIME_RANGES.length / 2)].value);
     const [initData, setInitData] = useState(null);
-    const [historyData, setHistoryData] = useState(null);
-    const [isDesktopView, setIsDesktopView] = useState(false);
     const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
     useEffect(() => {
@@ -51,7 +49,7 @@ export default function SignalPage() {
     const abortControllerRef = useRef(null);
     const symbolDebounceRef = useRef(null);
 
-    const { aggTrades, forceOrders, latestOi, connected } = useSignalSse({ symbol });
+    const { aggTrades, forceOrders, latestOi } = useSignalSse({ symbol });
 
     useEffect(() => {
         const loadInit = async () => {
@@ -76,8 +74,6 @@ export default function SignalPage() {
                 const res = await axios.get(`/api/signal/history?symbol=${symbol}&range=${getDataRange(timeRange)}`, {
                     signal: abortControllerRef.current.signal,
                 });
-                setHistoryData(res.data);
-
                 if (res.data.longEnergy !== undefined) setLongEnergy(res.data.longEnergy);
                 if (res.data.shortEnergy !== undefined) setShortEnergy(res.data.shortEnergy);
                 if (res.data.longLiqTotal !== undefined) setLongLiqTotal(res.data.longLiqTotal);

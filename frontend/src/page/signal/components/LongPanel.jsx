@@ -1,12 +1,11 @@
 // [AGENT] Signal Dashboard LongPanel — 롱 누적 에너지 + 틱 테이프
 import { formatWithComma } from '../../../shared/lib/utils.ts';
 
-export default function LongPanel({ energy, trades, side, compact = false }) {
+export default function LongPanel({ energy, trades, compact = false }) {
     const formatEnergy = (val) => {
         return formatWithComma(Math.floor(val));
     };
 
-    const formatPrice = (price) => parseFloat(price).toFixed(2);
     const formatQty = (qty) => parseFloat(qty).toFixed(3);
 
     return (

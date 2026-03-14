@@ -21,13 +21,6 @@ const NO_MARKET = new Set(['FORCE_ORDER', 'OI']);
 // RAW_AGG_TRADE는 ID 기반, 나머지는 시간 기반
 const ID_BASED  = new Set(['RAW_AGG_TRADE']);
 
-function msToDatetimeLocal(ms) {
-    if (!ms) return '';
-    const d   = new Date(Number(ms));
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function datetimeLocalToMs(s) {
     if (!s) return null;
     return new Date(s).getTime();
