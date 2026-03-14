@@ -140,7 +140,7 @@ export default function SignalPage() {
         if (latestOi.symbol !== symbol) return;
 
         setOiDataHistory((prev) => {
-            const updated = [...prev, latestOi].slice(-100); // 최근 100개 유지
+            const updated = [...prev, latestOi].slice(-500); // 최근 500개 유지 (5분봉 40h = 480개)
             return updated;
         });
     }, [latestOi, symbol]);
