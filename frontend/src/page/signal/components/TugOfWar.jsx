@@ -44,7 +44,7 @@ export default function TugOfWar({ longEnergy, shortEnergy }) {
                 }
                 @keyframes centerVibrate {
                     0%, 100% { transform: translate(-50%, -50%) translateX(0); }
-                    50% { transform: translate(-50%, -50%) translateX(0.8px); }
+                    50% { transform: translate(-50%, -50%) translateX(1.6px); }
                 }
                 @keyframes tensionFade {
                     0%, 100% { opacity: 0.28; }
@@ -58,7 +58,7 @@ export default function TugOfWar({ longEnergy, shortEnergy }) {
                     top: '50%',
                     left: 0,
                     width: '100%',
-                    height: '1px',
+                    height: '5px',
                     background: 'linear-gradient(90deg, rgba(0,232,135,0.3) 0%, rgba(255,255,255,0.1) 50%, rgba(255,59,92,0.3) 100%)',
                     transform: 'translateY(-50%)',
                 }}
@@ -67,7 +67,7 @@ export default function TugOfWar({ longEnergy, shortEnergy }) {
             <div
                 style={{
                     position: 'absolute',
-                    top: '50%',
+                    top: '26%',
                     left: '0',
                     width: '10px',
                     height: '10px',
@@ -82,7 +82,7 @@ export default function TugOfWar({ longEnergy, shortEnergy }) {
             <div
                 style={{
                     position: 'absolute',
-                    top: '50%',
+                    top: '26%',
                     right: '0',
                     width: '10px',
                     height: '10px',
@@ -99,8 +99,8 @@ export default function TugOfWar({ longEnergy, shortEnergy }) {
                     position: 'absolute',
                     top: '50%',
                     left: `${centerPos}%`,
-                    width: '5px',
-                    height: '5px',
+                    width: '10px',
+                    height: '10px',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(255,255,255,0.65)',
                     boxShadow: '0 0 6px rgba(255,255,255,0.4)',
