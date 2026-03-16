@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +32,36 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
         @Param("symbol") String symbol,
         @Param("fromMs")  long fromMs,
         @Param("toMs")    long toMs);
+
+    // getCandles 용 — 최신 N봉 조회 (내림차순, 호출측에서 reverse 필요)
+    @Query(value = """
+        SELECT * FROM agg_trade_1m
+        WHERE symbol = :symbol
+          AND market_type = :marketType
+        ORDER BY candle_time_ms DESC
+        LIMIT :limitCount
+        """, nativeQuery = true)
+    List<AggTrade1m> findTopNBySymbolAndMarketType(
+        @Param("symbol")     String symbol,
+        @Param("marketType") String marketType,
+        @Param("limitCount") int limitCount);
+
+    // getCandles 용 — FUTURES 가격 + S+F delta 합산 (내림차순, 호출측에서 reverse 필요)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_1m f
+        JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol
+          AND f.market_type = 'FUTURES'
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price
+        ORDER BY f.candle_time_ms DESC
+        LIMIT :limitCount
+        """, nativeQuery = true)
+    List<Map<String, Object>> findTopNWithCombinedDelta(
+        @Param("symbol")     String symbol,
+        @Param("limitCount") int limitCount);
 
     @Transactional
     @Modifying

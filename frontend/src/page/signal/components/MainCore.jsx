@@ -1,9 +1,11 @@
 // [AGENT] Signal Dashboard MainCore — 중앙 컨테이너 (Gauge + TugOfWar + MiniChart)
+// [AGENT] TASK-09/10/12: symbol, divergenceData, onCandleTime props 추가
 import EnergyGauge from './EnergyGauge.jsx';
 import TugOfWar from './TugOfWar.jsx';
 import MiniChartPlaceholder from './MiniChartPlaceholder.jsx';
+import DivergenceBar from './DivergenceBar.jsx';
 
-export default function MainCore({ longEnergy, shortEnergy, fundingRate, oiData = [] }) {
+export default function MainCore({ symbol, longEnergy, shortEnergy, fundingRate, oiData = [], candleHistory = [], candleType, timeRange, displayCount, rangeMs, onCandleTime, onCandleUpdate }) {
     const getFundingBorder = () => {
         if (!fundingRate) return {};
 
@@ -74,8 +76,10 @@ export default function MainCore({ longEnergy, shortEnergy, fundingRate, oiData 
                 </div>
             </div>
 
+            <DivergenceBar candleHistory={candleHistory} rangeMs={rangeMs} />
+
             <div style={{ flex: '40%' }}>
-                <MiniChartPlaceholder oiData={oiData} />
+                <MiniChartPlaceholder oiData={oiData} symbol={symbol} candleHistory={candleHistory} candleType={candleType} timeRange={timeRange} displayCount={displayCount} rangeMs={rangeMs} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-// [AGENT] 역할: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate
+// [AGENT] 역할: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java, PatternMatchService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate, sumDivergenceBySymbolAndTimeRange, findBySymbolAndTimeRange, findDayCandlesBySymbol
 package com.chs.springboot.domain.binance.repository;
 
 import com.chs.springboot.domain.binance.model.AggTrade5m;
@@ -49,6 +49,95 @@ public interface AggTrade5mRepository extends JpaRepository<AggTrade5m, Long> {
     // calcMovingAverage 용 — 특정 시각 이후 봉 조회
     List<AggTrade5m> findBySymbolAndMarketTypeAndCandleTimeMsAfterOrderByCandleTimeMsDesc(
         String symbol, String marketType, long candleTimeMsAfter);
+
+    // getDivergence 용 — 기간 내 첫 open, 마지막 close, delta 합산
+    @Query(value = """
+        SELECT
+            (SELECT open_price FROM agg_trade_5m
+             WHERE symbol = :symbol AND candle_time_ms >= :fromMs AND candle_time_ms < :toMs
+             ORDER BY candle_time_ms ASC LIMIT 1) AS first_open,
+            (SELECT close_price FROM agg_trade_5m
+             WHERE symbol = :symbol AND candle_time_ms >= :fromMs AND candle_time_ms < :toMs
+             ORDER BY candle_time_ms DESC LIMIT 1) AS last_close,
+            COALESCE(SUM(delta), 0) AS total_delta
+        FROM agg_trade_5m
+        WHERE symbol = :symbol
+          AND candle_time_ms >= :fromMs
+          AND candle_time_ms < :toMs
+        """, nativeQuery = true)
+    Map<String, Object> sumDivergenceBySymbolAndTimeRange(
+        @Param("symbol") String symbol,
+        @Param("fromMs")  long fromMs,
+        @Param("toMs")    long toMs);
+
+    // PatternMatchService 용 — 심볼 전체 히스토리 (최근 2년) 봉 조회
+    @Query(value = """
+        SELECT * FROM agg_trade_5m
+        WHERE symbol = :symbol
+          AND candle_time_ms >= :fromMs
+        ORDER BY candle_time_ms ASC
+        """, nativeQuery = true)
+    List<AggTrade5m> findBySymbolAndTimeRange(
+        @Param("symbol") String symbol,
+        @Param("fromMs")  long fromMs);
+
+    // PatternMatchService 용 — 특정 일봉 하루치(00:00~23:59) 5분봉 조회
+    @Query(value = """
+        SELECT * FROM agg_trade_5m
+        WHERE symbol = :symbol
+          AND candle_time_ms >= :dayStartMs
+          AND candle_time_ms < :dayEndMs
+        ORDER BY candle_time_ms ASC
+        """, nativeQuery = true)
+    List<AggTrade5m> findDayCandlesBySymbol(
+        @Param("symbol")     String symbol,
+        @Param("dayStartMs") long dayStartMs,
+        @Param("dayEndMs")   long dayEndMs);
+
+    // getCandles 용 — 최신 N봉 조회 (내림차순, 호출측에서 reverse 필요)
+    @Query(value = """
+        SELECT * FROM agg_trade_5m
+        WHERE symbol = :symbol
+          AND market_type = :marketType
+        ORDER BY candle_time_ms DESC
+        LIMIT :limitCount
+        """, nativeQuery = true)
+    List<AggTrade5m> findTopNBySymbolAndMarketType(
+        @Param("symbol")     String symbol,
+        @Param("marketType") String marketType,
+        @Param("limitCount") int limitCount);
+
+    // getCandles 용 — FUTURES 가격 + S+F delta 합산 (내림차순, 호출측에서 reverse 필요)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_5m f
+        JOIN agg_trade_5m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol
+          AND f.market_type = 'FUTURES'
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price
+        ORDER BY f.candle_time_ms DESC
+        LIMIT :limitCount
+        """, nativeQuery = true)
+    List<Map<String, Object>> findTopNWithCombinedDelta(
+        @Param("symbol")     String symbol,
+        @Param("limitCount") int limitCount);
+
+    // getCandles 용 — 심볼·마켓타입·기간 내 봉 조회 (OHLC 히스토리)
+    @Query(value = """
+        SELECT * FROM agg_trade_5m
+        WHERE symbol = :symbol
+          AND market_type = :marketType
+          AND candle_time_ms >= :fromMs
+          AND candle_time_ms < :toMs
+        ORDER BY candle_time_ms ASC
+        """, nativeQuery = true)
+    List<AggTrade5m> findCandlesBySymbolAndMarketTypeAndTimeRange(
+        @Param("symbol")     String symbol,
+        @Param("marketType") String marketType,
+        @Param("fromMs")     long fromMs,
+        @Param("toMs")       long toMs);
 
     @Transactional
     @Modifying

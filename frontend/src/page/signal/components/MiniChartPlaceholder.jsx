@@ -1,5 +1,7 @@
 // [AGENT] Signal Dashboard MiniChartPlaceholder — 미니차트 자리 확보
+// [AGENT] TASK-09: FUTURES 슬롯 → CandleChart 교체
 import OiLineChart from './OiLineChart.jsx';
+import CandleChart from './CandleChart.jsx';
 
 function getLastOiValue(oiData) {
     if (!oiData || oiData.length === 0) return null;
@@ -10,7 +12,7 @@ function getLastOiValue(oiData) {
     return val.toFixed(0);
 }
 
-export default function MiniChartPlaceholder({ oiData = [] }) {
+export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistory = [], candleType, timeRange, displayCount, rangeMs, onCandleTime, onCandleUpdate }) {
     const lastOiValue = getLastOiValue(oiData);
 
     return (
@@ -22,7 +24,7 @@ export default function MiniChartPlaceholder({ oiData = [] }) {
                 height: '100%',
             }}
         >
-            {['SPOT', '오픈 포지션 볼륨', 'SPREAD'].map((label) => (
+            {['FUTURES', '오픈 포지션 볼륨', 'SPREAD'].map((label) => (
                 <div
                     key={label}
                     style={{
@@ -61,7 +63,9 @@ export default function MiniChartPlaceholder({ oiData = [] }) {
                         }}
                     >
                         {label === '오픈 포지션 볼륨' ? (
-                            <OiLineChart oiData={oiData} />
+                            <OiLineChart oiData={oiData} rangeMs={rangeMs} />
+                        ) : label === 'FUTURES' ? (
+                            <CandleChart symbol={symbol} candleHistory={candleHistory} candleType={candleType} rangeMs={rangeMs} timeRange={timeRange} displayCount={displayCount} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
                         ) : (
                             <div
                                 style={{

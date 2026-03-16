@@ -1,5 +1,6 @@
 // [AGENT] Signal Dashboard — 메인 페이지 (Grid 레이아웃 + 상태 관리)
 // [AGENT] 모바일/데스크톱 레이아웃 분리: isMobile 기준으로 return 분기
+// [AGENT] TASK-12: latestCandleTime, divergenceData, params/canEdit 상태 추가 + 컴포넌트 Props 스캐폴딩
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
@@ -14,14 +15,26 @@ import PatternStrip from './components/PatternStrip.jsx';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
 
+// value: 타임라인 식별자 | dataRange: 에너지·청산·OI 조회 범위 | candleType: 캔들 테이블(1m/5m) | displayCount: 차트 표시 봉 수
+// 이곳의 index 2개가 1m 5m 의 limit count를 결정한다
+// TIME_RANGES[2].displayCount → 1m 캔들 서버 조회 limit
+// TIME_RANGES[TIME_RANGES.length-1].displayCount → 5m 캔들 서버 조회 limit
 const TIME_RANGES = [
-    { value: '1m',  label: '1m',   apiRange: '10m' },
-    { value: '5m',  label: '5m',   apiRange: '50m' },
-    { value: '30m', label: '30m',  apiRange: '5h'  },
-    { value: '1h',  label: '1h',   apiRange: '10h' },
-    { value: '4h',  label: '~40h', apiRange: '40h' },
+    { value: '1m',  label: '1분',   dataRange: '1m',  candleType: '1m', displayCount: 30  },
+    { value: '5m',  label: '5분',   dataRange: '5m',  candleType: '1m', displayCount: 60  },
+    { value: '30m', label: '30분',  dataRange: '30m', candleType: '1m', displayCount: 90  },
+    { value: '4h',  label: '4시간', dataRange: '4h',  candleType: '5m', displayCount: 432 },
+    { value: '48h', label: '48시간', dataRange: '48h', candleType: '5m', displayCount: 1728 },
 ];
-const getDataRange = (range) => TIME_RANGES.find((r) => r.value === range)?.apiRange ?? range;
+const LIMIT_1M = TIME_RANGES[2].displayCount;
+const LIMIT_5M = TIME_RANGES[TIME_RANGES.length - 1].displayCount;
+
+// OI 차트와 동일한 캔들 타입 — 비교 기준 통일 (변경 시 여기만 수정)
+const CHART_CANDLE_TYPE = '5m';
+
+const getDataRange    = (range) => TIME_RANGES.find((r) => r.value === range)?.dataRange    ?? '5m';
+const getCandleType   = (range) => TIME_RANGES.find((r) => r.value === range)?.candleType   ?? '1m';
+const getDisplayCount = (range) => TIME_RANGES.find((r) => r.value === range)?.displayCount ?? 90;
 
 export default function SignalPage() {
     const [symbol, setSymbol] = useState('BTCUSDT');
@@ -45,6 +58,10 @@ export default function SignalPage() {
     const [shortLiqTotal, setShortLiqTotal] = useState(0);
     const [patterns, setPatterns] = useState([]);
     const [oiDataHistory, setOiDataHistory] = useState([]);
+    const [candleHistory, setCandleHistory] = useState([]);
+    const [latestCandleTime, setLatestCandleTime] = useState(null);
+    const [params, setParams] = useState(null);
+    const [canEdit, setCanEdit] = useState(false);
 
     const abortControllerRef = useRef(null);
     const symbolDebounceRef = useRef(null);
@@ -80,7 +97,6 @@ export default function SignalPage() {
                 if (res.data.shortLiqTotal !== undefined) setShortLiqTotal(res.data.shortLiqTotal);
                 if (res.data.longLiqEvents) setLongLiqEvents(res.data.longLiqEvents);
                 if (res.data.shortLiqEvents) setShortLiqEvents(res.data.shortLiqEvents);
-                if (res.data.oiHistory) setOiDataHistory(res.data.oiHistory);
             } catch (err) {
                 if (err.name !== 'CanceledError') {
                     console.error('[SignalPage] history failed', err);
@@ -89,6 +105,55 @@ export default function SignalPage() {
         };
         loadHistory();
     }, [symbol, timeRange]);
+
+    // OI 히스토리: 120h 최대치 1회 로드 → 클라이언트에서 timeRange 기준 슬라이싱
+    useEffect(() => {
+        const loadOiHistory = async () => {
+            try {
+                const res = await axios.get(`/api/signal/oi?symbol=${symbol}&range=120h`);
+                if (Array.isArray(res.data)) setOiDataHistory(res.data);
+            } catch (err) {
+                console.error('[SignalPage] OI history failed', err);
+            }
+        };
+        loadOiHistory();
+    }, [symbol]);
+
+    useEffect(() => {
+        const loadParams = async () => {
+            try {
+                const res = await axios.get(`/api/signal/params?symbol=${symbol}`);
+                const { canEdit: ce, ...rest } = res.data;
+                setParams(rest);
+                setCanEdit(!!ce);
+            } catch (err) {
+                console.error('[SignalPage] params failed', err);
+            }
+        };
+        loadParams();
+    }, [symbol]);
+
+    // 캔들 히스토리: CHART_CANDLE_TYPE 고정(OI와 동일 기준) — symbol·displayCount 변경 시 재로드
+    const candleType  = CHART_CANDLE_TYPE;
+    const candleLimit = getDisplayCount(timeRange);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCandleHistory([]);
+        axios.get(`/api/signal/candles?symbol=${symbol}&type=${candleType}&limit=${candleLimit}`)
+            .then((res) => setCandleHistory(res.data))
+            .catch((err) => console.error('[SignalPage] candles failed', err));
+    }, [symbol, candleType, candleLimit]);
+
+    const handleCandleUpdate = (bar) => {
+        setCandleHistory((prev) => [...prev, bar]);
+    };
+
+    const handleParamsSave = async (newParams) => {
+        const res = await axios.put(`/api/signal/params?symbol=${symbol}`, newParams);
+        const { canEdit: _ce, ...rest } = res.data;
+        setParams(rest);
+        // params 참조 변경 → PatternStrip useEffect 재실행 (자동 재계산 트리거)
+    };
 
     useEffect(() => {
         if (aggTrades.length === 0) return;
@@ -167,9 +232,14 @@ export default function SignalPage() {
             setShortLiqTotal(0);
             setPatterns([]);
             setOiDataHistory([]);
-            handleTimeRangeChange('1m');
+            setCandleHistory([]);
+            setLatestCandleTime(null);
         }, 300);
     };
+
+    const displayCount  = getDisplayCount(timeRange);
+    const candleUnitMs  = candleType === '1m' ? 60_000 : 300_000;
+    const rangeMs       = displayCount * candleUnitMs;
 
     const commonProps = {
         symbol,
@@ -235,6 +305,9 @@ export default function SignalPage() {
                     onTimeRangeChange={handleTimeRangeChange}
                     fundingRate={commonProps.fundingRate}
                     timeRanges={TIME_RANGES}
+                    canEdit={canEdit}
+                    params={params}
+                    onParamsSave={handleParamsSave}
                 />
             </div>
 
@@ -248,10 +321,18 @@ export default function SignalPage() {
 
             <div style={{ gridColumn: '4 / 10', gridRow: '2 / 4' }}>
                 <MainCore
+                    symbol={symbol}
                     longEnergy={longEnergy}
                     shortEnergy={shortEnergy}
                     fundingRate={commonProps.fundingRate}
                     oiData={oiDataHistory}
+                    candleHistory={candleHistory}
+                    candleType={candleType}
+                    timeRange={timeRange}
+                    displayCount={displayCount}
+                    rangeMs={rangeMs}
+                    onCandleTime={setLatestCandleTime}
+                    onCandleUpdate={handleCandleUpdate}
                 />
             </div>
 
@@ -264,7 +345,11 @@ export default function SignalPage() {
             </div>
 
             <div style={{ gridColumn: '1 / 13', gridRow: '4' }}>
-                <PatternStrip patterns={patterns} />
+                <PatternStrip
+                    symbol={symbol}
+                    latestCandleTime={latestCandleTime}
+                    params={params}
+                />
             </div>
             </div>
         </Layout>

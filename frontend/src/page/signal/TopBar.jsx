@@ -1,5 +1,9 @@
 // [AGENT] Signal Dashboard TopBar — 심볼탭 + 시간 선택 + Funding Rate
 // [AGENT] compact=true 시 모바일용 select 렌더
+// [AGENT] TASK-11: canEdit/params/onParamsSave props 추가, ⚙ 드롭다운 ParamPanel 통합
+import { useState, useRef, useEffect } from 'react';
+import ParamPanel from './ParamPanel.jsx';
+
 export default function TopBar({
     symbol,
     onSymbolChange,
@@ -8,7 +12,29 @@ export default function TopBar({
     fundingRate,
     timeRanges = [],
     compact = false,
+    canEdit = false,
+    params = null,
+    onParamsSave,
 }) {
+    const [panelOpen, setPanelOpen] = useState(false);
+    const gearContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (!panelOpen) return;
+        const handleKey = (e) => { if (e.key === 'Escape') setPanelOpen(false); };
+        const handleClick = (e) => {
+            const path = e.composedPath ? e.composedPath() : [];
+            if (gearContainerRef.current && !path.includes(gearContainerRef.current)) {
+                setPanelOpen(false);
+            }
+        };
+        document.addEventListener('keydown', handleKey);
+        document.addEventListener('mousedown', handleClick);
+        return () => {
+            document.removeEventListener('keydown', handleKey);
+            document.removeEventListener('mousedown', handleClick);
+        };
+    }, [panelOpen]);
     const getFundingStyle = () => {
         if (!fundingRate) return {};
         const abs = Math.abs(fundingRate);
@@ -128,7 +154,7 @@ export default function TopBar({
                 </>
             )}
 
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <div
                     style={{
                         padding: '4px 10px',
@@ -142,6 +168,32 @@ export default function TopBar({
                 >
                     {fundingRate !== null ? `${fundingRate >= 0 ? '+' : ''}${(fundingRate * 100).toFixed(3)}%` : '0.000%'}
                 </div>
+                {canEdit && (
+                    <div ref={gearContainerRef} style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => setPanelOpen((v) => !v)}
+                            style={{
+                                background: panelOpen ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '5px',
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                padding: '3px 8px',
+                                lineHeight: 1,
+                            }}
+                            title="파라미터 설정"
+                        >
+                            ⚙
+                        </button>
+                        {panelOpen && (
+                            <ParamPanel
+                                params={params}
+                                onParamsSave={onParamsSave}
+                            />
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -207,7 +207,10 @@ jobs: # 실행할 작업 단위(Job)들
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./artifacts/frontend-dist/*"
           target: "/home/ubuntu/project/home/frontend/from_actions/"
-          strip_components: 2
+          strip_components: 2 # 직관적으로는 frontend-dist/* 하위만 와야 할 것 같은데, scp-action의 내부 동작 때문이에요.
+          # Actions 워크스페이스 루트에서 tar로 묶음 tar czf archive.tar.gz ./artifacts/frontend-dist/*
+          # 서버에서 풀 때 tar xzf archive.tar.gz -C /target/ 그래서 아카이브 안에는: artifacts/frontend-dist/index.html
+          # 이 구조로 들어가고, 서버에서 풀면 target/artifacts/frontend-dist/ 로 중첩되는 거예요.
       - name: Deploy to Server # 서버에 배포전용 유저로 배포하기
         uses: appleboy/ssh-action@master
         with:

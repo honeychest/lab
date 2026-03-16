@@ -1,11 +1,13 @@
 // [AGENT] 1분봉·5분봉 롤업 스케줄러 — agg_trade_1s → agg_trade_1m / agg_trade_1m → agg_trade_5m
-// 연관파일: AggTrade1m.java, AggTrade5m.java, AggTrade1mRepository.java, AggTrade5mRepository.java, AggTrade1sRollupService.java
+// 연관파일: AggTrade1m.java, AggTrade5m.java, AggTrade1mRepository.java, AggTrade5mRepository.java, AggTrade1sRollupService.java, CandleStreamService.java(CandleCompletedEvent 수신)
 // 주요메서드: rollup1m() @Scheduled(10 * * * * *), rollup5m() @Scheduled(30 */5 * * * *)
 // catchUp(): 1s catchUp 완료 후 체이닝 실행 (CompletableFuture)
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.AggTrade1m;
 import com.chs.springboot.domain.binance.model.AggTrade5m;
+import com.chs.springboot.domain.binance.model.event.Candle1mCompletedEvent;
+import com.chs.springboot.domain.binance.model.event.CandleCompletedEvent;
 import com.chs.springboot.domain.binance.repository.AggTrade1mRepository;
 import com.chs.springboot.domain.binance.repository.AggTrade5mRepository;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
@@ -38,6 +40,7 @@ public class AggTradeRollupService {
     private final StringRedisTemplate redisTemplate;
     private final JdbcTemplate jdbcTemplate;
     private final AggTrade1sRollupService agg1sRollupService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     // ─── 기동 시 catch-up (1s catchUp 완료 후 체이닝) ────────────────────
 
@@ -231,6 +234,7 @@ public class AggTradeRollupService {
             fill1mCandle(candle, row, startMs);
             agg1mRepository.insertIgnoreDuplicate(candle);
             log.debug("[Rollup1m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
+            eventPublisher.publishEvent(new Candle1mCompletedEvent(this, candle));
         }
     }
 
@@ -250,6 +254,7 @@ public class AggTradeRollupService {
             fill5mCandle(candle, row);
             agg5mRepository.insertIgnoreDuplicate(candle);
             log.debug("[Rollup5m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
+            eventPublisher.publishEvent(new CandleCompletedEvent(this, candle));
         }
     }
 

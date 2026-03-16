@@ -1,8 +1,9 @@
 // [AGENT] OI 라인 차트 — Lightweight Charts (증감 반영)
+// rangeMs 기준 클라이언트 슬라이싱: TIME_RANGES displayCount × candleUnit ms
 import { createChart, AreaSeries } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 
-export default function OiLineChart({ oiData = [] }) {
+export default function OiLineChart({ oiData = [], rangeMs }) {
     const containerRef = useRef(null);
     const chartRef = useRef(null);
     const seriesRef = useRef(null);
@@ -10,6 +11,8 @@ export default function OiLineChart({ oiData = [] }) {
     const lastPriceLabelRef = useRef(null);
     const isInitializedRef = useRef(false);
     const priceMapRef = useRef({});
+    const initialNowRef = useRef(null);
+    const prevRangeMsRef = useRef(rangeMs);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -75,7 +78,7 @@ export default function OiLineChart({ oiData = [] }) {
                     }
 
                     const date = new Date(param.time * 1000);
-                    const timeStr = date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                    const timeStr = date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${timeStr}`;
                     const price = priceMapRef.current[param.time];
                     const priceHtml = price != null
@@ -102,17 +105,35 @@ export default function OiLineChart({ oiData = [] }) {
             }
         }
 
-        // 데이터 업데이트 (초기화 후)
-        console.log('[OiLineChart] oiData 길이:', oiData.length);
-        if (seriesRef.current && oiData.length > 0) {
+        // 데이터 업데이트 (초기화 후) — 첫 수신 시점 고정, rangeMs 변경 시 리셋
+        if (prevRangeMsRef.current !== rangeMs) {
+            prevRangeMsRef.current = rangeMs;
+            initialNowRef.current  = null;
+        }
+        if (!initialNowRef.current && oiData.length > 0) {
+            initialNowRef.current = Date.now();
+            console.log('[OiLineChart] initialNow 캡처:', new Date(initialNowRef.current).toLocaleString(), '| rangeMs:', rangeMs);
+        }
+        const sliced = oiData.filter((item) => initialNowRef.current
+            ? item.collectedAtMs >= initialNowRef.current - rangeMs
+            : false
+        );
+        if (sliced.length > 0) {
+            const first = sliced[0];
+            const last  = sliced[sliced.length - 1];
+            console.log('[OiLineChart] 필터 후', sliced.length, '건',
+                '| 첫번째:', new Date(first.collectedAtMs).toLocaleString(),
+                '| 마지막:', new Date(last.collectedAtMs).toLocaleString());
+        }
+        if (seriesRef.current && sliced.length > 0) {
             try {
                 priceMapRef.current = {};
-                oiData.forEach((item) => {
+                sliced.forEach((item) => {
                     const t = Math.floor(item.collectedAtMs / 1000);
                     if (!isNaN(t) && item.price != null) priceMapRef.current[t] = parseFloat(item.price);
                 });
 
-                const chartData = oiData
+                const chartData = sliced
                     .map((item) => ({
                         time: Math.floor(item.collectedAtMs / 1000),
                         value: parseFloat(item.openInterest),
@@ -121,6 +142,9 @@ export default function OiLineChart({ oiData = [] }) {
                     .sort((a, b) => a.time - b.time)
                     .filter((item, idx, arr) => idx === 0 || item.time !== arr[idx - 1].time);
 
+                console.log('[OiLineChart] setData', chartData.length, '건',
+                    '| 첫봉:', chartData[0] ? new Date(chartData[0].time * 1000).toLocaleString() : '-',
+                    '| 마지막봉:', chartData[chartData.length - 1] ? new Date(chartData[chartData.length - 1].time * 1000).toLocaleString() : '-');
                 seriesRef.current.setData(chartData);
 
                 // 색상 업데이트 + 현재가 라벨 갱신
@@ -159,21 +183,7 @@ export default function OiLineChart({ oiData = [] }) {
         return () => {
             // cleanup: 컴포넌트 언마운트 시에만 제거
         };
-    }, [oiData]);
-
-    // 별도 useEffect: 컨테이너 크기 변경 시 차트 리사이즈
-    useEffect(() => {
-        const handleResize = () => {
-            if (chartRef.current && containerRef.current) {
-                chartRef.current.applyOptions({
-                    width: containerRef.current.clientWidth,
-                });
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [oiData, rangeMs]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>

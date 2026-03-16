@@ -1,4 +1,4 @@
-// [AGENT] 역할: WS 엔드포인트 등록 설정 | 연관파일: BinancePriceWebSocketHandler.java(/ws/binance-price), UpbitPriceWebSocketHandler.java(/ws/upbit-price) | 주의: Vite 프록시에서 /ws/binance-price와 /ws/upbit-price 각각 구체적으로 설정 필요 (/ws만 쓰면 HMR 충돌)
+// [AGENT] 역할: WS 엔드포인트 등록 설정 | 연관파일: BinancePriceWebSocketHandler.java(/ws/binance-price), UpbitPriceWebSocketHandler.java(/ws/upbit-price), CandleWebSocketHandler.java(/ws/candle/5m) | 주의: Vite 프록시에서 각 경로 구체적으로 설정 필요 (/ws만 쓰면 HMR 충돌)
 // Purpose: WebSocket 엔드포인트 등록 — Binance/Upbit 가격 중계 경로를 핸들러에 연결
 
 /**
@@ -29,6 +29,7 @@
 package com.chs.springboot.global.websocket;
 
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
+import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -69,6 +70,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
      */
     private final UpbitPriceWebSocketHandler upbitHandler;
 
+    private final CandleWebSocketHandler candleHandler;
+
     /**
      * registerWebSocketHandlers: WebSocket 핸들러와 URL 경로를 등록.
      *
@@ -102,6 +105,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOrigins("*");
 
         registry.addHandler(upbitHandler, "/ws/upbit-price")
+                .setAllowedOrigins("*");
+
+        registry.addHandler(candleHandler, "/ws/candle/5m", "/ws/candle/1m")
                 .setAllowedOrigins("*");
     }
 }
