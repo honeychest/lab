@@ -32,6 +32,7 @@ import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
 import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -53,6 +54,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  *   Spring WebSocket 설정 인터페이스.
  *   registerWebSocketHandlers() 메서드를 구현해야 함.
  */
+@Slf4j
 @Configuration
 @EnableWebSocket
 @RequiredArgsConstructor
@@ -109,5 +111,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
         registry.addHandler(candleHandler, "/ws/candle/5m", "/ws/candle/1m")
                 .setAllowedOrigins("*");
+
+        log.info("[WebSocketConfig] 등록 완료: /ws/binance-price, /ws/upbit-price, /ws/candle/5m, /ws/candle/1m");
     }
 }
