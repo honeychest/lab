@@ -151,6 +151,9 @@ jobs: # 실행할 작업 단위(Job)들
       - frontend # 프론트엔드 작업 완료 대기
       - backend # 백엔드 작업 완료 대기
     if: always() # 이전 작업 결과와 상관없이 항상 실행
+    outputs: # skipped 된 작업때문에 배포 안되어서 스킵에 대한 성공값을 주려고 일부러 이렇게 아웃풋 처리함
+      frontend_result: ${{ needs.frontend.result }}
+      backend_result: ${{ needs.backend.result }}
     steps:
       - name: Final result
         run: | # 셸 스크립트로 결과 출력 및 조건부 실패 처리
@@ -163,20 +166,23 @@ jobs: # 실행할 작업 단위(Job)들
           fi
   deploy: # 흐름 [Actions Runner(빌드 머신)] -> [GitHub 저장소(임시 저장 공간) Artifacts] -> [Deploy Job 머신] -> 내 AWS 서버
     name: Deploy to AWS
-    needs: [ summary, frontend, backend ] # 셋다 성공해야 배포 시작 skipped 도 성공취급
-    if: needs.summary.result == 'success'
+    needs: [ summary, frontend, backend ] # 안에 있는게 전부성공해야 가능
+    if: |
+      needs.summary.result == 'success' &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') &&
+      (needs.backend.result == 'success' || needs.backend.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Get my Backend JAR # 빌드 단계에서 만든 파일 가져오기
         uses: actions/download-artifact@v4
-        if: needs.backend.result == 'success'
+        if: needs.summary.outputs.backend_result == 'success'
         with:
           name: springboot-jar # 빌드머신에 썼던 이름
           path: ./artifacts/springboot-jar # 기본 빌드폴더
 
       - name: Get my Frontend
         uses: actions/download-artifact@v4
-        if: needs.frontend.result == 'success'
+        if: needs.summary.outputs.frontend_result == 'success'
         with:
           name: frontend-dist # 빌드머신에 썼던 이름
           path: ./artifacts/frontend-dist
@@ -188,12 +194,12 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨 이랬는데 되는방법도 있대서 한번 실험해봄
-            ${{ needs.backend.result == 'success' && 'rm -rf /home/ubuntu/project/home/backend/build/libs/*' || 'echo Backend cleanup skipped' }}
-            ${{ needs.frontend.result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
+            ${{ needs.summary.outputs.backend_result == 'success' && 'rm -rf /home/ubuntu/project/home/backend/build/libs/*' || 'echo Backend cleanup skipped' }}
+            ${{ needs.summary.outputs.frontend_result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
 
       - name: Copy JAR to Server # 백엔드를 서버로 전송
         uses: appleboy/scp-action@master
-        if: needs.backend.result == 'success'
+        if: needs.summary.outputs.backend_result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -204,7 +210,7 @@ jobs: # 실행할 작업 단위(Job)들
 
       - name: Copy Frontend to Server # 프론트엔드를 서버로 전송
         uses: appleboy/scp-action@master
-        if: needs.frontend.result == 'success'
+        if: needs.summary.outputs.frontend_result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -216,7 +222,7 @@ jobs: # 실행할 작업 단위(Job)들
           # 서버에서 풀 때 tar xzf archive.tar.gz -C /target/ 그래서 아카이브 안에는: artifacts/frontend-dist/index.html
           # 이 구조로 들어가고, 서버에서 풀면 target/artifacts/frontend-dist/ 로 중첩되는 거예요.
       - name: Deploy Backend
-        if: needs.backend.result == 'success'
+        if: needs.summary.outputs.backend_result == 'success'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -224,7 +230,7 @@ jobs: # 실행할 작업 단위(Job)들
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: /home/ubuntu/project/home/springboot/deploy-back-only.sh
       - name: Deploy Frontend
-        if: needs.frontend.result == 'success'
+        if: needs.summary.outputs.frontend_result == 'success'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
