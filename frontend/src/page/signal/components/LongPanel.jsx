@@ -68,7 +68,7 @@ export default function LongPanel({ energy, trades, compact = false }) {
                             display: 'grid',
                             gridTemplateColumns: '28px 1fr 1fr',
                             color: 'rgba(255,255,255,0.6)',
-                            opacity: (() => { const f = total - 5 - idx; return f === 0 ? 0.2 : f === 1 ? 0.35 : f === 2 ? 0.5 : f === 3 ? 0.65 : f === 4 ? 0.8 : 1; })(),
+                            opacity: total < 20 ? 1 : Math.max(0, Math.min(1, 0.8 + (total - 10 - idx) / 4 * 0.4)),
                             animation: isLatest ? 'slideDownFromTop 0.3s ease-out' : 'none',
                         }}
                     >
