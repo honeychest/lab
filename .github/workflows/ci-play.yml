@@ -110,7 +110,7 @@ jobs: # 실행할 작업 단위(Job)들
     strategy:
       fail-fast: false
       matrix:
-        java: [17, 21]
+        java: [17] # [17, 21] 버전업을 위해 미리 미리 테스트 해두려면 이렇게 함
 
     defaults:
       run:
@@ -204,7 +204,7 @@ jobs: # 실행할 작업 단위(Job)들
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./artifacts/springboot-jar/*.jar"
           target: "/home/ubuntu/project/home/springboot/build/libs/" #서버의 jar 위치 Dockerfile 이 사용
-          strip_components: 1 # 바로 위 폴더명 무시 (springboot-jar 는여기서 이름으로 사용하려다 만든것 뿐)
+          strip_components: 2 # 바로 위 폴더명 무시 (springboot-jar 는여기서 이름으로 사용하려다 만든것 뿐)
 
       - name: Copy Frontend to Server # 프론트엔드를 서버로 전송
         uses: appleboy/scp-action@master
