@@ -112,6 +112,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
         registry.addHandler(candleHandler, "/ws/candle/5m", "/ws/candle/1m")
                 .setAllowedOrigins("*");
 
-        log.info("[WebSocketConfig] 등록 완료: /ws/binance-price, /ws/upbit-price, /ws/candle/5m, /ws/candle/1m ===== By chs");
+        log.info("[WebSocketConfig] 등록 완료: /ws/binance-price, /ws/upbit-price, /ws/candle/5m, /ws/candle/1m =====");
     }
 }

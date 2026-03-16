@@ -166,11 +166,10 @@ jobs: # 실행할 작업 단위(Job)들
           fi
   deploy: # 흐름 [Actions Runner(빌드 머신)] -> [GitHub 저장소(임시 저장 공간) Artifacts] -> [Deploy Job 머신] -> 내 AWS 서버
     name: Deploy to AWS
-    needs: [ summary, frontend, backend ] # 안에 있는게 전부성공해야 가능
+    needs: [ summary ] # 안에 있는게 전부성공해야 가능
     if: |
       needs.summary.result == 'success' &&
-      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') &&
-      (needs.backend.result == 'success' || needs.backend.result == 'skipped')
+      (needs.summary.outputs.backend_result == 'success' || needs.summary.outputs.frontend_result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Get my Backend JAR # 빌드 단계에서 만든 파일 가져오기
