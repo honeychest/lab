@@ -1,13 +1,12 @@
 // [AGENT] TASK-09: 5분봉 캔들 차트 — Lightweight Charts v5 CandlestickSeries
-// TASK-FIX: candleHistory prop 수신(초기 렌더) + WS로 실시간 append (1m/5m 자동 전환)
-// timeRange ≤30m → /ws/candle/1m | >30m → /ws/candle/5m
+// TASK-FIX: candleHistory prop 수신(초기 렌더) + WS로 실시간 append (candleType prop으로 엔드포인트 결정)
 // is_closed:true → onCandleUpdate 콜백(SignalPage candleHistory 업데이트)
 import { createChart, CandlestickSeries } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-export default function CandleChart({ symbol, candleHistory = [], candleType = '5m', rangeMs, timeRange, displayCount = 90, onCandleTime, onCandleUpdate }) {
+export default function CandleChart({ symbol, candleHistory = [], candleType = '5m', onCandleTime, onCandleUpdate }) {
     const containerRef        = useRef(null);
     const chartRef            = useRef(null);
     const seriesRef           = useRef(null);
@@ -73,11 +72,12 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             const delta  = candle?.delta ?? null;
 
             setTooltip({
-                x:     param.point.x,
-                y:     param.point.y,
-                time:  param.time,
-                close: data.close,
+                x:          param.point.x,
+                y:          param.point.y,
+                time:       param.time,
+                close:      data.close,
                 delta,
+                containerW: containerRef.current?.clientWidth ?? 0,
             });
         });
 
@@ -117,8 +117,7 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             seriesRef.current.update(formingBarRef.current);
         }
         chartRef.current?.timeScale().fitContent();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setConnecting(false);
+        setConnecting(false); // eslint-disable-line react-hooks/set-state-in-effect
     }, [candleHistory]);
 
     // symbol·interval 변경 시만 WS 재연결 — candleType(CHART_CANDLE_TYPE)으로 결정
@@ -214,7 +213,7 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             ? `${deltaLabel} ${tooltip.delta >= 0 ? '+' : ''}${Number(tooltip.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC`
             : null;
 
-        const containerW = containerRef.current?.offsetWidth ?? 0;
+        const containerW = tooltip.containerW ?? 0;
         const left = tooltip.x + 12 + 120 > containerW ? tooltip.x - 132 : tooltip.x + 12;
 
         return (

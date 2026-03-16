@@ -33,7 +33,7 @@ const LIMIT_5M = TIME_RANGES[TIME_RANGES.length - 1].displayCount;
 const CHART_CANDLE_TYPE = '5m';
 
 const getDataRange    = (range) => TIME_RANGES.find((r) => r.value === range)?.dataRange    ?? '5m';
-const getCandleType   = (range) => TIME_RANGES.find((r) => r.value === range)?.candleType   ?? '1m';
+
 const getDisplayCount = (range) => TIME_RANGES.find((r) => r.value === range)?.displayCount ?? 90;
 
 export default function SignalPage() {

@@ -12,7 +12,7 @@ function getLastOiValue(oiData) {
     return val.toFixed(0);
 }
 
-export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistory = [], candleType, timeRange, displayCount, rangeMs, onCandleTime, onCandleUpdate }) {
+export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistory = [], candleType, rangeMs, onCandleTime, onCandleUpdate }) {
     const lastOiValue = getLastOiValue(oiData);
 
     return (
@@ -65,7 +65,7 @@ export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistor
                         {label === '오픈 포지션 볼륨' ? (
                             <OiLineChart oiData={oiData} rangeMs={rangeMs} />
                         ) : label === 'FUTURES' ? (
-                            <CandleChart symbol={symbol} candleHistory={candleHistory} candleType={candleType} rangeMs={rangeMs} timeRange={timeRange} displayCount={displayCount} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
+                            <CandleChart symbol={symbol} candleHistory={candleHistory} candleType={candleType} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
                         ) : (
                             <div
                                 style={{
