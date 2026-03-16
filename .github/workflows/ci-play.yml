@@ -168,8 +168,7 @@ jobs: # 실행할 작업 단위(Job)들
     name: Deploy to AWS
     needs: [ summary ] # 안에 있는게 전부성공해야 가능
     if: |
-      needs.summary.result == 'success' &&
-      (needs.summary.outputs.backend_result == 'success' || needs.summary.outputs.frontend_result == 'success')
+      needs.summary.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Get my Backend JAR # 빌드 단계에서 만든 파일 가져오기
