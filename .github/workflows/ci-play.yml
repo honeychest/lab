@@ -192,7 +192,7 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨 이랬는데 되는방법도 있대서 한번 실험해봄
-            ${{ needs.summary.outputs.backend_result == 'success' && 'rm -rf /home/ubuntu/project/home/backend/build/libs/*' || 'echo Backend cleanup skipped' }}
+            ${{ needs.summary.outputs.backend_result == 'success' && 'rm -rf /home/ubuntu/project/home/springboot/build/libs/*' || 'echo Backend cleanup skipped' }}
             ${{ needs.summary.outputs.frontend_result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
 
       - name: Copy JAR to Server # 백엔드를 서버로 전송
@@ -219,6 +219,17 @@ jobs: # 실행할 작업 단위(Job)들
           # Actions 워크스페이스 루트에서 tar로 묶음 tar czf archive.tar.gz ./artifacts/frontend-dist/*
           # 서버에서 풀 때 tar xzf archive.tar.gz -C /target/ 그래서 아카이브 안에는: artifacts/frontend-dist/index.html
           # 이 구조로 들어가고, 서버에서 풀면 target/artifacts/frontend-dist/ 로 중첩되는 거예요.
+      - name: Verify Files on Server
+        if: needs.summary.outputs.backend_result == 'success' || needs.summary.outputs.frontend_result == 'success'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USER_DEPLOY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            if [ "${{ needs.summary.outputs.backend_result }}" = "success" ]; then ls -la /home/ubuntu/project/home/springboot/build/libs/*.jar; fi
+            if [ "${{ needs.summary.outputs.frontend_result }}" = "success" ]; then ls -la /home/ubuntu/project/home/frontend/from_actions/; fi
+
       - name: Deploy Backend
         if: needs.summary.outputs.backend_result == 'success'
         uses: appleboy/ssh-action@master
