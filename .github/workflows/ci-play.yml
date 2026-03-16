@@ -163,18 +163,20 @@ jobs: # 실행할 작업 단위(Job)들
           fi
   deploy: # 흐름 [Actions Runner(빌드 머신)] -> [GitHub 저장소(임시 저장 공간) Artifacts] -> [Deploy Job 머신] -> 내 AWS 서버
     name: Deploy to AWS
-    needs: [ summary ] # 둘다 성공해야 배포 시작
-    if: success() # 'summary' 작업이 성공했을때만 실행
+    needs: [ summary, frontend, backend ] # 셋다 성공해야 배포 시작 skipped 도 성공취급
+    if: needs.summary.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Get my Backend JAR # 빌드 단계에서 만든 파일 가져오기
         uses: actions/download-artifact@v4
+        if: needs.backend.result == 'success'
         with:
           name: springboot-jar # 빌드머신에 썼던 이름
           path: ./artifacts/springboot-jar # 기본 빌드폴더
 
       - name: Get my Frontend
         uses: actions/download-artifact@v4
+        if: needs.frontend.result == 'success'
         with:
           name: frontend-dist # 빌드머신에 썼던 이름
           path: ./artifacts/frontend-dist
@@ -185,12 +187,13 @@ jobs: # 실행할 작업 단위(Job)들
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨
-            rm -rf /home/ubuntu/project/home/backend/build/libs/*
-            rm -rf /home/ubuntu/project/home/frontend/from_actions/*
+          script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨 이랬는데 되는방법도 있대서 한번 실험해봄
+            ${{ needs.backend.result == 'success' && 'rm -rf /home/ubuntu/project/home/backend/build/libs/*' || 'echo Backend cleanup skipped' }}
+            ${{ needs.frontend.result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
 
       - name: Copy JAR to Server # 백엔드를 서버로 전송
         uses: appleboy/scp-action@master
+        if: needs.backend.result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -201,6 +204,7 @@ jobs: # 실행할 작업 단위(Job)들
 
       - name: Copy Frontend to Server # 프론트엔드를 서버로 전송
         uses: appleboy/scp-action@master
+        if: needs.frontend.result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -211,12 +215,19 @@ jobs: # 실행할 작업 단위(Job)들
           # Actions 워크스페이스 루트에서 tar로 묶음 tar czf archive.tar.gz ./artifacts/frontend-dist/*
           # 서버에서 풀 때 tar xzf archive.tar.gz -C /target/ 그래서 아카이브 안에는: artifacts/frontend-dist/index.html
           # 이 구조로 들어가고, 서버에서 풀면 target/artifacts/frontend-dist/ 로 중첩되는 거예요.
-      - name: Deploy to Server # 서버에 배포전용 유저로 배포하기
+      - name: Deploy Backend
+        if: needs.backend.result == 'success'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨
-            /home/ubuntu/project/home/springboot/deploy-back-only.sh
-            /home/ubuntu/project/home/frontend/deploy-front-only.sh
+          script: /home/ubuntu/project/home/springboot/deploy-back-only.sh
+      - name: Deploy Frontend
+        if: needs.frontend.result == 'success'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USER_DEPLOY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: /home/ubuntu/project/home/frontend/deploy-front-only.sh
