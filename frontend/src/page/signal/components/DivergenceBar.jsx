@@ -18,11 +18,12 @@ function calcDivergence(candleHistory, rangeMs) {
     const totalDelta = filtered.reduce((sum, c) => sum + (c.delta ?? 0), 0);
 
     const priceDir = lastClose >= firstOpen ? 'UP' : 'DOWN';
-    const deltaDir = totalDelta >= 0 ? 'BUY' : 'SELL';
+    const _deltaDir = totalDelta >= 0 ? 'BUY' : 'SELL';
 
-    const divergence = !(priceDir === 'UP' && deltaDir === 'BUY') &&
-                       !(priceDir === 'DOWN' && deltaDir === 'SELL');
-    if (!divergence) return { divergence: false };
+    // [DEBUG] 강제 노출 — 조건 무시
+    // const divergence = !(priceDir === 'UP' && deltaDir === 'BUY') &&
+    //                    !(priceDir === 'DOWN' && deltaDir === 'SELL');
+    // if (!divergence) return { divergence: false };
 
     const divergenceType = priceDir === 'UP' ? 'BEARISH' : 'BULLISH';
 
@@ -42,17 +43,12 @@ export default function DivergenceBar({ candleHistory, rangeMs }) {
 
     const hasDivergence = data?.divergence === true;
     const type          = data?.divergence_type;
-    const efficiency    = data?.efficiency;
 
     const color = type === 'BEARISH' ? BEARISH_COLOR : BULLISH_COLOR;
 
-    const effStr = efficiency != null
-        ? Number(efficiency).toLocaleString(undefined, { maximumFractionDigits: 1 })
-        : '—';
-
     const text = type === 'BEARISH'
-        ? `↑가격 ↓거래량 · 약세 다이버전스 · 효율성 ${effStr}`
-        : `↓가격 ↑거래량 · 강세 다이버전스 · 효율성 ${effStr}`;
+        ? '↑가격 ↓거래량 · 약세 다이버전스'
+        : '↓가격 ↑거래량 · 강세 다이버전스';
 
     return (
         <div

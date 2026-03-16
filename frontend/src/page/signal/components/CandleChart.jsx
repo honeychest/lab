@@ -106,11 +106,8 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             }))
             .sort((a, b) => a.time - b.time)
             .filter((item, idx, arr) => idx === 0 || item.time !== arr[idx - 1].time);
-        const first = bars[0];
-        const last  = bars[bars.length - 1];
-        console.log('[CandleChart] setData', bars.length, '봉',
-            '| 첫봉:', first ? new Date(first.time * 1000).toLocaleString() : '-',
-            '| 마지막봉:', last ? new Date(last.time * 1000).toLocaleString() : '-');
+        const _first = bars[0];
+        const _last  = bars[bars.length - 1];
         seriesRef.current.setData(bars);
         if (formingBarRef.current) {
             console.log('[CandleChart] formingBar 재적용:', new Date(formingBarRef.current.time * 1000).toLocaleString());

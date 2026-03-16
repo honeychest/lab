@@ -8,7 +8,6 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
     const chartRef = useRef(null);
     const seriesRef = useRef(null);
     const tooltipRef = useRef(null);
-    const lastPriceLabelRef = useRef(null);
     const isInitializedRef = useRef(false);
     const priceMapRef = useRef({});
     const initialNowRef = useRef(null);
@@ -119,11 +118,8 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
             : false
         );
         if (sliced.length > 0) {
-            const first = sliced[0];
-            const last  = sliced[sliced.length - 1];
-            console.log('[OiLineChart] 필터 후', sliced.length, '건',
-                '| 첫번째:', new Date(first.collectedAtMs).toLocaleString(),
-                '| 마지막:', new Date(last.collectedAtMs).toLocaleString());
+            const _first = sliced[0];
+            const _last  = sliced[sliced.length - 1];
         }
         if (seriesRef.current && sliced.length > 0) {
             try {
@@ -142,9 +138,6 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
                     .sort((a, b) => a.time - b.time)
                     .filter((item, idx, arr) => idx === 0 || item.time !== arr[idx - 1].time);
 
-                console.log('[OiLineChart] setData', chartData.length, '건',
-                    '| 첫봉:', chartData[0] ? new Date(chartData[0].time * 1000).toLocaleString() : '-',
-                    '| 마지막봉:', chartData[chartData.length - 1] ? new Date(chartData[chartData.length - 1].time * 1000).toLocaleString() : '-');
                 seriesRef.current.setData(chartData);
 
                 // 색상 업데이트 + 현재가 라벨 갱신
@@ -160,18 +153,6 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
                         bottomColor: 'rgba(0,0,0,0.0)',
                     });
 
-                    // 현재가 라벨 위치 계산
-                    const label = lastPriceLabelRef.current;
-                    if (label) {
-                        const y = seriesRef.current.priceToCoordinate(lastValue);
-                        if (y !== null) {
-                            label.style.top = `${y - 9}px`;
-                            label.style.borderColor = color;
-                            label.style.color = color;
-                            label.textContent = lastValue.toLocaleString();
-                            label.style.display = 'block';
-                        }
-                    }
                 }
 
                 chartRef.current?.timeScale().fitContent();
@@ -188,24 +169,6 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-            <div
-                ref={lastPriceLabelRef}
-                style={{
-                    display: 'none',
-                    position: 'absolute',
-                    right: '4px',
-                    pointerEvents: 'none',
-                    fontSize: '10px',
-                    fontWeight: '600',
-                    fontFamily: "'Pretendard', sans-serif",
-                    border: '1px solid',
-                    borderRadius: '3px',
-                    padding: '1px 4px',
-                    background: 'rgba(14,15,24,0.85)',
-                    zIndex: 9,
-                    whiteSpace: 'nowrap',
-                }}
-            />
             <div
                 ref={tooltipRef}
                 style={{

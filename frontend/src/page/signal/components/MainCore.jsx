@@ -1,7 +1,7 @@
-// [AGENT] Signal Dashboard MainCore — 중앙 컨테이너 (Gauge + TugOfWar + MiniChart)
+// [AGENT] Signal Dashboard MainCore — 중앙 컨테이너 (TradingViewWidget + MiniChart)
 // [AGENT] TASK-09/10/12: symbol, divergenceData, onCandleTime props 추가
-import EnergyGauge from './EnergyGauge.jsx';
-import TugOfWar from './TugOfWar.jsx';
+// [AGENT] T4-TASK: 상단 슬롯 TradingViewWidget 교체, MiniChartPlaceholder에 longEnergy/shortEnergy 전달
+import TradingViewWidget from './TradingViewWidget.jsx';
 import MiniChartPlaceholder from './MiniChartPlaceholder.jsx';
 import DivergenceBar from './DivergenceBar.jsx';
 
@@ -47,39 +47,14 @@ export default function MainCore({ symbol, longEnergy, shortEnergy, fundingRate,
                 }
             `}</style>
 
-            <div style={{ flex: '60%', position: 'relative' }}>
-                <EnergyGauge longEnergy={longEnergy} shortEnergy={shortEnergy} />
-                <TugOfWar longEnergy={longEnergy} shortEnergy={shortEnergy} />
-                <div
-                    style={{
-                        position: 'absolute',
-                        bottom: '20px',
-                        left: '30px',
-                        fontSize: '10px',
-                        color: 'rgba(0,232,135,0.35)',
-                        fontFamily: "'Pretendard', sans-serif",
-                    }}
-                >
-                    LONG
-                </div>
-                <div
-                    style={{
-                        position: 'absolute',
-                        bottom: '20px',
-                        right: '30px',
-                        fontSize: '10px',
-                        color: 'rgba(255,59,92,0.35)',
-                        fontFamily: "'Pretendard', sans-serif",
-                    }}
-                >
-                    SHORT
-                </div>
+            <div style={{ flex: '60%' }}>
+                <TradingViewWidget symbol={symbol} />
             </div>
 
             <DivergenceBar candleHistory={candleHistory} rangeMs={rangeMs} />
 
             <div style={{ flex: '40%' }}>
-                <MiniChartPlaceholder oiData={oiData} symbol={symbol} candleHistory={candleHistory} candleType={candleType} timeRange={timeRange} displayCount={displayCount} rangeMs={rangeMs} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
+                <MiniChartPlaceholder oiData={oiData} symbol={symbol} candleHistory={candleHistory} candleType={candleType} timeRange={timeRange} displayCount={displayCount} rangeMs={rangeMs} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} longEnergy={longEnergy} shortEnergy={shortEnergy} />
             </div>
         </div>
     );

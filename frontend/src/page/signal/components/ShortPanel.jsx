@@ -58,8 +58,9 @@ export default function ShortPanel({ energy, trades, compact = false }) {
                     overflow: 'hidden',
                 }}
             >
-                {trades.slice(-20).map((trade, idx) => {
-                    const isLatest = idx === trades.slice(-20).length - 1;
+                {[...trades.slice(-20)].reverse().map((trade, idx, arr) => {
+                    const isLatest = idx === 0;
+                    const total = arr.length;
                     return (
                     <div
                         key={`${trade.tradedAt}-${idx}`}
@@ -67,8 +68,8 @@ export default function ShortPanel({ energy, trades, compact = false }) {
                             display: 'grid',
                             gridTemplateColumns: '28px 1fr 1fr',
                             color: 'rgba(255,255,255,0.6)',
-                            opacity: 1 - idx * 0.05,
-                            animation: isLatest ? 'slideUpFromBottom 0.3s ease-out' : 'none',
+                            opacity: (() => { const f = total - 5 - idx; return f === 0 ? 0.2 : f === 1 ? 0.35 : f === 2 ? 0.5 : f === 3 ? 0.65 : f === 4 ? 0.8 : 1; })(),
+                            animation: isLatest ? 'slideDownFromTop 0.3s ease-out' : 'none',
                         }}
                     >
                         <span style={{ color: trade.marketType === 'FUTURES' ? '#ff3b5c' : 'rgba(255,255,255,0.4)' }}>
@@ -82,9 +83,9 @@ export default function ShortPanel({ energy, trades, compact = false }) {
             </div>
 
             <style>{`
-                @keyframes slideUpFromBottom {
+                @keyframes slideDownFromTop {
                     from {
-                        transform: translateY(20px);
+                        transform: translateY(-20px);
                         opacity: 0;
                     }
                     to {
