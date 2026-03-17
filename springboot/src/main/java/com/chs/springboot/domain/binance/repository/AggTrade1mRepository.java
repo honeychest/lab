@@ -1,3 +1,4 @@
+// [AGENT] T4-ANALYSIS: findDeltaByTimeRange 추가 — 시간 범위 내 S+F 합산 delta 조회
 // [AGENT] 역할: AggTrade1m JPA Repository | 연관파일: AggTrade1m.java, AggTradeRollupService.java, SignalDataService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, insertIgnoreDuplicate
 package com.chs.springboot.domain.binance.repository;
 
@@ -62,6 +63,24 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
     List<Map<String, Object>> findTopNWithCombinedDelta(
         @Param("symbol")     String symbol,
         @Param("limitCount") int limitCount);
+
+    // delta API 용 — 시간 범위 내 S+F 합산 delta (오름차순)
+    @Query(value = """
+        SELECT f.candle_time_ms AS timeMs,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_1m f
+        JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol
+          AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms >= :startMs
+          AND f.candle_time_ms < :endMs
+        GROUP BY f.candle_time_ms
+        ORDER BY f.candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Map<String, Object>> findDeltaByTimeRange(
+        @Param("symbol")  String symbol,
+        @Param("startMs") long startMs,
+        @Param("endMs")   long endMs);
 
     @Transactional
     @Modifying

@@ -54,6 +54,10 @@ public class SignalSseService {
         broadcast("oi", dto);
     }
 
+    public void broadcastAnalysisMatch(Object dto) {
+        broadcast("analysis_match", dto);
+    }
+
     private void broadcast(String eventName, Object dto) {
         if (emitters.isEmpty()) return;
 

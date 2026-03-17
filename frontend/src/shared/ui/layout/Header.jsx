@@ -1,4 +1,5 @@
-// [AGENT] 앱 상단 헤더 — NavLink 메뉴 3탭(Trade/Binance/Cesium), X-Server-Name 서버 인디케이터
+// [AGENT] T4-ANALYSIS: NAV_ITEMS Cesium → Analysis 교체
+// [AGENT] 앱 상단 헤더 — NavLink 메뉴(Trade/Binance/Signal/Analysis/Admin), X-Server-Name 서버 인디케이터
 // 연관: Layout.jsx, MainRouter.jsx
 // Purpose: 앱 전체 상단 헤더 - 메뉴 네비게이션, 서버 인디케이터
 
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
     { label: 'Binance', path: '/binance' },
     { label: 'Trade',   path: '/trade' },
     { label: 'Signal',  path: '/signal' },
+    { label: 'Analysis', path: '/analysis' },
     { label: 'Cesium',  path: '/cesium' },
     { label: 'Admin',   path: '/admin'  },
 ];

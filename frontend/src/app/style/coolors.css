@@ -13,6 +13,9 @@
     --dark-amethyst-rgb: 12, 10, 62;
     --oxblood-rgb: 146, 20, 12;
     --amethyst-rgb: 168, 51, 185;
+  /* Trading common colors */
+  --buy-rgb: 0, 200, 0;
+  --sell-rgb: 220, 20, 60;
   }
   
   /* 참고: CSS에서는 SCSS의 '그라디언트 변수'를 직접 만들기보다, 

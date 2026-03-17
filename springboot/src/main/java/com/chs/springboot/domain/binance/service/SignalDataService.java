@@ -32,10 +32,10 @@ public class SignalDataService {
 
     private final JdbcTemplate jdbcTemplate;
     private final OpenInterestRepository openInterestRepository;
-    private final ForceOrderRepository forceOrderRepository;
-    private final AggTrade1mRepository agg1mRepository;
-    private final AggTrade5mRepository agg5mRepository;
-    private final SignalParamsRepository signalParamsRepository;
+    private final ForceOrderRepository       forceOrderRepository;
+    private final AggTrade1mRepository       agg1mRepository;
+    private final AggTrade5mRepository       agg5mRepository;
+    private final SignalParamsRepository     signalParamsRepository;
 
     public Map<String, Object> getInitData(String symbol) {
         Map<String, Object> result = new HashMap<>();
@@ -441,6 +441,7 @@ public class SignalDataService {
     public List<String> getCandleDates(String symbol) {
         return agg5mRepository.findDistinctKstDates(symbol);
     }
+
 
     private BigDecimal toBd(Object v) {
         if (v == null) return BigDecimal.ZERO;

@@ -1,11 +1,13 @@
-// [AGENT] T4-STEALTH: 개별 슬롯 컨테이너 (히스토리/center 공통) — 전 슬롯 캔들차트
+// [AGENT] T4-ANALYSIS: MiniChart 공용 컴포넌트로 교체 (StealthChart → MiniChart)
 import { useRef } from 'react';
-import StealthChart from './StealthChart.jsx';
+import MiniChart from '../../../../shared/ui/chart/MiniChart.jsx';
+import { PALETTE } from '../../../analysis/palette.js';
 import StealthBadge from './StealthBadge.jsx';
 import StealthWatcherPanel from './StealthWatcherPanel.jsx';
 
+const TYPE_COLOR = { A: 'rgba(240,192,64,0.9)', B: 'rgba(255,59,92,0.9)' };
+
 export default function StealthSlot({
-  slotIndex,
   slotData,
   isCenter,
   watchState,
@@ -13,11 +15,22 @@ export default function StealthSlot({
   liveCandle,
   tempHighlight,
   onReset,
+  paletteLevel = 'MID',
+  isSearching = false,
+  noMatch = false,
+  templateName = '',
 }) {
   const slotRef = useRef(null);
 
-  const highlights       = slotData?.events?.map((e) => ({ idx: e.idx, type: e.type })) ?? [];
-  const tempHighlightType = isCenter ? signalLabel : null;
+  const pal = PALETTE[paletteLevel] ?? PALETTE.MID;
+
+  const highlights =
+    slotData?.events?.map((e) => ({
+      idx:   e.idx,
+      color: pal.barColor,
+    })) ?? [];
+
+  const tempHighlightColor = isCenter ? pal.barColor : null;
 
   const getBorderStyle = () => {
     if (!isCenter) return '1px solid rgba(255,255,255,0.1)';
@@ -48,21 +61,54 @@ export default function StealthSlot({
         minWidth:       0,
       }}
     >
-      {slotData === null ? (
-        <div style={{
-          flex:           1,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-        }}>
-          <span style={{
-            fontSize:   '11px',
-            color:      'rgba(255,255,255,0.2)',
-            fontFamily: "'Pretendard', sans-serif",
-          }}>
-            사례 없음
-          </span>
-        </div>
+      <style>{`
+        @keyframes stealthBigSpin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+      {!slotData ? (
+        <>
+          {noMatch ? (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '0.81rem',
+              fontFamily: "'Pretendard', sans-serif",
+            }}>
+              일치하는 데이터가 없습니다.
+            </div>
+          ) : isSearching ? (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}>
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                border: '4px solid rgba(255,255,255,0.12)',
+                borderTopColor: '#00e887',
+                animation: 'stealthBigSpin 1s linear infinite',
+              }} />
+              <span style={{
+                fontSize: '0.81rem',
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: "'Pretendard', sans-serif",
+              }}>
+                {(templateName || '템플릿')} 탐색중...
+              </span>
+            </div>
+          ) : (
+            <div style={{ flex: 1 }} />
+          )}
+        </>
       ) : (
         <>
           {/* 슬롯 헤더 */}
@@ -88,14 +134,13 @@ export default function StealthSlot({
 
           {/* 차트 영역 */}
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <StealthChart
-              slotIndex={slotIndex}
+            <MiniChart
               candles={slotData.candles}
               highlights={highlights}
               chartType="candle"
               liveCandle={isCenter ? liveCandle : null}
               tempHighlight={isCenter ? tempHighlight : false}
-              tempHighlightType={tempHighlightType}
+              tempHighlightColor={tempHighlightColor}
             />
           </div>
         </>

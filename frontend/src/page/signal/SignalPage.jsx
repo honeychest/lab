@@ -3,7 +3,6 @@
 // [AGENT] TASK-12: latestCandleTime, divergenceData, params/canEdit 상태 추가 + 컴포넌트 Props 스캐폴딩
 // [AGENT] T4-STEALTH: PatternStrip Props 변경 — symbol만 전달 (latestCandleTime, params 제거)
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useSignalSse } from '../../domain/binance/model/hook/useSignalSse.ts';
 import TopBar from './TopBar.jsx';
@@ -13,6 +12,7 @@ import ShortLiqPanel from './components/ShortLiqPanel.jsx';
 import LiquidationPanel from './components/LiquidationPanel.jsx';
 import MainCore from './components/MainCore.jsx';
 import PatternStrip from './components/PatternStrip.jsx';
+import axios from 'axios';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
 
@@ -63,6 +63,11 @@ export default function SignalPage() {
     const [, setLatestCandleTime] = useState(null);
     const [params, setParams] = useState(null);
     const [canEdit, setCanEdit] = useState(false);
+    const [templates, setTemplates] = useState([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState(() => {
+        const stored = localStorage.getItem('signal_template_id');
+        return stored ? Number(stored) : null;
+    });
 
     const abortControllerRef = useRef(null);
     const symbolDebounceRef = useRef(null);
@@ -134,11 +139,42 @@ export default function SignalPage() {
         loadParams();
     }, [symbol]);
 
+    useEffect(() => {
+        const loadTemplates = async () => {
+            try {
+                const res = await axios.get('/api/analysis/templates');
+                const list = Array.isArray(res.data) ? res.data : [];
+                setTemplates(list);
+                if (list.length === 0) {
+                    return;
+                }
+                // 현재 선택된 템플릿이 없거나 목록에 없으면 첫 번째 템플릿으로 기본 설정
+                const exists = list.some((t) => t.id === selectedTemplateId);
+                if (selectedTemplateId == null || !exists) {
+                    const firstId = list[0].id;
+                    setSelectedTemplateId(firstId);
+                    localStorage.setItem('signal_template_id', String(firstId));
+                }
+            } catch (err) {
+                console.error('[SignalPage] templates failed', err);
+            }
+        };
+        loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (selectedTemplateId != null) {
+            localStorage.setItem('signal_template_id', String(selectedTemplateId));
+        } else {
+            localStorage.removeItem('signal_template_id');
+        }
+    }, [selectedTemplateId]);
+
     // 캔들 히스토리: CHART_CANDLE_TYPE 고정(OI와 동일 기준) — symbol·displayCount 변경 시 재로드
     const candleType  = CHART_CANDLE_TYPE;
     const candleLimit = getDisplayCount(timeRange);
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCandleHistory([]);
         axios.get(`/api/signal/candles?symbol=${symbol}&type=${candleType}&limit=${candleLimit}`)
             .then((res) => setCandleHistory(res.data))
@@ -168,7 +204,6 @@ export default function SignalPage() {
         const value = qty * price;
 
         if (latest.isBuyerMaker) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setShortEnergy((prev) => prev + value);
             setShortTrades((prev) => [...prev, latest].slice(-20));
         } else {
@@ -190,7 +225,6 @@ export default function SignalPage() {
         const value = qty * price;
 
         if (latest.side === 'SELL') {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLongEnergy((prev) => Math.max(0, prev - value));
             setLongLiqTotal((prev) => prev + value);
             setLongLiqEvents((prev) => [latest, ...prev].slice(0, 50));
@@ -207,7 +241,6 @@ export default function SignalPage() {
 
         if (latestOi.symbol !== symbol) return;
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setOiDataHistory((prev) => {
             const updated = [...prev, latestOi].slice(-500); // 최근 500개 유지 (5분봉 40h = 480개)
             return updated;
@@ -309,6 +342,9 @@ export default function SignalPage() {
                     canEdit={canEdit}
                     params={params}
                     onParamsSave={handleParamsSave}
+                    templates={templates}
+                    selectedTemplateId={selectedTemplateId}
+                    onTemplateChange={setSelectedTemplateId}
                 />
             </div>
 
@@ -346,7 +382,14 @@ export default function SignalPage() {
             </div>
 
             <div style={{ gridColumn: '1 / 13', gridRow: '4' }}>
-                <PatternStrip symbol={symbol} />
+            <PatternStrip
+                symbol={symbol}
+                templateId={selectedTemplateId}
+                templateName={templates.find((t) => t.id === selectedTemplateId)?.name}
+                paletteLevel={templates.find((t) => t.id === selectedTemplateId)?.palette ?? 'MID'}
+                templates={templates}
+                onTemplateChange={setSelectedTemplateId}
+            />
             </div>
             </div>
         </Layout>

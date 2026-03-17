@@ -1,23 +1,16 @@
-// [AGENT] T4-STEALTH: 슬롯 내 차트 (캔들 + 오버레이 하이라이트 + 마커 + 툴팁 + 고저점선 + 스피너)
-// StrictMode 대응: init effect에서 applyChartData 즉시 호출로 candles useEffect 미실행 케이스 커버
-// 오버레이: 200ms 디바운스 후 timeToCoordinate로 보정
-// 마커: createSeriesMarkers(v5) — 차트와 함께 즉시 이동
-// 가로선: series.createPriceLine() 으로 고점/저점 표시
+// [AGENT] T4-ANALYSIS: 공용 미니차트 — StealthChart 기반 일반화. highlights[].color 직접 주입.
+// StealthSlot + AnalysisPage CasesPanel 공용
 import { useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, LineSeries, createSeriesMarkers, LineStyle } from 'lightweight-charts';
 
-const TYPE_A_COLOR = 'rgba(240,192,64,0.9)';
-const TYPE_B_COLOR = 'rgba(255,59,92,0.9)';
-const TYPE_A_HL   = 'rgba(240,192,64,0.2)';
-const TYPE_B_HL   = 'rgba(255,59,92,0.3)';
-const LINE_COLOR  = 'rgba(80,160,255,0.8)';
 const DEBOUNCE_MS = 200;
 
-function calcByCoordinate(candles, highlights, tempHighlight, tempHighlightType, timeScale) {
+// 하이라이트: 차트 캔들 영역 전체를 덮는 세로 띠 (안정성 우선)
+function calcByCoordinate(candles, highlights, tempHighlight, tempHighlightColor, timeScale) {
   if (candles.length === 0) return [];
   const items = [...highlights];
-  if (tempHighlight && tempHighlightType !== null) {
-    items.push({ idx: candles.length - 1, type: tempHighlightType });
+  if (tempHighlight && tempHighlightColor) {
+    items.push({ idx: candles.length - 1, color: tempHighlightColor });
   }
 
   let barWidth = 4;
@@ -32,14 +25,19 @@ function calcByCoordinate(candles, highlights, tempHighlight, tempHighlightType,
     if (!candle) return null;
     const x = timeScale.timeToCoordinate(Math.floor(candle.time / 1000));
     if (x === null) return null;
-    return { x: x - barWidth / 2, width: barWidth, type: h.type };
+
+    return {
+      x:      x - barWidth / 2,
+      width:  barWidth,
+      color:  h.color,
+    };
   }).filter(Boolean);
 }
 
-function buildMarkers(candles, highlights, tempHighlight, tempHighlightType) {
+function buildMarkers(candles, highlights, tempHighlight, tempHighlightColor) {
   const items = [...highlights];
-  if (tempHighlight && tempHighlightType !== null) {
-    items.push({ idx: candles.length - 1, type: tempHighlightType });
+  if (tempHighlight && tempHighlightColor) {
+    items.push({ idx: candles.length - 1, color: tempHighlightColor });
   }
   return items.map((h) => {
     const candle = candles[Math.min(h.idx, candles.length - 1)];
@@ -47,20 +45,21 @@ function buildMarkers(candles, highlights, tempHighlight, tempHighlightType) {
     return {
       time:     Math.floor(candle.time / 1000),
       position: 'belowBar',
-      color:    h.type === 'A' ? TYPE_A_COLOR : TYPE_B_COLOR,
+      color:    h.color,
       shape:    'arrowUp',
       size:     1,
     };
   }).filter(Boolean).sort((a, b) => a.time - b.time);
 }
 
-export default function StealthChart({
+export default function MiniChart({
   candles = [],
-  highlights = [],
+  highlights = [],       // [{ idx, color }] — 색상 직접 주입
   chartType = 'candle',
   liveCandle = null,
   tempHighlight = false,
-  tempHighlightType = null,
+  tempHighlightColor = null,
+  symbol = null,
 }) {
   const containerRef      = useRef(null);
   const chartRef          = useRef(null);
@@ -75,7 +74,7 @@ export default function StealthChart({
   const candlesRef        = useRef(candles);
   const highlightsRef     = useRef(highlights);
   const tempHighlightRef  = useRef(tempHighlight);
-  const tempHlTypeRef     = useRef(tempHighlightType);
+  const tempHlColorRef    = useRef(tempHighlightColor);
   const dayHighRef        = useRef(null);
   const dayLowRef         = useRef(null);
 
@@ -83,10 +82,10 @@ export default function StealthChart({
   const [tooltip, setTooltip]         = useState(null);
   const [loading, setLoading]         = useState(true);
 
-  useEffect(() => { candlesRef.current       = candles;          }, [candles]);
-  useEffect(() => { highlightsRef.current    = highlights;       }, [highlights]);
+  useEffect(() => { candlesRef.current      = candles;           }, [candles]);
+  useEffect(() => { highlightsRef.current   = highlights;        }, [highlights]);
   useEffect(() => { tempHighlightRef.current = tempHighlight;    }, [tempHighlight]);
-  useEffect(() => { tempHlTypeRef.current    = tempHighlightType; }, [tempHighlightType]);
+  useEffect(() => { tempHlColorRef.current  = tempHighlightColor; }, [tempHighlightColor]);
 
   // 차트 초기화 (한 번만)
   useEffect(() => {
@@ -96,8 +95,8 @@ export default function StealthChart({
       handleScale:  true,
       handleScroll: true,
       layout: {
-        background:     { color: 'transparent' },
-        textColor:      'rgba(255,255,255,0.2)',
+        background:      { color: 'transparent' },
+        textColor:       'rgba(255,255,255,0.2)',
         attributionLogo: false,
       },
       grid: {
@@ -126,7 +125,7 @@ export default function StealthChart({
       });
     } else {
       series = chart.addSeries(LineSeries, {
-        color:                  LINE_COLOR,
+        color:                  'rgba(80,160,255,0.8)',
         lineWidth:              1,
         crosshairMarkerVisible: false,
         lastValueVisible:       false,
@@ -137,7 +136,6 @@ export default function StealthChart({
     markersWrapperRef.current = createSeriesMarkers(series, []);
 
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      // 논리 범위가 전체 캔들 수 초과 시 200ms 디바운스 후 fitContent
       if (range && candlesRef.current.length > 0) {
         const visibleBars = range.to - range.from;
         if (visibleBars > candlesRef.current.length && !fitCooldownRef.current) {
@@ -155,7 +153,13 @@ export default function StealthChart({
       debounceTimer.current = setTimeout(() => {
         if (!chartRef.current) return;
         setHlPositions(
-          calcByCoordinate(candlesRef.current, highlightsRef.current, tempHighlightRef.current, tempHlTypeRef.current, chart.timeScale())
+          calcByCoordinate(
+            candlesRef.current,
+            highlightsRef.current,
+            tempHighlightRef.current,
+            tempHlColorRef.current,
+            chart.timeScale(),
+          )
         );
       }, DEBOUNCE_MS);
     });
@@ -171,7 +175,8 @@ export default function StealthChart({
       const timeMs = param.time * 1000;
       const candle = candlesRef.current.find((c) => Math.floor(c.time / 1000) === param.time)
                   ?? candlesRef.current.find((c) => Math.abs(c.time - timeMs) < 150_000);
-      const delta = candle?.delta ?? null;
+      const delta   = candle?.delta ?? null;
+      const volume  = candle?.volume ?? null;
 
       setTooltip({
         x:          param.point.x,
@@ -179,6 +184,7 @@ export default function StealthChart({
         time:       param.time,
         close:      data.close,
         delta,
+        volume,
         dayHigh:    dayHighRef.current,
         dayLow:     dayLowRef.current,
         containerW: containerRef.current?.clientWidth ?? 0,
@@ -189,9 +195,8 @@ export default function StealthChart({
     seriesRef.current = series;
     isInitRef.current = true;
 
-    // StrictMode 대응: 차트 생성 즉시 현재 candlesRef로 데이터 세팅
     if (candlesRef.current.length > 0) {
-      applyChartData(series, chart, candlesRef.current, highlightsRef.current, tempHighlightRef.current, tempHlTypeRef.current);
+      applyChartData(series, chart, candlesRef.current, highlightsRef.current, tempHighlightRef.current, tempHlColorRef.current);
     }
 
     return () => {
@@ -208,8 +213,7 @@ export default function StealthChart({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 데이터·마커·고저점선·오버레이 일괄 세팅 헬퍼
-  const applyChartData = (series, chart, candles, highlights, tempHighlight, tempHighlightType) => {
+  const applyChartData = (series, chart, candles, highlights, tempHighlight, tempHighlightColor) => {
     if (!series || candles.length === 0) return;
 
     if (chartType === 'candle') {
@@ -228,18 +232,32 @@ export default function StealthChart({
       series.setData(candles.map((c, i) => ({ time: i + 1, value: c.close })));
     }
 
+    // Y축 여백 최소화 — 세로 영역을 더 꽉 사용
+    series.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.02,
+        bottom: 0.02,
+      },
+    });
+
     updatePriceLinesInternal(series, candles);
-    markersWrapperRef.current?.setMarkers(buildMarkers(candles, highlights, tempHighlight, tempHighlightType));
+    markersWrapperRef.current?.setMarkers(buildMarkers(candles, highlights, tempHighlight, tempHighlightColor));
     chart.timeScale().fitContent();
-    // ResizeObserver가 비동기로 컨테이너 크기를 확정한 뒤 재보정 (0×0 타이밍 대응)
     requestAnimationFrame(() => {
       if (chartRef.current === chart) chart.timeScale().fitContent();
     });
-    setHlPositions(calcByCoordinate(candles, highlights, tempHighlight, tempHighlightType, chart.timeScale()));
+    setHlPositions(
+      calcByCoordinate(
+        candles,
+        highlights,
+        tempHighlight,
+        tempHighlightColor,
+        chart.timeScale(),
+      )
+    );
     setLoading(false);
   };
 
-  // 고점/저점 가로선 갱신 헬퍼
   const updatePriceLinesInternal = (series, candles) => {
     if (priceLineHighRef.current) { series.removePriceLine(priceLineHighRef.current); priceLineHighRef.current = null; }
     if (priceLineLowRef.current)  { series.removePriceLine(priceLineLowRef.current);  priceLineLowRef.current  = null; }
@@ -269,23 +287,29 @@ export default function StealthChart({
   // candles 변경
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current || candles.length === 0) return;
-    applyChartData(seriesRef.current, chartRef.current, candles, highlights, tempHighlight, tempHighlightType);
+    applyChartData(seriesRef.current, chartRef.current, candles, highlights, tempHighlight, tempHighlightColor);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles, chartType]);
 
   // highlights / tempHighlight 변경
   useEffect(() => {
     if (!seriesRef.current || candles.length === 0) return;
-    markersWrapperRef.current?.setMarkers(buildMarkers(candles, highlights, tempHighlight, tempHighlightType));
+    markersWrapperRef.current?.setMarkers(buildMarkers(candles, highlights, tempHighlight, tempHighlightColor));
     if (chartRef.current) {
       setHlPositions(
-        calcByCoordinate(candles, highlights, tempHighlight, tempHighlightType, chartRef.current.timeScale())
+        calcByCoordinate(
+          candles,
+          highlights,
+          tempHighlight,
+          tempHighlightColor,
+          chartRef.current.timeScale(),
+        )
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlights, tempHighlight, tempHighlightType]);
+  }, [highlights, tempHighlight, tempHighlightColor]);
 
-  // liveCandle 갱신 (center 전용)
+  // liveCandle 갱신
   useEffect(() => {
     if (!seriesRef.current || !liveCandle || chartType !== 'candle') return;
     seriesRef.current.update(liveCandle);
@@ -297,7 +321,14 @@ export default function StealthChart({
     const close    = tooltip.close;
     const closeStr = Number(close).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-    const deltaColor = tooltip.delta >= 0 ? 'rgba(80,160,255,0.9)' : 'rgba(255,160,50,0.9)';
+    const volume   = tooltip.volume;
+    const volumeStr = volume != null
+      ? Number(volume).toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : null;
+
+    const deltaColor = tooltip.delta >= 0
+      ? 'rgba(var(--buy-rgb), 0.9)'
+      : 'rgba(var(--sell-rgb), 0.9)';
     const deltaLabel = tooltip.delta >= 0 ? '순매수' : '순매도';
     const deltaStr   = tooltip.delta != null
       ? `${deltaLabel} ${tooltip.delta >= 0 ? '+' : ''}${Number(tooltip.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
@@ -338,6 +369,11 @@ export default function StealthChart({
       }}>
         <div style={{ color: 'rgba(255,255,255,0.45)' }}>{timeStr}</div>
         <div style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>종가 {closeStr}</div>
+        {volumeStr && (
+          <div style={{ color: 'rgba(255,255,255,0.6)' }}>
+            거래량 {volumeStr}{symbol ? ` ${symbol}` : ''}
+          </div>
+        )}
         {deltaStr && <div style={{ color: deltaColor, fontWeight: 600 }}>{deltaStr}</div>}
         {highDiffStr && <div style={{ color: 'rgba(80,160,255,0.7)' }}>{highDiffStr}</div>}
         {lowDiffStr  && <div style={{ color: 'rgba(255,160,50,0.7)'  }}>{lowDiffStr}</div>}
@@ -378,7 +414,8 @@ export default function StealthChart({
               width:           h.width,
               top:             0,
               bottom:          0,
-              backgroundColor: h.type === 'A' ? TYPE_A_HL : TYPE_B_HL,
+              backgroundColor: h.color,
+              opacity:         0.25,
               pointerEvents:   'none',
             }}
           />

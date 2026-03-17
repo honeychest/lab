@@ -1,16 +1,18 @@
+// [AGENT] T4-ANALYSIS: /analysis 라우트 추가 (AnalysisPage)
 // [AGENT] 앱 라우팅 — BrowserRouter 기반
-// / → /trade 리다이렉트, /trade(TradePage), /binance(BinancePage), /cesium(CesiumPage)
-// 연관: TradePage.jsx, BinancePage.jsx, CesiumPage.jsx, ErrorPage.tsx
+// / → /trade 리다이렉트, /trade(TradePage), /binance(BinancePage), /cesium(CesiumPage), /analysis(AnalysisPage)
+// 연관: TradePage.jsx, BinancePage.jsx, CesiumPage.jsx, AnalysisPage.jsx, ErrorPage.tsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import CesiumPage from '../../page/weather/CesiumPage.jsx';
-import ErrorPage from '../../page/error/ErrorPage.tsx';
-import ErrorTest from '../../page/error/ErrorTest.tsx';
-import TestTest from '../../page/error/TestTest.jsx';
-import BinancePage from '../../page/binance/BinancePage.jsx';
-import TradePage from '../../page/trade/TradePage.jsx';
-import SignalPage from '../../page/signal/SignalPage.jsx';
-import AdminPage from '../../page/admin/AdminPage.jsx';
+import CesiumPage    from '../../page/weather/CesiumPage.jsx';
+import ErrorPage     from '../../page/error/ErrorPage.tsx';
+import ErrorTest     from '../../page/error/ErrorTest.tsx';
+import TestTest      from '../../page/error/TestTest.jsx';
+import BinancePage   from '../../page/binance/BinancePage.jsx';
+import TradePage     from '../../page/trade/TradePage.jsx';
+import SignalPage    from '../../page/signal/SignalPage.jsx';
+import AdminPage     from '../../page/admin/AdminPage.jsx';
+import AnalysisPage  from '../../page/analysis/AnalysisPage.jsx';
 
 function MainRouter() {
     return (
@@ -27,6 +29,9 @@ function MainRouter() {
 
                 {/* Signal 페이지 */}
                 <Route path="/signal" element={<SignalPage />} />
+
+                {/* Analysis 페이지 */}
+                <Route path="/analysis" element={<AnalysisPage />} />
 
                 {/* Cesium 페이지 */}
                 <Route path="/cesium" element={<CesiumPage />} />

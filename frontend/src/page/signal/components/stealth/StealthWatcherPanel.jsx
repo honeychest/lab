@@ -8,8 +8,8 @@ export default function StealthWatcherPanel({ watchState, signalLabel, onReset }
   const isLocked    = watchState === 'LOCKED_AFTER_CLOSE';
 
   const getLabel = () => {
-    if (watchState === 'WATCHING')      return '● 감시중';
-    if (watchState === 'RECONNECTING')  return '● 연결 중...';
+    if (watchState === 'WATCHING')      return '';
+    if (watchState === 'RECONNECTING')  return '연결 중...';
     const typeLabel = signalLabel === 'B' ? '스텔스 거래' : '스텔스 의심';
     const icon = isLocked ? '🔒' : '⚡';
     return `${icon} ${typeLabel}`;
@@ -27,7 +27,7 @@ export default function StealthWatcherPanel({ watchState, signalLabel, onReset }
       inset:          0,
       display:        'flex',
       alignItems:     'flex-start',
-      justifyContent: 'flex-start',
+      justifyContent: 'flex-end',
       padding:        '6px 8px',
       pointerEvents:  'none',
     }}>
@@ -36,19 +36,39 @@ export default function StealthWatcherPanel({ watchState, signalLabel, onReset }
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.3; }
         }
+      @keyframes stealthSpin {
+        to { transform: rotate(360deg); }
+      }
       `}</style>
 
-      <span style={{
-        fontSize:   '11px',
-        fontWeight: 600,
-        color:      getColor(),
-        fontFamily: "'Pretendard', sans-serif",
-        opacity:    isLocked ? 0.6 : 1,
-        animation:  watchState === 'WATCHING' ? 'stealthPulse 1s ease-in-out infinite' : 'none',
+      <div style={{
+        display:      'flex',
+        alignItems:   'center',
+        gap:          6,
         pointerEvents: 'none',
       }}>
-        {getLabel()}
-      </span>
+        {watchState === 'RECONNECTING' && (
+          <span style={{
+            width:        12,
+            height:       12,
+            borderRadius: '50%',
+            border:       '2px solid rgba(255,255,255,0.18)',
+            borderTop:    `2px solid ${getColor()}`,
+            animation:    'stealthSpin 0.9s linear infinite',
+          }} />
+        )}
+        {getLabel() && (
+          <span style={{
+            fontSize:   '11px',
+            fontWeight: 600,
+            color:      getColor(),
+            fontFamily: "'Pretendard', sans-serif",
+            opacity:    isLocked ? 0.6 : 1,
+          }}>
+            {getLabel()}
+          </span>
+        )}
+      </div>
 
       {isTriggered && (
         <button

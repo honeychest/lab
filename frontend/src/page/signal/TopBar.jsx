@@ -4,6 +4,23 @@
 import { useState, useRef, useEffect } from 'react';
 import ParamPanel from './ParamPanel.jsx';
 
+const TEMPLATE_SELECT_STYLE = {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '6px',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: '11px',
+    fontWeight: '500',
+    padding: '3px 8px',
+    cursor: 'pointer',
+    outline: 'none',
+    fontFamily: "'Pretendard', sans-serif",
+    maxWidth: '220px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+};
+
 export default function TopBar({
     symbol,
     onSymbolChange,
@@ -15,6 +32,9 @@ export default function TopBar({
     canEdit = false,
     params = null,
     onParamsSave,
+    templates = [],
+    selectedTemplateId = null,
+    onTemplateChange,
 }) {
     const [panelOpen, setPanelOpen] = useState(false);
     const gearContainerRef = useRef(null);
@@ -110,7 +130,7 @@ export default function TopBar({
                 </div>
             ) : (
                 <>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {['BTCUSDT', 'ENAUSDT'].map((sym) => (
                             <button
                                 key={sym}
@@ -130,6 +150,30 @@ export default function TopBar({
                                 {sym.replace('USDT', '')}
                             </button>
                         ))}
+                        {templates.length > 0 && (
+                            <select
+                                value={selectedTemplateId ?? ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) return;
+                                    onTemplateChange && onTemplateChange(Number(val));
+                                }}
+                                style={TEMPLATE_SELECT_STYLE}
+                            >
+                                <option value="" disabled style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.5)' }}>
+                                    분석 템플릿 선택
+                                </option>
+                                {templates.map((t) => (
+                                    <option
+                                        key={t.id}
+                                        value={t.id}
+                                        style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}
+                                    >
+                                        {t.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
                         {timeRanges.map(({ value, label }) => (

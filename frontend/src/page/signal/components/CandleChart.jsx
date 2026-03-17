@@ -109,6 +109,10 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
         const _first = bars[0];
         const _last  = bars[bars.length - 1];
         seriesRef.current.setData(bars);
+        // Y축 여백 최소화
+        seriesRef.current.priceScale().applyOptions({
+            scaleMargins: { top: 0.02, bottom: 0.02 },
+        });
         if (formingBarRef.current) {
             console.log('[CandleChart] formingBar 재적용:', new Date(formingBarRef.current.time * 1000).toLocaleString());
             seriesRef.current.update(formingBarRef.current);
@@ -204,7 +208,9 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
         const date    = new Date(tooltip.time * 1000);
         const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
         const closeStr = '$' + Number(tooltip.close).toLocaleString(undefined, { maximumFractionDigits: 0 });
-        const deltaColor  = tooltip.delta >= 0 ? 'rgba(80,160,255,0.9)' : 'rgba(255,160,50,0.9)';
+        const deltaColor  = tooltip.delta >= 0
+            ? 'rgba(var(--buy-rgb), 0.9)'
+            : 'rgba(var(--sell-rgb), 0.9)';
         const deltaLabel  = tooltip.delta >= 0 ? '순매수' : '순매도';
         const deltaStr    = tooltip.delta != null
             ? `${deltaLabel} ${tooltip.delta >= 0 ? '+' : ''}${Number(tooltip.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC`

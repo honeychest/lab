@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public class SignalController {
 
     private final SignalDataService signalDataService;
-    private final SignalSseService signalSseService;
+    private final SignalSseService  signalSseService;
     private final PatternMatchService patternMatchService;
 
     @Value("${binance.threshold.allowed-ips:}")
@@ -149,6 +149,7 @@ public class SignalController {
         Map<String, Object> data = signalDataService.getDivergence(symbol, timeline);
         return ResponseEntity.ok(data);
     }
+
 
     @PutMapping("/params")
     public ResponseEntity<?> putParams(
