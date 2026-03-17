@@ -55,7 +55,6 @@ function buildMarkers(candles, highlights, tempHighlight, tempHighlightType) {
 }
 
 export default function StealthChart({
-  slotIndex,
   candles = [],
   highlights = [],
   chartType = 'candle',
