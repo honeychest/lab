@@ -1,6 +1,7 @@
 // [AGENT] Signal Dashboard — 메인 페이지 (Grid 레이아웃 + 상태 관리)
 // [AGENT] 모바일/데스크톱 레이아웃 분리: isMobile 기준으로 return 분기
 // [AGENT] TASK-12: latestCandleTime, divergenceData, params/canEdit 상태 추가 + 컴포넌트 Props 스캐폴딩
+// [AGENT] T4-STEALTH: PatternStrip Props 변경 — symbol만 전달 (latestCandleTime, params 제거)
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
@@ -59,7 +60,7 @@ export default function SignalPage() {
     const [patterns, setPatterns] = useState([]);
     const [oiDataHistory, setOiDataHistory] = useState([]);
     const [candleHistory, setCandleHistory] = useState([]);
-    const [latestCandleTime, setLatestCandleTime] = useState(null);
+    const [, setLatestCandleTime] = useState(null);
     const [params, setParams] = useState(null);
     const [canEdit, setCanEdit] = useState(false);
 
@@ -345,11 +346,7 @@ export default function SignalPage() {
             </div>
 
             <div style={{ gridColumn: '1 / 13', gridRow: '4' }}>
-                <PatternStrip
-                    symbol={symbol}
-                    latestCandleTime={latestCandleTime}
-                    params={params}
-                />
+                <PatternStrip symbol={symbol} />
             </div>
             </div>
         </Layout>

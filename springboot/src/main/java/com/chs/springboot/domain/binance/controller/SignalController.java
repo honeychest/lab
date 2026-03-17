@@ -1,6 +1,6 @@
-// [AGENT] Signal Dashboard REST + SSE 컨트롤러 — /api/signal/* 엔드포인트
+// [AGENT] T4-STEALTH: Signal Dashboard REST + SSE 컨트롤러 — /api/signal/* 엔드포인트
 // 연관파일: SignalDataService.java, SignalSseService.java, PatternMatchService.java
-// 주요엔드포인트: GET /init, GET /history, GET /patterns, GET /stream/sse, GET|PUT /params, GET /pattern, GET /score, GET /divergence
+// 주요엔드포인트: GET /init, GET /history, GET /patterns, GET /stream/sse, GET|PUT /params, GET /pattern, GET /score, GET /divergence, GET /candles(date+overlap추가), GET /candles/dates
 package com.chs.springboot.domain.binance.controller;
 
 import com.chs.springboot.domain.binance.service.SignalDataService;
@@ -115,10 +115,21 @@ public class SignalController {
     public ResponseEntity<List<Map<String, Object>>> getCandles(
             @RequestParam String symbol,
             @RequestParam String type,
-            @RequestParam(defaultValue = "90") int limit) {
-        log.debug("[SignalController] GET /candles symbol={} type={} limit={}", symbol, type, limit);
+            @RequestParam(defaultValue = "90") int limit,
+            @RequestParam(required = false) String date,
+            @RequestParam(defaultValue = "0") int overlap) {
+        log.debug("[SignalController] GET /candles symbol={} type={} limit={} date={} overlap={}", symbol, type, limit, date, overlap);
+        if (date != null && !date.isEmpty()) {
+            return ResponseEntity.ok(signalDataService.getCandlesByDate(symbol, type, date, overlap));
+        }
         List<Map<String, Object>> data = signalDataService.getCandles(symbol, type, limit);
         return ResponseEntity.ok(data);
+    }
+
+    @GetMapping("/candles/dates")
+    public ResponseEntity<Map<String, List<String>>> getCandleDates(@RequestParam String symbol) {
+        log.debug("[SignalController] GET /candles/dates symbol={}", symbol);
+        return ResponseEntity.ok(Map.of("dates", signalDataService.getCandleDates(symbol)));
     }
 
     @GetMapping("/oi")

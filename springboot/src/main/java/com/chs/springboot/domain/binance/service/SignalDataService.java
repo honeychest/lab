@@ -1,6 +1,6 @@
-// [AGENT] Signal Dashboard 핵심 비즈니스 로직 — init/history/patterns/params/divergence API 데이터 조립
+// [AGENT] T4-STEALTH: Signal Dashboard 핵심 비즈니스 로직 — init/history/patterns/params/divergence/candles API 데이터 조립
 // 연관파일: SignalController.java, RawAggTradeRepository.java, OpenInterestRepository.java, ForceOrderRepository.java, AggTrade1mRepository.java, AggTrade5mRepository.java, SignalParamsRepository.java
-// 주요메서드: getInitData, getHistoryData, findPatterns, calcLargeTradeThreshold, calcMovingAverage, getParams, saveParams, getDivergence
+// 주요메서드: getInitData, getHistoryData, findPatterns, calcLargeTradeThreshold, calcMovingAverage, getParams, saveParams, getDivergence, getCandles(volume추가), getCandlesByDate, getCandleDates
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.AggTrade5m;
@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -382,14 +385,61 @@ public class SignalDataService {
         java.util.Collections.reverse(sorted);
         return sorted.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("time",  toBd(r.get("candle_time_ms")).longValue());
-            m.put("open",  toBd(r.get("open_price")).doubleValue());
-            m.put("high",  toBd(r.get("high_price")).doubleValue());
-            m.put("low",   toBd(r.get("low_price")).doubleValue());
-            m.put("close", toBd(r.get("close_price")).doubleValue());
-            m.put("delta", toBd(r.get("delta")).doubleValue());
+            m.put("time",   toBd(r.get("candle_time_ms")).longValue());
+            m.put("open",   toBd(r.get("open_price")).doubleValue());
+            m.put("high",   toBd(r.get("high_price")).doubleValue());
+            m.put("low",    toBd(r.get("low_price")).doubleValue());
+            m.put("close",  toBd(r.get("close_price")).doubleValue());
+            m.put("volume", toBd(r.get("total_volume")).doubleValue());
+            m.put("delta",  toBd(r.get("delta")).doubleValue());
             return m;
         }).toList();
+    }
+
+    public List<Map<String, Object>> getCandlesByDate(String symbol, String type, String date, int overlap) {
+        long dayStart = LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+        long dayEnd   = dayStart + 86_400_000L;
+
+        List<Map<String, Object>> dayRows = agg5mRepository.findByDateRange(symbol, dayStart, dayEnd);
+
+        List<Map<String, Object>> overlapRows = new ArrayList<>(
+            agg5mRepository.findLastNBefore(symbol, dayStart, overlap)
+        );
+        Collections.reverse(overlapRows);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map<String, Object> r : overlapRows) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("time",      toBd(r.get("candle_time_ms")).longValue());
+            m.put("open",      toBd(r.get("open_price")).doubleValue());
+            m.put("high",      toBd(r.get("high_price")).doubleValue());
+            m.put("low",       toBd(r.get("low_price")).doubleValue());
+            m.put("close",     toBd(r.get("close_price")).doubleValue());
+            m.put("volume",    toBd(r.get("total_volume")).doubleValue());
+            m.put("delta",     toBd(r.get("delta")).doubleValue());
+            m.put("isOverlap", true);
+            result.add(m);
+        }
+
+        for (Map<String, Object> r : dayRows) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("time",      toBd(r.get("candle_time_ms")).longValue());
+            m.put("open",      toBd(r.get("open_price")).doubleValue());
+            m.put("high",      toBd(r.get("high_price")).doubleValue());
+            m.put("low",       toBd(r.get("low_price")).doubleValue());
+            m.put("close",     toBd(r.get("close_price")).doubleValue());
+            m.put("volume",    toBd(r.get("total_volume")).doubleValue());
+            m.put("delta",     toBd(r.get("delta")).doubleValue());
+            m.put("isOverlap", false);
+            result.add(m);
+        }
+
+        return result;
+    }
+
+    public List<String> getCandleDates(String symbol) {
+        return agg5mRepository.findDistinctKstDates(symbol);
     }
 
     private BigDecimal toBd(Object v) {

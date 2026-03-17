@@ -1,4 +1,4 @@
-// [AGENT] 역할: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java, PatternMatchService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate, sumDivergenceBySymbolAndTimeRange, findBySymbolAndTimeRange, findDayCandlesBySymbol
+// [AGENT] T4-STEALTH: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java, PatternMatchService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate, sumDivergenceBySymbolAndTimeRange, findBySymbolAndTimeRange, findDayCandlesBySymbol, findTopNWithCombinedDelta(volume추가), findByDateRange, findLastNBefore, findDistinctKstDates
 package com.chs.springboot.domain.binance.repository;
 
 import com.chs.springboot.domain.binance.model.AggTrade5m;
@@ -107,22 +107,70 @@ public interface AggTrade5mRepository extends JpaRepository<AggTrade5m, Long> {
         @Param("marketType") String marketType,
         @Param("limitCount") int limitCount);
 
-    // getCandles 용 — FUTURES 가격 + S+F delta 합산 (내림차순, 호출측에서 reverse 필요)
+    // getCandles 용 — FUTURES 가격 + S+F delta 합산 + volume (내림차순, 호출측에서 reverse 필요)
     @Query(value = """
         SELECT f.candle_time_ms,
                f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
                COALESCE(SUM(a.delta), 0) AS delta
         FROM agg_trade_5m f
         JOIN agg_trade_5m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
         WHERE f.symbol = :symbol
           AND f.market_type = 'FUTURES'
-        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price,
+                 f.total_volume
         ORDER BY f.candle_time_ms DESC
         LIMIT :limitCount
         """, nativeQuery = true)
     List<Map<String, Object>> findTopNWithCombinedDelta(
         @Param("symbol")     String symbol,
         @Param("limitCount") int limitCount);
+
+    // getCandlesByDate 용 — 날짜 범위 day 봉 조회 (ASC, market_type=FUTURES 고정)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_5m f
+        JOIN agg_trade_5m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms >= :fromMs AND f.candle_time_ms < :toMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Map<String, Object>> findByDateRange(
+        @Param("symbol") String symbol,
+        @Param("fromMs")  long fromMs,
+        @Param("toMs")    long toMs);
+
+    // getCandlesByDate 용 — day 시작 전 N봉 (DESC 반환 → 서비스에서 reverse)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_5m f
+        JOIN agg_trade_5m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms < :beforeMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms DESC
+        LIMIT :n
+        """, nativeQuery = true)
+    List<Map<String, Object>> findLastNBefore(
+        @Param("symbol")   String symbol,
+        @Param("beforeMs") long beforeMs,
+        @Param("n")        int n);
+
+    // getCandleDates 용 — KST 거래일 날짜 목록 (CONVERT_TZ로 UTC→KST 명시 변환)
+    @Query(value = """
+        SELECT DISTINCT DATE(CONVERT_TZ(FROM_UNIXTIME(candle_time_ms / 1000), '+00:00', '+09:00')) AS trade_date
+        FROM agg_trade_5m
+        WHERE symbol = :symbol AND market_type = 'FUTURES'
+        ORDER BY trade_date DESC
+        """, nativeQuery = true)
+    List<String> findDistinctKstDates(@Param("symbol") String symbol);
 
     // getCandles 용 — 심볼·마켓타입·기간 내 봉 조회 (OHLC 히스토리)
     @Query(value = """
