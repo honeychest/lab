@@ -13,6 +13,8 @@ import TradePage     from '../../page/trade/TradePage.jsx';
 import SignalPage    from '../../page/signal/SignalPage.jsx';
 import AdminPage     from '../../page/admin/AdminPage.jsx';
 import AnalysisPage  from '../../page/analysis/AnalysisPage.jsx';
+import MonitorPage   from '../../page/monitor/MonitorPage.jsx';
+import ForbiddenPage from '../../page/forbidden/ForbiddenPage.jsx';
 
 function MainRouter() {
     return (
@@ -38,6 +40,12 @@ function MainRouter() {
 
                 {/* Admin 페이지 */}
                 <Route path="/admin" element={<AdminPage />} />
+
+                {/* Monitor 페이지 */}
+                <Route path="/monitor" element={<MonitorPage />} />
+
+                {/* Forbidden 페이지 (GNB/Footer 없이 단독) */}
+                <Route path="/forbidden" element={<ForbiddenPage />} />
 
                 {/* 기존 /app 경로 호환 */}
                 <Route path="/app" element={<Navigate to="/cesium" replace />} />

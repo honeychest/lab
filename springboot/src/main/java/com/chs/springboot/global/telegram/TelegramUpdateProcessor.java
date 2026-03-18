@@ -9,6 +9,7 @@ package com.chs.springboot.global.telegram;
 import com.chs.springboot.features.contact.entity.ContactInquiry;
 import com.chs.springboot.features.contact.repository.ContactInquiryRepository;
 import com.chs.springboot.features.contact.service.SupportSseService;
+import com.chs.springboot.global.monitor.service.IpApprovalProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,7 @@ public class TelegramUpdateProcessor {
 
     private final ContactInquiryRepository inquiryRepository;
     private final SupportSseService         sseService;
+    private final IpApprovalProcessor       ipApprovalProcessor;
 
     /**
      * Telegram update 객체를 받아 관리자 답변 여부를 확인하고 DB에 저장한다.
@@ -54,6 +56,14 @@ public class TelegramUpdateProcessor {
      */
     public void process(Map<String, Object> update) {
         try {
+            Long updateIdForLog = null;
+            try {
+                if (update.get("update_id") != null) {
+                    updateIdForLog = ((Number) update.get("update_id")).longValue();
+                }
+            } catch (Exception ignored) {
+            }
+
             // 동일 update_id 중복 처리 방지 (같은 인스턴스 내)
             Long updateId = update.get("update_id") != null
                     ? ((Number) update.get("update_id")).longValue()
@@ -65,19 +75,47 @@ public class TelegramUpdateProcessor {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> message = (Map<String, Object>) update.get("message");
-            if (message == null) return;
+            if (message == null) {
+                log.debug("TelegramUpdateProcessor: update_id={} has no message", updateIdForLog);
+                return;
+            }
+
+            // 모니터링 IP 허용(수락) 명령 처리 (reply 여부와 무관)
+            String text = (String) message.get("text");
+            if (text != null && text.trim().startsWith("수락")) {
+                String chatId = null;
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> chat = (Map<String, Object>) message.get("chat");
+                    if (chat != null && chat.get("id") != null) {
+                        chatId = String.valueOf(((Number) chat.get("id")).longValue());
+                    }
+                } catch (Exception ignored) {
+                }
+                log.info("TelegramUpdateProcessor: approval command received update_id={} chatId={} text={}",
+                        updateIdForLog, chatId, text);
+                ipApprovalProcessor.process(text, chatId);
+                // 수락 메시지는 문의 답변 처리와 무관하므로 여기서 종료
+                return;
+            }
 
             // 답장(Reply) 이 아닌 일반 메시지는 무시
             @SuppressWarnings("unchecked")
             Map<String, Object> replyTo = (Map<String, Object>) message.get("reply_to_message");
-            if (replyTo == null) return;
+            if (replyTo == null) {
+                log.debug("TelegramUpdateProcessor: update_id={} non-reply message ignored", updateIdForLog);
+                return;
+            }
 
             // 원본 메시지에서 inquiryId 앞 8자 추출 (이미지 첨부 메시지는 caption 필드 사용)
             String originalText = (String) replyTo.get("text");
             if (originalText == null) {
                 originalText = (String) replyTo.get("caption");
             }
-            if (originalText == null) return;
+            if (originalText == null) {
+                log.debug("TelegramUpdateProcessor: update_id={} reply has no text/caption", updateIdForLog);
+                return;
+            }
 
             Matcher matcher = ID_PATTERN.matcher(originalText);
             if (!matcher.find()) {

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>Monitor Dashboard — Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+/* ══════════════════════════════════════════
+   기존 사이트 다크 토큰 (Header / Footer 고정)
+══════════════════════════════════════════ */
+:root {
+  --dk-void:    #06060c;
+  --dk-surface: #0a0a12;
+  --dk-border:  rgba(255,255,255,0.06);
+  --dk-border-h:rgba(255,255,255,0.12);
+  --dk-t1:      rgba(255,255,255,0.92);
+  --dk-t2:      rgba(255,255,255,0.60);
+  --dk-t3:      rgba(255,255,255,0.35);
+  --dk-green:   #00e887;
+  --font-head:  'Oxanium', sans-serif;
+}
+
+/* ══════════════════════════════════════════
+   컨텐츠 영역 테마 (스위처로 변경)
+══════════════════════════════════════════ */
+
+/* 1. 틸 (기본 선택) */
+.content[data-theme="teal"] {
+  --bg:           #F0FAFA;
+  --card:         #FFFFFF;
+  --border:       #CCECEC;
+  --border-h:     #A8D8D8;
+  --t1:           #0D2626;
+  --t2:           #4A7070;
+  --t3:           #7AACAC;
+  --accent:       #0D9488;
+  --accent-bg:    #CCFBF1;
+  --accent-border:rgba(13,148,136,0.25);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #CA8A04;  --yellow-bg:#FEFCE8;
+  --red:          #DC2626;  --red-bg:   #FEF2F2;
+  --shadow:       0 1px 3px rgba(13,38,38,0.08),0 1px 2px rgba(13,38,38,0.04);
+}
+/* 2. 인디고 */
+.content[data-theme="indigo"] {
+  --bg:           #F4F5F7;
+  --card:         #FFFFFF;
+  --border:       #DDE1E9;
+  --border-h:     #C4CAD6;
+  --t1:           #0F172A;
+  --t2:           #64748B;
+  --t3:           #94A3B8;
+  --accent:       #4F46E5;
+  --accent-bg:    #EEF2FF;
+  --accent-border:rgba(79,70,229,0.25);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #D97706;  --yellow-bg:#FFFBEB;
+  --red:          #E11D48;  --red-bg:   #FFF1F2;
+  --shadow:       0 1px 3px rgba(15,23,42,0.08),0 1px 2px rgba(15,23,42,0.04);
+}
+/* 3. 로즈 */
+.content[data-theme="rose"] {
+  --bg:           #FFF5F6;
+  --card:         #FFFFFF;
+  --border:       #FECDD3;
+  --border-h:     #FDA4AF;
+  --t1:           #1C0A0C;
+  --t2:           #7C4048;
+  --t3:           #BF8090;
+  --accent:       #E11D48;
+  --accent-bg:    #FFF1F2;
+  --accent-border:rgba(225,29,72,0.25);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #D97706;  --yellow-bg:#FFFBEB;
+  --red:          #E11D48;  --red-bg:   #FFF1F2;
+  --shadow:       0 1px 3px rgba(28,10,12,0.08),0 1px 2px rgba(28,10,12,0.04);
+}
+/* 4. 앰버 */
+.content[data-theme="amber"] {
+  --bg:           #FFFBF0;
+  --card:         #FFFFFF;
+  --border:       #FDE68A;
+  --border-h:     #FCD34D;
+  --t1:           #1C1200;
+  --t2:           #785A00;
+  --t3:           #B89040;
+  --accent:       #D97706;
+  --accent-bg:    #FEF3C7;
+  --accent-border:rgba(217,119,6,0.3);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #D97706;  --yellow-bg:#FFFBEB;
+  --red:          #DC2626;  --red-bg:   #FEF2F2;
+  --shadow:       0 1px 3px rgba(28,18,0,0.08),0 1px 2px rgba(28,18,0,0.04);
+}
+/* 5. 스카이 */
+.content[data-theme="sky"] {
+  --bg:           #F0F6FF;
+  --card:         #FFFFFF;
+  --border:       #BFDBFE;
+  --border-h:     #93C5FD;
+  --t1:           #0C1A2E;
+  --t2:           #3B5C8A;
+  --t3:           #7CA3CC;
+  --accent:       #2563EB;
+  --accent-bg:    #EFF6FF;
+  --accent-border:rgba(37,99,235,0.25);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #D97706;  --yellow-bg:#FFFBEB;
+  --red:          #DC2626;  --red-bg:   #FEF2F2;
+  --shadow:       0 1px 3px rgba(12,26,46,0.08),0 1px 2px rgba(12,26,46,0.04);
+}
+/* 6. 퍼플 */
+.content[data-theme="purple"] {
+  --bg:           #FAF5FF;
+  --card:         #FFFFFF;
+  --border:       #E9D5FF;
+  --border-h:     #D8B4FE;
+  --t1:           #1A0A2E;
+  --t2:           #6B3FA0;
+  --t3:           #A878D0;
+  --accent:       #7C3AED;
+  --accent-bg:    #F5F3FF;
+  --accent-border:rgba(124,58,237,0.25);
+  --green:        #059669;  --green-bg: #ECFDF5;
+  --yellow:       #D97706;  --yellow-bg:#FFFBEB;
+  --red:          #DC2626;  --red-bg:   #FEF2F2;
+  --shadow:       0 1px 3px rgba(26,10,46,0.08),0 1px 2px rgba(26,10,46,0.04);
+}
+
+/* ══════════════════════════════════════════
+   공통 레이아웃
+══════════════════════════════════════════ */
+body {
+  background: var(--dk-void);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header (기존 사이트 다크 고정) ── */
+header {
+  height: 48px;
+  background: var(--dk-surface);
+  border-bottom: 1px solid var(--dk-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; flex-shrink: 0;
+  font-family: var(--font-head);
+}
+.nav { display:flex; gap:2px; list-style:none; }
+.nav li a {
+  display:block; padding:6px 13px;
+  font-size:0.80rem; font-weight:500; letter-spacing:0.02em;
+  color:var(--dk-t2); text-decoration:none; border-radius:6px;
+  transition: color .15s;
+}
+.nav li a:hover { color:var(--dk-t1); }
+.nav li a.active {
+  color: #0D9488;
+  background: rgba(13,148,136,0.12);
+  font-weight: 600;
+}
+.server-info { display:flex; align-items:center; gap:8px; font-size:0.76rem; font-family:var(--font-head); }
+.dot-live { width:6px; height:6px; border-radius:50%; background:var(--dk-green); box-shadow:0 0 6px var(--dk-green); }
+.server-label { color:var(--dk-t3); }
+.server-name { color:var(--dk-t1); font-weight:600; }
+
+/* ── 컨텐츠 영역 (테마 적용) ── */
+.content {
+  flex: 1;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  transition: background .2s;
+}
+
+/* 테마 스위처 */
+.theme-bar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 16px;
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.theme-bar-label { font-size:0.65rem; font-weight:600; color:var(--t3); letter-spacing:0.08em; text-transform:uppercase; margin-right:4px; }
+.theme-btn {
+  font-family: 'Inter', sans-serif; font-size:0.70rem; font-weight:500;
+  padding: 3px 11px; border-radius:5px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--t2);
+  cursor: pointer; display:flex; align-items:center; gap:5px; transition:all .15s;
+}
+.theme-btn:hover { border-color:var(--border-h); color:var(--t1); }
+.theme-btn.active { background:var(--accent-bg); border-color:var(--accent-border); color:var(--accent); font-weight:600; }
+.theme-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+/* 페이지 내부 */
+.page { flex:1; display:flex; gap:12px; padding:14px; min-height:0; }
+.main { flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; }
+.sidebar { width:260px; flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+
+/* Card */
+.card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:16px; box-shadow:var(--shadow);
+}
+.card-title {
+  font-size:0.68rem; font-weight:600; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--t3); margin-bottom:12px;
+}
+.card-title-note { font-weight:400; text-transform:none; letter-spacing:0; font-size:0.64rem; color:var(--t3); margin-left:6px; }
+
+/* Gauge Row */
+.gauge-row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.gauge-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:16px 18px; box-shadow:var(--shadow);
+}
+.gauge-label { font-size:0.68rem; font-weight:600; color:var(--t2); margin-bottom:6px; letter-spacing:0.05em; }
+.gauge-value { font-size:2.1rem; font-weight:700; line-height:1; margin-bottom:12px; }
+.gauge-track { height:5px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+.gauge-fill { height:100%; border-radius:3px; }
+.gauge-status { display:inline-flex; align-items:center; gap:4px; font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:5px; }
+
+/* Chart Row */
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.chart-area { height:78px; }
+.chart-area svg { width:100%; height:100%; }
+.chart-x { display:flex; justify-content:space-between; margin-top:4px; font-size:0.62rem; color:var(--t3); }
+
+/* Docker */
+.docker-grid { display:flex; gap:8px; flex-wrap:wrap; }
+.docker-item { flex:1; min-width:120px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+.docker-name { font-size:0.78rem; font-weight:600; color:var(--t1); margin-bottom:5px; }
+.docker-status { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:var(--t2); }
+.ddot { width:6px; height:6px; border-radius:50%; }
+.docker-restart { margin-top:5px; font-size:0.64rem; color:var(--t3); }
+
+/* Table */
+.filter-row { display:flex; gap:6px; margin-bottom:10px; }
+.filter-btn {
+  font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:500;
+  color:var(--t2); background:var(--bg); border:1px solid var(--border);
+  border-radius:6px; padding:4px 12px; cursor:pointer;
+}
+table { width:100%; border-collapse:collapse; }
+th { font-size:0.66rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--t3); padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+td { font-size:0.76rem; padding:9px 10px; border-bottom:1px solid var(--border); color:var(--t2); }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--bg); }
+.badge { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:4px; font-size:0.66rem; font-weight:600; }
+.badge-crit { background:var(--red-bg); color:var(--red); }
+.badge-warn { background:var(--yellow-bg); color:var(--yellow); }
+.ack-btn {
+  font-family:'Inter',sans-serif; font-size:0.68rem; font-weight:500;
+  color:var(--accent); background:var(--accent-bg);
+  border:1px solid var(--accent-border); border-radius:5px; padding:3px 10px; cursor:pointer;
+}
+
+/* Sidebar */
+.sb-title { font-size:0.66rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--t3); margin-bottom:10px; }
+.metric-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); }
+.metric-row:last-child { border-bottom:none; }
+.metric-key { font-size:0.76rem; color:var(--t2); }
+.metric-val { font-size:0.80rem; font-weight:700; color:var(--accent); }
+.setting-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.setting-key { font-size:0.74rem; color:var(--t1); flex:1; }
+.toggle { width:32px; height:18px; background:var(--accent); border-radius:9px; position:relative; flex-shrink:0; }
+.toggle::after { content:''; position:absolute; width:14px; height:14px; background:#fff; border-radius:50%; right:2px; top:2px; box-shadow:0 1px 2px rgba(0,0,0,0.15); }
+.toggle.off { background:var(--border); }
+.toggle.off::after { right:auto; left:2px; }
+.threshold { font-size:0.64rem; color:var(--t3); white-space:nowrap; }
+.input-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.input-key { font-size:0.72rem; color:var(--t2); }
+.input-val {
+  font-family:'Inter',sans-serif; font-size:0.72rem; color:var(--t1); font-weight:500;
+  background:var(--bg); border:1px solid var(--border); border-radius:5px;
+  padding:3px 8px; width:64px; text-align:right;
+}
+.silence-row { display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid var(--border); margin-top:2px; }
+.silence-key { font-size:0.72rem; color:var(--t2); }
+.ip-row { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+.ip-addr { font-size:0.74rem; font-weight:500; color:var(--t1); flex:1; }
+.ip-ttl { font-size:0.66rem; color:var(--yellow); font-weight:600; }
+.del-btn {
+  font-family:'Inter',sans-serif; font-size:0.64rem; font-weight:500;
+  color:var(--red); background:var(--red-bg);
+  border:1px solid rgba(220,38,38,0.2); border-radius:4px; padding:2px 8px; cursor:pointer;
+}
+.ip-empty { font-size:0.70rem; color:var(--t3); margin-top:2px; }
+
+/* ── Footer (기존 사이트 다크 고정) ── */
+footer {
+  height: 40px;
+  background: var(--dk-surface);
+  border-top: 1px solid var(--dk-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; flex-shrink: 0;
+  font-family: var(--font-head);
+}
+.tech-list { display:flex; gap:6px; list-style:none; }
+.tech-tag { font-size:0.62rem; color:var(--dk-t3); background:rgba(255,255,255,0.04); border:1px solid var(--dk-border); border-radius:4px; padding:2px 8px; }
+.tech-tag.page { color:#0D9488; background:rgba(13,148,136,0.10); border-color:rgba(13,148,136,0.2); }
+.brand { font-size:0.72rem; color:var(--dk-t3); }
+</style>
+</head>
+<body>
+
+<!-- ── Header (기존 다크) ── -->
+<header>
+  <nav><ul class="nav">
+    <li><a href="#">Binance</a></li>
+    <li><a href="#">Trade</a></li>
+    <li><a href="#">Signal</a></li>
+    <li><a href="#">Analysis</a></li>
+    <li><a href="#">Cesium</a></li>
+    <li><a href="#">Admin</a></li>
+    <li><a href="#" class="active">Monitor</a></li>
+  </ul></nav>
+  <div class="server-info">
+    <div class="dot-live"></div>
+    <span class="server-label">connected</span>
+    <span class="server-name">DOCKER1</span>
+  </div>
+</header>
+
+<!-- ── 컨텐츠 영역 (테마 적용) ── -->
+<div class="content" data-theme="teal">
+
+  <!-- 테마 스위처 -->
+  <div class="theme-bar">
+    <span class="theme-bar-label">Theme</span>
+    <button class="theme-btn" data-theme="teal">
+      <span class="theme-dot" style="background:#0D9488"></span>틸
+    </button>
+    <button class="theme-btn" data-theme="indigo">
+      <span class="theme-dot" style="background:#4F46E5"></span>인디고
+    </button>
+    <button class="theme-btn" data-theme="rose">
+      <span class="theme-dot" style="background:#E11D48"></span>로즈
+    </button>
+    <button class="theme-btn" data-theme="amber">
+      <span class="theme-dot" style="background:#D97706"></span>앰버
+    </button>
+    <button class="theme-btn" data-theme="sky">
+      <span class="theme-dot" style="background:#2563EB"></span>스카이
+    </button>
+    <button class="theme-btn" data-theme="purple">
+      <span class="theme-dot" style="background:#7C3AED"></span>퍼플
+    </button>
+  </div>
+
+  <div class="page">
+    <div class="main">
+
+      <!-- 게이지 -->
+      <div class="gauge-row">
+        <div class="gauge-card">
+          <div class="gauge-label">CPU</div>
+          <div class="gauge-value" style="color:var(--yellow)">73%</div>
+          <div class="gauge-track"><div class="gauge-fill" style="width:73%;background:var(--yellow)"></div></div>
+          <span class="gauge-status" style="background:var(--yellow-bg);color:var(--yellow)">⚠ 경고</span>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">RAM</div>
+          <div class="gauge-value" style="color:var(--red)">88%</div>
+          <div class="gauge-track"><div class="gauge-fill" style="width:88%;background:var(--red)"></div></div>
+          <span class="gauge-status" style="background:var(--red-bg);color:var(--red)">🔴 위험</span>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">DISK</div>
+          <div class="gauge-value" style="color:var(--green)">42%</div>
+          <div class="gauge-track"><div class="gauge-fill" style="width:42%;background:var(--green)"></div></div>
+          <span class="gauge-status" style="background:var(--green-bg);color:var(--green)">✓ 정상</span>
+        </div>
+      </div>
+
+      <!-- 히스토리 차트 -->
+      <div class="chart-row">
+        <div class="card">
+          <div class="card-title">CPU History <span class="card-title-note">2차 구현 예정</span></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="gcpu" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#CA8A04" stop-opacity="0.2"/>
+                  <stop offset="100%" stop-color="#CA8A04" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,55 L30,48 L60,38 L90,42 L120,22 L150,28 L180,18 L210,32 L240,26 L270,40 L300,35"
+                    fill="none" stroke="#CA8A04" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M0,55 L30,48 L60,38 L90,42 L120,22 L150,28 L180,18 L210,32 L240,26 L270,40 L300,35 L300,70 L0,70Z"
+                    fill="url(#gcpu)"/>
+            </svg>
+          </div>
+          <div class="chart-x"><span>-30m</span><span>-20m</span><span>-10m</span><span>now</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title">RAM History <span class="card-title-note">2차 구현 예정</span></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="gram" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#DC2626" stop-opacity="0.2"/>
+                  <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,58 L30,54 L60,50 L90,46 L120,42 L150,36 L180,30 L210,24 L240,18 L270,14 L300,10"
+                    fill="none" stroke="#DC2626" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M0,58 L30,54 L60,50 L90,46 L120,42 L150,36 L180,30 L210,24 L240,18 L270,14 L300,10 L300,70 L0,70Z"
+                    fill="url(#gram)"/>
+            </svg>
+          </div>
+          <div class="chart-x"><span>-30m</span><span>-20m</span><span>-10m</span><span>now</span></div>
+        </div>
+      </div>
+
+      <!-- Docker -->
+      <div class="card">
+        <div class="card-title">Docker Containers <span class="card-title-note">2차 구현 예정</span></div>
+        <div class="docker-grid">
+          <div class="docker-item">
+            <div class="docker-name">app-1</div>
+            <div class="docker-status"><div class="ddot" style="background:var(--green)"></div>실행중</div>
+            <div class="docker-restart">재시작: 0</div>
+          </div>
+          <div class="docker-item" style="border-color:var(--yellow-bg)">
+            <div class="docker-name">app-2</div>
+            <div class="docker-status"><div class="ddot" style="background:var(--green)"></div>실행중</div>
+            <div class="docker-restart" style="color:var(--yellow);font-weight:600">재시작: 2 ⚠</div>
+          </div>
+          <div class="docker-item">
+            <div class="docker-name">nginx</div>
+            <div class="docker-status"><div class="ddot" style="background:var(--green)"></div>실행중</div>
+            <div class="docker-restart">재시작: 0</div>
+          </div>
+          <div class="docker-item">
+            <div class="docker-name">redis</div>
+            <div class="docker-status"><div class="ddot" style="background:var(--green)"></div>실행중</div>
+            <div class="docker-restart">재시작: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 알림 이력 -->
+      <div class="card">
+        <div class="card-title">알림 이력</div>
+        <div class="filter-row">
+          <button class="filter-btn">날짜 ▾</button>
+          <button class="filter-btn">지표 ▾</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>시각</th><th>지표</th><th>내용</th><th>심각도</th><th>전송</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td>2026-03-18 14:32</td>
+              <td style="font-weight:600;color:var(--t1)">CPU</td>
+              <td>100% / 1분 지속</td>
+              <td><span class="badge badge-crit">🔴 긴급</span></td>
+              <td style="color:var(--green);font-weight:500">✓ 전송됨</td>
+              <td><button class="ack-btn">처리</button></td>
+            </tr>
+            <tr>
+              <td>2026-03-17 09:11</td>
+              <td style="font-weight:600;color:var(--t1)">RAM</td>
+              <td>100% / 2분 지속</td>
+              <td><span class="badge badge-crit">🔴 긴급</span></td>
+              <td style="color:var(--green);font-weight:500">✓ 전송됨</td>
+              <td><button class="ack-btn">처리</button></td>
+            </tr>
+            <tr>
+              <td>2026-03-16 22:05</td>
+              <td style="font-weight:600;color:var(--t1)">CPU</td>
+              <td>91% / 1분 지속</td>
+              <td><span class="badge badge-warn">🟡 경고</span></td>
+              <td style="color:var(--green);font-weight:500">✓ 전송됨</td>
+              <td><button class="ack-btn">처리</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /main -->
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="card">
+        <div class="sb-title">비즈니스 지표</div>
+        <div class="metric-row"><span class="metric-key">Redis 큐</span><span class="metric-val">342건</span></div>
+        <div class="metric-row"><span class="metric-key">WS 연결 수</span><span class="metric-val">18</span></div>
+        <div class="metric-row"><span class="metric-key">API 에러율</span><span class="metric-val" style="color:var(--green)">0.3%</span></div>
+      </div>
+
+      <div class="card">
+        <div class="sb-title">알림 설정 <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.62rem">2차</span></div>
+        <div class="setting-row"><span class="setting-key">CPU</span><div class="toggle"></div><span class="threshold">90% / 100%</span></div>
+        <div class="setting-row"><span class="setting-key">RAM</span><div class="toggle"></div><span class="threshold">90% / 100%</span></div>
+        <div class="setting-row"><span class="setting-key">DISK</span><div class="toggle"></div><span class="threshold">90% / 100%</span></div>
+        <div class="input-row"><span class="input-key">지속 시간</span><input class="input-val" value="1 분" readonly></div>
+        <div class="input-row"><span class="input-key">쿨다운</span><input class="input-val" value="1 시간" readonly></div>
+        <div class="silence-row"><span class="silence-key">사일런스 모드</span><div class="toggle off"></div></div>
+      </div>
+
+      <div class="card" style="flex:1">
+        <div class="sb-title">허용 IP</div>
+        <div class="ip-row">
+          <span class="ip-addr">211.xxx.xxx.xxx</span>
+          <span class="ip-ttl">45분</span>
+          <button class="del-btn">삭제</button>
+        </div>
+        <div class="ip-empty">현재 허용된 IP가 없습니다.</div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /content -->
+
+<!-- ── Footer (기존 다크) ── -->
+<footer>
+  <ul class="tech-list">
+    <li class="tech-tag">AWS</li>
+    <li class="tech-tag">Linux</li>
+    <li class="tech-tag">Spring Boot</li>
+    <li class="tech-tag">Nginx</li>
+    <li class="tech-tag">React</li>
+    <li class="tech-tag">MySQL</li>
+  </ul>
+  <ul class="tech-list">
+    <li class="tech-tag page">WebSocket</li>
+    <li class="tech-tag page">Redis</li>
+    <li class="tech-tag page">Docker API</li>
+  </ul>
+  <span class="brand">by CHS</span>
+</footer>
+
+<script>
+  const content = document.querySelector('.content');
+  const buttons = document.querySelectorAll('.theme-btn');
+
+  // 초기 active 설정
+  buttons.forEach(btn => {
+    if (btn.dataset.theme === content.dataset.theme) btn.classList.add('active');
+  });
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      content.dataset.theme = btn.dataset.theme;
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

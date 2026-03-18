@@ -1,0 +1,129 @@
+/* [AGENT] AlertHistoryTable 스타일 (monitor-* 토큰 사용) */
+.wrap {
+  background: var(--monitor-card-bg);
+  border: 1px solid var(--monitor-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.head {
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--monitor-border);
+}
+
+.title {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.filterItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--monitor-text-secondary);
+}
+
+.filterItem input,
+.filterItem select {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #fff;
+  color: var(--monitor-text-primary);
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+  font-size: 13px;
+  color: var(--monitor-text-primary);
+  white-space: nowrap;
+}
+
+.table th {
+  font-size: 12px;
+  color: var(--monitor-text-secondary);
+  font-weight: 800;
+  background: var(--monitor-sidebar-bg);
+}
+
+.empty {
+  text-align: center;
+  padding: 18px 12px;
+  color: var(--monitor-text-secondary);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.sev {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 11px;
+  border: 1px solid transparent;
+}
+
+.warn {
+  color: var(--monitor-severity-warn);
+  border-color: rgba(202, 138, 4, 0.25);
+  background: rgba(202, 138, 4, 0.08);
+}
+
+.critical {
+  color: var(--monitor-severity-critical);
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.pager button {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pager button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagerInfo {
+  font-size: 12px;
+  color: var(--monitor-text-secondary);
+}
+

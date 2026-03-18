@@ -131,7 +131,7 @@ jobs: # 실행할 작업 단위(Job)들
         run: chmod +x gradlew
 
       - name: Run tests
-        run: ./gradlew check --x test --no-daemon
+        run: ./gradlew check -x test --no-daemon
 
       - name: Build
         run: ./gradlew build --no-daemon

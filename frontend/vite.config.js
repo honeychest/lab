@@ -23,6 +23,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true
       },
+      '/ws/monitor': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      },
       '/ws/binance-price': {
         target: 'ws://localhost:8080',
         ws: true,
@@ -44,5 +49,42 @@ export default defineConfig({
         changeOrigin: true
       }
     }
-  }
+  },
+  // NOTE: `vite preview`는 기본적으로 dev 프록시가 적용되지 않아서,
+  //       로컬/서버에서 preview 포트(예: 5174)로 띄울 때 /api 가 404가 될 수 있음.
+  //       preview 환경에서도 동일하게 백엔드로 프록시되도록 설정한다.
+  preview: {
+    host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/ws/monitor': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      },
+      '/ws/binance-price': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      },
+      '/ws/upbit-price': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      },
+      '/ws/candle/5m': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      },
+      '/ws/candle/1m': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      }
+    }
+  },
 });

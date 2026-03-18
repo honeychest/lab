@@ -1,0 +1,60 @@
+/* [AGENT] ForbiddenPage 스타일 (monitor-* 토큰 사용) */
+.wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(900px circle at 20% 20%, rgba(13, 148, 136, 0.18), transparent 60%),
+              radial-gradient(700px circle at 80% 10%, rgba(153, 214, 209, 0.28), transparent 55%),
+              var(--monitor-bg);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.card {
+  width: min(520px, 92vw);
+  background: var(--monitor-card-bg);
+  border: 1px solid var(--monitor-border);
+  border-radius: 18px;
+  padding: 26px 22px 22px 22px;
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.12);
+  text-align: center;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+  letter-spacing: -0.6px;
+  margin-bottom: 10px;
+}
+
+.desc {
+  color: var(--monitor-text-secondary);
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.button {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--monitor-primary) 0%, #10b981 100%);
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(13, 148, 136, 0.25);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin-top: 14px;
+  color: var(--monitor-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+

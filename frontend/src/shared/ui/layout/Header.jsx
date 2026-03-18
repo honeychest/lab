@@ -13,6 +13,7 @@ const NAV_ITEMS = [
     { label: 'Trade',   path: '/trade' },
     { label: 'Signal',  path: '/signal' },
     { label: 'Analysis', path: '/analysis' },
+    { label: 'Monitor', path: '/monitor' },
     { label: 'Cesium',  path: '/cesium' },
     { label: 'Admin',   path: '/admin'  },
 ];
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
  */
 function Header() {
     const [serverName, setServerName] = useState(null);
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     useEffect(() => {
         axios.get('/api/binance/price')
@@ -39,10 +41,29 @@ function Header() {
             .catch(() => {});
     }, []);
 
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setMobileOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [mobileOpen]);
+
     return (
         <header className={styles.header}>
             {/* ── 네비게이션 ──────────────────────────────────── */}
-            <nav>
+            <nav className={styles.navWrap}>
+                <button
+                    type="button"
+                    className={styles.hamburger}
+                    aria-label="메뉴 열기"
+                    aria-expanded={mobileOpen}
+                    onClick={() => setMobileOpen(true)}
+                >
+                    ☰
+                </button>
+
                 <ul className={styles.nav}>
                     {NAV_ITEMS.map(({ label, path }) => (
                         <li key={path} className={styles.navItem}>
@@ -70,6 +91,51 @@ function Header() {
                 <div className={styles.serverInfo}>
                     <span className={styles.serverConnected}>connected</span>
                     <span className={styles.serverName}>{serverName}</span>
+                </div>
+            )}
+
+            {/* ── 모바일 슬라이드 메뉴 ───────────────────────── */}
+            {mobileOpen && (
+                <div
+                    className={styles.mobileOverlay}
+                    role="presentation"
+                    onMouseDown={() => setMobileOpen(false)}
+                >
+                    <aside
+                        className={styles.mobilePanel}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="모바일 메뉴"
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        <div className={styles.mobilePanelHeader}>
+                            <span className={styles.mobileTitle}>Menu</span>
+                            <button
+                                type="button"
+                                className={styles.mobileClose}
+                                aria-label="메뉴 닫기"
+                                onClick={() => setMobileOpen(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <ul className={styles.mobileList}>
+                            {NAV_ITEMS.map(({ label, path }) => (
+                                <li key={path} className={styles.mobileItem}>
+                                    <NavLink
+                                        to={path}
+                                        end
+                                        className={({ isActive }) =>
+                                            `${styles.mobileLink} ${isActive ? styles.mobileLinkActive : ''}`
+                                        }
+                                        onClick={() => setMobileOpen(false)}
+                                    >
+                                        {label}
+                                    </NavLink>
+                                </li>
+                            ))}
+                        </ul>
+                    </aside>
                 </div>
             )}
         </header>

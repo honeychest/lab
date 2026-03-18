@@ -1,0 +1,32 @@
+/* [AGENT] 모니터링 페이지 전용 테마 토큰 (Teal) */
+:root {
+  /* 배경 */
+  --monitor-bg:          #F0FAFA;
+  --monitor-card-bg:     #FFFFFF;
+  --monitor-sidebar-bg:  #F8FFFE;
+
+  /* 주 색상 */
+  --monitor-primary:     #0D9488;
+  --monitor-primary-dim: #99D6D1;
+
+  /* 텍스트 */
+  --monitor-text-primary:   #111827;
+  --monitor-text-secondary: #6B7280;
+
+  /* 테두리 */
+  --monitor-border: #D1FAF5;
+
+  /* 게이지 상태 색상 */
+  --monitor-gauge-ok:       #16a34a;
+  --monitor-gauge-warn:     #ca8a04;
+  --monitor-gauge-critical: #dc2626;
+
+  /* 알림 심각도 */
+  --monitor-severity-warn:     #ca8a04;
+  --monitor-severity-critical: #dc2626;
+
+  /* 연결 상태 배너 */
+  --monitor-banner-reconnect-bg:   #FEF3C7;
+  --monitor-banner-reconnect-text: #92400E;
+}
+

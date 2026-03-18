@@ -61,7 +61,6 @@ dependencies {
 
     // 개발 도구 및 DB
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    runtimeOnly 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     // 테스트 의존성 (여기가 핵심 수정 포인트!)

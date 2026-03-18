@@ -31,6 +31,7 @@ package com.chs.springboot.global.websocket;
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
 import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
+import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
@@ -74,6 +75,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final CandleWebSocketHandler candleHandler;
 
+    private final MonitorWebSocketHandler monitorWebSocketHandler;
+
     /**
      * registerWebSocketHandlers: WebSocket 핸들러와 URL 경로를 등록.
      *
@@ -112,6 +115,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
         registry.addHandler(candleHandler, "/ws/candle/5m", "/ws/candle/1m")
                 .setAllowedOrigins("*");
 
-        log.info("[WebSocketConfig] 등록 완료: /ws/binance-price, /ws/upbit-price, /ws/candle/5m, /ws/candle/1m =====");
+        registry.addHandler(monitorWebSocketHandler, "/ws/monitor")
+                .setAllowedOrigins("*");
+
+        log.info("[WebSocketConfig] 등록 완료: /ws/binance-price, /ws/upbit-price, /ws/candle/5m, /ws/candle/1m, /ws/monitor =====");
     }
 }
