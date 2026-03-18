@@ -3,6 +3,7 @@
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
 // 수동 수집: /api/admin/backfill/collect → Job 폴링
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 
@@ -27,6 +28,7 @@ function datetimeLocalToMs(s) {
 }
 
 export default function AdminPage() {
+    const navigate = useNavigate();
     // ── 접근 권한 ──────────────────────────────────────────────────────────
     const [canAccess, setCanAccess] = useState(null);
 
@@ -54,8 +56,14 @@ export default function AdminPage() {
     useEffect(() => {
         axios.get('/api/admin/data-gap/access')
             .then(r => setCanAccess(r.data.canAccess))
-            .catch(() => setCanAccess(false));
-    }, []);
+            .catch((e) => {
+                if (e?.response?.status === 403) {
+                    navigate('/forbidden', { replace: true });
+                    return;
+                }
+                setCanAccess(false);
+            });
+    }, [navigate]);
 
     // RUNNING job 있으면 3초 폴링
     useEffect(() => {

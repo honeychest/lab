@@ -77,6 +77,10 @@ public class CandleWebSocketHandler extends TextWebSocketHandler {
         return result;
     }
 
+    public int getSessionCount() {
+        return sessions.size();
+    }
+
     private String parseInterval(WebSocketSession session) {
         String path = session.getUri() != null ? session.getUri().getPath() : null;
         if (path != null && path.endsWith("/1m")) return "1m";

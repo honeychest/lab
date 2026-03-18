@@ -67,5 +67,9 @@ public class MonitorWebSocketHandler extends TextWebSocketHandler {
             }
         }
     }
+
+    public int getSessionCount() {
+        return sessions.size();
+    }
 }
 

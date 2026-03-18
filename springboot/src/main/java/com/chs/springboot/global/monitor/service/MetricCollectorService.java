@@ -2,6 +2,8 @@
 package com.chs.springboot.global.monitor.service;
 
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
+import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
+import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,6 +34,8 @@ public class MetricCollectorService {
     private final MonitorWebSocketHandler monitorWebSocketHandler;
     private final AlertService alertService;
     private final BinancePriceWebSocketHandler binancePriceWebSocketHandler;
+    private final UpbitPriceWebSocketHandler upbitPriceWebSocketHandler;
+    private final CandleWebSocketHandler candleWebSocketHandler;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
@@ -50,10 +54,20 @@ public class MetricCollectorService {
         Double cpu = safe(this::collectCpuPercent);
         Double ram = safe(this::collectRamPercent);
         Double disk = safe(this::collectDiskPercent);
+        Long diskTotalBytes = safe(this::collectDiskTotalBytes);
+        Long diskFreeBytes = safe(this::collectDiskFreeBytes);
         Double apiErrorRate = safe(this::collectApiErrorRatePercent);
 
         Long redisQueue = safe(() -> redisTemplate.opsForList().size("rawAggTrade"));
-        Integer wsConnections = safe(binancePriceWebSocketHandler::getSessionCount);
+        List<MetricSnapshot.RedisKv> redisKeys = safe(this::collectFixedRedisKv);
+        if (redisKeys == null) redisKeys = List.of();
+
+        int wsMonitor = Optional.ofNullable(safe(monitorWebSocketHandler::getSessionCount)).orElse(0);
+        int wsBinance = Optional.ofNullable(safe(binancePriceWebSocketHandler::getSessionCount)).orElse(0);
+        int wsUpbit = Optional.ofNullable(safe(upbitPriceWebSocketHandler::getSessionCount)).orElse(0);
+        int wsCandle = Optional.ofNullable(safe(candleWebSocketHandler::getSessionCount)).orElse(0);
+        int wsTotal = wsMonitor + wsBinance + wsUpbit + wsCandle;
+        Integer wsConnections = wsTotal;
 
         List<MetricSnapshot.ContainerInfo> containers = safe(this::collectContainers);
         if (containers == null) containers = List.of();
@@ -62,8 +76,15 @@ public class MetricCollectorService {
                 cpu,
                 ram,
                 disk,
+                diskTotalBytes,
+                diskFreeBytes,
                 redisQueue,
+                redisKeys,
                 wsConnections,
+                wsMonitor,
+                wsBinance,
+                wsUpbit,
+                wsCandle,
                 apiErrorRate,
                 containers,
                 LocalDateTime.now(),
@@ -114,6 +135,18 @@ public class MetricCollectorService {
         if (total <= 0) return null;
         double usedPercent = ((double) (total - free) / (double) total) * 100d;
         return clampPercent(usedPercent);
+    }
+
+    private Long collectDiskTotalBytes() {
+        File root = new File("/");
+        long total = root.getTotalSpace();
+        return total > 0 ? total : null;
+    }
+
+    private Long collectDiskFreeBytes() {
+        File root = new File("/");
+        long free = root.getFreeSpace();
+        return free >= 0 ? free : null;
     }
 
     private Double collectApiErrorRatePercent() {
@@ -171,6 +204,32 @@ public class MetricCollectorService {
             }
         }
         return list;
+    }
+
+    private List<MetricSnapshot.RedisKv> collectFixedRedisKv() {
+        List<String> keys = List.of(
+                "telegram:leader",
+                "monitor:leader",
+                "config:threshold"
+        );
+
+        List<String> values;
+        try {
+            values = redisTemplate.opsForValue().multiGet(keys);
+        } catch (Exception e) {
+            values = null;
+        }
+
+        List<MetricSnapshot.RedisKv> out = new ArrayList<>(keys.size());
+        for (int i = 0; i < keys.size(); i++) {
+            String k = keys.get(i);
+            String v = (values != null && i < values.size()) ? values.get(i) : null;
+            if (v != null && v.length() > 400) {
+                v = v.substring(0, 400) + "…";
+            }
+            out.add(new MetricSnapshot.RedisKv(k, v));
+        }
+        return out;
     }
 
     private static String tagValue(List<Tag> tags, String key) {

@@ -9,9 +9,11 @@ const fmt = (dt) => {
     return d.toLocaleString('ko-KR', { hour12: false });
 };
 
+const todayDate = () => new Date().toISOString().slice(0, 10);
+
 export default function AlertHistoryTable() {
-    const [from, setFrom] = useState('');
-    const [to, setTo] = useState('');
+    const [from, setFrom] = useState(() => todayDate());
+    const [to, setTo] = useState(() => todayDate());
     const [type, setType] = useState('');
     const [page, setPage] = useState(0);
     const [data, setData] = useState(null);

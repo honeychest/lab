@@ -11,8 +11,9 @@ import '@/app/style/coolors.css';
 /**
  * @param {React.ReactNode} children     - 페이지 본문
  * @param {string[]}        footerCenter - 하단 기술 태그 목록
+ * @param {boolean}         enableSupport - 문의(텔레그램 팝업) 기능 사용 여부
  */
-function Layout({ children, footerCenter = [] }) {
+function Layout({ children, footerCenter = [], enableSupport = true }) {
     const [isSupportOpen, setIsSupportOpen] = useState(false);
     const [inquiries, setInquiries]         = useState([]);
     const [hasReply, setHasReply]           = useState(false);
@@ -29,16 +30,21 @@ function Layout({ children, footerCenter = [] }) {
         }
     }, [guestToken]);
 
-    // 페이지 로드 시 문의 목록 조회 (loadInquiries는 async — setState가 비동기로 호출됨)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { loadInquiries(); }, [loadInquiries]);
+    useEffect(() => {
+        if (!enableSupport) return;
+        const id = window.setTimeout(() => {
+            loadInquiries();
+        }, 0);
+        return () => window.clearTimeout(id);
+    }, [loadInquiries, enableSupport]);
 
     // SSE 구독 — 답장 도착 시 실시간으로 목록 갱신
     useEffect(() => {
+        if (!enableSupport) return;
         const es = new EventSource(`/api/support/reply/sse?guestToken=${guestToken}`);
         es.addEventListener('reply', () => loadInquiries());
         return () => es.close();
-    }, [guestToken, loadInquiries]);
+    }, [guestToken, loadInquiries, enableSupport]);
 
     // 팝업 열기 — 미읽음 답변 있으면 모두 읽음 처리 후 배지 제거
     const handleOpen = async () => {
@@ -56,17 +62,23 @@ function Layout({ children, footerCenter = [] }) {
     return (
         <div className={styles.layout}>
             <Header />
-            <TelegramPopup
-                isOpen={isSupportOpen}
-                onClose={() => setIsSupportOpen(false)}
-                guestToken={guestToken}
-                inquiries={inquiries}
-                onSent={handleSent}
-            />
+            {enableSupport && (
+                <TelegramPopup
+                    isOpen={isSupportOpen}
+                    onClose={() => setIsSupportOpen(false)}
+                    guestToken={guestToken}
+                    inquiries={inquiries}
+                    onSent={handleSent}
+                />
+            )}
             <main className={styles.main}>
                 {children}
             </main>
-            <Footer centerTech={footerCenter} onAdminClick={handleOpen} hasReply={hasReply} />
+            <Footer
+                centerTech={footerCenter}
+                onAdminClick={enableSupport ? handleOpen : undefined}
+                hasReply={enableSupport ? hasReply : false}
+            />
         </div>
     );
 }

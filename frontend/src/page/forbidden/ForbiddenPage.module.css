@@ -1,6 +1,6 @@
 /* [AGENT] ForbiddenPage 스타일 (monitor-* 토큰 사용) */
 .wrap {
-  min-height: 100vh;
+  min-height: 100%;
   display: grid;
   place-items: center;
   background: radial-gradient(900px circle at 20% 20%, rgba(13, 148, 136, 0.18), transparent 60%),

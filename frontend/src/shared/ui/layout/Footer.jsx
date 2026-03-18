@@ -22,9 +22,14 @@ function Footer({ centerTech = [], onAdminClick, hasReply = false }) {
                 ))}
             </ul>
             {/* 우측: by CHS (답변 시 빨간 배지 표시) */}
-            <div className={styles.brandWrapper} onClick={onAdminClick} title="관리자에게 문의하기">
+            <div
+                className={styles.brandWrapper}
+                onClick={onAdminClick}
+                title={onAdminClick ? "관리자에게 문의하기" : undefined}
+                style={onAdminClick ? undefined : { cursor: 'default' }}
+            >
                 <span className={styles.brand}>by CHS</span>
-                {hasReply && <span className={styles.badge} />}
+                {onAdminClick && hasReply && <span className={styles.badge} />}
             </div>
         </footer>
     );

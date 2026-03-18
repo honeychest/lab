@@ -3,8 +3,8 @@
 // 연관: Layout.jsx, MainRouter.jsx
 // Purpose: 앱 전체 상단 헤더 - 메뉴 네비게이션, 서버 인디케이터
 
-import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import styles from './Header.module.css';
 
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
     { label: 'Signal',  path: '/signal' },
     { label: 'Analysis', path: '/analysis' },
     { label: 'Monitor', path: '/monitor' },
-    { label: 'Cesium',  path: '/cesium' },
     { label: 'Admin',   path: '/admin'  },
 ];
 
@@ -30,7 +29,8 @@ const NAV_ITEMS = [
  */
 function Header() {
     const [serverName, setServerName] = useState(null);
-    const [mobileOpen, setMobileOpen] = useState(false);
+    const location = useLocation();
+    const navRef = useRef(null);
 
     useEffect(() => {
         axios.get('/api/binance/price')
@@ -41,30 +41,32 @@ function Header() {
             .catch(() => {});
     }, []);
 
+    // 모바일 가로 메뉴 스크롤 위치 유지 (라우트 이동/리마운트 대응)
     useEffect(() => {
-        if (!mobileOpen) return;
-        const onKey = (e) => {
-            if (e.key === 'Escape') setMobileOpen(false);
+        const el = navRef.current;
+        if (!el) return;
+        const saved = sessionStorage.getItem('header.nav.scrollLeft');
+        if (saved != null) {
+            const n = Number(saved);
+            if (Number.isFinite(n)) el.scrollLeft = n;
+        }
+    }, [location.pathname]);
+
+    useEffect(() => {
+        const el = navRef.current;
+        if (!el) return;
+        const onScroll = () => {
+            sessionStorage.setItem('header.nav.scrollLeft', String(el.scrollLeft));
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [mobileOpen]);
+        el.addEventListener('scroll', onScroll, { passive: true });
+        return () => el.removeEventListener('scroll', onScroll);
+    }, []);
 
     return (
         <header className={styles.header}>
             {/* ── 네비게이션 ──────────────────────────────────── */}
             <nav className={styles.navWrap}>
-                <button
-                    type="button"
-                    className={styles.hamburger}
-                    aria-label="메뉴 열기"
-                    aria-expanded={mobileOpen}
-                    onClick={() => setMobileOpen(true)}
-                >
-                    ☰
-                </button>
-
-                <ul className={styles.nav}>
+                <ul className={styles.nav} ref={navRef}>
                     {NAV_ITEMS.map(({ label, path }) => (
                         <li key={path} className={styles.navItem}>
                             <NavLink
@@ -91,51 +93,6 @@ function Header() {
                 <div className={styles.serverInfo}>
                     <span className={styles.serverConnected}>connected</span>
                     <span className={styles.serverName}>{serverName}</span>
-                </div>
-            )}
-
-            {/* ── 모바일 슬라이드 메뉴 ───────────────────────── */}
-            {mobileOpen && (
-                <div
-                    className={styles.mobileOverlay}
-                    role="presentation"
-                    onMouseDown={() => setMobileOpen(false)}
-                >
-                    <aside
-                        className={styles.mobilePanel}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label="모바일 메뉴"
-                        onMouseDown={(e) => e.stopPropagation()}
-                    >
-                        <div className={styles.mobilePanelHeader}>
-                            <span className={styles.mobileTitle}>Menu</span>
-                            <button
-                                type="button"
-                                className={styles.mobileClose}
-                                aria-label="메뉴 닫기"
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <ul className={styles.mobileList}>
-                            {NAV_ITEMS.map(({ label, path }) => (
-                                <li key={path} className={styles.mobileItem}>
-                                    <NavLink
-                                        to={path}
-                                        end
-                                        className={({ isActive }) =>
-                                            `${styles.mobileLink} ${isActive ? styles.mobileLinkActive : ''}`
-                                        }
-                                        onClick={() => setMobileOpen(false)}
-                                    >
-                                        {label}
-                                    </NavLink>
-                                </li>
-                            ))}
-                        </ul>
-                    </aside>
                 </div>
             )}
         </header>

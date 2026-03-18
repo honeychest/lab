@@ -40,6 +40,10 @@ export default function AnalysisPage() {
   const [toast,             setToast]             = useState(null);
   const [hasExtendedData,   setHasExtendedData]   = useState(false);
   const [isMobile,          setIsMobile]          = useState(() => window.innerWidth < 768);
+  const [viewMode,          setViewMode]          = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('view') === 'desktop' ? 'desktop' : 'auto'; // 'auto' | 'desktop'
+  });
 
   const mountedRef  = useRef(false);
   const symbolRef   = useRef(symbol);
@@ -57,6 +61,18 @@ export default function AnalysisPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const forceDesktop = viewMode === 'desktop';
+  const showMobileBlocked = isMobile && !forceDesktop;
+
+  const setDesktopView = (next) => {
+    const p = new URLSearchParams(window.location.search);
+    if (next === 'desktop') p.set('view', 'desktop');
+    else p.delete('view');
+    const nextUrl = `${window.location.pathname}${p.toString() ? `?${p.toString()}` : ''}${window.location.hash ?? ''}`;
+    window.history.replaceState({}, '', nextUrl);
+    setViewMode(next === 'desktop' ? 'desktop' : 'auto');
+  };
 
   // ─── 데이터 로드 ─────────────────────────────────────────────────────────────
 
@@ -270,20 +286,60 @@ export default function AnalysisPage() {
         gap:             '4px',
         overflow:        'hidden',
       }}>
-        {isMobile ? (
+        {showMobileBlocked ? (
           <div style={{
             flex:           1,
             display:        'flex',
+            flexDirection:  'column',
             alignItems:     'center',
             justifyContent: 'center',
             color:          'rgba(255,255,255,0.7)',
             fontFamily:     "'Pretendard', sans-serif",
             fontSize:       '0.94rem',
+            gap:            '12px',
           }}>
-            데스크톱 화면에서만 분석 페이지를 사용할 수 있습니다.
+            <div>데스크톱 화면에서만 분석 페이지를 사용할 수 있습니다.</div>
+            <button
+              type="button"
+              onClick={() => setDesktopView('desktop')}
+              style={{
+                border:       '1px solid rgba(255,255,255,0.14)',
+                background:   'rgba(255,255,255,0.06)',
+                color:        'rgba(255,255,255,0.92)',
+                borderRadius: '10px',
+                padding:      '10px 12px',
+                fontWeight:   900,
+                cursor:       'pointer',
+              }}
+            >
+              PC화면으로 보기
+            </button>
           </div>
         ) : (
         <>
+        {isMobile && forceDesktop && (
+          <div style={{
+            display:        'flex',
+            justifyContent: 'flex-end',
+            gap:            '8px',
+          }}>
+            <button
+              type="button"
+              onClick={() => setDesktopView('auto')}
+              style={{
+                border:       '1px solid rgba(255,255,255,0.14)',
+                background:   'rgba(255,255,255,0.06)',
+                color:        'rgba(255,255,255,0.92)',
+                borderRadius: '10px',
+                padding:      '8px 10px',
+                fontWeight:   900,
+                cursor:       'pointer',
+              }}
+            >
+              모바일로 보기
+            </button>
+          </div>
+        )}
         {/* 컨트롤 바 */}
         <ControlBar
           symbol={symbol}

@@ -8,13 +8,22 @@ public record MetricSnapshot(
         Double cpu,
         Double ram,
         Double disk,
+        Long diskTotalBytes,
+        Long diskFreeBytes,
         Long redisQueue,
+        List<RedisKv> redisKeys,
         Integer wsConnections,
+        Integer wsMonitorConnections,
+        Integer wsBinanceConnections,
+        Integer wsUpbitConnections,
+        Integer wsCandleConnections,
         Double apiErrorRate,
         List<ContainerInfo> containers,
         LocalDateTime collectedAt,
         String containerId
 ) {
+    public record RedisKv(String key, String value) { }
+
     public record ContainerInfo(
             String name,
             String status,

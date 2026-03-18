@@ -198,13 +198,8 @@
 }
 
 @media (max-width: 768px) {
-    .hamburger {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     .nav {
-        display: none;
+        display: flex;
+        overflow-x: auto;
     }
 }

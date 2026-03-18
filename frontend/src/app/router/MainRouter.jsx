@@ -20,8 +20,8 @@ function MainRouter() {
     return (
         <Router>
             <Routes>
-                {/* 초기 접속: /trade로 리다이렉트 */}
-                <Route path="/" element={<Navigate to="/trade" replace />} />
+                {/* 초기 접속: /binance로 리다이렉트 */}
+                <Route path="/" element={<Navigate to="/binance" replace />} />
 
                 {/* Trade 페이지 */}
                 <Route path="/trade" element={<TradePage />} />

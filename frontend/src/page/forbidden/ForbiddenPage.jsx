@@ -1,6 +1,7 @@
-// [AGENT] 403 차단 페이지 (GNB/Footer 없이 단독)
+// [AGENT] 403 차단 페이지 (헤더/푸터 유지, 문의 팝업 비활성)
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './ForbiddenPage.module.css';
 import '../../styles/themes/monitor-teal.css';
 
@@ -34,23 +35,25 @@ export default function ForbiddenPage() {
     };
 
     return (
-        <div className={styles.wrap}>
-            <div className={styles.card}>
-                <div className={styles.title}>🔒 접근 제한</div>
-                <div className={styles.desc}>이 페이지는 허가된 IP만 접근 가능합니다.</div>
-                <button
-                    type="button"
-                    className={styles.button}
-                    onClick={handleRequest}
-                    disabled={isPending}
-                >
-                    텔레그램으로 접근 요청하기
-                </button>
-                <div className={styles.hint}>
-                    요청 후 텔레그램에서 예제 형식대로 답장하시면 자동으로 허용됩니다.
+        <Layout enableSupport={false} footerCenter={['Access Control', 'Telegram', 'Redis']}>
+            <div className={styles.wrap}>
+                <div className={styles.card}>
+                    <div className={styles.title}>🔒 접근 제한</div>
+                    <div className={styles.desc}>이 페이지는 허가된 IP만 접근 가능합니다.</div>
+                    <button
+                        type="button"
+                        className={styles.button}
+                        onClick={handleRequest}
+                        disabled={isPending}
+                    >
+                        텔레그램으로 접근 요청하기
+                    </button>
+                    <div className={styles.hint}>
+                        요청 후 텔레그램에서 예제 형식대로 답장하시면 자동으로 허용됩니다.
+                    </div>
                 </div>
             </div>
-        </div>
+        </Layout>
     );
 }
 
