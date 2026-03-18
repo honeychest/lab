@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <springProperty name="RAB_HOST"     scope="context" source="spring.rabbitmq.host"     defaultValue="devcontext.duckdns.org"/>
+<!--    <springProperty name="RAB_HOST"     scope="context" source="spring.rabbitmq.host"     defaultValue="devcontext.duckdns.org"/>
     <springProperty name="RAB_PORT"     scope="context" source="spring.rabbitmq.port"     defaultValue="5672"/>
     <springProperty name="RAB_USERNAME" scope="context" source="spring.rabbitmq.username" defaultValue="guest"/>
-    <springProperty name="RAB_PASSWORD" scope="context" source="spring.rabbitmq.password" defaultValue="guest"/>
+    <springProperty name="RAB_PASSWORD" scope="context" source="spring.rabbitmq.password" defaultValue="guest"/>-->
 
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
@@ -26,10 +26,10 @@
             <level>ERROR</level>
         </filter>
 
-        <host>${RAB_HOST}</host>
-        <port>${RAB_PORT}</port>
-        <username>${RAB_USERNAME}</username>
-        <password>${RAB_PASSWORD}</password>
+        <host>devcontext.duckdns.org</host>
+        <port>5672</port>
+        <username>guest</username>
+        <password>guest</password>
 
         <declareExchange>true</declareExchange>
         <exchangeName>log-exchange</exchangeName>
@@ -46,7 +46,7 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
-        <appender-ref ref="AMQP" />
+        <!--<appender-ref ref="AMQP" /> -->
     </root>
 
 </configuration>
