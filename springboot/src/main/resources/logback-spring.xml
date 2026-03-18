@@ -21,7 +21,7 @@
 
     <appender name="AMQP" class="org.springframework.amqp.rabbit.logback.AmqpAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
+            <level>INFO</level>
         </filter>
 
         <host>${RAB_HOST}</host>
