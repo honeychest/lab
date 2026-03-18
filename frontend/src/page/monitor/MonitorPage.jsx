@@ -125,23 +125,22 @@ export default function MonitorPage() {
                     </div>
                 )}
 
-                <div className={styles.lastUpdated}>
-                    <div className={`${styles.updatedChip} ${hasSnapshot ? styles.updatedChipPulse : ''}`}>
-                        <span className={styles.chipDot} />
-                        <span className={styles.chipLabel}>마지막 갱신</span>
-                        <span className={styles.chipAgo}>{fmtAgo(lastUpdatedAt)}</span>
-                        <span className={`${styles.chipTime} ${styles.mono}`}>{fmtTime(lastUpdatedAt)}</span>
+                <div className={styles.topRow}>
+                    <div className={styles.gauges}>
+                        <GaugeBar label="CPU" value={snapshot?.cpu ?? null} />
+                        <GaugeBar label="RAM" value={snapshot?.ram ?? null} />
+                        <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
+                        <div className={styles.updatedChip}>
+                            <span className={styles.chipDot} />
+                            <span className={styles.chipLabel}>마지막 갱신</span>
+                            <span className={styles.chipAgo}>{fmtAgo(lastUpdatedAt)}</span>
+                            <span className={`${styles.chipTime} ${styles.mono}`}>{fmtTime(lastUpdatedAt)}</span>
+                        </div>
                     </div>
                 </div>
 
                 <div className={styles.grid}>
                     <section className={styles.main}>
-                        <div className={styles.gauges}>
-                            <GaugeBar label="CPU" value={snapshot?.cpu ?? null} />
-                            <GaugeBar label="RAM" value={snapshot?.ram ?? null} />
-                            <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
-                        </div>
-
                         {!isMobile && (
                             <div className={styles.diskMeta}>
                                 <span className={styles.diskMetaLabel}>DISK</span>
@@ -257,38 +256,65 @@ export default function MonitorPage() {
                                 ) : (
                                     <>
                                         {(() => {
+                                            const telegram = business.redisKeys.find(x => x?.key === 'telegram:leader');
                                             const maxQueue = business.redisKeys.find(x => x?.key === 'config:aggtrade:max-queue-size')?.value;
+                                            const threshold = business.redisKeys.find(x => x?.key === 'config:threshold');
+
                                             const maxQueueNum = Number(maxQueue);
                                             const q = Number(business.redisQueue);
                                             const pct = (Number.isFinite(q) && Number.isFinite(maxQueueNum) && maxQueueNum > 0)
                                                 ? Math.min(100, Math.max(0, (q / maxQueueNum) * 100))
                                                 : null;
+
                                             return (
-                                                <div className={styles.redisSummary}>
-                                                    <span className={styles.redisSummaryLabel}>aggtrade queue</span>
-                                                    <span className={`${styles.redisSummaryValue} ${styles.mono}`}>
-                                                        {fmtCount(business.redisQueue)} / {Number.isFinite(maxQueueNum) ? fmtCount(maxQueueNum) : '--'}
-                                                        {pct == null ? '' : ` (${pct.toFixed(1)}%)`}
-                                                    </span>
+                                                <div className={styles.dockerTable} role="table" aria-label="Redis 키 미리보기">
+                                                    <div className={`${styles.dockerRow} ${styles.dockerHead} ${styles.redisRow}`} role="row">
+                                                        <div className={styles.redisColKey} role="columnheader">Key</div>
+                                                        <div className={styles.redisColValue} role="columnheader">Value</div>
+                                                    </div>
+
+                                                    <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
+                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">telegram:leader</div>
+                                                        <div className={styles.redisColValue} role="cell">
+                                                            <div className={styles.redisValueBox}>
+                                                                {telegram?.value ?? '—'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
+                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">aggtrade queue</div>
+                                                        <div className={styles.redisColValue} role="cell">
+                                                            <div className={styles.redisValueBox}>
+                                                                {Number.isFinite(q) ? fmtCount(q) : '—'}
+                                                                {Number.isFinite(maxQueueNum) ? ` / ${fmtCount(maxQueueNum)}` : ''}
+                                                                {pct == null ? '' : ` (${pct.toFixed(1)}%)`}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
+                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">config:aggtrade:max-queue-size</div>
+                                                        <div className={styles.redisColValue} role="cell">
+                                                            <div className={styles.redisValueBox}>
+                                                                {maxQueue ?? '—'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {threshold && (
+                                                        <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
+                                                            <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">config:threshold</div>
+                                                            <div className={styles.redisColValue} role="cell">
+                                                                <div className={styles.redisValueBox}>
+                                                                    {threshold.value ?? '—'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })()}
-                                    <div className={styles.dockerTable} role="table" aria-label="Redis 키 미리보기">
-                                        <div className={`${styles.dockerRow} ${styles.dockerHead} ${styles.redisRow}`} role="row">
-                                            <div className={styles.redisColKey} role="columnheader">Key</div>
-                                            <div className={styles.redisColValue} role="columnheader">Value</div>
-                                        </div>
-                                        {business.redisKeys.slice(0, 3).map((k) => (
-                                            <div key={`${k?.key ?? ''}`} className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
-                                                <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">{k?.key ?? '--'}</div>
-                                                <div className={styles.redisColValue} role="cell">
-                                                    <div className={styles.redisValueBox}>
-                                                        {k?.value ?? '--'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
                                     </>
                                 )}
                             </section>
@@ -299,11 +325,6 @@ export default function MonitorPage() {
                         <aside className={styles.sidebar}>
                             <div className={styles.sideCard}>
                                 <div className={styles.sideTitle}>비즈니스 지표</div>
-                                <div className={styles.kv}>
-                                    <span>Redis 큐</span>
-                                    <span className={styles.mono}>{business.redisQueue ?? '--'}</span>
-                                </div>
-
                                 <div className={styles.kv}>
                                     <span>WS 연결</span>
                                     <span className={styles.mono}>{business.wsConnections ?? '--'}</span>
