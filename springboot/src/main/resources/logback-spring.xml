@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Spring Environment( application.properties / .env )에서 확실히 값 끌어오기 -->
-    <springProperty scope="context" name="RAB_HOST" source="RABBIT_HOST" defaultValue="devcontext.duckdns.org"/>
-    <springProperty scope="context" name="RAB_PORT" source="RABBIT_PORT" defaultValue="5672"/>
-    <springProperty scope="context" name="RAB_USERNAME" source="RABBIT_USERNAME" defaultValue="chs"/>
-    <springProperty scope="context" name="RAB_PASSWORD" source="RABBIT_PASSWORD" defaultValue="admins"/>
+    <!-- logback 은 엄청 일찍 떠서 .env 값 못가져옴 application.properties도 ! -->
+    <property name="RAB_HOST"     value="${RABBITMQ_HOST:-devcontext.duckdns.org}"/>
+    <property name="RAB_PORT"     value="${RABBITMQ_PORT:-5672}"/>
+    <property name="RAB_USERNAME" value="${RABBIT_USERNAME:-guest}"/>
+    <property name="RAB_PASSWORD" value="${RABBIT_PASSWORD:-guest}"/>
+
 
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
@@ -47,6 +48,6 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
-        <appender-ref ref="AMQP" />
+        <!--<appender-ref ref="AMQP" />-->
     </root>
 </configuration>
