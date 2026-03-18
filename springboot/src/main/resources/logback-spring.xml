@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- Spring Environment( application.properties / .env )에서 확실히 값 끌어오기 -->
+    <property name="RAB_HOST" value="${RABBIT_HOST:-devcontext.duckdns.org}"/>
+    <property name="RAB_PORT" value="${RABBIT_PORT:-5672}"/>
+    <property name="RAB_USERNAME" value="${RABBIT_USERNAME:-guest}"/>
+    <property name="RAB_PASSWORD" value="${RABBIT_PASSWORD:-guest}"/>
+
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
 
@@ -21,10 +27,10 @@
         </filter>
 
         <!-- springProperty로 세팅된 컨텍스트 값을 사용 -->
-        <host>43.202.170.251</host>
-        <port>5672</port>
-        <username>chs</username>
-                <password>guest</password>
+        <host>${RAB_HOST}</host>
+        <port>${RAB_PORT}</port>
+        <username>${RAB_USERNAME}</username>
+        <password>${RAB_PASSWORD}</password>
 
         <declareExchange>true</declareExchange>
         <exchangeName>log-exchange</exchangeName>
