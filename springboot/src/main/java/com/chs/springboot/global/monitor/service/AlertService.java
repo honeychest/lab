@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,10 +34,12 @@ public class AlertService {
             return;
         }
 
-        // 1차 MVP: CRITICAL만 (CPU/RAM/DISK 100% 이상 1분 지속 시)
-        evaluateCritical(AlertHistory.MetricType.CPU, snapshot.cpu(), 100d, snapshot.containerId());
-        evaluateCritical(AlertHistory.MetricType.RAM, snapshot.ram(), 100d, snapshot.containerId());
-        evaluateCritical(AlertHistory.MetricType.DISK, snapshot.disk(), 100d, snapshot.containerId());
+        // CPU/RAM: 80% 이상 30초 지속 시 알림
+        evaluateCritical(AlertHistory.MetricType.CPU, snapshot.cpu(), 80d, snapshot.containerId());
+        evaluateCritical(AlertHistory.MetricType.RAM, snapshot.ram(), 80d, snapshot.containerId());
+
+        // DISK: 80% 이상이면 하루에 한 번만 알림
+        evaluateDiskDaily(snapshot.disk(), 80d, snapshot.containerId());
     }
 
     private void evaluateCritical(AlertHistory.MetricType type, Double value, double threshold, String containerId) {
@@ -47,7 +48,7 @@ public class AlertService {
             return;
         }
 
-        int durationCycles = 12; // 5초 * 12 = 60초
+        int durationCycles = 6; // 5초 * 6 = 30초
         int cooldownSec = 3600;
 
         AtomicInteger counter = durationCounters.computeIfAbsent(type.name(), k -> new AtomicInteger(0));
@@ -67,6 +68,24 @@ public class AlertService {
         } else {
             counter.set(0);
         }
+    }
+
+    private void evaluateDiskDaily(Double value, double threshold, String containerId) {
+        if (value == null) {
+            return;
+        }
+        if (value < threshold) {
+            return;
+        }
+
+        String cooldownKey = "monitor:alert:cooldown:DISK_DAILY";
+        String already = redisTemplate.opsForValue().get(cooldownKey);
+        if (already != null) {
+            return;
+        }
+
+        int cooldownSec = 86400; // 하루에 한 번
+        sendAndStore(AlertHistory.MetricType.DISK, value, threshold, 0, cooldownKey, cooldownSec, containerId);
     }
 
     private boolean isSilenced() {

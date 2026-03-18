@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <springProperty scope="context" name="RAB_HOST" source="spring.rabbitmq.host" defaultValue="${RABBIT_HOST}"/>
-    <springProperty scope="context" name="RAB_PORT" source="spring.rabbitmq.port" defaultValue="5672"/>
-    <springProperty scope="context" name="RAB_USERNAME" source="spring.rabbitmq.port" defaultValue="${RABBIT_USERNAME}"/>
-    <springProperty scope="context" name="RAB_PASSWORD" source="spring.rabbitmq.port" defaultValue="${RABBIT_PASSWORD}"/>
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
 
@@ -21,13 +17,15 @@
 
     <appender name="AMQP" class="org.springframework.amqp.rabbit.logback.AmqpAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
+            <level>ERROR</level>
         </filter>
 
-        <host>${RAB_HOST}</host>
-        <port>${RAB_PORT}</port>
-        <username>${RAB_USERNAME}</username>
-        <password>${RAB_PASSWORD}</password>
+        <!-- application.properties / .env 에서 주입한 RABBIT_* 값을 바로 사용 -->
+        <host>${RABBIT_HOST:localhost}</host>
+        <port>${RABBIT_PORT:5672}</port>
+        <username>${RABBIT_USERNAME}</username>
+        <password>${RABBIT_PASSWORD}</password>
+
         <declareExchange>true</declareExchange>
         <exchangeName>log-exchange</exchangeName>
         <exchangeType>topic</exchangeType>
@@ -39,8 +37,6 @@
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-
-    
 
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
