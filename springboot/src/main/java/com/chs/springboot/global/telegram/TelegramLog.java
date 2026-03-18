@@ -26,7 +26,7 @@ public class TelegramLog {
 
     public static void error(String message) {
         if (staticProvider != null) {
-            staticProvider.sendMessage("[🚨ERROR] " + message);
+            staticProvider.sendMessage("[🚨ERROR !] " + message);
         }
     }
 }

@@ -7,12 +7,6 @@ import AlertHistoryTable from '../../components/monitor/AlertHistoryTable.jsx';
 import styles from './MonitorPage.module.css';
 import '../../styles/themes/monitor-teal.css';
 
-const fmtTtl = (ttlSeconds) => {
-    const n = Number(ttlSeconds);
-    if (!Number.isFinite(n) || n <= 0) return '만료';
-    return `${Math.ceil(n / 60)}분 후`;
-};
-
 const fmtGb = (bytes) => {
     const n = Number(bytes);
     if (!Number.isFinite(n) || n <= 0) return '--';
@@ -60,17 +54,7 @@ const fmtTime = (dt) => {
 export default function MonitorPage() {
     const { snapshot } = useMonitorWebSocket();
 
-    const [hasSnapshot, setHasSnapshot] = useState(false);
-    const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
     const [nowTs, setNowTs] = useState(() => Date.now());
-    const [tick, setTick] = useState(0);
-
-    useEffect(() => {
-        if (!snapshot) return;
-        setHasSnapshot(true);
-        setLastUpdatedAt(snapshot?.collectedAt ?? null);
-        setTick((t) => t + 1);
-    }, [snapshot]);
 
     useEffect(() => {
         const id = window.setInterval(() => setNowTs(Date.now()), 1000);
@@ -99,6 +83,9 @@ export default function MonitorPage() {
         const diffHr = Math.floor(diffMin / 60);
         return `${diffHr}시간 전`;
     };
+
+    const lastUpdatedAt = snapshot?.collectedAt ?? null;
+    const hasSnapshot = !!snapshot;
 
     const business = useMemo(() => ({
         rawAggTradeRows: snapshot?.rawAggTradeRows ?? null,
@@ -139,7 +126,7 @@ export default function MonitorPage() {
                 )}
 
                 <div className={styles.lastUpdated}>
-                    <div className={`${styles.updatedChip} ${tick > 0 ? styles.updatedChipPulse : ''}`}>
+                    <div className={`${styles.updatedChip} ${hasSnapshot ? styles.updatedChipPulse : ''}`}>
                         <span className={styles.chipDot} />
                         <span className={styles.chipLabel}>마지막 갱신</span>
                         <span className={styles.chipAgo}>{fmtAgo(lastUpdatedAt)}</span>
