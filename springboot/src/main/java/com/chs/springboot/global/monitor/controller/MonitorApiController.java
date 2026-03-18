@@ -6,6 +6,7 @@ import com.chs.springboot.global.monitor.entity.IpAuditLog;
 import com.chs.springboot.global.monitor.repository.AlertHistoryRepository;
 import com.chs.springboot.global.monitor.service.IpAuditLogService;
 import com.chs.springboot.global.telegram.TelegramProvider;
+import com.chs.springboot.global.feature.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.domain.Page;
@@ -33,6 +34,7 @@ public class MonitorApiController {
     private final TelegramProvider telegramProvider;
     private final IpAuditLogService ipAuditLogService;
     private final AlertHistoryRepository alertHistoryRepository;
+    private final FeatureFlagService featureFlagService;
 
     /**
      * 접근 요청 (공개 엔드포인트)
@@ -69,6 +71,9 @@ public class MonitorApiController {
     /** 허용 IP 목록 + TTL(초) */
     @GetMapping("/admin/monitor/allowed-ips")
     public ResponseEntity<List<Map<String, Object>>> allowedIps() {
+        if (!featureFlagService.isMonitorAllowedIpManageEnabled()) {
+            return ResponseEntity.status(403).body(List.of());
+        }
         List<Map<String, Object>> result = new ArrayList<>();
 
         ScanOptions options = ScanOptions.scanOptions()
@@ -101,6 +106,9 @@ public class MonitorApiController {
     /** 허용 IP 삭제 */
     @DeleteMapping("/admin/monitor/allowed-ips/{ip}")
     public ResponseEntity<Void> deleteAllowedIp(@PathVariable String ip) {
+        if (!featureFlagService.isMonitorAllowedIpManageEnabled()) {
+            return ResponseEntity.status(403).build();
+        }
         redisTemplate.delete("monitor:allowed-ip:" + ip);
         return ResponseEntity.noContent().build();
     }

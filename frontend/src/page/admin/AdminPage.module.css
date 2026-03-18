@@ -1,0 +1,246 @@
+/* [AGENT] AdminPage monitor-teal 테마 적용 */
+.page {
+  background: var(--monitor-bg);
+  min-height: calc(100vh - 56px);
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  background: var(--monitor-sidebar-bg);
+  border: 1px solid var(--monitor-border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.04);
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--monitor-text-secondary);
+}
+
+.btnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-weight: 900;
+  cursor: pointer;
+  color: var(--monitor-text-secondary);
+}
+
+.btnActive {
+  border-color: rgba(13, 148, 136, 0.30);
+  background: rgba(13, 148, 136, 0.10);
+  color: var(--monitor-text-primary);
+}
+
+.btnDanger {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--monitor-severity-critical);
+}
+
+.desc {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--monitor-text-secondary);
+}
+
+.muted {
+  color: var(--monitor-text-secondary);
+  font-weight: 800;
+}
+
+.tableWrap {
+  margin-top: 10px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  background: #fff;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.th {
+  text-align: left;
+  padding: 10px 10px;
+  color: var(--monitor-text-secondary);
+  font-weight: 900;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.10);
+  white-space: nowrap;
+}
+
+.td {
+  padding: 10px 10px;
+  color: var(--monitor-text-primary);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  white-space: nowrap;
+}
+
+.trOdd {
+  background: rgba(17, 24, 39, 0.02);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.pager {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.flagRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+}
+
+.flagLabel {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
+.input, .select {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 900;
+  background: #fff;
+  color: var(--monitor-text-primary);
+  outline: none;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* 허용 IP 카드 (MonitorPage 스타일 재사용) */
+.ipList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ipItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  border-radius: 12px;
+}
+
+.ipLeft {
+  min-width: 0;
+}
+
+.ip {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.ttl {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--monitor-text-secondary);
+  font-weight: 800;
+}
+
+.del {
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--monitor-severity-critical);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .grid { grid-template-columns: 1fr; }
+  .inputRow { grid-template-columns: 1fr; }
+}
+

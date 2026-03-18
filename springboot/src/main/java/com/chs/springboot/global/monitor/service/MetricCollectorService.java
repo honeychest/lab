@@ -7,6 +7,8 @@ import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import com.github.dockerjava.core.DockerClientImpl;
@@ -26,8 +28,10 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -66,7 +70,7 @@ public class MetricCollectorService {
         Long rawAggTradeRows = safe(this::collectRawAggTradeRowsEstimate);
         Long rawAggTradeBytes = safe(this::collectRawAggTradeBytesEstimate);
 
-        Long redisQueue = safe(() -> redisTemplate.opsForList().size("rawAggTrade"));
+        Long redisQueue = safe(() -> redisTemplate.opsForList().size("aggtrade:queue"));
         List<MetricSnapshot.RedisKv> redisKeys = safe(this::collectFixedRedisKv);
         if (redisKeys == null) redisKeys = List.of();
 
@@ -235,6 +239,12 @@ public class MetricCollectorService {
             var inspect = docker.inspectContainerCmd(id).exec();
             if (inspect == null) continue;
 
+            Statistics stats = null;
+            try {
+                stats = fetchStatsOnce(docker, id);
+            } catch (Exception ignored) {
+            }
+
             String name = inspect.getName();
             if (name != null && name.startsWith("/")) name = name.substring(1);
 
@@ -252,12 +262,77 @@ public class MetricCollectorService {
             } catch (Exception ignored) {
             }
 
+            Double cpuPercent = null;
+            Long memUsed = null;
+            Long memLimit = null;
+            try {
+                if (stats != null) {
+                    cpuPercent = calcCpuPercent(stats);
+                    if (stats.getMemoryStats() != null) {
+                        memUsed = stats.getMemoryStats().getUsage();
+                        memLimit = stats.getMemoryStats().getLimit();
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+
             if (name != null && !name.isBlank()) {
-                list.add(new MetricSnapshot.ContainerInfo(name, status, restarts, image, uptimeSec));
+                list.add(new MetricSnapshot.ContainerInfo(name, status, restarts, image, uptimeSec, cpuPercent, memUsed, memLimit));
             }
         }
 
         return list;
+    }
+
+    private static Statistics fetchStatsOnce(DockerClient docker, String id) throws Exception {
+        if (docker == null || id == null || id.isBlank()) return null;
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Statistics> ref = new AtomicReference<>(null);
+
+        ResultCallback.Adapter<Statistics> cb = new ResultCallback.Adapter<>() {
+            @Override
+            public void onNext(Statistics stats) {
+                ref.set(stats);
+                latch.countDown();
+                try {
+                    close();
+                } catch (Exception ignored) {
+                }
+            }
+        };
+
+        docker.statsCmd(id).withNoStream(true).exec(cb);
+
+        // 응답이 없으면 null 처리
+        latch.await(2, TimeUnit.SECONDS);
+        try {
+            cb.close();
+        } catch (Exception ignored) {
+        }
+        return ref.get();
+    }
+
+    private static Double calcCpuPercent(Statistics stats) {
+        if (stats == null) return null;
+        if (stats.getCpuStats() == null || stats.getPreCpuStats() == null) return null;
+        if (stats.getCpuStats().getCpuUsage() == null || stats.getPreCpuStats().getCpuUsage() == null) return null;
+
+        Long cpuTotal = stats.getCpuStats().getCpuUsage().getTotalUsage();
+        Long preCpuTotal = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
+        Long sys = stats.getCpuStats().getSystemCpuUsage();
+        Long preSys = stats.getPreCpuStats().getSystemCpuUsage();
+        if (cpuTotal == null || preCpuTotal == null || sys == null || preSys == null) return null;
+
+        long cpuDelta = cpuTotal - preCpuTotal;
+        long sysDelta = sys - preSys;
+        if (cpuDelta <= 0 || sysDelta <= 0) return 0d;
+
+        Long online = stats.getCpuStats().getOnlineCpus();
+        int onlineCpus = (online != null && online > 0) ? (int) Math.min(Integer.MAX_VALUE, online) : 1;
+        double v = ((double) cpuDelta / (double) sysDelta) * (double) onlineCpus * 100d;
+        if (Double.isNaN(v) || Double.isInfinite(v)) return null;
+        return Math.max(0d, Math.min(100d, v));
     }
 
     private DockerClient buildDockerClient() {
@@ -276,7 +351,7 @@ public class MetricCollectorService {
     private List<MetricSnapshot.RedisKv> collectFixedRedisKv() {
         List<String> keys = List.of(
                 "telegram:leader",
-                "monitor:leader",
+                "config:aggtrade:max-queue-size",
                 "config:threshold"
         );
 

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -82,11 +83,27 @@ public class BinanceTradeService {
 
     @PostConstruct
     public void init() {
-        String val = redisTemplate.opsForValue().get("config:" + THRESHOLD_KEY);
-        if (val != null) threshold.set(new BigDecimal(val));
+        refreshThresholdFromRedis();
         log.info("[BinanceTrade] threshold 초기값: {}", threshold.get());
         connectSpot();
         connectFutures();
+    }
+
+    /**
+     * 다중 인스턴스(2중화) 환경에서 threshold 변경을 빠르게 동기화한다.
+     * - updateThreshold()가 호출된 인스턴스 외에도, 다른 인스턴스가 Redis 값을 주기적으로 반영해야 한다.
+     */
+    @Scheduled(fixedDelay = 5000)
+    public void refreshThresholdFromRedis() {
+        try {
+            String val = redisTemplate.opsForValue().get("config:" + THRESHOLD_KEY);
+            if (val != null && !val.isBlank()) {
+                threshold.set(new BigDecimal(val));
+            }
+        } catch (Exception e) {
+            // Redis 장애 시 메모리 값 유지
+            log.debug("[BinanceTrade] threshold refresh skipped: {}", e.getMessage());
+        }
     }
 
     // ── 연결 ─────────────────────────────────────────────────────────────

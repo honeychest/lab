@@ -1,4 +1,4 @@
-// [AGENT] AdminIpInterceptor를 /api/admin/**에 적용 (공개 엔드포인트는 exclude)
+// [AGENT] AdminIpInterceptor 등록 (현재 비활성화)
 package com.chs.springboot.global.monitor.config;
 
 import com.chs.springboot.global.monitor.interceptor.AdminIpInterceptor;
@@ -17,9 +17,7 @@ public class MonitorWebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(adminIpInterceptor)
                 .addPathPatterns("/api/admin/**")
-                .excludePathPatterns(
-                        "/api/monitor/access-request"
-                );
+                .excludePathPatterns("/api/monitor/access-request");
     }
 }
 

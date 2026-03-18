@@ -389,9 +389,31 @@
   word-break: break-word;
 }
 
+.redisSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  background: rgba(17, 24, 39, 0.03);
+}
+
+.redisSummaryLabel {
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
+.redisSummaryValue {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
 .dockerRow {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 120px 80px 70px;
+  grid-template-columns: 160px minmax(0, 1fr) 70px 170px 120px 80px 70px;
   gap: 10px;
   align-items: center;
   padding: 10px 10px;
@@ -425,6 +447,22 @@
 .dockerColStatus {
   display: flex;
   justify-content: flex-start;
+}
+
+.dockerColCpu {
+  text-align: right;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
+.dockerColMem {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
 }
 
 .dockerColUptime {

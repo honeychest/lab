@@ -6,6 +6,7 @@ import com.chs.springboot.domain.binance.service.BinanceTradeQueryService;
 import com.chs.springboot.domain.binance.service.BinanceTradeSseService;
 import com.chs.springboot.domain.binance.service.BinanceTradeService;
 import com.chs.springboot.domain.binance.service.RawTickSseService;
+import com.chs.springboot.global.feature.FeatureFlagService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +35,7 @@ public class BinanceTradeController {
     private final RawTickSseService rawTickSseService;
     private final BinanceTradeQueryService queryService;
     private final BinanceTradeService tradeService;
+    private final FeatureFlagService featureFlagService;
 
     @Value("${binance.threshold.allowed-ips:}")
     private String thresholdAllowedIps;
@@ -47,6 +49,7 @@ public class BinanceTradeController {
     }
 
     private boolean canEditThreshold(HttpServletRequest request) {
+        if (!featureFlagService.isTradeThresholdEditEnabled()) return false;
         if (thresholdAllowedIps == null || thresholdAllowedIps.isBlank()) return true;
         Set<String> allowed = Arrays.stream(thresholdAllowedIps.split(","))
                 .map(String::trim)

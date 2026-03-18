@@ -1,7 +1,5 @@
-// [AGENT] /monitor 메인 페이지 (WS 게이지 + 이력/허용IP, 모바일 요약)
+// [AGENT] /monitor 메인 페이지 (WS 게이지 + 이력, 모바일 요약)
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useMonitorWebSocket } from '../../hooks/useMonitorWebSocket.js';
 import GaugeBar from '../../components/monitor/GaugeBar.jsx';
@@ -37,6 +35,14 @@ const fmtBytes = (bytes) => {
     return `${(n / (1024 ** 4)).toFixed(2)}TB`;
 };
 
+const fmtMem = (usedBytes, limitBytes) => {
+    const u = Number(usedBytes);
+    const l = Number(limitBytes);
+    if (!Number.isFinite(u) || u < 0) return '--';
+    if (Number.isFinite(l) && l > 0) return `${fmtBytes(u)} / ${fmtBytes(l)}`;
+    return fmtBytes(u);
+};
+
 const fmtTime = (dt) => {
     if (!dt) return '--:--:--';
     // LocalDateTime 직렬화 형태가 환경에 따라 string/array로 올 수 있어 보정
@@ -52,47 +58,12 @@ const fmtTime = (dt) => {
 };
 
 export default function MonitorPage() {
-    const navigate = useNavigate();
     const { snapshot } = useMonitorWebSocket();
 
-    const [allowedIps, setAllowedIps] = useState([]);
-    const [allowedLoading, setAllowedLoading] = useState(false);
     const [hasSnapshot, setHasSnapshot] = useState(false);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
     const [nowTs, setNowTs] = useState(() => Date.now());
     const [tick, setTick] = useState(0);
-
-    // Case B: 페이지 마운트 시 보호 API 호출 → 403이면 forbidden
-    useEffect(() => {
-        axios.get('/api/admin/monitor/ping')
-            .catch((e) => {
-                if (e?.response?.status === 403) {
-                    navigate('/forbidden', { replace: true });
-                }
-            });
-    }, [navigate]);
-
-    const loadAllowed = async () => {
-        setAllowedLoading(true);
-        try {
-            const r = await axios.get('/api/admin/monitor/allowed-ips');
-            setAllowedIps(r.data ?? []);
-        } catch {
-            setAllowedIps([]);
-        } finally {
-            setAllowedLoading(false);
-        }
-    };
-
-    useEffect(() => { loadAllowed(); }, []);
-
-    const handleDelete = async (ip) => {
-        try {
-            await axios.delete(`/api/admin/monitor/allowed-ips/${encodeURIComponent(ip)}`);
-        } finally {
-            loadAllowed();
-        }
-    };
 
     useEffect(() => {
         if (!snapshot) return;
@@ -143,7 +114,7 @@ export default function MonitorPage() {
     }), [snapshot]);
 
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-    const containers = snapshot?.containers ?? [];
+    const containers = (snapshot?.containers ?? []).filter(c => (c?.status ?? '').toLowerCase() === 'running');
     const anyContainerBad = containers.some(c => (c?.status ?? '').toLowerCase() !== 'running');
     const dockerSummary = snapshot == null
         ? '--'
@@ -254,6 +225,8 @@ export default function MonitorPage() {
                                         <div className={`${styles.dockerRow} ${styles.dockerHead}`} role="row">
                                             <div className={styles.dockerColName} role="columnheader">이름</div>
                                                 <div className={styles.dockerColImage} role="columnheader">이미지</div>
+                                                <div className={styles.dockerColCpu} role="columnheader">CPU</div>
+                                                <div className={styles.dockerColMem} role="columnheader">MEM</div>
                                             <div className={styles.dockerColStatus} role="columnheader">상태</div>
                                                 <div className={styles.dockerColUptime} role="columnheader">Uptime</div>
                                             <div className={styles.dockerColRestarts} role="columnheader">재시작</div>
@@ -262,10 +235,14 @@ export default function MonitorPage() {
                                             const status = (c?.status ?? '').toString();
                                             const bad = status.toLowerCase() !== 'running';
                                                 const up = c?.uptimeSec == null ? '--' : (c.uptimeSec < 60 ? `${c.uptimeSec}s` : `${Math.floor(c.uptimeSec / 60)}m`);
+                                                const cpu = c?.cpuPercent == null ? '--' : `${c.cpuPercent.toFixed(1)}%`;
+                                                const mem = fmtMem(c?.memUsedBytes, c?.memLimitBytes);
                                             return (
                                                 <div key={c?.name ?? status} className={styles.dockerRow} role="row">
                                                     <div className={`${styles.dockerColName} ${styles.mono}`} role="cell">{c?.name ?? '--'}</div>
                                                         <div className={`${styles.dockerColImage} ${styles.mono}`} role="cell">{c?.image ?? '--'}</div>
+                                                        <div className={`${styles.dockerColCpu} ${styles.mono}`} role="cell">{cpu}</div>
+                                                        <div className={`${styles.dockerColMem} ${styles.mono}`} role="cell">{mem}</div>
                                                     <div className={styles.dockerColStatus} role="cell">
                                                         <span className={`${styles.dockerBadge} ${bad ? styles.dockerBadgeBad : styles.dockerBadgeOk}`}>
                                                             {status || '--'}
@@ -291,6 +268,24 @@ export default function MonitorPage() {
                                 {business.redisKeys.length === 0 ? (
                                     <div className={styles.dockerEmpty}>표시할 키가 없습니다.</div>
                                 ) : (
+                                    <>
+                                        {(() => {
+                                            const maxQueue = business.redisKeys.find(x => x?.key === 'config:aggtrade:max-queue-size')?.value;
+                                            const maxQueueNum = Number(maxQueue);
+                                            const q = Number(business.redisQueue);
+                                            const pct = (Number.isFinite(q) && Number.isFinite(maxQueueNum) && maxQueueNum > 0)
+                                                ? Math.min(100, Math.max(0, (q / maxQueueNum) * 100))
+                                                : null;
+                                            return (
+                                                <div className={styles.redisSummary}>
+                                                    <span className={styles.redisSummaryLabel}>aggtrade queue</span>
+                                                    <span className={`${styles.redisSummaryValue} ${styles.mono}`}>
+                                                        {fmtCount(business.redisQueue)} / {Number.isFinite(maxQueueNum) ? fmtCount(maxQueueNum) : '--'}
+                                                        {pct == null ? '' : ` (${pct.toFixed(1)}%)`}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                     <div className={styles.dockerTable} role="table" aria-label="Redis 키 미리보기">
                                         <div className={`${styles.dockerRow} ${styles.dockerHead} ${styles.redisRow}`} role="row">
                                             <div className={styles.redisColKey} role="columnheader">Key</div>
@@ -307,6 +302,7 @@ export default function MonitorPage() {
                                             </div>
                                         ))}
                                     </div>
+                                    </>
                                 )}
                             </section>
                         )}
@@ -334,32 +330,6 @@ export default function MonitorPage() {
                                         {business.apiErrorRate == null ? '--' : `${business.apiErrorRate.toFixed(1)}%`}
                                     </span>
                                 </div>
-                            </div>
-
-                            <div className={styles.sideCard}>
-                                <div className={styles.sideTitleRow}>
-                                    <div className={styles.sideTitle}>허용 IP</div>
-                                    <button type="button" className={styles.refresh} onClick={loadAllowed} disabled={allowedLoading}>
-                                        새로고침
-                                    </button>
-                                </div>
-                                {allowedIps.length === 0 ? (
-                                    <div className={styles.empty}>현재 허용된 IP가 없습니다.</div>
-                                ) : (
-                                    <ul className={styles.ipList}>
-                                        {allowedIps.map((x) => (
-                                            <li key={x.ip} className={styles.ipItem}>
-                                                <div className={styles.ipLeft}>
-                                                    <div className={styles.ip}>{x.ip}</div>
-                                                    <div className={styles.ttl}>잔여: {fmtTtl(x.ttlSeconds)}</div>
-                                                </div>
-                                                <button type="button" className={styles.del} onClick={() => handleDelete(x.ip)}>
-                                                    삭제
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
                             </div>
                         </aside>
                     )}

@@ -31,7 +31,10 @@ public record MetricSnapshot(
             String status,
             Integer restarts,
             String image,
-            Long uptimeSec
+            Long uptimeSec,
+            Double cpuPercent,
+            Long memUsedBytes,
+            Long memLimitBytes
     ) {
     }
 }
