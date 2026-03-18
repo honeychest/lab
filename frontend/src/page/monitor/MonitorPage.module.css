@@ -491,6 +491,29 @@
   color: var(--monitor-text-secondary);
 }
 
+/* 테이블 스냅샷 (information_schema) */
+.tableMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--monitor-sidebar-bg);
+  border: 1px solid var(--monitor-border);
+  border-radius: 14px;
+}
+
+.tableMetaLabel {
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.tableMetaValue {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
 /* 모바일 요약 (REQ-016~017) */
 .mobileCards {
   display: none;

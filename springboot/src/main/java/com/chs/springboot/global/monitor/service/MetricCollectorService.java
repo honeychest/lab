@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.Gauge;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 public class MetricCollectorService {
 
     private final StringRedisTemplate redisTemplate;
+    private final JdbcTemplate jdbcTemplate;
     private final MeterRegistry meterRegistry;
     private final MonitorWebSocketHandler monitorWebSocketHandler;
     private final AlertService alertService;
@@ -61,6 +63,9 @@ public class MetricCollectorService {
         Long diskFreeBytes = safe(this::collectDiskFreeBytes);
         Double apiErrorRate = safe(this::collectApiErrorRatePercent);
 
+        Long rawAggTradeRows = safe(this::collectRawAggTradeRowsEstimate);
+        Long rawAggTradeBytes = safe(this::collectRawAggTradeBytesEstimate);
+
         Long redisQueue = safe(() -> redisTemplate.opsForList().size("rawAggTrade"));
         List<MetricSnapshot.RedisKv> redisKeys = safe(this::collectFixedRedisKv);
         if (redisKeys == null) redisKeys = List.of();
@@ -81,6 +86,8 @@ public class MetricCollectorService {
                 disk,
                 diskTotalBytes,
                 diskFreeBytes,
+                rawAggTradeRows,
+                rawAggTradeBytes,
                 redisQueue,
                 redisKeys,
                 wsConnections,
@@ -96,6 +103,34 @@ public class MetricCollectorService {
 
         monitorWebSocketHandler.broadcast(snapshot);
         alertService.evaluate(snapshot);
+    }
+
+    private Long collectRawAggTradeRowsEstimate() {
+        String sql = """
+                SELECT table_rows
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'raw_agg_trade'
+                """;
+        try {
+            return jdbcTemplate.queryForObject(sql, Long.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Long collectRawAggTradeBytesEstimate() {
+        String sql = """
+                SELECT (data_length + index_length)
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'raw_agg_trade'
+                """;
+        try {
+            return jdbcTemplate.queryForObject(sql, Long.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private boolean isLeader() {

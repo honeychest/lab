@@ -21,6 +21,22 @@ const fmtGb = (bytes) => {
     return `${(n / (1024 ** 3)).toFixed(1)}GB`;
 };
 
+const fmtCount = (n) => {
+    const v = Number(n);
+    if (!Number.isFinite(v) || v < 0) return '--';
+    return Math.floor(v).toLocaleString('en-US');
+};
+
+const fmtBytes = (bytes) => {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n < 0) return '--';
+    if (n < 1024) return `${n.toFixed(0)}B`;
+    if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)}KB`;
+    if (n < 1024 ** 3) return `${(n / (1024 ** 2)).toFixed(1)}MB`;
+    if (n < 1024 ** 4) return `${(n / (1024 ** 3)).toFixed(1)}GB`;
+    return `${(n / (1024 ** 4)).toFixed(2)}TB`;
+};
+
 const fmtTime = (dt) => {
     if (!dt) return '--:--:--';
     // LocalDateTime 직렬화 형태가 환경에 따라 string/array로 올 수 있어 보정
@@ -114,6 +130,8 @@ export default function MonitorPage() {
     };
 
     const business = useMemo(() => ({
+        rawAggTradeRows: snapshot?.rawAggTradeRows ?? null,
+        rawAggTradeBytes: snapshot?.rawAggTradeBytes ?? null,
         redisQueue: snapshot?.redisQueue ?? null,
         redisKeys: snapshot?.redisKeys ?? [],
         wsConnections: snapshot?.wsConnections ?? null,
@@ -171,6 +189,15 @@ export default function MonitorPage() {
                                 <span className={styles.diskMetaLabel}>DISK</span>
                                 <span className={styles.diskMetaValue}>
                                     여유 {fmtGb(snapshot?.diskFreeBytes)} / 전체 {fmtGb(snapshot?.diskTotalBytes)}
+                                </span>
+                            </div>
+                        )}
+
+                        {!isMobile && (
+                            <div className={styles.tableMeta}>
+                                <span className={styles.tableMetaLabel}>RawAggTrade</span>
+                                <span className={styles.tableMetaValue}>
+                                    ROWS(추정) {fmtCount(business.rawAggTradeRows)} · SIZE {fmtBytes(business.rawAggTradeBytes)}
                                 </span>
                             </div>
                         )}
