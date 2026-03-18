@@ -24,7 +24,7 @@
 
     <appender name="AMQP" class="org.springframework.amqp.rabbit.logback.AmqpAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>DEBUG</level>
+            <level>WARN</level>
         </filter>
 
         <!-- springProperty로 세팅된 컨텍스트 값을 사용 -->

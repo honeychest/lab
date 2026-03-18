@@ -25,6 +25,11 @@ on: # 워크플로우가 실행되는 트리거(조건) 설정
         required: false
         default: true
         type: boolean
+      deploy_only: # 빌드 없이 배포만 실행
+        description: "Deploy only (skip build)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency: # 중복 실행 방지 설정
   group: ci-${{ github.workflow }}-${{ github.ref }} # 그룹명: 워크플로우명 + 브랜치명
@@ -59,8 +64,11 @@ jobs: # 실행할 작업 단위(Job)들
     runs-on: ubuntu-latest
     needs: changes # 'changes' 작업이 먼저 완료되어야 함
     if: | # 조건부 실행
-      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.frontend == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_frontend)
+      inputs.deploy_only != true &&
+      (
+        (github.event_name != 'workflow_dispatch' && needs.changes.outputs.frontend == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_frontend)
+      )
     strategy: # 매트릭스 빌드 설정
       fail-fast: false # 하나가 실패해도 나머지는 계속 실행
       matrix: # 여러 버전에서 테스트
@@ -105,8 +113,11 @@ jobs: # 실행할 작업 단위(Job)들
     runs-on: ubuntu-latest
     needs: changes
     if: | # 조건부 실행
-      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.springboot == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_backend)
+      inputs.deploy_only != true &&
+      (
+        (github.event_name != 'workflow_dispatch' && needs.changes.outputs.springboot == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_backend)
+      )
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +161,7 @@ jobs: # 실행할 작업 단위(Job)들
     needs: # [frontend, backend] 와 같은 표현방식
       - frontend # 프론트엔드 작업 완료 대기
       - backend # 백엔드 작업 완료 대기
-    if: always() # 이전 작업 결과와 상관없이 항상 실행
+    if: always() && inputs.deploy_only != true # deploy_only 시 summary 스킵
     outputs: # skipped 된 작업때문에 배포 안되어서 스킵에 대한 성공값을 주려고 일부러 이렇게 아웃풋 처리함
       frontend_result: ${{ needs.frontend.result }}
       backend_result: ${{ needs.backend.result }}
@@ -164,23 +175,27 @@ jobs: # 실행할 작업 단위(Job)들
             echo "::ERROR"" 빌드실패 🤔 At least one required job failed."
             exit 1 # 하나라도 실패 시 최종 상태를 failure로 설정
           fi
+
   deploy: # 흐름 [Actions Runner(빌드 머신)] -> [GitHub 저장소(임시 저장 공간) Artifacts] -> [Deploy Job 머신] -> 내 AWS 서버
     name: Deploy to AWS
     needs: [ summary ] # 안에 있는게 전부성공해야 가능
     if: |
-      always() && needs.summary.result == 'success'
+      always() && (
+        inputs.deploy_only == true ||
+        needs.summary.result == 'success'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Get my Backend JAR # 빌드 단계에서 만든 파일 가져오기
         uses: actions/download-artifact@v4
-        if: needs.summary.outputs.backend_result == 'success'
+        if: inputs.deploy_only != true && needs.summary.outputs.backend_result == 'success'
         with:
           name: springboot-jar # 빌드머신에 썼던 이름
           path: ./artifacts/springboot-jar # 기본 빌드폴더
 
       - name: Get my Frontend
         uses: actions/download-artifact@v4
-        if: needs.summary.outputs.frontend_result == 'success'
+        if: inputs.deploy_only != true && needs.summary.outputs.frontend_result == 'success'
         with:
           name: frontend-dist # 빌드머신에 썼던 이름
           path: ./artifacts/frontend-dist
@@ -192,12 +207,12 @@ jobs: # 실행할 작업 단위(Job)들
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | # 아래의 내용은 <pre></pre>처럼 그대로 라는 의미 따옴표도 쓰면안됨 이랬는데 되는방법도 있대서 한번 실험해봄
-            ${{ needs.summary.outputs.backend_result == 'success' && 'rm -rf /home/ubuntu/project/home/springboot/build/libs/*' || 'echo Backend cleanup skipped' }}
-            ${{ needs.summary.outputs.frontend_result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
+            ${{ inputs.deploy_only != true && needs.summary.outputs.backend_result == 'success' && 'rm -rf /home/ubuntu/project/home/springboot/build/libs/*' || 'echo Backend cleanup skipped' }}
+            ${{ inputs.deploy_only != true && needs.summary.outputs.frontend_result == 'success' && 'rm -rf /home/ubuntu/project/home/frontend/from_actions/*' || 'echo Frontend cleanup skipped' }}
 
       - name: Copy JAR to Server # 백엔드를 서버로 전송
         uses: appleboy/scp-action@master
-        if: needs.summary.outputs.backend_result == 'success'
+        if: inputs.deploy_only != true && needs.summary.outputs.backend_result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -208,7 +223,7 @@ jobs: # 실행할 작업 단위(Job)들
 
       - name: Copy Frontend to Server # 프론트엔드를 서버로 전송
         uses: appleboy/scp-action@master
-        if: needs.summary.outputs.frontend_result == 'success'
+        if: inputs.deploy_only != true && needs.summary.outputs.frontend_result == 'success'
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }} # 배포전용계정
@@ -219,8 +234,9 @@ jobs: # 실행할 작업 단위(Job)들
           # Actions 워크스페이스 루트에서 tar로 묶음 tar czf archive.tar.gz ./artifacts/frontend-dist/*
           # 서버에서 풀 때 tar xzf archive.tar.gz -C /target/ 그래서 아카이브 안에는: artifacts/frontend-dist/index.html
           # 이 구조로 들어가고, 서버에서 풀면 target/artifacts/frontend-dist/ 로 중첩되는 거예요.
+
       - name: Verify Files on Server
-        if: needs.summary.outputs.backend_result == 'success' || needs.summary.outputs.frontend_result == 'success'
+        if: inputs.deploy_only != true && (needs.summary.outputs.backend_result == 'success' || needs.summary.outputs.frontend_result == 'success')
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -231,15 +247,16 @@ jobs: # 실행할 작업 단위(Job)들
             if [ "${{ needs.summary.outputs.frontend_result }}" = "success" ]; then ls -la /home/ubuntu/project/home/frontend/from_actions/; fi
 
       - name: Deploy Backend
-        if: needs.summary.outputs.backend_result == 'success'
+        if: inputs.deploy_only == true || needs.summary.outputs.backend_result == 'success'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.USER_DEPLOY }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: /home/ubuntu/project/home/springboot/deploy-back-only.sh
+
       - name: Deploy Frontend
-        if: needs.summary.outputs.frontend_result == 'success'
+        if: inputs.deploy_only == true || needs.summary.outputs.frontend_result == 'success'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
