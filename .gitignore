@@ -16,3 +16,4 @@ springboot/src/test/java/com/chs/springboot/unitTest.java
 .history/
 # git rm -r --cached devcontext
 /devcontext/
+/logs/

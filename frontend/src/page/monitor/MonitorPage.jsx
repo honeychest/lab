@@ -154,7 +154,7 @@ export default function MonitorPage() {
                             <div className={styles.tableMeta}>
                                 <span className={styles.tableMetaLabel}>RawAggTrade</span>
                                 <span className={styles.tableMetaValue}>
-                                    ROWS(추정) {fmtCount(business.rawAggTradeRows)} · SIZE {fmtBytes(business.rawAggTradeBytes)}
+                                    ROWS(스냅샷) {fmtCount(business.rawAggTradeRows)} · SIZE {fmtBytes(business.rawAggTradeBytes)}
                                 </span>
                             </div>
                         )}
