@@ -49,11 +49,15 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'com.github.docker-java:docker-java:3.4.1'
+    implementation 'com.github.docker-java:docker-java-transport-zerodep:3.4.1'
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3' //swagger
     implementation 'com.github.ulisesbocchio:jasypt-spring-boot-starter:3.0.5' // jasypt
     implementation 'io.github.binance:binance-connector-java:3.3.0' // binance
+    implementation 'org.springframework.boot:spring-boot-starter-amqp' // RabbitMQ 연결을 위한 기본 스타터
+    // NOTE: spring-boot-starter-amqp에 spring-rabbit이 포함되어 있어 별도 의존성 불필요
 
     // 롬복
     compileOnly 'org.projectlombok:lombok'

@@ -226,20 +226,25 @@ export default function MonitorPage() {
                                     <div className={styles.dockerTable} role="table" aria-label="Docker 컨테이너 상태">
                                         <div className={`${styles.dockerRow} ${styles.dockerHead}`} role="row">
                                             <div className={styles.dockerColName} role="columnheader">이름</div>
+                                                <div className={styles.dockerColImage} role="columnheader">이미지</div>
                                             <div className={styles.dockerColStatus} role="columnheader">상태</div>
+                                                <div className={styles.dockerColUptime} role="columnheader">Uptime</div>
                                             <div className={styles.dockerColRestarts} role="columnheader">재시작</div>
                                         </div>
                                         {containers.map((c) => {
                                             const status = (c?.status ?? '').toString();
                                             const bad = status.toLowerCase() !== 'running';
+                                                const up = c?.uptimeSec == null ? '--' : (c.uptimeSec < 60 ? `${c.uptimeSec}s` : `${Math.floor(c.uptimeSec / 60)}m`);
                                             return (
                                                 <div key={c?.name ?? status} className={styles.dockerRow} role="row">
                                                     <div className={`${styles.dockerColName} ${styles.mono}`} role="cell">{c?.name ?? '--'}</div>
+                                                        <div className={`${styles.dockerColImage} ${styles.mono}`} role="cell">{c?.image ?? '--'}</div>
                                                     <div className={styles.dockerColStatus} role="cell">
                                                         <span className={`${styles.dockerBadge} ${bad ? styles.dockerBadgeBad : styles.dockerBadgeOk}`}>
                                                             {status || '--'}
                                                         </span>
                                                     </div>
+                                                        <div className={`${styles.dockerColUptime} ${styles.mono}`} role="cell">{up}</div>
                                                     <div className={`${styles.dockerColRestarts} ${styles.mono}`} role="cell">
                                                         {c?.restarts == null ? '--' : c.restarts}
                                                     </div>

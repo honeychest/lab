@@ -391,7 +391,7 @@
 
 .dockerRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 70px;
+  grid-template-columns: 180px minmax(0, 1fr) 120px 80px 70px;
   gap: 10px;
   align-items: center;
   padding: 10px 10px;
@@ -413,9 +413,24 @@
   color: var(--monitor-text-primary);
 }
 
+.dockerColImage {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
 .dockerColStatus {
   display: flex;
   justify-content: flex-start;
+}
+
+.dockerColUptime {
+  text-align: right;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
 }
 
 .dockerColRestarts {

@@ -27,7 +27,9 @@ public record MetricSnapshot(
     public record ContainerInfo(
             String name,
             String status,
-            Integer restarts
+            Integer restarts,
+            String image,
+            Long uptimeSec
     ) {
     }
 }

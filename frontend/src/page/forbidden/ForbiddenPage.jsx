@@ -46,10 +46,10 @@ export default function ForbiddenPage() {
                         onClick={handleRequest}
                         disabled={isPending}
                     >
-                        텔레그램으로 접근 요청하기
+                        접근 승인 요청하기
                     </button>
                     <div className={styles.hint}>
-                        요청 후 텔레그램에서 예제 형식대로 답장하시면 자동으로 허용됩니다.
+                        요청 후 텔레그램에서 관리자가 승인시 자동으로 허용됩니다.
                     </div>
                 </div>
             </div>

@@ -6,8 +6,10 @@ import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
+import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
+import com.github.dockerjava.core.DockerClientImpl;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -19,8 +21,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +41,6 @@ public class MetricCollectorService {
     private final UpbitPriceWebSocketHandler upbitPriceWebSocketHandler;
     private final CandleWebSocketHandler candleWebSocketHandler;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
             .filter(s -> !s.isBlank())
             .orElseGet(() -> UUID.randomUUID().toString().substring(0, 8));
@@ -181,29 +184,58 @@ public class MetricCollectorService {
     }
 
     private List<MetricSnapshot.ContainerInfo> collectContainers() throws Exception {
-        String ids = execAndRead("docker", "ps", "-aq").trim();
-        if (ids.isBlank()) return List.of();
+        DockerClient docker = buildDockerClient();
 
-        List<String> cmd = new ArrayList<>();
-        cmd.add("docker");
-        cmd.add("inspect");
-        cmd.addAll(Arrays.asList(ids.split("\\R+")));
+        var containers = docker.listContainersCmd()
+                .withShowAll(true)
+                .exec();
 
-        String json = execAndRead(cmd.toArray(new String[0]));
-        JsonNode root = objectMapper.readTree(json);
-        if (!root.isArray()) return List.of();
+        if (containers == null || containers.isEmpty()) return List.of();
 
         List<MetricSnapshot.ContainerInfo> list = new ArrayList<>();
-        for (JsonNode node : root) {
-            String name = node.path("Name").asText("");
-            if (name.startsWith("/")) name = name.substring(1);
-            String status = node.path("State").path("Status").asText("");
-            int restarts = node.path("RestartCount").asInt(0);
-            if (!name.isBlank()) {
-                list.add(new MetricSnapshot.ContainerInfo(name, status, restarts));
+        for (var c : containers) {
+            String id = c.getId();
+            if (id == null || id.isBlank()) continue;
+
+            var inspect = docker.inspectContainerCmd(id).exec();
+            if (inspect == null) continue;
+
+            String name = inspect.getName();
+            if (name != null && name.startsWith("/")) name = name.substring(1);
+
+            String status = inspect.getState() != null ? inspect.getState().getStatus() : null;
+            Integer restarts = inspect.getRestartCount();
+            String image = inspect.getConfig() != null ? inspect.getConfig().getImage() : null;
+
+            Long uptimeSec = null;
+            try {
+                String startedAt = inspect.getState() != null ? inspect.getState().getStartedAt() : null;
+                if (startedAt != null && !startedAt.isBlank()) {
+                    OffsetDateTime started = OffsetDateTime.parse(startedAt);
+                    uptimeSec = Math.max(0, ChronoUnit.SECONDS.between(started, OffsetDateTime.now()));
+                }
+            } catch (Exception ignored) {
+            }
+
+            if (name != null && !name.isBlank()) {
+                list.add(new MetricSnapshot.ContainerInfo(name, status, restarts, image, uptimeSec));
             }
         }
+
         return list;
+    }
+
+    private DockerClient buildDockerClient() {
+        // Docker Engine API via unix socket: /var/run/docker.sock
+        DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                .withDockerHost("unix:///var/run/docker.sock")
+                .build();
+
+        var httpClient = new ZerodepDockerHttpClient.Builder()
+                .dockerHost(URI.create("unix:///var/run/docker.sock"))
+                .build();
+
+        return DockerClientImpl.getInstance(config, httpClient);
     }
 
     private List<MetricSnapshot.RedisKv> collectFixedRedisKv() {
@@ -237,25 +269,6 @@ public class MetricCollectorService {
             if (key.equals(t.getKey())) return t.getValue();
         }
         return null;
-    }
-
-    private String execAndRead(String... command) throws Exception {
-        Process p = new ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start();
-
-        boolean finished = p.waitFor(5, TimeUnit.SECONDS);
-        if (!finished) {
-            p.destroyForcibly();
-            throw new RuntimeException("command timeout: " + String.join(" ", command));
-        }
-
-        byte[] bytes = p.getInputStream().readAllBytes();
-        String out = new String(bytes, StandardCharsets.UTF_8);
-        if (p.exitValue() != 0) {
-            throw new RuntimeException("command failed: " + String.join(" ", command) + " | " + out);
-        }
-        return out;
     }
 
     private static Double clampPercent(Double v) {
