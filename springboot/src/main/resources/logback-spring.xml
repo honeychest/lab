@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Spring Environment( application.properties / .env )에서 확실히 값 끌어오기 -->
-    <property name="RAB_HOST" value="${RABBIT_HOST:-devcontext.duckdns.org}"/>
-    <property name="RAB_PORT" value="${RABBIT_PORT:-5672}"/>
-    <property name="RAB_USERNAME" value="${RABBIT_USERNAME:-guest}"/>
-    <property name="RAB_PASSWORD" value="${RABBIT_PASSWORD:-guest}"/>
+
+    <springProperty name="RAB_HOST"     scope="context" source="spring.rabbitmq.host"     defaultValue="devcontext.duckdns.org"/>
+    <springProperty name="RAB_PORT"     scope="context" source="spring.rabbitmq.port"     defaultValue="5672"/>
+    <springProperty name="RAB_USERNAME" scope="context" source="spring.rabbitmq.username" defaultValue="guest"/>
+    <springProperty name="RAB_PASSWORD" scope="context" source="spring.rabbitmq.password" defaultValue="guest"/>
 
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
@@ -26,7 +26,6 @@
             <level>ERROR</level>
         </filter>
 
-        <!-- springProperty로 세팅된 컨텍스트 값을 사용 -->
         <host>${RAB_HOST}</host>
         <port>${RAB_PORT}</port>
         <username>${RAB_USERNAME}</username>
@@ -49,4 +48,5 @@
         <appender-ref ref="FILE" />
         <appender-ref ref="AMQP" />
     </root>
+
 </configuration>
