@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <!-- logback 은 엄청 일찍 떠서 .env 값 못가져옴 application.properties도 ! -->
-    <property name="RAB_HOST"     value="${devcontext.duckdns.org}"/>
-    <property name="RAB_PORT"     value="${5672}"/>
+    <property name="RAB_HOST"     value="devcontext.duckdns.org"/>
+    <property name="RAB_PORT"     value="5672"/>
     <property name="RAB_USERNAME" value="${RABBIT_USERNAME:-guest}"/>
     <property name="RAB_PASSWORD" value="${RABBIT_PASSWORD:-guest}"/>
 
@@ -24,7 +24,7 @@
 
     <appender name="AMQP" class="org.springframework.amqp.rabbit.logback.AmqpAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
+            <level>INFO</level>
         </filter>
 
         <!-- springProperty로 세팅된 컨텍스트 값을 사용 -->
