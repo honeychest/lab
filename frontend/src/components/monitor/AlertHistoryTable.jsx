@@ -6,7 +6,11 @@ import styles from './AlertHistoryTable.module.css';
 const fmt = (dt) => {
     if (!dt) return '-';
     const d = new Date(dt);
-    return d.toLocaleString('ko-KR', { hour12: false });
+    // 서버(LocalDateTime) 값이 타임존 없이 내려올 수 있어도, 표기는 KST로 고정해서 일관되게 보여준다.
+    return d.toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        hour12: false,
+    });
 };
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
@@ -71,13 +75,12 @@ export default function AlertHistoryTable() {
                             <th>임계값</th>
                             <th>지속</th>
                             <th>심각도</th>
-                            <th>전송</th>
                         </tr>
                     </thead>
                     <tbody>
                         {content.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className={styles.empty}>알림 이력이 없습니다.</td>
+                                <td colSpan={6} className={styles.empty}>알림 이력이 없습니다.</td>
                             </tr>
                         ) : content.map((row) => (
                             <tr key={row.id}>
@@ -91,7 +94,6 @@ export default function AlertHistoryTable() {
                                         {row.severity}
                                     </span>
                                 </td>
-                                <td className={styles.mono}>Y</td>
                             </tr>
                         ))}
                     </tbody>

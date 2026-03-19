@@ -60,6 +60,14 @@
   font-size: 13px;
   color: var(--monitor-text-primary);
   white-space: nowrap;
+  text-align: left;
+  vertical-align: middle;
+}
+
+/* 6번째(심각도) 컬럼은 UI에서 가운데 정렬로 맞춤 */
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  text-align: center;
 }
 
 .table th {
