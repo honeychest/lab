@@ -5,6 +5,7 @@
   padding: 18px;
   box-sizing: border-box;
   position: relative;
+  overflow-x: hidden;
 }
 
 .waitOverlay {
@@ -414,7 +415,7 @@
 
 .dockerRow {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr) 70px 170px 120px 80px 70px;
+  grid-template-columns: 140px minmax(0, 1fr) 60px 140px 100px 70px 60px;
   gap: 10px;
   align-items: center;
   padding: 10px 10px;
@@ -607,6 +608,9 @@
     grid-template-columns: 1fr;
   }
   .sidebar {
+    display: none;
+  }
+  .dockerCard {
     display: none;
   }
   .mobileCards {
