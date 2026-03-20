@@ -12,7 +12,7 @@ async def summarize(text: str, source_url: str) -> dict:
 async def _summarize_gemini(text: str, source_url: str) -> dict:
     from google import genai
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    models = ["gemma-3-27b-it","gemma-3-12b-it","gemma-3-4b-it","gemma-3n-e2b-it","gemma-3-1b-it"]
+    models = ["gemini-3.1-flash-lite-preview","gemma-3-27b-it","gemma-3-12b-it","gemma-3-4b-it","gemma-3n-e2b-it","gemma-3-1b-it"]
     for model in models:
         try:
             response = await client.aio.models.generate_content(
@@ -38,7 +38,7 @@ def _build_prompt(text: str, source_url: str) -> str:
     return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지.
           요약 양식:
           제목: (한 줄 핵심 주제)
-            - 주요내용 bullet 3~5개
+            - 주요내용 내용 분량에 맞게 bullet 3~20개
             - 한 줄 결론
           내용:
           {text}

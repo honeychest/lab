@@ -28,4 +28,4 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 처리 중 오류가 발생했습니다.")
 
 def _is_youtube(url: str) -> bool:
-    return "youtube.com/watch" in url or "youtu.be/" in url
+    return "youtube.com/watch" in url or "youtu.be/" in url or "youtube.com/shorts/" in url

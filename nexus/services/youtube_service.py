@@ -6,6 +6,8 @@ logger = logging.getLogger(__name__)
 def _extract_video_id(url: str) -> str:
     if "youtu.be/" in url:
         return url.split("youtu.be/")[1].split("?")[0]
+    if "shorts/" in url:
+        return url.split("shorts/")[1].split("?")[0]
     if "v=" in url:
         return url.split("v=")[1].split("&")[0]
     raise ValueError(f"유튜브 ID 추출 실패: {url}")
