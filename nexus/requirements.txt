@@ -1,0 +1,11 @@
+python-telegram-bot==21.5
+anthropic
+notion-client
+youtube-transcript-api
+beautifulsoup4
+requests
+python-dotenv
+fastapi
+uvicorn
+pydantic-settings
+google-genai
