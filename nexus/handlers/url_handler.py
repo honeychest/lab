@@ -16,10 +16,12 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if _is_youtube(url):
             text = await get_transcript(url)
+            platform = "youtube" if "youtube.com/watch" in url or "youtu.be/" in url else "shorts"
         else:
             text = await get_content(url)
+            platform = "web"
         result = await summarize(text, url) # result에 ai_service 에서 summarize 한 내용이 여기 들어옴.
-        await save(url, result["title"], result["summary"])
+        await save(url, result["title"], result["summary"], platform)
 
         await update.message.reply_text(f"✔ 노션 저장 완료\n\n{result['summary']}")
 
