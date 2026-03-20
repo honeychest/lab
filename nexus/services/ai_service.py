@@ -35,7 +35,7 @@ async def _summarize_claude(text: str, source_url: str) -> dict:
     return _parse_response(message.content[0].text)
 
 def _build_prompt(text: str, source_url: str) -> str:
-    return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지.
+    return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
           요약 양식:
           제목: (한 줄 핵심 주제)
             - 주요내용 내용 분량에 맞게 bullet 3~20개

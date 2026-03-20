@@ -5,18 +5,18 @@ from config import settings
 logger = logging.getLogger(__name__)
 client = AsyncClient(auth=settings.NOTION_API_KEY)
 
-async def save(url: str, title: str, summary: str, source: str= "telegram") -> str:
+async def save(url: str, title: str, summary: str, platform: str= "telegram") -> str:
     response = await client.pages.create(
         parent={"database_id": settings.NOTION_DATABASE_ID},
         properties={
             "제목": {
                 "title": [{"text": {"content": title}}] # title 만 조작가능한 부분이고 나머지는 다 notion양식이라 변경x
             },
-            "출처": {
+            "원본": {
                 "url": url
             },
-            "채널": {
-                "select": {"name": source}
+            "플랫폼": {
+                "select": {"name": platform}
             },
         },
         children=[
