@@ -14,27 +14,36 @@ const fmt = (dt) => {
 };
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
+const weekAgoDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+};
 
 export default function AlertHistoryTable() {
-    const [from, setFrom] = useState(() => todayDate());
-    const [to, setTo] = useState(() => todayDate());
-    const [type, setType] = useState('');
+    const [draft, setDraft] = useState(() => ({ from: weekAgoDate(), to: todayDate(), type: '' }));
+    const [query, setQuery] = useState(() => ({ from: weekAgoDate(), to: todayDate(), type: '' }));
     const [page, setPage] = useState(0);
     const [data, setData] = useState(null);
 
     const params = useMemo(() => {
         const p = { page, size: 20 };
-        if (from) p.from = from;
-        if (to) p.to = to;
-        if (type) p.type = type;
+        if (query.from) p.from = query.from;
+        if (query.to) p.to = query.to;
+        if (query.type) p.type = query.type;
         return p;
-    }, [from, to, type, page]);
+    }, [query, page]);
 
     useEffect(() => {
         axios.get('/api/admin/monitor/alert-history', { params })
             .then(r => setData(r.data))
             .catch(() => setData({ content: [], totalPages: 0, totalElements: 0 }));
     }, [params]);
+
+    const handleSearch = () => {
+        setPage(0);
+        setQuery({ ...draft });
+    };
 
     const content = data?.content ?? [];
 
@@ -45,15 +54,15 @@ export default function AlertHistoryTable() {
                 <div className={styles.filters}>
                     <label className={styles.filterItem}>
                         <span>from</span>
-                        <input type="date" value={from} onChange={(e) => { setPage(0); setFrom(e.target.value); }} />
+                        <input type="date" value={draft.from} onChange={(e) => setDraft(d => ({ ...d, from: e.target.value }))} />
                     </label>
                     <label className={styles.filterItem}>
                         <span>to</span>
-                        <input type="date" value={to} onChange={(e) => { setPage(0); setTo(e.target.value); }} />
+                        <input type="date" value={draft.to} onChange={(e) => setDraft(d => ({ ...d, to: e.target.value }))} />
                     </label>
                     <label className={styles.filterItem}>
                         <span>type</span>
-                        <select value={type} onChange={(e) => { setPage(0); setType(e.target.value); }}>
+                        <select value={draft.type} onChange={(e) => setDraft(d => ({ ...d, type: e.target.value }))}>
                             <option value="">전체</option>
                             <option value="CPU">CPU</option>
                             <option value="RAM">RAM</option>
@@ -62,6 +71,7 @@ export default function AlertHistoryTable() {
                             <option value="API_ERROR">API_ERROR</option>
                         </select>
                     </label>
+                    <button type="button" className={styles.searchBtn} onClick={handleSearch}>검색</button>
                 </div>
             </div>
 

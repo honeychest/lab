@@ -3,7 +3,6 @@
   background: var(--monitor-card-bg);
   border: 1px solid var(--monitor-border);
   border-radius: 14px;
-  overflow: hidden;
 }
 
 .head {
@@ -128,6 +127,21 @@
 .pager button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.searchBtn {
+  border: 1px solid var(--monitor-accent, #0d9488);
+  background: var(--monitor-accent, #0d9488);
+  color: #fff;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.searchBtn:hover {
+  opacity: 0.85;
 }
 
 .pagerInfo {
