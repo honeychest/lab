@@ -35,7 +35,7 @@ export default function AlertHistoryTable() {
     }, [query, page]);
 
     useEffect(() => {
-        axios.get('/api/admin/monitor/alert-history', { params })
+        axios.get('/api/monitor/alert-history', { params })
             .then(r => setData(r.data))
             .catch(() => setData({ content: [], totalPages: 0, totalElements: 0 }));
     }, [params]);
