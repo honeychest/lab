@@ -60,3 +60,24 @@
   100% { filter: brightness(1); }
 }
 
+/* 70%+: 테두리 강조 */
+.cardBorder {
+  border-color: var(--alert-color, var(--monitor-gauge-warn));
+}
+
+/* 80%+: 배경 틴트 */
+.cardBg {
+  background: var(--alert-bg, rgba(202,138,4,0.06));
+}
+
+/* 90%+: 펄스 번짐 */
+.cardPulse {
+  animation: alertPulse 0.6s ease-in-out infinite;
+}
+
+@keyframes alertPulse {
+  0%   { box-shadow: 0 0 0 0 var(--alert-shadow, rgba(202,138,4,0.35)); }
+  60%  { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+

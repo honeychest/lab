@@ -144,8 +144,8 @@ export default function MonitorPage() {
 
                 <div className={styles.topRow}>
                     <div className={styles.gauges}>
-                        <GaugeBar label="CPU" value={snapshot?.cpu ?? null} />
-                        <GaugeBar label="RAM" value={snapshot?.ram ?? null} />
+                        <GaugeBar label="CPU"  value={snapshot?.cpu  ?? null} />
+                        <GaugeBar label="RAM"  value={snapshot?.ram  ?? null} />
                         <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
                         <div className={styles.updatedChip}>
                             <span className={styles.chipDot} />
