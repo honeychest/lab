@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import styles from './NewsFeed.module.css';
 
-const BADGE_CLASS = { '경제': styles.badgeEco, 'IT': styles.badgeIt, '인기': styles.badgeHot };
+const BADGE_CLASS = { '경제': styles.badgeEco, 'IT': styles.badgeIt, '인기': styles.badgeHot, '최신': styles.badgeLatest };
 
 function fmtAgo(publishedAt) {
     if (!publishedAt) return '--';
