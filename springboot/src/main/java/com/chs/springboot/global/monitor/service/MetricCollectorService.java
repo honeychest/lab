@@ -7,6 +7,7 @@ import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import com.chs.springboot.global.config.service.AppConfigService;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
+import com.chs.springboot.global.redis.LeaderElectionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
@@ -53,6 +54,7 @@ public class MetricCollectorService {
     private final CandleWebSocketHandler candleWebSocketHandler;
     private final AppConfigService appConfigService;
     private final ObjectMapper objectMapper;
+    private final LeaderElectionService leaderElectionService;
     private volatile List<MetricSnapshot.ContainerInfo> cachedContainers = List.of();
 
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
@@ -64,7 +66,7 @@ public class MetricCollectorService {
 
     @Scheduled(fixedDelay = 5000)
     public void collect() {
-        if (!isLeader()) {
+        if (!leaderElectionService.isLeader()) {
             return;
         }
 
@@ -121,9 +123,9 @@ public class MetricCollectorService {
         }
         alertService.evaluate(snapshot);
     }
-    @Scheduled(fixedDelay = 8000)
+    @Scheduled(fixedDelay = 5000)
     public void collectContainerCache() {
-        if (!isLeader()) return;
+        if (!leaderElectionService.isLeader()) return;
         log.info("[MetricCollector] Docker 수집 시작");
         try {
             List<MetricSnapshot.ContainerInfo> result = collectContainers();
@@ -160,18 +162,6 @@ public class MetricCollectorService {
             return jdbcTemplate.queryForObject(sql, Long.class);
         } catch (Exception e) {
             return null;
-        }
-    }
-
-    private boolean isLeader() {
-        try {
-            Boolean ok = redisTemplate.opsForValue()
-                    .setIfAbsent("monitor:leader", containerId, 10, TimeUnit.SECONDS);
-            return Boolean.TRUE.equals(ok);
-        } catch (Exception e) {
-            // 리더 선출 실패(예: Redis 장애) 시 수집 중단 — 이중 수집/알림을 피하기 위함
-            log.warn("[MetricCollector] leader election failed: {}", e.getMessage());
-            return false;
         }
     }
 
