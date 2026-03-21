@@ -3,6 +3,9 @@
   background: var(--monitor-card-bg);
   border: 1px solid var(--monitor-border);
   border-radius: 14px;
+  max-height: 260px;
+  display: flex;
+  flex-direction: column;
 }
 
 .head {
@@ -12,6 +15,7 @@
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--monitor-border);
+  flex-shrink: 0;
 }
 
 .title {
@@ -44,7 +48,23 @@
 }
 
 .tableWrap {
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tableWrap::-webkit-scrollbar {
+  width: 4px;
+}
+.tableWrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tableWrap::-webkit-scrollbar-thumb {
+  background: rgba(17, 24, 39, 0.12);
+  border-radius: 999px;
+}
+.tableWrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 24, 39, 0.22);
 }
 
 .table {
@@ -113,6 +133,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 12px 14px;
+  flex-shrink: 0;
 }
 
 .pager button {

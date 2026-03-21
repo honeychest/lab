@@ -62,6 +62,15 @@ export default function MonitorPage() {
         return () => window.clearInterval(id);
     }, []);
 
+    // 이 페이지에서만 Layout .main 스크롤 차단
+    useEffect(() => {
+        const main = document.querySelector('main');
+        if (!main) return;
+        const prev = main.style.overflowY;
+        main.style.overflowY = 'hidden';
+        return () => { main.style.overflowY = prev; };
+    }, []);
+
     const parseDt = (dt) => {
         if (!dt) return null;
         if (Array.isArray(dt) && dt.length >= 6) {
@@ -332,7 +341,6 @@ export default function MonitorPage() {
                     {!isMobile && (
                         <aside className={styles.sidebar}>
                             <div className={styles.sideCard}>
-                                <div className={styles.sideTitle}>비즈니스 지표</div>
                                 <div className={styles.kv}>
                                     <span>WS 연결</span>
                                     <span className={styles.mono}>{business.wsConnections ?? '--'}</span>
