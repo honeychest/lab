@@ -7,6 +7,7 @@ import com.chs.springboot.global.monitor.repository.AlertHistoryRepository;
 import com.chs.springboot.global.monitor.service.IpAuditLogService;
 import com.chs.springboot.global.telegram.TelegramProvider;
 import com.chs.springboot.global.feature.FeatureFlagService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,7 @@ public class MonitorApiController {
     private final IpAuditLogService ipAuditLogService;
     private final AlertHistoryRepository alertHistoryRepository;
     private final FeatureFlagService featureFlagService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 접근 요청 (공개 엔드포인트)
@@ -66,6 +68,18 @@ public class MonitorApiController {
     @GetMapping("/admin/monitor/ping")
     public ResponseEntity<Map<String, String>> ping() {
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /** 마지막 메트릭 스냅샷 (페이지 로드 시 즉시 표시용) */
+    @GetMapping("/admin/monitor/snapshot")
+    public ResponseEntity<?> snapshot() {
+        try {
+            String cached = redisTemplate.opsForValue().get("monitor:snapshot");
+            if (cached == null) return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(objectMapper.readValue(cached, Object.class));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /** 허용 IP 목록 + TTL(초) */
