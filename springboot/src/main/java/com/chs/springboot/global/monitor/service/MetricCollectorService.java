@@ -124,9 +124,11 @@ public class MetricCollectorService {
     @Scheduled(fixedDelay = 8000)
     public void collectContainerCache() {
         if (!isLeader()) return;
+        log.info("[MetricCollector] Docker 수집 시작");
         try {
-            List<MetricSnapshot.ContainerInfo> result = safe(this::collectContainers);
+            List<MetricSnapshot.ContainerInfo> result = collectContainers();
             if (result != null) cachedContainers = result;
+            log.info("[MetricCollector] Docker 수집 완료: {}개", cachedContainers.size());
         } catch (Exception e) {
             log.warn("[MetricCollector] Docker 수집 실패: {}", e.getMessage());
         }
