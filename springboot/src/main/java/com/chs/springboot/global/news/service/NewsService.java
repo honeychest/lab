@@ -19,8 +19,8 @@ public class NewsService {
 
     // RSS 소스 목록 — {url, source명, 카테고리}
     private static final List<String[]> SOURCES = List.of(
-            new String[]{"https://rss.news.naver.com/main/rss/main.nhn?sectionId=101", "네이버", "경제"},
-            new String[]{"https://rss.news.naver.com/main/rss/main.nhn?sectionId=105", "네이버", "IT"},
+            new String[]{"https://www.yna.co.kr/rss/economy.xml", "연합뉴스", "경제"},
+            new String[]{"https://www.yna.co.kr/rss/news.xml", "연합뉴스", "최신"},
             new String[]{"https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko",
                     "구글", "경제"},
             new String[]{"https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko",
@@ -42,6 +42,7 @@ public class NewsService {
                 collected.addAll(fetch(src[0], src[1], src[2]));
             } catch (Exception e) {
                 // 한 소스 실패해도 나머지는 계속 수집
+                System.err.println("[NewsService] RSS 수집 실패 - " + src[0] + " / " + e.getMessage());
             }
         }
         cache = deduplicate(collected);
@@ -55,8 +56,12 @@ public class NewsService {
     // 단일 RSS 소스 파싱
     private List<NewsItem> fetch(String url, String source, String category) throws Exception {
         SyndFeedInput input = new SyndFeedInput();
-        // XmlReader: URL에서 RSS XML을 읽어 인코딩 자동 감지
-        SyndFeed feed = input.build(new XmlReader(new URL(url)));
+        // HttpURLConnection으로 직접 연결 — User-Agent 미설정 시 일부 서버가 400 반환
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new URL(url).openConnection();
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; RSS reader)");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        SyndFeed feed = input.build(new XmlReader(conn.getInputStream()));
 
         List<NewsItem> items = new ArrayList<>();
         for (SyndEntry entry : feed.getEntries()) {
