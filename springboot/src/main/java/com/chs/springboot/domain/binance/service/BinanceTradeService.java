@@ -7,6 +7,7 @@ import com.chs.springboot.domain.binance.model.BinanceTrade;
 import com.chs.springboot.domain.binance.model.BinanceTradeDto;
 import com.chs.springboot.domain.binance.model.RawTickDto;
 import com.chs.springboot.domain.binance.repository.BinanceTradeRepository;
+import com.chs.springboot.global.config.service.AppConfigService;
 import com.chs.springboot.global.telegram.TelegramLog;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -46,6 +47,7 @@ public class BinanceTradeService {
 
     private final AtomicReference<BigDecimal> threshold = new AtomicReference<>(DEFAULT_THRESHOLD);
 
+    private final AppConfigService appConfigService;
     private final BinanceTradeRepository binanceTradeRepository;
     private final StringRedisTemplate redisTemplate;
     private final BinanceTradeSseService sseService;
@@ -73,12 +75,14 @@ public class BinanceTradeService {
                                StringRedisTemplate redisTemplate,
                                BinanceTradeSseService sseService,
                                RawTickSseService rawTickSseService,
-                               RawTickStorageService rawTickStorageService) {
+                               RawTickStorageService rawTickStorageService,
+                               AppConfigService  appConfigService) {
         this.binanceTradeRepository = binanceTradeRepository;
         this.redisTemplate = redisTemplate;
         this.sseService = sseService;
         this.rawTickSseService = rawTickSseService;
         this.rawTickStorageService = rawTickStorageService;
+        this.appConfigService = appConfigService;
     }
 
     @PostConstruct
@@ -258,21 +262,21 @@ public class BinanceTradeService {
     /** 조회 시 Redis 우선 사용 — 다중 인스턴스에서 동일 값 보장 */
     public BigDecimal getThreshold() {
         try {
-            String val = redisTemplate.opsForValue().get("config:" + THRESHOLD_KEY);
+            String val = appConfigService.get("config:" + THRESHOLD_KEY);
             if (val != null) {
-                BigDecimal fromRedis = new BigDecimal(val);
-                threshold.set(fromRedis);
-                return fromRedis;
+                BigDecimal fromStore = new BigDecimal(val);
+                threshold.set(fromStore);
+                return fromStore;
             }
         } catch (Exception e) {
-            log.warn("[BinanceTrade] threshold Redis 조회 실패, 메모리 값 사용: {}", e.getMessage());
+            log.warn("[BinanceTrade] threshold 조회 실패, 메모리 값 사용: {}", e.getMessage());
         }
         return threshold.get();
     }
 
     public void updateThreshold(BigDecimal value) {
         threshold.set(value);
-        redisTemplate.opsForValue().set("config:" + THRESHOLD_KEY, value.toPlainString());
+        appConfigService.set("config:" + THRESHOLD_KEY, value.toPlainString());
         log.info("[BinanceTrade] threshold 변경: {}", value);
     }
 

@@ -4,8 +4,10 @@ package com.chs.springboot.global.monitor.service;
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
 import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
+import com.chs.springboot.global.config.service.AppConfigService;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.Statistics;
@@ -32,6 +34,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Slf4j
 @Service
@@ -46,6 +51,9 @@ public class MetricCollectorService {
     private final BinancePriceWebSocketHandler binancePriceWebSocketHandler;
     private final UpbitPriceWebSocketHandler upbitPriceWebSocketHandler;
     private final CandleWebSocketHandler candleWebSocketHandler;
+    private final AppConfigService appConfigService;
+    private final ObjectMapper objectMapper;
+    private volatile List<MetricSnapshot.ContainerInfo> cachedContainers = List.of();
 
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
             .filter(s -> !s.isBlank())
@@ -81,7 +89,7 @@ public class MetricCollectorService {
         int wsTotal = wsMonitor + wsBinance + wsUpbit + wsCandle;
         Integer wsConnections = wsTotal;
 
-        List<MetricSnapshot.ContainerInfo> containers = safe(this::collectContainers);
+        List<MetricSnapshot.ContainerInfo> containers = cachedContainers;
         if (containers == null) containers = List.of();
 
         MetricSnapshot snapshot = new MetricSnapshot(
@@ -106,7 +114,18 @@ public class MetricCollectorService {
         );
 
         monitorWebSocketHandler.broadcast(snapshot);
+        try {
+            redisTemplate.opsForValue().set("monitor:snapshot", objectMapper.writeValueAsString(snapshot), 20, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("[MetricCollector] snapshot Redis 저장 실패: {}", e.getMessage());
+        }
         alertService.evaluate(snapshot);
+    }
+    @Scheduled(fixedDelay = 8000)
+    public void collectContainerCache() {
+        if (!isLeader()) return;
+        List<MetricSnapshot.ContainerInfo> result = safe(this::collectContainers);
+        if (result != null) cachedContainers = result;
     }
 
     private Long collectRawAggTradeRowsEstimate() {
@@ -225,62 +244,67 @@ public class MetricCollectorService {
     private List<MetricSnapshot.ContainerInfo> collectContainers() throws Exception {
         DockerClient docker = buildDockerClient();
 
+
+
         var containers = docker.listContainersCmd()
                 .withShowAll(true)
                 .exec();
 
         if (containers == null || containers.isEmpty()) return List.of();
-
-        List<MetricSnapshot.ContainerInfo> list = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(containers.size(), 8));
+        List<Future<MetricSnapshot.ContainerInfo>> futures = new ArrayList<>();
         for (var c : containers) {
             String id = c.getId();
             if (id == null || id.isBlank()) continue;
 
-            var inspect = docker.inspectContainerCmd(id).exec();
-            if (inspect == null) continue;
+            futures.add(executor.submit(() -> {
+                var inspect = docker.inspectContainerCmd(id).exec();
+                if (inspect == null) return null;
 
-            Statistics stats = null;
-            try {
-                stats = fetchStatsOnce(docker, id);
-            } catch (Exception ignored) {
-            }
+                Statistics stats = null;
+                try { stats = fetchStatsOnce(docker, id); } catch (Exception ignored) {}
 
-            String name = inspect.getName();
-            if (name != null && name.startsWith("/")) name = name.substring(1);
+                String name = inspect.getName();
+                if (name != null && name.startsWith("/")) name = name.substring(1);
 
-            String status = inspect.getState() != null ? inspect.getState().getStatus() : null;
-            Integer restarts = inspect.getRestartCount();
-            String image = inspect.getConfig() != null ? inspect.getConfig().getImage() : null;
+                String status = inspect.getState() != null ? inspect.getState().getStatus() : null;
+                Integer restarts = inspect.getRestartCount();
+                String image = inspect.getConfig() != null ? inspect.getConfig().getImage() : null;
 
-            Long uptimeSec = null;
-            try {
-                String startedAt = inspect.getState() != null ? inspect.getState().getStartedAt() : null;
-                if (startedAt != null && !startedAt.isBlank()) {
-                    OffsetDateTime started = OffsetDateTime.parse(startedAt);
-                    uptimeSec = Math.max(0, ChronoUnit.SECONDS.between(started, OffsetDateTime.now()));
-                }
-            } catch (Exception ignored) {
-            }
-
-            Double cpuPercent = null;
-            Long memUsed = null;
-            Long memLimit = null;
-            try {
-                if (stats != null) {
-                    cpuPercent = calcCpuPercent(stats);
-                    if (stats.getMemoryStats() != null) {
-                        memUsed = stats.getMemoryStats().getUsage();
-                        memLimit = stats.getMemoryStats().getLimit();
+                Long uptimeSec = null;
+                try {
+                    String startedAt = inspect.getState() != null ? inspect.getState().getStartedAt() : null;
+                    if (startedAt != null && !startedAt.isBlank()) {
+                        OffsetDateTime started = OffsetDateTime.parse(startedAt);
+                        uptimeSec = Math.max(0, ChronoUnit.SECONDS.between(started, OffsetDateTime.now()));
                     }
-                }
-            } catch (Exception ignored) {
-            }
+                } catch (Exception ignored) {}
 
-            if (name != null && !name.isBlank()) {
-                list.add(new MetricSnapshot.ContainerInfo(name, status, restarts, image, uptimeSec, cpuPercent, memUsed, memLimit));
-            }
+                Double cpuPercent = null;
+                Long memUsed = null;
+                Long memLimit = null;
+                try {
+                    if (stats != null) {
+                        cpuPercent = calcCpuPercent(stats);
+                        if (stats.getMemoryStats() != null) {
+                            memUsed = stats.getMemoryStats().getUsage();
+                            memLimit = stats.getMemoryStats().getLimit();
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                if (name == null || name.isBlank()) return null;
+                return new MetricSnapshot.ContainerInfo(name, status, restarts, image, uptimeSec, cpuPercent, memUsed, memLimit);
+            }));
         }
-
+        executor.shutdown();
+        List<MetricSnapshot.ContainerInfo> list = new ArrayList<>();
+        for (Future<MetricSnapshot.ContainerInfo> f : futures) {
+            try {
+                MetricSnapshot.ContainerInfo info = f.get(3, TimeUnit.SECONDS);
+                if (info != null) list.add(info);
+            } catch (Exception ignored) {}
+        }
         return list;
     }
 
@@ -355,17 +379,9 @@ public class MetricCollectorService {
                 "config:threshold"
         );
 
-        List<String> values;
-        try {
-            values = redisTemplate.opsForValue().multiGet(keys);
-        } catch (Exception e) {
-            values = null;
-        }
-
         List<MetricSnapshot.RedisKv> out = new ArrayList<>(keys.size());
-        for (int i = 0; i < keys.size(); i++) {
-            String k = keys.get(i);
-            String v = (values != null && i < values.size()) ? values.get(i) : null;
+        for (String k : keys) {
+            String v = appConfigService.get(k);
             if (v != null && v.length() > 400) {
                 v = v.substring(0, 400) + "…";
             }
