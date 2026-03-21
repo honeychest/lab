@@ -128,7 +128,7 @@ public class MonitorApiController {
     }
 
     /** 알림 이력 조회 (페이징 + 필터) */
-    @GetMapping("/admin/monitor/alert-history")
+    @GetMapping("/monitor/alert-history")
     public ResponseEntity<Page<AlertHistory>> alertHistory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,

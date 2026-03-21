@@ -124,8 +124,13 @@ public class MetricCollectorService {
     @Scheduled(fixedDelay = 8000)
     public void collectContainerCache() {
         if (!isLeader()) return;
-        List<MetricSnapshot.ContainerInfo> result = safe(this::collectContainers);
-        if (result != null) cachedContainers = result;
+        try {
+            List<MetricSnapshot.ContainerInfo> result = safe(this::collectContainers);
+            if (result != null) cachedContainers = result;
+        } catch (Exception e) {
+            log.warn("[MetricCollector] Docker 수집 실패: {}", e.getMessage());
+        }
+
     }
 
     private Long collectRawAggTradeRowsEstimate() {
