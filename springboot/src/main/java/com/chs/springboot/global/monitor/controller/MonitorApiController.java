@@ -71,7 +71,7 @@ public class MonitorApiController {
     }
 
     /** 마지막 메트릭 스냅샷 (페이지 로드 시 즉시 표시용) */
-    @GetMapping("/admin/monitor/snapshot")
+    @GetMapping("/monitor/snapshot")
     public ResponseEntity<?> snapshot() {
         try {
             String cached = redisTemplate.opsForValue().get("monitor:snapshot");
