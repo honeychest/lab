@@ -4,6 +4,7 @@ import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useMonitorWebSocket } from '../../hooks/useMonitorWebSocket.js';
 import GaugeBar from '../../components/monitor/GaugeBar.jsx';
 import AlertHistoryTable from '../../components/monitor/AlertHistoryTable.jsx';
+import NewsFeed from '../../components/monitor/NewsFeed.jsx';
 import styles from './MonitorPage.module.css';
 import '../../styles/themes/monitor-teal.css';
 
@@ -348,6 +349,7 @@ export default function MonitorPage() {
                                 </div>*/}
 
                             </div>
+                            <NewsFeed />
                         </aside>
                     )}
                 </div>

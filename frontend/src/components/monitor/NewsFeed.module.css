@@ -1,0 +1,124 @@
+/* [AGENT] NewsFeed 카드 스타일 (사이드바 하단, PC 전용) */
+.card {
+    background: var(--monitor-sidebar-bg);
+    border: 1px solid var(--monitor-border);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.04);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.title {
+    font-weight: 900;
+    color: var(--monitor-text-primary);
+}
+
+.hint {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--monitor-text-secondary);
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.list::-webkit-scrollbar {
+    width: 4px;
+}
+.list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.list::-webkit-scrollbar-thumb {
+    background: rgba(17, 24, 39, 0.12);
+    border-radius: 999px;
+}
+
+.item {
+    display: block;
+    padding: 10px 10px;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    border-radius: 12px;
+    text-decoration: none;
+    transition: background 120ms, border-color 120ms;
+}
+
+.item:hover {
+    background: rgba(13, 148, 136, 0.05);
+    border-color: rgba(13, 148, 136, 0.20);
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    border: 1px solid transparent;
+}
+
+.badgeEco {
+    background: rgba(16, 185, 129, 0.10);
+    border-color: rgba(16, 185, 129, 0.25);
+    color: #059669;
+}
+
+.badgeIt {
+    background: rgba(59, 130, 246, 0.10);
+    border-color: rgba(59, 130, 246, 0.25);
+    color: #2563EB;
+}
+
+.badgeHot {
+    background: rgba(249, 115, 22, 0.10);
+    border-color: rgba(249, 115, 22, 0.25);
+    color: #EA580C;
+}
+
+.source {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--monitor-text-secondary);
+}
+
+.ago {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--monitor-text-secondary);
+    white-space: nowrap;
+}
+
+.itemTitle {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--monitor-text-primary);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
