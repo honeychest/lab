@@ -13,12 +13,12 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import com.github.dockerjava.core.DockerClientImpl;
+import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Gauge;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -31,8 +31,8 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.concurrent.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
@@ -52,7 +52,6 @@ public class MetricCollectorService {
     private final ObjectMapper objectMapper;
     private final LeaderElectionService leaderElectionService;
     private volatile List<MetricSnapshot.ContainerInfo> cachedContainers = List.of();
-    private final Map<String, long[]> prevCpuStats = new ConcurrentHashMap<>();
 
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
             .filter(s -> !s.isBlank())
@@ -61,7 +60,7 @@ public class MetricCollectorService {
     private volatile double prev5xxCount = 0d;
     private volatile double prevTotalCount = 0d;
 
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelay = 3000)
     public void collect() {
         if (!leaderElectionService.isLeader()) {
             return;
@@ -255,8 +254,8 @@ public class MetricCollectorService {
                 var inspect = docker.inspectContainerCmd(id).exec();
                 if (inspect == null) return null;
 
-                Statistics stats = null;
-                try { stats = fetchStatsOnce(docker, id); } catch (Exception ignored) {}
+                Statistics[] samples = null;
+                try { samples = fetchStatsTwoSample(docker, id); } catch (Exception ignored) {}
 
                 String name = inspect.getName();
                 if (name != null && name.startsWith("/")) name = name.substring(1);
@@ -278,35 +277,13 @@ public class MetricCollectorService {
                 Long memUsed = null;
                 Long memLimit = null;
                 try {
-                    if (stats != null) {
-                        if (stats.getCpuStats() != null && stats.getCpuStats().getCpuUsage() != null
-                                && stats.getCpuStats().getSystemCpuUsage() != null) {
-                            Long cpuTotal = stats.getCpuStats().getCpuUsage().getTotalUsage();
-                            Long sysTotal = stats.getCpuStats().getSystemCpuUsage();
-                            if (cpuTotal != null && sysTotal != null) {
-                                long[] prev = prevCpuStats.get(id);
-                                if (prev != null) {
-                                    long cpuDelta = cpuTotal - prev[0];
-                                    long sysDelta = sysTotal - prev[1];
-                                    if (sysDelta > 0) {
-                                        if (cpuDelta > 0) {
-                                            Long online = stats.getCpuStats().getOnlineCpus();
-                                            int cores = (online != null && online > 0) ? (int) Math.min(Integer.MAX_VALUE, online) : 1;
-                                            double v = ((double) cpuDelta / (double) sysDelta) * cores * 100d;
-                                            if (!Double.isNaN(v) && !Double.isInfinite(v)) {
-                                                cpuPercent = Math.max(0d, Math.min(100d, v));
-                                            }
-                                        } else {
-                                            cpuPercent = 0d;
-                                        }
-                                    }
-                                }
-                                prevCpuStats.put(id, new long[]{cpuTotal, sysTotal});
-                            }
-                        }
-                        if (stats.getMemoryStats() != null) {
-                            memUsed = stats.getMemoryStats().getUsage();
-                            memLimit = stats.getMemoryStats().getLimit();
+                    if (samples != null) {
+                        Statistics prev = samples[0];
+                        Statistics cur = samples[1];
+                        cpuPercent = calcCpuPercent(prev, cur);
+                        if (cur.getMemoryStats() != null) {
+                            memUsed = cur.getMemoryStats().getUsage();
+                            memLimit = cur.getMemoryStats().getLimit();
                         }
                     }
                 } catch (Exception ignored) {}
@@ -319,40 +296,64 @@ public class MetricCollectorService {
         List<MetricSnapshot.ContainerInfo> list = new ArrayList<>();
         for (Future<MetricSnapshot.ContainerInfo> f : futures) {
             try {
-                MetricSnapshot.ContainerInfo info = f.get(3, TimeUnit.SECONDS);
+                MetricSnapshot.ContainerInfo info = f.get(5, TimeUnit.SECONDS);
                 if (info != null) list.add(info);
             } catch (Exception ignored) {}
         }
         return list;
     }
 
-    private static Statistics fetchStatsOnce(DockerClient docker, String id) throws Exception {
+    private static Double calcCpuPercent(Statistics prev, Statistics cur) {
+        if (prev == null || cur == null) return null;
+        if (cur.getCpuStats() == null || prev.getCpuStats() == null) return null;
+        if (cur.getCpuStats().getCpuUsage() == null || prev.getCpuStats().getCpuUsage() == null) return null;
+
+        Long cpuTotal = cur.getCpuStats().getCpuUsage().getTotalUsage();
+        Long preCpuTotal = prev.getCpuStats().getCpuUsage().getTotalUsage();
+        Long sys = cur.getCpuStats().getSystemCpuUsage();
+        Long preSys = prev.getCpuStats().getSystemCpuUsage();
+        if (cpuTotal == null || preCpuTotal == null || sys == null || preSys == null) return null;
+
+        long cpuDelta = cpuTotal - preCpuTotal;
+        long sysDelta = sys - preSys;
+        if (sysDelta <= 0) return 0d;
+
+        Long online = cur.getCpuStats().getOnlineCpus();
+        int cores = (online != null && online > 0) ? (int) Math.min(Integer.MAX_VALUE, online) : 1;
+        double v = ((double) cpuDelta / (double) sysDelta) * cores * 100d;
+        if (Double.isNaN(v) || Double.isInfinite(v)) return null;
+        return Math.max(0d, Math.min(100d, v));
+    }
+
+    private static Statistics[] fetchStatsTwoSample(DockerClient docker, String id) throws Exception {
         if (docker == null || id == null || id.isBlank()) return null;
 
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Statistics> ref = new AtomicReference<>(null);
+        CountDownLatch latch = new CountDownLatch(2);
+        AtomicReference<Statistics> prevRef = new AtomicReference<>(null);
+        AtomicReference<Statistics> curRef = new AtomicReference<>(null);
 
         ResultCallback.Adapter<Statistics> cb = new ResultCallback.Adapter<>() {
+            private final java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(0);
             @Override
             public void onNext(Statistics stats) {
-                ref.set(stats);
-                latch.countDown();
-                try {
-                    close();
-                } catch (Exception ignored) {
+                int n = count.incrementAndGet();
+                if (n == 1) prevRef.set(stats);
+                else if (n == 2) {
+                    curRef.set(stats);
+                    try { close(); } catch (Exception ignored) {}
                 }
+                latch.countDown();
             }
         };
 
-        docker.statsCmd(id).withNoStream(true).exec(cb);
+        docker.statsCmd(id).withNoStream(false).exec(cb);
+        latch.await(3, TimeUnit.SECONDS);
+        try { cb.close(); } catch (Exception ignored) {}
 
-        // 응답이 없으면 null 처리
-        latch.await(2, TimeUnit.SECONDS);
-        try {
-            cb.close();
-        } catch (Exception ignored) {
-        }
-        return ref.get();
+        Statistics prev = prevRef.get();
+        Statistics cur = curRef.get();
+        if (prev == null || cur == null) return null;
+        return new Statistics[]{prev, cur};
     }
 
     private DockerClient buildDockerClient() {
