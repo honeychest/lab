@@ -26,7 +26,7 @@ export function useMonitorWebSocket() {
                 retryRef.current = window.setTimeout(connect, 2000);
             };
         };
-        fetch('/api/admin/monitor/snapshot')
+        fetch('/api/monitor/snapshot')
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data) setSnapshot(data); })
             .catch(() => {});
