@@ -339,12 +339,14 @@ export default function MonitorPage() {
                                 <div className={styles.wsBreakdown}>
                                     Monitor {business.wsMonitorConnections ?? 0} · Binance {business.wsBinanceConnections ?? 0} · Upbit {business.wsUpbitConnections ?? 0} · Candle {business.wsCandleConnections ?? 0}
                                 </div>
-                                <div className={styles.kv}>
+
+                                {/*<div className={styles.kv}>
                                     <span>API 에러율</span>
                                     <span className={styles.mono}>
                                         {business.apiErrorRate == null ? '--' : `${business.apiErrorRate.toFixed(1)}%`}
                                     </span>
-                                </div>
+                                </div>*/}
+
                             </div>
                         </aside>
                     )}
