@@ -73,7 +73,7 @@ public class MetricCollectorService {
         Double disk = safe(this::collectDiskPercent);
         Long diskTotalBytes = safe(this::collectDiskTotalBytes);
         Long diskFreeBytes = safe(this::collectDiskFreeBytes);
-        Double apiErrorRate = safe(this::collectApiErrorRatePercent);
+        Double apiErrorRate = null;
 
         Long rawAggTradeRows = safe(this::collectRawAggTradeRowsEstimate);
         Long rawAggTradeBytes = safe(this::collectRawAggTradeBytesEstimate);
@@ -115,7 +115,7 @@ public class MetricCollectorService {
 
         monitorWebSocketHandler.broadcast(snapshot);
         try {
-            redisTemplate.opsForValue().set("monitor:snapshot", objectMapper.writeValueAsString(snapshot), 20, TimeUnit.SECONDS);
+            redisTemplate.opsForValue().set("monitor:snapshot", objectMapper.writeValueAsString(snapshot), 120, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.warn("[MetricCollector] snapshot Redis 저장 실패: {}", e.getMessage());
         }
