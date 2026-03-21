@@ -31,13 +31,9 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 @Slf4j
 @Service
@@ -56,6 +52,7 @@ public class MetricCollectorService {
     private final ObjectMapper objectMapper;
     private final LeaderElectionService leaderElectionService;
     private volatile List<MetricSnapshot.ContainerInfo> cachedContainers = List.of();
+    private final Map<String, long[]> prevCpuStats = new ConcurrentHashMap<>();
 
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
             .filter(s -> !s.isBlank())
@@ -282,7 +279,31 @@ public class MetricCollectorService {
                 Long memLimit = null;
                 try {
                     if (stats != null) {
-                        cpuPercent = calcCpuPercent(stats);
+                        if (stats.getCpuStats() != null && stats.getCpuStats().getCpuUsage() != null
+                                && stats.getCpuStats().getSystemCpuUsage() != null) {
+                            Long cpuTotal = stats.getCpuStats().getCpuUsage().getTotalUsage();
+                            Long sysTotal = stats.getCpuStats().getSystemCpuUsage();
+                            if (cpuTotal != null && sysTotal != null) {
+                                long[] prev = prevCpuStats.get(id);
+                                if (prev != null) {
+                                    long cpuDelta = cpuTotal - prev[0];
+                                    long sysDelta = sysTotal - prev[1];
+                                    if (sysDelta > 0) {
+                                        if (cpuDelta > 0) {
+                                            Long online = stats.getCpuStats().getOnlineCpus();
+                                            int cores = (online != null && online > 0) ? (int) Math.min(Integer.MAX_VALUE, online) : 1;
+                                            double v = ((double) cpuDelta / (double) sysDelta) * cores * 100d;
+                                            if (!Double.isNaN(v) && !Double.isInfinite(v)) {
+                                                cpuPercent = Math.max(0d, Math.min(100d, v));
+                                            }
+                                        } else {
+                                            cpuPercent = 0d;
+                                        }
+                                    }
+                                }
+                                prevCpuStats.put(id, new long[]{cpuTotal, sysTotal});
+                            }
+                        }
                         if (stats.getMemoryStats() != null) {
                             memUsed = stats.getMemoryStats().getUsage();
                             memLimit = stats.getMemoryStats().getLimit();
@@ -332,28 +353,6 @@ public class MetricCollectorService {
         } catch (Exception ignored) {
         }
         return ref.get();
-    }
-
-    private static Double calcCpuPercent(Statistics stats) {
-        if (stats == null) return null;
-        if (stats.getCpuStats() == null || stats.getPreCpuStats() == null) return null;
-        if (stats.getCpuStats().getCpuUsage() == null || stats.getPreCpuStats().getCpuUsage() == null) return null;
-
-        Long cpuTotal = stats.getCpuStats().getCpuUsage().getTotalUsage();
-        Long preCpuTotal = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
-        Long sys = stats.getCpuStats().getSystemCpuUsage();
-        Long preSys = stats.getPreCpuStats().getSystemCpuUsage();
-        if (cpuTotal == null || preCpuTotal == null || sys == null || preSys == null) return null;
-
-        long cpuDelta = cpuTotal - preCpuTotal;
-        long sysDelta = sys - preSys;
-        if (cpuDelta <= 0 || sysDelta <= 0) return 0d;
-
-        Long online = stats.getCpuStats().getOnlineCpus();
-        int onlineCpus = (online != null && online > 0) ? (int) Math.min(Integer.MAX_VALUE, online) : 1;
-        double v = ((double) cpuDelta / (double) sysDelta) * (double) onlineCpus * 100d;
-        if (Double.isNaN(v) || Double.isInfinite(v)) return null;
-        return Math.max(0d, Math.min(100d, v));
     }
 
     private DockerClient buildDockerClient() {
