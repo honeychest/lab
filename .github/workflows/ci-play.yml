@@ -180,7 +180,9 @@ jobs: # 실행할 작업 단위(Job)들
     name: Deploy to AWS
     needs: [ summary ] # 안에 있는게 전부성공해야 가능
     if: |
-      always() && (
+      always() &&
+      github.event_name == 'push' &&
+      (
         inputs.deploy_only == true ||
         needs.summary.result == 'success'
       )

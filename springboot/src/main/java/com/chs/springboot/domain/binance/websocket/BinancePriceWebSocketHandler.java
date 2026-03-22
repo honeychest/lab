@@ -36,6 +36,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -145,17 +146,14 @@ public class BinancePriceWebSocketHandler extends TextWebSocketHandler {
 
         // 접속 URL의 쿼리 파라미터에서 symbol 추출
         // 예: ws://localhost:8080/ws/binance-price?symbol=ETHUSDT
-        String query = session.getUri().getQuery();
-        if (query != null) {
-            for (String param : query.split("&")) {
-                if (param.startsWith("symbol=")) {
-                    String symbol = param.substring("symbol=".length());
-                    log.info("[WS] 클라이언트 {} 요청 심볼: {}", session.getId(), symbol);
-                    // 이벤트 발행: Service가 이를 수신해 자체적으로 심볼을 변경한다.
-                    eventPublisher.publishEvent(new SymbolChangeEvent(this, symbol));
-                    break;
-                }
-            }
+        String symbol = UriComponentsBuilder.fromUri(session.getUri())
+                .build()
+                .getQueryParams()
+                .getFirst("symbol");
+        if (symbol != null && !symbol.isBlank()) {
+            log.info("[WS] 클라이언트 {} 요청 심볼: {}", session.getId(), symbol);
+            // 이벤트 발행: Service가 이를 수신해 자체적으로 심볼을 변경한다.
+            eventPublisher.publishEvent(new SymbolChangeEvent(this, symbol));
         }
     }
 

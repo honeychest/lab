@@ -100,25 +100,25 @@ public class BinanceTradeQueryService {
         };
     }
 
-    /** yyyy-MM-dd → KST 하루 시작 epoch ms */
+    /** yyyy-MM-dd → KST 하루 시작 epoch ms. 형식 오류 시 IllegalArgumentException */
     private Long parseFromDate(String date) {
         if (date == null || date.isBlank()) return null;
         try {
             ZonedDateTime zdt = LocalDate.parse(date).atStartOfDay(KST);
             return zdt.toInstant().toEpochMilli();
         } catch (Exception e) {
-            return null;
+            throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다 (yyyy-MM-dd): " + date);
         }
     }
 
-    /** yyyy-MM-dd → KST 하루 끝 epoch ms */
+    /** yyyy-MM-dd → KST 하루 끝 epoch ms. 형식 오류 시 IllegalArgumentException */
     private Long parseToDate(String date) {
         if (date == null || date.isBlank()) return null;
         try {
             ZonedDateTime zdt = LocalDate.parse(date).atTime(23, 59, 59, 999_000_000).atZone(KST);
             return zdt.toInstant().toEpochMilli();
         } catch (Exception e) {
-            return null;
+            throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다 (yyyy-MM-dd): " + date);
         }
     }
 }
