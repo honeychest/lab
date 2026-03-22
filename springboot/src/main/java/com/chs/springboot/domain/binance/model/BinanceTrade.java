@@ -15,9 +15,6 @@ import java.time.LocalDateTime;
 @Table(name = "binance_trade",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_trade_id_market_type", columnNames = {"trade_id", "market_type"})
-        },
-        indexes = {
-                @Index(name = "idx_traded_at", columnList = "traded_at")
         }
 )
 public class BinanceTrade {

@@ -27,7 +27,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -59,9 +58,6 @@ public class BinanceTradeService {
     @Value("${binance.tick-trade.save.enabled:true}")
     private boolean tickTradeSaveEnabled;
 
-    @Value("${binance.raw-tick.enabled:false}")
-    private boolean rawTickEnabled;
-
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     private volatile boolean running = true;
@@ -74,9 +70,6 @@ public class BinanceTradeService {
 
     private volatile int spotFailCount    = 0;
     private volatile int futuresFailCount = 0;
-
-    private final AtomicBoolean spotReconnectPending    = new AtomicBoolean(false);
-    private final AtomicBoolean futuresReconnectPending = new AtomicBoolean(false);
 
     public BinanceTradeService(BinanceTradeRepository binanceTradeRepository,
                                StringRedisTemplate redisTemplate,
@@ -96,8 +89,8 @@ public class BinanceTradeService {
     public void init() {
         refreshThresholdFromRedis();
         log.info("[BinanceTrade] threshold 초기값: {}", threshold.get());
-        connect(MARKET_SPOT);
-        connect(MARKET_FUTURES);
+        connectSpot();
+        connectFutures();
     }
 
     /**
@@ -119,35 +112,55 @@ public class BinanceTradeService {
 
     // ── 연결 ─────────────────────────────────────────────────────────────
 
-    private void connect(String marketType) {
+    private void connectSpot() {
         if (!running) return;
-        String url = MARKET_SPOT.equals(marketType) ? SPOT_URL : FUTURES_URL;
-        final int myGen = MARKET_SPOT.equals(marketType) ? ++spotGeneration : ++futuresGeneration;
+        final int myGen = ++spotGeneration;
         try {
-            log.info("[BinanceTrade] {} 연결 시도 (generation={})", marketType, myGen);
+            log.info("[BinanceTrade] SPOT 연결 시도 (generation={})", myGen);
             HttpClient.newHttpClient()
                     .newWebSocketBuilder()
-                    .buildAsync(URI.create(url), new BinanceTradeListener(myGen, marketType))
+                    .buildAsync(URI.create(SPOT_URL), new BinanceTradeListener(myGen, MARKET_SPOT))
                     .thenAccept(ws -> {
-                        if (MARKET_SPOT.equals(marketType)) {
-                            this.spotWs = ws;
-                            spotFailCount = 0;
-                        } else {
-                            this.futuresWs = ws;
-                            futuresFailCount = 0;
-                        }
-                        log.info("[BinanceTrade] {} 연결 성공", marketType);
+                        this.spotWs = ws;
+                        spotFailCount = 0;
+                        log.info("[BinanceTrade] SPOT 연결 성공");
                     })
                     .exceptionally(e -> {
-                        log.error("[BinanceTrade] {} 연결 실패: {}", marketType, e.getMessage());
-                        onFailure(marketType);
-                        scheduleReconnect(marketType);
+                        log.error("[BinanceTrade] SPOT 연결 실패: {}", e.getMessage());
+                        onFailure(MARKET_SPOT);
+                        scheduleReconnect(MARKET_SPOT);
                         return null;
                     });
         } catch (Exception e) {
-            log.error("[BinanceTrade] {} 연결 오류: {}", marketType, e.getMessage());
-            onFailure(marketType);
-            scheduleReconnect(marketType);
+            log.error("[BinanceTrade] SPOT 연결 오류: {}", e.getMessage());
+            onFailure(MARKET_SPOT);
+            scheduleReconnect(MARKET_SPOT);
+        }
+    }
+
+    private void connectFutures() {
+        if (!running) return;
+        final int myGen = ++futuresGeneration;
+        try {
+            log.info("[BinanceTrade] FUTURES 연결 시도 (generation={})", myGen);
+            HttpClient.newHttpClient()
+                    .newWebSocketBuilder()
+                    .buildAsync(URI.create(FUTURES_URL), new BinanceTradeListener(myGen, MARKET_FUTURES))
+                    .thenAccept(ws -> {
+                        this.futuresWs = ws;
+                        futuresFailCount = 0;
+                        log.info("[BinanceTrade] FUTURES 연결 성공");
+                    })
+                    .exceptionally(e -> {
+                        log.error("[BinanceTrade] FUTURES 연결 실패: {}", e.getMessage());
+                        onFailure(MARKET_FUTURES);
+                        scheduleReconnect(MARKET_FUTURES);
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("[BinanceTrade] FUTURES 연결 오류: {}", e.getMessage());
+            onFailure(MARKET_FUTURES);
+            scheduleReconnect(MARKET_FUTURES);
         }
     }
 
@@ -155,16 +168,12 @@ public class BinanceTradeService {
 
     private void scheduleReconnect(String marketType) {
         if (!running) return;
-        AtomicBoolean pending = MARKET_SPOT.equals(marketType) ? spotReconnectPending : futuresReconnectPending;
-        if (!pending.compareAndSet(false, true)) {
-            log.debug("[BinanceTrade] {} 재연결 이미 예약됨 (중복 무시)", marketType);
-            return;
-        }
         log.info("[BinanceTrade] {} {}초 후 재연결 예약", marketType, RECONNECT_DELAY_SEC);
-        scheduler.schedule(() -> {
-            pending.set(false);
-            connect(marketType);
-        }, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+        if (MARKET_SPOT.equals(marketType)) {
+            scheduler.schedule(this::connectSpot, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+        } else {
+            scheduler.schedule(this::connectFutures, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+        }
     }
 
     private void onFailure(String marketType) {
@@ -278,10 +287,10 @@ public class BinanceTradeService {
         running = false;
         scheduler.shutdownNow();
         if (spotWs != null) {
-            try { spotWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "shutdown"); } catch (Exception e) { log.warn("[BinanceTrade] SPOT WS 종료 실패: {}", e.getMessage()); }
+            try { spotWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "shutdown"); } catch (Exception ignored) {}
         }
         if (futuresWs != null) {
-            try { futuresWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "shutdown"); } catch (Exception e) { log.warn("[BinanceTrade] FUTURES WS 종료 실패: {}", e.getMessage()); }
+            try { futuresWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "shutdown"); } catch (Exception ignored) {}
         }
     }
 
@@ -317,12 +326,11 @@ public class BinanceTradeService {
                     } else {
                         // 틱 저장
                         if (tickTradeSaveEnabled) {
-                            if (rawTickEnabled) {
-                                try {
-                                    rawTickStorageService.enqueue(json, marketType);
-                                } catch (Exception e) {
-                                    log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
-                                }
+                            try {
+                                // enqueue 큐에 들어가면 DB에 저장된다.
+                                // rawTickStorageService.enqueue(json, marketType);
+                            } catch (Exception e) {
+                                log.warn("[BinanceTrade] RawTick enqueue 실패: {}", e.getMessage());
                             }
                             parseAndSave(json, marketType);
                         }

@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     NOTION_API_KEY: str
     NOTION_DATABASE_ID: str
     AI_PROVIDER: str = "gemini"
-    GITHUB_TOKEN: str = ""
-    GROQ_API_KEY: str = ""
 
     class Config:
         env_file = ".env"
