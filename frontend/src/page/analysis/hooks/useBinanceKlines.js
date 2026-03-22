@@ -1,8 +1,10 @@
 // [AGENT] T4-ANALYSIS: 바이낸스 Kline(OHLCV) + 백엔드 delta 병합 조회
 // 429 응답 시: Retry-After 파싱 후 1회 자동 재시도
+// Binance klines limit=1000 제한으로 하루(1440분)를 2회 요청으로 분할 처리
 import axios from 'axios';
 
 const BINANCE_KLINE_URL = 'https://api.binance.com/api/v3/klines';
+const BINANCE_KLINE_LIMIT = 720; // 1일 1440분을 2회로 분할 (max 1000 이내)
 
 function dateToMs(dateStr) {
   return new Date(dateStr + 'T00:00:00Z').getTime();
@@ -19,10 +21,8 @@ function dateRangeDays(startDateStr, endDateStr) {
   return days;
 }
 
-async function fetchOneDayKlines(symbolUsdt, dateStr) {
-  const startMs = dateToMs(dateStr);
-  const endMs   = startMs + 86_400_000;
-  const url     = `${BINANCE_KLINE_URL}?symbol=${symbolUsdt}&interval=1m&startTime=${startMs}&endTime=${endMs - 1}&limit=1440`;
+async function fetchKlineChunk(symbolUsdt, startMs, endMs) {
+  const url = `${BINANCE_KLINE_URL}?symbol=${symbolUsdt}&interval=1m&startTime=${startMs}&endTime=${endMs - 1}&limit=${BINANCE_KLINE_LIMIT}`;
 
   const doFetch = async () => {
     const res = await fetch(url);
@@ -57,6 +57,19 @@ async function fetchOneDayKlines(symbolUsdt, dateStr) {
     volume: Number(r[5]),
     delta:  0,
   }));
+}
+
+async function fetchOneDayKlines(symbolUsdt, dateStr) {
+  const startMs  = dateToMs(dateStr);
+  const endMs    = startMs + 86_400_000;
+  const midMs    = startMs + BINANCE_KLINE_LIMIT * 60_000; // 720분 = 12시간 경계
+
+  const [firstHalf, secondHalf] = await Promise.all([
+    fetchKlineChunk(symbolUsdt, startMs, midMs),
+    fetchKlineChunk(symbolUsdt, midMs,   endMs),
+  ]);
+
+  return [...firstHalf, ...secondHalf];
 }
 
 async function fetchDelta(symbol, startMs, endMs) {

@@ -1,4 +1,4 @@
-// [AGENT] T4-ANALYSIS: 메인 캔들 차트 — 1분봉 + 매칭 봉 하이라이트 + 호버 툴팁(매칭 봉만)
+// [AGENT] T4-ANALYSIS: 메인 캔들 차트 — 1분봉 + 매칭 봉 하이라이트 + 호버 툴팁(전체 봉)
 import { useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, createSeriesMarkers, LineStyle } from 'lightweight-charts';
 import { PALETTE } from '../palette.js';
@@ -120,7 +120,7 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
       }, DEBOUNCE_MS);
     });
 
-    // 호버 툴팁 — 매칭 봉만 표시
+    // 호버 툴팁 — 전체 봉 표시
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !param.time || !containerRef.current) { setTooltip(null); return; }
       const data = param.seriesData?.get(series);
@@ -130,16 +130,18 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
       const klines  = klineRef.current;
       const idx     = klines.findIndex((c) => Math.floor(c.time / 1000) === param.time
                                             || Math.abs(c.time - timeMs) < 60_000);
-      if (idx === -1 || !matchedSet.current.has(idx)) { setTooltip(null); return; }
+      if (idx === -1) { setTooltip(null); return; }
 
       const c      = klines[idx];
       const pctChg = c.open !== 0 ? ((c.close - c.open) / c.open * 100).toFixed(2) : '0.00';
       setTooltip({
         x:          param.point.x,
         y:          param.point.y,
+        time:       param.time,
         volume:     c.volume,
         delta:      c.delta,
         priceChg:   pctChg,
+        isMatched:  matchedSet.current.has(idx),
         containerW: containerRef.current?.clientWidth ?? 0,
       });
     });
@@ -202,13 +204,18 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
       : 'rgba(var(--sell-rgb), 0.9)';
     const deltaLabel = isNetBuy ? '순매수' : '순매도';
     const deltaValue = Math.abs(tooltip.delta);
+    const timeStr = (() => {
+      const d = new Date(tooltip.time * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    })();
     return (
       <div style={{
         position:      'absolute',
         left,
         top:           Math.max(4, tooltip.y - 36),
         background:    'rgba(14,15,24,0.95)',
-        border:        '1px solid rgba(255,255,255,0.1)',
+        border:        `1px solid ${tooltip.isMatched ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)'}`,
         borderRadius:  '6px',
         padding:       '5px 10px',
         pointerEvents: 'none',
@@ -218,6 +225,9 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
         whiteSpace:    'nowrap',
         zIndex:        10,
       }}>
+        <div style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '2px' }}>
+          {timeStr}
+        </div>
         <div style={{ color: 'rgba(255,255,255,0.6)' }}>
           거래량 {Number(tooltip.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}
         </div>
