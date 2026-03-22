@@ -7,6 +7,7 @@ from services.webpage_service import get_content
 from services.github_service import get_repo_info
 from services.ai_service import summarize, summarize_github
 from services.notion_service import save, exists
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if _is_github(url):
             await _handle_github(update, context, url)
+        elif _is_shorts(url) and not settings.YOUTUBE_SHORTS_ENABLED:
+            await update.message.reply_text("youtube shorts 는 6/1 이후 맥미니에서만 가능합니다.")
         elif _is_youtube(url):
-            await _handle_generic(update, url, platform=(
-                "youtube" if ("youtube.com/watch" in url or "youtu.be/" in url) else "shorts"
-            ))
+            await _handle_generic(update, url, platform="youtube")
         else:
             await _handle_generic(update, url, platform="web")
 
@@ -100,8 +101,12 @@ async def _log_failure(url: str, error: str):
         logger.warning(f"오류 로그 Notion 저장 실패: {log_err}")
 
 
+def _is_shorts(url: str) -> bool:
+    return "youtube.com/shorts/" in url
+
+
 def _is_youtube(url: str) -> bool:
-    return "youtube.com/watch" in url or "youtu.be/" in url or "youtube.com/shorts/" in url
+    return "youtube.com/watch" in url or "youtu.be/" in url
 
 
 def _is_github(url: str) -> bool:
