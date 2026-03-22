@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "gemini"
     GITHUB_TOKEN: str = ""
     GROQ_API_KEY: str = ""
+    YOUTUBE_SHORTS_ENABLED: bool = True
 
     class Config:
         env_file = ".env"
