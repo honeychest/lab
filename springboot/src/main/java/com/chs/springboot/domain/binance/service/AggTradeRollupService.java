@@ -104,11 +104,25 @@ public class AggTradeRollupService {
             }
             fromMs = (firstMs / 60_000L) * 60_000L;
         } else {
-            Long lastAvailMs = jdbcTemplate.queryForObject(
-                "SELECT MAX(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
-                Long.class, symbol, marketType);
-            log.info("[RollupCatchUp] {} {} 1m lastMs={}, 1s MAX={}", symbol, marketType, lastMs, lastAvailMs);
-            fromMs = lastMs + 60_000L;
+            long lookbackMs = nowMs - 7 * 24 * 60 * 60 * 1000L; // 7일 내 갭만 탐지
+            Long firstGapMs = jdbcTemplate.queryForObject(
+                """
+                SELECT MIN(FLOOR(s.candle_time_ms / 60000) * 60000)
+                FROM agg_trade_1s s
+                WHERE s.symbol = ? AND s.market_type = ?
+                  AND s.candle_time_ms >= ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM agg_trade_1m m
+                      WHERE m.symbol = s.symbol
+                        AND m.market_type = s.market_type
+                        AND m.candle_time_ms = FLOOR(s.candle_time_ms / 60000) * 60000
+                  )
+                """,
+                Long.class, symbol, marketType, lookbackMs);
+            long forwardFrom = lastMs + 60_000L;
+            fromMs = (firstGapMs != null) ? firstGapMs : forwardFrom;
+            log.info("[RollupCatchUp] {} {} 1m lastMs={}, firstGap={}, fromMs={}",
+                symbol, marketType, lastMs, firstGapMs, fromMs);
         }
         if (fromMs >= nowMs) {
             log.info("[RollupCatchUp] {} {} 1m fromMs={} >= nowMs={}, skip", symbol, marketType, fromMs, nowMs);
@@ -217,6 +231,114 @@ public class AggTradeRollupService {
             """;
         int rows = jdbcTemplate.update(sql, symbol, marketType, fromMs, to5mMs);
         log.info("[RollupCatchUp] {} {} 5m {}건 삽입", symbol, marketType, rows);
+    }
+
+    // ─── 수동 롤업 API (admin 트리거용) ─────────────────────────────────────
+
+    public Map<String, Integer> rollupRange(long fromMs, long toMs) {
+        boolean locked = Boolean.TRUE.equals(
+            redisTemplate.opsForValue().setIfAbsent(CATCHUP_LOCK_KEY, "locked", Duration.ofMinutes(10))
+        );
+        if (!locked) {
+            throw new IllegalStateException("다른 롤업이 실행 중입니다. 잠시 후 재시도해주세요.");
+        }
+        log.info("[RollupRange] 시작 fromMs={} toMs={}", fromMs, toMs);
+        int total1m = 0;
+        int total5m = 0;
+        try {
+            var targets = statusRepository.findByEnabledTrue();
+
+            String sql1m = """
+                INSERT INTO agg_trade_1m
+                    (symbol, market_type, candle_time_ms,
+                     open_price, high_price, low_price, close_price, vwap,
+                     buy_volume, sell_volume, total_volume,
+                     buy_quantity, sell_quantity, delta,
+                     buy_trade_count, sell_trade_count, trade_count,
+                     min_agg_trade_id, max_agg_trade_id,
+                     min_first_trade_id, max_last_trade_id)
+                SELECT
+                    symbol, market_type,
+                    FLOOR(candle_time_ms / 60000) * 60000                                                          AS candle_time_ms,
+                    SUBSTRING_INDEX(MIN(CONCAT(LPAD(candle_time_ms,20,'0'),'|',open_price)),'|',-1)                AS open_price,
+                    MAX(high_price)                                                                                AS high_price,
+                    MIN(low_price)                                                                                 AS low_price,
+                    SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1)               AS close_price,
+                    CASE WHEN SUM(buy_quantity + sell_quantity) = 0 THEN 0
+                         ELSE SUM(total_volume) / SUM(buy_quantity + sell_quantity) END                            AS vwap,
+                    SUM(buy_volume)                                                                                AS buy_volume,
+                    SUM(sell_volume)                                                                               AS sell_volume,
+                    SUM(total_volume)                                                                              AS total_volume,
+                    SUM(buy_quantity)                                                                              AS buy_quantity,
+                    SUM(sell_quantity)                                                                             AS sell_quantity,
+                    SUM(buy_quantity) - SUM(sell_quantity)                                                         AS delta,
+                    SUM(buy_trade_count)                                                                           AS buy_trade_count,
+                    SUM(sell_trade_count)                                                                          AS sell_trade_count,
+                    SUM(trade_count)                                                                               AS trade_count,
+                    MIN(min_agg_trade_id)                                                                          AS min_agg_trade_id,
+                    MAX(max_agg_trade_id)                                                                          AS max_agg_trade_id,
+                    MIN(min_first_trade_id)                                                                        AS min_first_trade_id,
+                    MAX(max_last_trade_id)                                                                         AS max_last_trade_id
+                FROM agg_trade_1s
+                WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+                GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
+                ON DUPLICATE KEY UPDATE id = id
+                """;
+            for (var t : targets) {
+                int n = jdbcTemplate.update(sql1m, t.getSymbol(), t.getMarketType(), fromMs, toMs);
+                total1m += n;
+                log.info("[RollupRange] {} {} 1m {}건", t.getSymbol(), t.getMarketType(), n);
+            }
+
+            long from5m = (fromMs / 300_000L) * 300_000L;
+            long to5m   = ((toMs + 299_999L) / 300_000L) * 300_000L;
+
+            String sql5m = """
+                INSERT INTO agg_trade_5m
+                    (symbol, market_type, candle_time_ms,
+                     open_price, high_price, low_price, close_price, vwap,
+                     buy_volume, sell_volume, total_volume,
+                     buy_quantity, sell_quantity, delta,
+                     buy_trade_count, sell_trade_count, trade_count,
+                     min_agg_trade_id, max_agg_trade_id,
+                     min_first_trade_id, max_last_trade_id)
+                SELECT
+                    symbol, market_type,
+                    FLOOR(candle_time_ms / 300000) * 300000                                                       AS candle_time_ms,
+                    SUBSTRING_INDEX(MIN(CONCAT(LPAD(candle_time_ms,20,'0'),'|',open_price)),'|',-1)               AS open_price,
+                    MAX(high_price)                                                                               AS high_price,
+                    MIN(low_price)                                                                                AS low_price,
+                    SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1)             AS close_price,
+                    CASE WHEN SUM(buy_quantity + sell_quantity) = 0 THEN 0
+                         ELSE SUM(total_volume) / SUM(buy_quantity + sell_quantity) END                           AS vwap,
+                    SUM(buy_volume)                                                                               AS buy_volume,
+                    SUM(sell_volume)                                                                              AS sell_volume,
+                    SUM(total_volume)                                                                             AS total_volume,
+                    SUM(buy_quantity)                                                                             AS buy_quantity,
+                    SUM(sell_quantity)                                                                            AS sell_quantity,
+                    SUM(buy_quantity) - SUM(sell_quantity)                                                        AS delta,
+                    SUM(buy_trade_count)                                                                         AS buy_trade_count,
+                    SUM(sell_trade_count)                                                                        AS sell_trade_count,
+                    SUM(trade_count)                                                                             AS trade_count,
+                    MIN(min_agg_trade_id)                                                                        AS min_agg_trade_id,
+                    MAX(max_agg_trade_id)                                                                        AS max_agg_trade_id,
+                    MIN(min_first_trade_id)                                                                      AS min_first_trade_id,
+                    MAX(max_last_trade_id)                                                                       AS max_last_trade_id
+                FROM agg_trade_1m
+                WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+                GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
+                ON DUPLICATE KEY UPDATE id = id
+                """;
+            for (var t : targets) {
+                int n = jdbcTemplate.update(sql5m, t.getSymbol(), t.getMarketType(), from5m, to5m);
+                total5m += n;
+                log.info("[RollupRange] {} {} 5m {}건", t.getSymbol(), t.getMarketType(), n);
+            }
+        } finally {
+            redisTemplate.delete(CATCHUP_LOCK_KEY);
+            log.info("[RollupRange] 완료 total1m={} total5m={}", total1m, total5m);
+        }
+        return Map.of("inserted1m", total1m, "inserted5m", total5m);
     }
 
     // ─── 1분봉 롤업 (매 분 :10초) — agg_trade_1s → agg_trade_1m ────────────

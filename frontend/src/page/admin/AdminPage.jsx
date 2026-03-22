@@ -35,6 +35,12 @@ function datetimeLocalToMs(s) {
     return new Date(s).getTime();
 }
 
+function msToDatetimeLocal(ms) {
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function AdminPage() {
     const navigate = useNavigate();
     // ── 접근 권한 ──────────────────────────────────────────────────────────
@@ -50,6 +56,12 @@ export default function AdminPage() {
     const [columns, setColumns]     = useState([]);
     const [loading, setLoading]     = useState(false);
     const [error, setError]         = useState(null);
+
+    // ── 롤업 ───────────────────────────────────────────────────────────────
+    const [rFrom,    setRFrom]    = useState(() => msToDatetimeLocal(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const [rTo,      setRTo]      = useState(() => msToDatetimeLocal(Date.now()));
+    const [rLoading, setRLoading] = useState(false);
+    const [rResult,  setRResult]  = useState(null); // { ok, inserted1m, inserted5m } | { ok: false, message }
 
     // ── 수동 수집 ──────────────────────────────────────────────────────────
     const [cType,    setCType]    = useState('RAW_AGG_TRADE');
@@ -214,6 +226,23 @@ export default function AdminPage() {
         }
     };
 
+    // ── 롤업 실행 ──────────────────────────────────────────────────────────
+    const handleRollup = async () => {
+        setRLoading(true);
+        setRResult(null);
+        try {
+            const r = await axios.post('/api/admin/aggtrade/rollup', {
+                fromMs: datetimeLocalToMs(rFrom),
+                toMs:   datetimeLocalToMs(rTo),
+            });
+            setRResult({ ok: true, ...r.data });
+        } catch (e) {
+            setRResult({ ok: false, message: e.response?.data?.error ?? '롤업 실패' });
+        } finally {
+            setRLoading(false);
+        }
+    };
+
     // ── 수집 시작 (수동 입력) ──────────────────────────────────────────────
     const handleCollect = async () => {
         setCollectError(null);
@@ -375,6 +404,42 @@ export default function AdminPage() {
                                         {collectLoading ? '요청 중...' : `선택 수집 (${selectedRows.size}건)`}
                                     </button>
                                     {collectError && <div className={styles.muted} style={{ color: 'var(--monitor-severity-critical)' }}>{collectError}</div>}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.card}>
+                            <div className={styles.titleRow}>
+                                <div className={styles.title}>롤업</div>
+                                <div className={styles.subtitle}>1s → 1m → 5m 수동 실행</div>
+                            </div>
+                            <div className={styles.inputRow}>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>From</div>
+                                    <input className={styles.input} type="datetime-local" value={rFrom} onChange={e => setRFrom(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>To</div>
+                                    <input className={styles.input} type="datetime-local" value={rTo} onChange={e => setRTo(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>Action</div>
+                                    <button
+                                        type="button"
+                                        className={`${styles.btn} ${styles.btnActive}`}
+                                        onClick={handleRollup}
+                                        disabled={rLoading || !rFrom || !rTo}
+                                        style={{ width: '100%', justifyContent: 'center' }}
+                                    >
+                                        {rLoading ? '실행 중...' : '롤업 실행'}
+                                    </button>
+                                </div>
+                            </div>
+                            {rResult && (
+                                <div className={styles.desc} style={{ color: rResult.ok ? 'var(--monitor-gauge-ok)' : 'var(--monitor-severity-critical)' }}>
+                                    {rResult.ok
+                                        ? `완료 — 1m: ${fmtNum(rResult.inserted1m)}건, 5m: ${fmtNum(rResult.inserted5m)}건`
+                                        : rResult.message}
                                 </div>
                             )}
                         </div>
