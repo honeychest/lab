@@ -6,6 +6,7 @@
 // 연관: TelegramPollingService, StringRedisTemplate
 package com.chs.springboot.global.redis;
 
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,6 +63,14 @@ public class LeaderElectionService {
         } else {
             String currentLeader = redisTemplate.opsForValue().get(LEADER_KEY);
             isLeader = serverName.equals(currentLeader);
+        }
+    }
+
+    @PreDestroy
+    public void releaseLeadership() {
+        if (isLeader) {
+            redisTemplate.delete(LEADER_KEY);
+            log.info("[{}] 리더 반납 (shutdown)", serverName);
         }
     }
 
