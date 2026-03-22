@@ -1,5 +1,46 @@
 // [AGENT] /monitor 메인 페이지 (WS 게이지 + 이력, 모바일 요약)
 import { useEffect, useMemo, useRef, useState } from 'react';
+
+function LastUpdatedChip({ collectedAt, fmtTime, styles }) {
+    const [nowTs, setNowTs] = useState(() => Date.now());
+
+    useEffect(() => {
+        const id = window.setInterval(() => setNowTs(Date.now()), 1000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    const parseDt = (dt) => {
+        if (!dt) return null;
+        if (Array.isArray(dt) && dt.length >= 6) {
+            const [y, m, day, hh, mm, ss] = dt;
+            const d = new Date(Number(y), Number(m) - 1, Number(day), Number(hh), Number(mm), Number(ss));
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(dt);
+        return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const fmtAgo = (dt) => {
+        const d = parseDt(dt);
+        if (!d) return '--';
+        const diffSec = Math.max(0, Math.floor((nowTs - d.getTime()) / 1000));
+        if (diffSec < 1) return '방금';
+        if (diffSec < 60) return `${diffSec}초 전`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}분 전`;
+        const diffHr = Math.floor(diffMin / 60);
+        return `${diffHr}시간 전`;
+    };
+
+    return (
+        <div className={styles.updatedChip}>
+            <span className={styles.chipDot} />
+            <span className={styles.chipLabel}>마지막 갱신</span>
+            <span className={styles.chipAgo}>{fmtAgo(collectedAt)}</span>
+            <span className={`${styles.chipTime} ${styles.mono}`}>{fmtTime(nowTs)}</span>
+        </div>
+    );
+}
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useMonitorWebSocket } from '../../hooks/useMonitorWebSocket.js';
 import GaugeBar from '../../components/monitor/GaugeBar.jsx';
@@ -55,13 +96,6 @@ const fmtTime = (dt) => {
 export default function MonitorPage() {
     const { snapshot } = useMonitorWebSocket();
 
-    const [nowTs, setNowTs] = useState(() => Date.now());
-
-    useEffect(() => {
-        const id = window.setInterval(() => setNowTs(Date.now()), 1000);
-        return () => window.clearInterval(id);
-    }, []);
-
     // 이 페이지에서만 Layout .main 스크롤 차단
     useEffect(() => {
         const main = document.querySelector('main');
@@ -70,29 +104,6 @@ export default function MonitorPage() {
         main.style.overflowY = 'hidden';
         return () => { main.style.overflowY = prev; };
     }, []);
-
-    const parseDt = (dt) => {
-        if (!dt) return null;
-        if (Array.isArray(dt) && dt.length >= 6) {
-            const [y, m, day, hh, mm, ss] = dt;
-            const d = new Date(Number(y), Number(m) - 1, Number(day), Number(hh), Number(mm), Number(ss));
-            return Number.isNaN(d.getTime()) ? null : d;
-        }
-        const d = new Date(dt);
-        return Number.isNaN(d.getTime()) ? null : d;
-    };
-
-    const fmtAgo = (dt) => {
-        const d = parseDt(dt);
-        if (!d) return '--';
-        const diffSec = Math.max(0, Math.floor((nowTs - d.getTime()) / 1000));
-        if (diffSec < 3) return '방금';
-        if (diffSec < 60) return `${diffSec}초 전`;
-        const diffMin = Math.floor(diffSec / 60);
-        if (diffMin < 60) return `${diffMin}분 전`;
-        const diffHr = Math.floor(diffMin / 60);
-        return `${diffHr}시간 전`;
-    };
 
     const lastUpdatedAt = snapshot?.collectedAt ?? null;
     const hasSnapshot = !!snapshot;
@@ -156,12 +167,7 @@ export default function MonitorPage() {
                         <GaugeBar label="CPU"  value={snapshot?.cpu  ?? null} />
                         <GaugeBar label="RAM"  value={snapshot?.ram  ?? null} />
                         <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
-                        <div className={styles.updatedChip}>
-                            <span className={styles.chipDot} />
-                            <span className={styles.chipLabel}>마지막 갱신</span>
-                            <span className={styles.chipAgo}>{fmtAgo(lastUpdatedAt)}</span>
-                            <span className={`${styles.chipTime} ${styles.mono}`}>{fmtTime(lastUpdatedAt)}</span>
-                        </div>
+                        <LastUpdatedChip collectedAt={lastUpdatedAt} fmtTime={fmtTime} styles={styles} />
                     </div>
                 </div>
 
