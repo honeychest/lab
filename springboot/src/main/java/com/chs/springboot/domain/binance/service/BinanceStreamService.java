@@ -45,6 +45,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @Service:
@@ -174,6 +175,8 @@ public class BinanceStreamService {
      */
     private volatile int connectionGeneration = 0;
 
+    private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
+
     /**
      * 생성자 (Constructor Injection):
      * Spring이 BinancePriceWebSocketHandler와 NotificationService 빈을 찾아서
@@ -248,6 +251,7 @@ public class BinanceStreamService {
         if (!running) return;
         // 새 연결 시작 시 세대 카운터 증가 — 이전 리스너의 onClose가 재연결하지 못하도록 무효화
         final int myGeneration = ++connectionGeneration;
+        reconnectPending.set(false); // 새 연결 시도 시 pending 해제 (setSymbol 직접 호출 경우도 처리)
         try {
             String url = getStreamUrl();
             log.info("[BinanceStream] {} 심볼로 연결 시도 (generation={})", currentSymbol, myGeneration);
@@ -290,8 +294,15 @@ public class BinanceStreamService {
      */
     private void scheduleReconnect() {
         if (!running) return;
+        if (!reconnectPending.compareAndSet(false, true)) {
+            log.debug("[BinanceStream] 재연결 이미 예약됨 (중복 무시)");
+            return;
+        }
         log.info("[BinanceStream] {}초 후 재연결 시도", RECONNECT_DELAY_SEC);
-        scheduler.schedule(this::connectToBinance, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+        scheduler.schedule(() -> {
+            reconnectPending.set(false);
+            connectToBinance();
+        }, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
     }
 
     /**
@@ -310,7 +321,9 @@ public class BinanceStreamService {
         if (binanceWs != null) {
             try {
                 binanceWs.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "symbol changed");
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("[BinanceStream] 기존 연결 종료 실패 (무시): {}", e.getMessage());
+            }
         }
         // 즉시 새 심볼로 연결 시도
         connectToBinance();
