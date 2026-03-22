@@ -1,4 +1,4 @@
-// [AGENT] 뉴스 RSS 수집 서비스 — 5분 캐싱, 중복 제거                                                                                        
+// [AGENT] 뉴스 RSS 수집 서비스 — 5분 캐싱, 중복 제거
 package com.chs.springboot.global.news.service;
 
 import com.chs.springboot.global.news.dto.NewsItem;
@@ -6,6 +6,8 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +18,8 @@ import java.util.*;
 
 @Service
 public class NewsService {
+
+    private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
     // RSS 소스 목록 — {url, source명, 카테고리}
     private static final List<String[]> SOURCES = List.of(
@@ -42,10 +46,11 @@ public class NewsService {
                 collected.addAll(fetch(src[0], src[1], src[2]));
             } catch (Exception e) {
                 // 한 소스 실패해도 나머지는 계속 수집
-                System.err.println("[NewsService] RSS 수집 실패 - " + src[0] + " / " + e.getMessage());
+                log.warn("[NewsService] RSS 수집 실패 - source={}, error={}", src[0], e.getMessage());
             }
         }
         cache = deduplicate(collected);
+        log.debug("[NewsService] 뉴스 캐시 갱신 완료 - {}건", cache.size());
     }
 
     // 외부에서 캐시된 뉴스 목록 조회
@@ -61,7 +66,14 @@ public class NewsService {
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; RSS reader)");
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
-        SyndFeed feed = input.build(new XmlReader(conn.getInputStream()));
+
+        // try-with-resources: XmlReader가 자동으로 닫혀 연결 자원 누수 방지
+        SyndFeed feed;
+        try (XmlReader reader = new XmlReader(conn.getInputStream())) {
+            feed = input.build(reader);
+        } finally {
+            conn.disconnect();
+        }
 
         List<NewsItem> items = new ArrayList<>();
         for (SyndEntry entry : feed.getEntries()) {
