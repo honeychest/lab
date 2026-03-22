@@ -120,6 +120,10 @@ public class BinanceTradeController {
             @RequestParam(defaultValue = "DESC") String order,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size) {
-        return ResponseEntity.ok(queryService.getPage(symbol, marketType, from, to, sort, order, page, size));
+        try {
+            return ResponseEntity.ok(queryService.getPage(symbol, marketType, from, to, sort, order, page, size));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }
