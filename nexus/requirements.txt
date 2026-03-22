@@ -1,6 +1,6 @@
 python-telegram-bot==21.5
 anthropic
-notion-client
+notion-client==2.2.1
 youtube-transcript-api
 beautifulsoup4
 requests
