@@ -123,6 +123,27 @@
     white-space: nowrap;
 }
 
+.spinnerWrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+}
+
+.spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(13, 148, 136, 0.15);
+    border-top-color: var(--monitor-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .itemTitle {
     font-size: 13px;
     font-weight: 800;
@@ -132,4 +153,24 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* 읽은 뉴스: 제목·배지 흐리게, 배경 살짝 어둡게 */
+.itemRead {
+    opacity: 0.45;
+}
+
+.itemRead:hover {
+    opacity: 0.65;
+}
+
+/* 빈 상태 / 에러 메시지 */
+.empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--monitor-text-secondary);
+    padding: 24px 0;
 }
