@@ -1,5 +1,5 @@
 // [AGENT] /monitor 메인 페이지 (WS 게이지 + 이력, 모바일 요약)
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useMonitorWebSocket } from '../../hooks/useMonitorWebSocket.js';
 import GaugeBar from '../../components/monitor/GaugeBar.jsx';
@@ -111,6 +111,15 @@ export default function MonitorPage() {
     }), [snapshot]);
 
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+    const mainRef = useRef(null);
+    const [mainHeight, setMainHeight] = useState(null);
+
+    useEffect(() => {
+        if (!mainRef.current) return;
+        const ro = new ResizeObserver(([entry]) => setMainHeight(entry.contentRect.height));
+        ro.observe(mainRef.current);
+        return () => ro.disconnect();
+    }, []);
 
     useEffect(() => {
         const handler = () => setIsMobile(window.innerWidth <= 768);
@@ -157,7 +166,7 @@ export default function MonitorPage() {
                 </div>
 
                 <div className={styles.grid}>
-                    <section className={styles.main}>
+                    <section className={styles.main} ref={mainRef}>
                         {!isMobile && (
                             <div className={styles.diskMeta}>
                                 <span className={styles.diskMetaLabel}>DISK</span>
@@ -339,7 +348,7 @@ export default function MonitorPage() {
                     </section>
 
                     {!isMobile && (
-                        <aside className={styles.sidebar}>
+                        <aside className={styles.sidebar} style={mainHeight ? { maxHeight: mainHeight } : undefined}>
                             <div className={styles.sideCard}>
                                 <div className={styles.kv}>
                                     <span>WS 연결</span>
