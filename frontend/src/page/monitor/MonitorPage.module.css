@@ -131,7 +131,7 @@
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .main {
@@ -157,6 +157,7 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  height: 100%;
 }
 
 .sideCard {

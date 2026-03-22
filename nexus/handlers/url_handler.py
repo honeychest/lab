@@ -13,20 +13,33 @@ logger = logging.getLogger(__name__)
 
 _TELEGRAM_MAX = 1500  # 텔레그램 요약 최대 글자 수
 
+_PLATFORM_RULES = [
+    (lambda url: "github.com/" in url,                          "github"),
+    (lambda url: "youtube.com/shorts/" in url,                  "shorts"),
+    (lambda url: "youtube.com/watch" in url or "youtu.be/" in url, "youtube"),
+]
+
+
+def _get_platform(url: str) -> str:
+    for check, platform in _PLATFORM_RULES:
+        if check(url):
+            return platform
+    return "web"
+
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
     await update.message.reply_text("🔍 분석 중...")
 
     try:
-        if _is_github(url):
-            await _handle_github(update, context, url)
-        elif _is_shorts(url) and not settings.YOUTUBE_SHORTS_ENABLED:
+        platform = _get_platform(url)
+
+        if platform == "shorts" and not settings.YOUTUBE_SHORTS_ENABLED:
             await update.message.reply_text("youtube shorts 는 6/1 이후 맥미니에서만 가능합니다.")
-        elif _is_youtube(url):
-            await _handle_generic(update, url, platform="youtube")
+        elif platform == "github":
+            await _handle_github(update, context, url)
         else:
-            await _handle_generic(update, url, platform="web")
+            await _handle_generic(update, url, platform)
 
     except Exception as e:
         logger.error(f"URL 처리 실패: {e}")
@@ -35,7 +48,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _handle_github(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    # 중복 확인
     existing_id = await exists(url)
     if existing_id:
         keyboard = InlineKeyboardMarkup([
@@ -99,15 +111,3 @@ async def _log_failure(url: str, error: str):
         await save(url, f"[오류] {url[:50]}", f"오류 내용:\n{error}", platform="error")
     except Exception as log_err:
         logger.warning(f"오류 로그 Notion 저장 실패: {log_err}")
-
-
-def _is_shorts(url: str) -> bool:
-    return "youtube.com/shorts/" in url
-
-
-def _is_youtube(url: str) -> bool:
-    return "youtube.com/watch" in url or "youtu.be/" in url
-
-
-def _is_github(url: str) -> bool:
-    return "github.com/" in url
