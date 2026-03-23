@@ -62,23 +62,32 @@ public class SignalDataService {
     public Map<String, Object> getHistoryData(String symbol, String range) {
         long nowMs  = System.currentTimeMillis();
         long fromMs = nowMs - parseRangeToMs(range);
+        log.info("[SignalEnergy] ▶ symbol={} range={} fromMs={} nowMs={}", symbol, range, fromMs, nowMs);
 
         // 10m·50m 이하 → 1분봉 롤업 / 그 이상 → 5분봉 롤업
+        String energyTable = switch (range) {
+            case "1m", "5m", "10m", "30m", "50m" -> "agg_trade_1m";
+            default -> "agg_trade_5m";
+        };
         Map<String, Object> energyRow = switch (range) {
             case "1m", "5m", "10m", "30m", "50m" -> agg1mRepository.sumEnergyBySymbolAndTimeRange(symbol, fromMs, nowMs);
             default                               -> agg5mRepository.sumEnergyBySymbolAndTimeRange(symbol, fromMs, nowMs);
         };
+        log.info("[SignalEnergy] table={} energyRow={}", energyTable, energyRow);
 
         BigDecimal longEnergy  = toBd(energyRow.get("long_energy"));
         BigDecimal shortEnergy = toBd(energyRow.get("short_energy"));
+        log.info("[SignalEnergy] raw longEnergy={} shortEnergy={}", longEnergy, shortEnergy);
 
         // 누계: SUM 집계 쿼리 (전체 범위, 목록 조회 없음)
         BigDecimal longLiqTotal  = BigDecimal.ZERO;
         BigDecimal shortLiqTotal = BigDecimal.ZERO;
         var liqSums = forceOrderRepository.sumLiqTotalBySymbolAndTimeRange(symbol, fromMs, nowMs);
+        log.info("[SignalEnergy] liqSums count={}", liqSums.size());
         for (Object[] row : liqSums) {
             String side      = (String) row[0];
             BigDecimal total = toBd(row[1]);
+            log.info("[SignalEnergy] liq side={} total={}", side, total);
             if ("SELL".equals(side)) {
                 longLiqTotal = total;
                 longEnergy   = longEnergy.subtract(total);
@@ -87,6 +96,7 @@ public class SignalDataService {
                 shortEnergy   = shortEnergy.subtract(total);
             }
         }
+        log.info("[SignalEnergy] after liq adjust longEnergy={} shortEnergy={}", longEnergy, shortEnergy);
 
         // 이벤트 목록: side별 최근 10건
         var longTop10  = forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, "SELL", fromMs, nowMs);
@@ -119,6 +129,8 @@ public class SignalDataService {
         result.put("shortLiqTotal", shortLiqTotal.doubleValue());
         result.put("longLiqEvents",  longLiqEvents);
         result.put("shortLiqEvents", shortLiqEvents);
+        log.info("[SignalEnergy] ◀ final longEnergy={} shortEnergy={} longLiqTotal={} shortLiqTotal={}",
+            result.get("longEnergy"), result.get("shortEnergy"), longLiqTotal, shortLiqTotal);
 
         return result;
     }

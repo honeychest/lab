@@ -78,8 +78,8 @@ public class SignalController {
     }
 
     @GetMapping(value = "/stream/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamSse(@RequestParam String symbol) {
-        log.debug("[SignalController] /stream/sse symbol={}", symbol);
+    public SseEmitter streamSse(@RequestParam String symbol, HttpServletRequest request) {
+        log.info("[SignalController] /stream/sse symbol={} ip={}", symbol, getClientIp(request));
         return signalSseService.subscribe();
     }
 

@@ -26,19 +26,28 @@ public class SignalSseService {
     public SseEmitter subscribe() {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         emitters.add(emitter);
+        log.info("[SignalSse] 연결 등록 total={}", emitters.size());
 
-        Runnable cleanup = () -> emitters.remove(emitter);
-        emitter.onTimeout(cleanup);
-        emitter.onCompletion(cleanup);
-        emitter.onError(e -> cleanup.run());
+        emitter.onTimeout(() -> {
+            emitters.remove(emitter);
+            log.info("[SignalSse] 연결 timeout 종료 (nginx proxy_read_timeout 의심) total={}", emitters.size());
+        });
+        emitter.onCompletion(() -> {
+            emitters.remove(emitter);
+            log.info("[SignalSse] 연결 정상 종료 (클라이언트 disconnect) total={}", emitters.size());
+        });
+        emitter.onError(e -> {
+            emitters.remove(emitter);
+            log.warn("[SignalSse] 연결 에러 종료: {} total={}", e.getMessage(), emitters.size());
+        });
 
         try {
             emitter.send(SseEmitter.event().name("connect").data("ok"));
         } catch (IOException e) {
-            cleanup.run();
+            emitters.remove(emitter);
+            log.warn("[SignalSse] 초기 connect 이벤트 전송 실패: {}", e.getMessage());
         }
 
-        log.debug("[SignalSse] 구독 등록, 현재 emitter 수: {}", emitters.size());
         return emitter;
     }
 
@@ -77,7 +86,10 @@ public class SignalSseService {
                 dead.add(emitter);
             }
         }
-        emitters.removeAll(dead);
+        if (!dead.isEmpty()) {
+            log.warn("[SignalSse] broadcast dead emitter {}개 제거, event={}", dead.size(), eventName);
+            emitters.removeAll(dead);
+        }
     }
 
     @Scheduled(fixedDelay = 30_000)
@@ -92,6 +104,9 @@ public class SignalSseService {
                 dead.add(emitter);
             }
         }
-        emitters.removeAll(dead);
+        if (!dead.isEmpty()) {
+            log.warn("[SignalSse] ping dead emitter {}개 제거 (nginx keepalive 문제 의심)", dead.size());
+            emitters.removeAll(dead);
+        }
     }
 }
