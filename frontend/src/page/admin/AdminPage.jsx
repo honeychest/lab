@@ -75,10 +75,49 @@ export default function AdminPage() {
 
     const [selectedRows, setSelectedRows] = useState(new Set());
 
+    // ── 데이터 품질 ──────────────────────────────────────────────────────────
+    const [healthSymbol, setHealthSymbol] = useState('BTCUSDT');
+    const [healthMarket, setHealthMarket] = useState('FUTURES');
+    const [healthData,   setHealthData]   = useState(null);
+    const [healthLoading, setHealthLoading] = useState(false);
+    const [healthError,   setHealthError]   = useState(null);
+
     // ── 허용 IP 관리 ─────────────────────────────────────────────────────────
     const [allowedIps, setAllowedIps] = useState([]);
     const [allowedLoading, setAllowedLoading] = useState(false);
     const [allowedError, setAllowedError] = useState(null);
+
+    const [deletingFlat, setDeletingFlat] = useState(null); // '1s'|'1m'|'5m'
+
+    const handleDeleteFlat = async (tableKey) => {
+        setDeletingFlat(tableKey);
+        try {
+            await axios.delete('/api/admin/backfill/flat', {
+                params: { symbol: healthSymbol, marketType: healthMarket, tableKey },
+            });
+            await handleHealthCheck();
+        } catch (e) {
+            setHealthError(e.response?.data?.error ?? `${tableKey} 초기화 실패`);
+        } finally {
+            setDeletingFlat(null);
+        }
+    };
+
+    const handleHealthCheck = async () => {
+        setHealthLoading(true);
+        setHealthError(null);
+        setHealthData(null);
+        try {
+            const r = await axios.get('/api/admin/backfill/health', {
+                params: { symbol: healthSymbol, marketType: healthMarket },
+            });
+            setHealthData(r.data);
+        } catch (e) {
+            setHealthError(e.response?.data?.error ?? '조회 실패');
+        } finally {
+            setHealthLoading(false);
+        }
+    };
 
     const pollRef = useRef(null);
 
@@ -322,6 +361,87 @@ export default function AdminPage() {
             <div className={styles.page}>
                 <div className={styles.grid}>
                     <section className={styles.main}>
+
+                        <div className={styles.card}>
+                            <div className={styles.titleRow}>
+                                <div className={styles.title}>데이터 품질</div>
+                                <div className={styles.subtitle}>flat 행(open=high=low=close) 현황</div>
+                            </div>
+                            <div className={styles.inputRow}>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>Symbol</div>
+                                    <select className={styles.select} value={healthSymbol} onChange={e => setHealthSymbol(e.target.value)}>
+                                        {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>Market</div>
+                                    <select className={styles.select} value={healthMarket} onChange={e => setHealthMarket(e.target.value)}>
+                                        {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>Action</div>
+                                    <button
+                                        type="button"
+                                        className={`${styles.btn} ${styles.btnActive}`}
+                                        onClick={handleHealthCheck}
+                                        disabled={healthLoading}
+                                        style={{ width: '100%', justifyContent: 'center' }}
+                                    >
+                                        {healthLoading ? '조회 중...' : '조회'}
+                                    </button>
+                                </div>
+                            </div>
+                            {healthError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{healthError}</div>}
+                            {healthData && (() => {
+                                const rows = [
+                                    { label: '1s', ...healthData.flat1s },
+                                    { label: '1m', ...healthData.flat1m },
+                                    { label: '5m', ...healthData.flat5m },
+                                ];
+                                return (
+                                    <div className={styles.tableWrap}>
+                                        <table className={styles.table}>
+                                            <thead>
+                                                <tr>
+                                                    {['테이블', 'flat 행 수', '시작', '종료', ''].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {rows.map((r, i) => {
+                                                    const cnt = Number(r.flat_count ?? 0);
+                                                    const hasFlat = cnt > 0;
+                                                    return (
+                                                        <tr key={r.label} className={i % 2 === 1 ? styles.trOdd : ''}>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{r.label}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`} style={{ color: hasFlat ? 'var(--monitor-severity-critical)' : 'var(--monitor-gauge-ok)' }}>
+                                                                {hasFlat ? fmtNum(cnt) : '✓ 없음'}
+                                                            </td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (r.flat_from ?? '—') : '—'}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (r.flat_to   ?? '—') : '—'}</td>
+                                                            <td className={styles.td}>
+                                                                {hasFlat && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.btn}
+                                                                        style={{ color: 'var(--monitor-severity-critical)', padding: '2px 8px', fontSize: '11px' }}
+                                                                        onClick={() => handleDeleteFlat(r.label)}
+                                                                        disabled={deletingFlat !== null}
+                                                                    >
+                                                                        {deletingFlat === r.label ? '삭제 중...' : '초기화'}
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })()}
+                        </div>
 
                         <div className={styles.card}>
                             <div className={styles.titleRow}>

@@ -252,7 +252,12 @@ public class ManualBackfillService {
              buy_trade_count, sell_trade_count, trade_count,
              min_agg_trade_id, max_agg_trade_id, min_first_trade_id, max_last_trade_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE id = id
+            ON DUPLICATE KEY UPDATE
+                open_price  = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(open_price),  open_price),
+                high_price  = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(high_price),  high_price),
+                low_price   = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(low_price),   low_price),
+                close_price = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(close_price), close_price),
+                vwap        = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(vwap),        vwap)
             """;
 
         while (startMs < toMs) {
@@ -412,6 +417,48 @@ public class ManualBackfillService {
         }
 
         return total;
+    }
+
+    // ─── Delete Flat ─────────────────────────────────────────────────────────
+
+    public int deleteFlatData(String symbol, String marketType, String tableKey) {
+        String table = switch (tableKey) {
+            case "1s" -> "agg_trade_1s";
+            case "1m" -> "agg_trade_1m";
+            case "5m" -> "agg_trade_5m";
+            default   -> throw new IllegalArgumentException("지원하지 않는 테이블: " + tableKey);
+        };
+        return jdbc.update("""
+            DELETE FROM %s
+            WHERE symbol = ? AND market_type = ?
+              AND open_price = high_price
+              AND open_price = low_price
+              AND open_price = close_price
+            """.formatted(table), symbol, marketType);
+    }
+
+    // ─── Data Health ─────────────────────────────────────────────────────────
+
+    public Map<String, Object> getDataHealth(String symbol, String marketType) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+
+        String flatSql = """
+            SELECT
+                COUNT(*)                                    AS flat_count,
+                FROM_UNIXTIME(MIN(candle_time_ms) / 1000)  AS flat_from,
+                FROM_UNIXTIME(MAX(candle_time_ms) / 1000)  AS flat_to
+            FROM %s
+            WHERE symbol = ? AND market_type = ?
+              AND open_price = high_price
+              AND open_price = low_price
+              AND open_price = close_price
+            """;
+
+        result.put("flat1s", jdbc.queryForMap(String.format(flatSql, "agg_trade_1s"), symbol, marketType));
+        result.put("flat1m", jdbc.queryForMap(String.format(flatSql, "agg_trade_1m"), symbol, marketType));
+        result.put("flat5m", jdbc.queryForMap(String.format(flatSql, "agg_trade_5m"), symbol, marketType));
+
+        return result;
     }
 
     // ─── HTTP util ───────────────────────────────────────────────────────────

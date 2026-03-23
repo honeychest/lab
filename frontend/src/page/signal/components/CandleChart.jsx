@@ -114,7 +114,6 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             scaleMargins: { top: 0.02, bottom: 0.02 },
         });
         if (formingBarRef.current) {
-            console.log('[CandleChart] formingBar 재적용:', new Date(formingBarRef.current.time * 1000).toLocaleString());
             seriesRef.current.update(formingBarRef.current);
         }
         chartRef.current?.timeScale().fitContent();
@@ -158,13 +157,8 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
                     if (seriesRef.current) seriesRef.current.update(bar);
 
                     if (!msg.is_closed) {
-                        const prevTime = formingBarRef.current?.time;
-                        if (prevTime !== bar.time) {
-                            console.log('[CandleChart] forming 새봉 시작:', new Date(bar.time * 1000).toLocaleString());
-                        }
                         formingBarRef.current = bar;
                     } else {
-                        console.log('[CandleChart] is_closed 수신 (5m 완성):', new Date(bar.time * 1000).toLocaleString(), '| candleHistory 현재 길이:', candleHistoryRef.current.length);
                         if (onCandleTimeRef.current) onCandleTimeRef.current(new Date(msg.time).getTime());
                         if (onCandleUpdateRef.current) {
                             onCandleUpdateRef.current({

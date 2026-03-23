@@ -41,6 +41,28 @@ public class ManualBackfillController {
         }
     }
 
+    /** flat 행 삭제 — tableKey: 1s / 1m / 5m */
+    @DeleteMapping("/flat")
+    public ResponseEntity<?> deleteFlat(
+            @RequestParam String symbol,
+            @RequestParam(defaultValue = "FUTURES") String marketType,
+            @RequestParam String tableKey) {
+        try {
+            int deleted = service.deleteFlatData(symbol, marketType, tableKey);
+            return ResponseEntity.ok(Map.of("deleted", deleted));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** 데이터 품질 조회 — flat 행(open=high=low=close) 현황 */
+    @GetMapping("/health")
+    public ResponseEntity<?> health(
+            @RequestParam String symbol,
+            @RequestParam(defaultValue = "FUTURES") String marketType) {
+        return ResponseEntity.ok(service.getDataHealth(symbol, marketType));
+    }
+
     /** 특정 Job 상태 조회 */
     @GetMapping("/status/{jobId}")
     public ResponseEntity<?> status(@PathVariable String jobId) {
