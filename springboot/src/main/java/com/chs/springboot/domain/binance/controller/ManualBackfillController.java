@@ -55,12 +55,17 @@ public class ManualBackfillController {
         }
     }
 
-    /** 데이터 품질 조회 — flat 행(open=high=low=close) 현황 */
+    /** 데이터 품질 조회 — raw 대비 1s 불일치 현황 (fromMs~toMs, 기본 최근 1일) */
     @GetMapping("/health")
     public ResponseEntity<?> health(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "FUTURES") String marketType) {
-        return ResponseEntity.ok(service.getDataHealth(symbol, marketType));
+            @RequestParam(defaultValue = "FUTURES") String marketType,
+            @RequestParam(required = false) Long fromMs,
+            @RequestParam(required = false) Long toMs) {
+        long now = System.currentTimeMillis();
+        long resolvedFrom = (fromMs != null) ? fromMs : now - 86_400_000L;
+        long resolvedTo   = (toMs   != null) ? toMs   : now;
+        return ResponseEntity.ok(service.getDataHealth(symbol, marketType, resolvedFrom, resolvedTo));
     }
 
     /** 특정 Job 상태 조회 */

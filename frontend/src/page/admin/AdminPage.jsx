@@ -81,6 +81,10 @@ export default function AdminPage() {
     const [healthData,   setHealthData]   = useState(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError,   setHealthError]   = useState(null);
+    const todayStr     = new Date().toISOString().slice(0, 10);
+    const yesterdayStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const [healthFrom, setHealthFrom] = useState(yesterdayStr);
+    const [healthTo,   setHealthTo]   = useState(todayStr);
 
     // ── 허용 IP 관리 ─────────────────────────────────────────────────────────
     const [allowedIps, setAllowedIps] = useState([]);
@@ -108,8 +112,10 @@ export default function AdminPage() {
         setHealthError(null);
         setHealthData(null);
         try {
+            const fromMs = new Date(healthFrom).getTime();
+            const toMs   = new Date(healthTo).getTime() + 86_400_000 - 1; // 선택 날짜 끝까지
             const r = await axios.get('/api/admin/backfill/health', {
-                params: { symbol: healthSymbol, marketType: healthMarket },
+                params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
             });
             setHealthData(r.data);
         } catch (e) {
@@ -365,7 +371,7 @@ export default function AdminPage() {
                         <div className={styles.card}>
                             <div className={styles.titleRow}>
                                 <div className={styles.title}>데이터 품질</div>
-                                <div className={styles.subtitle}>flat 행(open=high=low=close) 현황</div>
+                                <div className={styles.subtitle}>raw 대비 1s 불일치 현황</div>
                             </div>
                             <div className={styles.inputRow}>
                                 <div className={styles.field}>
@@ -379,6 +385,14 @@ export default function AdminPage() {
                                     <select className={styles.select} value={healthMarket} onChange={e => setHealthMarket(e.target.value)}>
                                         {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>From</div>
+                                    <input type="date" className={styles.select} value={healthFrom} onChange={e => setHealthFrom(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <div className={styles.label}>To</div>
+                                    <input type="date" className={styles.select} value={healthTo} onChange={e => setHealthTo(e.target.value)} />
                                 </div>
                                 <div className={styles.field}>
                                     <div className={styles.label}>Action</div>
@@ -395,47 +409,38 @@ export default function AdminPage() {
                             </div>
                             {healthError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{healthError}</div>}
                             {healthData && (() => {
-                                const rows = [
-                                    { label: '1s', ...healthData.flat1s },
-                                    { label: '1m', ...healthData.flat1m },
-                                    { label: '5m', ...healthData.flat5m },
-                                ];
+                                const d = healthData.mismatch1s ?? {};
+                                const cnt = Number(d.flat_count ?? 0);
+                                const hasFlat = cnt > 0;
                                 return (
                                     <div className={styles.tableWrap}>
                                         <table className={styles.table}>
                                             <thead>
                                                 <tr>
-                                                    {['테이블', 'flat 행 수', '시작', '종료', ''].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                    {['불일치 건수', '시작', '종료', ''].map(h => <th key={h} className={styles.th}>{h}</th>)}
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {rows.map((r, i) => {
-                                                    const cnt = Number(r.flat_count ?? 0);
-                                                    const hasFlat = cnt > 0;
-                                                    return (
-                                                        <tr key={r.label} className={i % 2 === 1 ? styles.trOdd : ''}>
-                                                            <td className={`${styles.td} ${styles.mono}`}>{r.label}</td>
-                                                            <td className={`${styles.td} ${styles.mono}`} style={{ color: hasFlat ? 'var(--monitor-severity-critical)' : 'var(--monitor-gauge-ok)' }}>
-                                                                {hasFlat ? fmtNum(cnt) : '✓ 없음'}
-                                                            </td>
-                                                            <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (r.flat_from ?? '—') : '—'}</td>
-                                                            <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (r.flat_to   ?? '—') : '—'}</td>
-                                                            <td className={styles.td}>
-                                                                {hasFlat && (
-                                                                    <button
-                                                                        type="button"
-                                                                        className={styles.btn}
-                                                                        style={{ color: 'var(--monitor-severity-critical)', padding: '2px 8px', fontSize: '11px' }}
-                                                                        onClick={() => handleDeleteFlat(r.label)}
-                                                                        disabled={deletingFlat !== null}
-                                                                    >
-                                                                        {deletingFlat === r.label ? '삭제 중...' : '초기화'}
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
+                                                <tr>
+                                                    <td className={`${styles.td} ${styles.mono}`} style={{ color: hasFlat ? 'var(--monitor-severity-critical)' : 'var(--monitor-gauge-ok)' }}>
+                                                        {hasFlat ? fmtNum(cnt) : '✓ 없음'}
+                                                    </td>
+                                                    <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (d.flat_from ?? '—') : '—'}</td>
+                                                    <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (d.flat_to   ?? '—') : '—'}</td>
+                                                    <td className={styles.td}>
+                                                        {hasFlat && (
+                                                            <button
+                                                                type="button"
+                                                                className={styles.btn}
+                                                                style={{ color: 'var(--monitor-severity-critical)', padding: '2px 8px', fontSize: '11px' }}
+                                                                onClick={() => handleDeleteFlat('1s')}
+                                                                disabled={deletingFlat !== null}
+                                                            >
+                                                                {deletingFlat === '1s' ? '삭제 중...' : '초기화'}
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>

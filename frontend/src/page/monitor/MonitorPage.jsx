@@ -164,8 +164,8 @@ export default function MonitorPage() {
 
                 <div className={styles.topRow}>
                     <div className={styles.gauges}>
-                        <GaugeBar label="CPU"  value={snapshot?.cpu  ?? null} />
-                        <GaugeBar label="RAM (1 GB)"  value={snapshot?.ram  ?? null} />
+                        <GaugeBar label="CPU (AWS t3.micro)"  value={snapshot?.cpu  ?? null} />
+                        <GaugeBar label="RAM (AWS 1 GB)"  value={snapshot?.ram  ?? null} />
                         <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
                         <LastUpdatedChip collectedAt={lastUpdatedAt} fmtTime={fmtTime} styles={styles} />
                     </div>

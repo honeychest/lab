@@ -78,6 +78,34 @@ public class AggTrade1sRollupService {
         }
     }
 
+    // ─── 주기적 빈 캔들 교정 (@Scheduled fixedRate=5분) ──────────────────
+    // WebSocket 재연결 공백 구간에 생성된 빈 캔들을 실제 데이터로 교체
+
+    @Scheduled(fixedRate = 300_000)
+    public void correctRecentEmptyCandles() {
+        if (!leaderElectionService.isLeader()) return;
+
+        long nowMs  = (System.currentTimeMillis() / 1000) * 1000;
+        long fromMs = nowMs - 15 * 60 * 1000L; // 최근 15분
+        long toMs   = nowMs - 2_000L;          // rollup1s 실행 구간과 겹치지 않게 2초 여유
+
+        List<AggTradeCollectStatus> targets = statusRepository.findByEnabledTrue();
+        for (AggTradeCollectStatus t : targets) {
+            Map<Long, CandleData> rawMap =
+                aggregateChunkRaw(t.getSymbol(), t.getMarketType(), fromMs, toMs);
+
+            if (rawMap.isEmpty()) continue;
+
+            List<AggTrade1s> toCorrect = rawMap.entrySet().stream()
+                .map(e -> buildCandle(t.getSymbol(), t.getMarketType(), e.getKey(), e.getValue()))
+                .toList();
+
+            batchInsert(toCorrect);
+            log.info("[AggTrade1sCorrect] {} {} {}건 교정",
+                t.getSymbol(), t.getMarketType(), toCorrect.size());
+        }
+    }
+
     // ─── 백필 (@PostConstruct 비동기) ─────────────────────────────────────
 
     @PostConstruct
@@ -167,15 +195,15 @@ public class AggTrade1sRollupService {
 
                 if (data != null) {
                     lastClosePrice = data.closePrice();
-                    if (!exists) {
-                        toInsert.add(buildCandle(symbol, marketType, t, data));
-                    }
+                    // 실제 거래 데이터가 있으면 항상 upsert
+                    // (기존 빈 캔들(trade_count=0)이 있어도 실제 데이터로 교체)
+                    toInsert.add(buildCandle(symbol, marketType, t, data));
                 } else {
                     if (lastClosePrice == null) continue; // 이전 데이터 없으면 skip
                     if (!exists) {
+                        // 빈 캔들은 기존 행이 없을 때만 삽입 (실제 데이터 덮어쓰기 방지)
                         toInsert.add(buildEmptyCandle(symbol, marketType, t, lastClosePrice));
                     }
-                    // exists → skip
                 }
             }
 
@@ -330,7 +358,25 @@ public class AggTrade1sRollupService {
                  min_agg_trade_id, max_agg_trade_id,
                  min_first_trade_id, max_last_trade_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE id = id
+            ON DUPLICATE KEY UPDATE
+                open_price         = IF(trade_count = 0, VALUES(open_price),         open_price),
+                high_price         = IF(trade_count = 0, VALUES(high_price),         high_price),
+                low_price          = IF(trade_count = 0, VALUES(low_price),          low_price),
+                close_price        = IF(trade_count = 0, VALUES(close_price),        close_price),
+                vwap               = IF(trade_count = 0, VALUES(vwap),               vwap),
+                buy_volume         = IF(trade_count = 0, VALUES(buy_volume),         buy_volume),
+                sell_volume        = IF(trade_count = 0, VALUES(sell_volume),        sell_volume),
+                total_volume       = IF(trade_count = 0, VALUES(total_volume),       total_volume),
+                buy_quantity       = IF(trade_count = 0, VALUES(buy_quantity),       buy_quantity),
+                sell_quantity      = IF(trade_count = 0, VALUES(sell_quantity),      sell_quantity),
+                delta              = IF(trade_count = 0, VALUES(delta),              delta),
+                buy_trade_count    = IF(trade_count = 0, VALUES(buy_trade_count),    buy_trade_count),
+                sell_trade_count   = IF(trade_count = 0, VALUES(sell_trade_count),   sell_trade_count),
+                trade_count        = IF(trade_count = 0, VALUES(trade_count),        trade_count),
+                min_agg_trade_id   = IF(trade_count = 0, VALUES(min_agg_trade_id),   min_agg_trade_id),
+                max_agg_trade_id   = IF(trade_count = 0, VALUES(max_agg_trade_id),   max_agg_trade_id),
+                min_first_trade_id = IF(trade_count = 0, VALUES(min_first_trade_id), min_first_trade_id),
+                max_last_trade_id  = IF(trade_count = 0, VALUES(max_last_trade_id),  max_last_trade_id)
             """;
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override

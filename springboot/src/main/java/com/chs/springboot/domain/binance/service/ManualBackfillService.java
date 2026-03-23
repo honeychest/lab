@@ -253,11 +253,20 @@ public class ManualBackfillService {
              min_agg_trade_id, max_agg_trade_id, min_first_trade_id, max_last_trade_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-                open_price  = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(open_price),  open_price),
-                high_price  = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(high_price),  high_price),
-                low_price   = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(low_price),   low_price),
-                close_price = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(close_price), close_price),
-                vwap        = IF(open_price = high_price AND open_price = low_price AND open_price = close_price, VALUES(vwap),        vwap)
+                open_price         = IF(trade_count = 0, VALUES(open_price),         open_price),
+                high_price         = IF(trade_count = 0, VALUES(high_price),         high_price),
+                low_price          = IF(trade_count = 0, VALUES(low_price),          low_price),
+                close_price        = IF(trade_count = 0, VALUES(close_price),        close_price),
+                vwap               = IF(trade_count = 0, VALUES(vwap),               vwap),
+                buy_volume         = IF(trade_count = 0, VALUES(buy_volume),         buy_volume),
+                sell_volume        = IF(trade_count = 0, VALUES(sell_volume),        sell_volume),
+                total_volume       = IF(trade_count = 0, VALUES(total_volume),       total_volume),
+                buy_quantity       = IF(trade_count = 0, VALUES(buy_quantity),       buy_quantity),
+                sell_quantity      = IF(trade_count = 0, VALUES(sell_quantity),      sell_quantity),
+                delta              = IF(trade_count = 0, VALUES(delta),              delta),
+                buy_trade_count    = IF(trade_count = 0, VALUES(buy_trade_count),    buy_trade_count),
+                sell_trade_count   = IF(trade_count = 0, VALUES(sell_trade_count),   sell_trade_count),
+                trade_count        = IF(trade_count = 0, VALUES(trade_count),        trade_count)
             """;
 
         while (startMs < toMs) {
@@ -431,32 +440,38 @@ public class ManualBackfillService {
         return jdbc.update("""
             DELETE FROM %s
             WHERE symbol = ? AND market_type = ?
-              AND open_price = high_price
-              AND open_price = low_price
-              AND open_price = close_price
+              AND trade_count = 0
             """.formatted(table), symbol, marketType);
     }
 
     // ─── Data Health ─────────────────────────────────────────────────────────
 
-    public Map<String, Object> getDataHealth(String symbol, String marketType) {
+    public Map<String, Object> getDataHealth(String symbol, String marketType, long fromMs, long toMs) {
         Map<String, Object> result = new java.util.LinkedHashMap<>();
 
-        String flatSql = """
+        // raw에 거래가 있는데 1s가 flat(trade_count=0)인 진짜 불일치만 카운트
+        // raw_agg_trade는 오래된 데이터가 삭제될 수 있으므로 지정 범위 내만 체크
+        // IN + MATERIALIZED 방식: raw를 한 번만 범위 스캔 후 hash 매칭 (correlated EXISTS 대비 대폭 개선)
+        String mismatchSql = """
             SELECT
-                COUNT(*)                                    AS flat_count,
-                FROM_UNIXTIME(MIN(candle_time_ms) / 1000)  AS flat_from,
-                FROM_UNIXTIME(MAX(candle_time_ms) / 1000)  AS flat_to
-            FROM %s
-            WHERE symbol = ? AND market_type = ?
-              AND open_price = high_price
-              AND open_price = low_price
-              AND open_price = close_price
+                COUNT(*)                                      AS flat_count,
+                FROM_UNIXTIME(MIN(s.candle_time_ms) / 1000)  AS flat_from,
+                FROM_UNIXTIME(MAX(s.candle_time_ms) / 1000)  AS flat_to
+            FROM agg_trade_1s s
+            WHERE s.symbol = ? AND s.market_type = ?
+              AND s.trade_count = 0
+              AND s.candle_time_ms >= ? AND s.candle_time_ms < ?
+              AND s.candle_time_ms IN (
+                  SELECT FLOOR(traded_at / 1000) * 1000
+                  FROM raw_agg_trade
+                  WHERE symbol = ? AND market_type = ?
+                    AND traded_at >= ? AND traded_at < ?
+              )
             """;
 
-        result.put("flat1s", jdbc.queryForMap(String.format(flatSql, "agg_trade_1s"), symbol, marketType));
-        result.put("flat1m", jdbc.queryForMap(String.format(flatSql, "agg_trade_1m"), symbol, marketType));
-        result.put("flat5m", jdbc.queryForMap(String.format(flatSql, "agg_trade_5m"), symbol, marketType));
+        result.put("mismatch1s", jdbc.queryForMap(mismatchSql,
+            symbol, marketType, fromMs, toMs,
+            symbol, marketType, fromMs, toMs));
 
         return result;
     }

@@ -175,6 +175,7 @@ public class AggTradeRollupService {
         Long lastMs = agg5mRepository
             .findMaxCandleTimeMsBySymbolAndMarketType(symbol, marketType)
             .orElse(null);
+        long to5mMs = (nowMs / 300_000L) * 300_000L; // 미완료 구간 제외
         long fromMs;
         if (lastMs == null) {
             Long firstMs = jdbcTemplate.queryForObject(
@@ -186,9 +187,27 @@ public class AggTradeRollupService {
             }
             fromMs = (firstMs / 300_000L) * 300_000L;
         } else {
-            fromMs = lastMs + 300_000L;
+            // 중간 갭 탐지: 7일 내 1m봉은 있지만 5m봉이 없는 최초 구간
+            long lookbackMs = nowMs - 7 * 24 * 60 * 60 * 1000L;
+            Long firstGapMs = jdbcTemplate.queryForObject(
+                """
+                SELECT MIN(FLOOR(m.candle_time_ms / 300000) * 300000)
+                FROM agg_trade_1m m
+                WHERE m.symbol = ? AND m.market_type = ?
+                  AND m.candle_time_ms >= ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM agg_trade_5m f
+                      WHERE f.symbol = m.symbol
+                        AND f.market_type = m.market_type
+                        AND f.candle_time_ms = FLOOR(m.candle_time_ms / 300000) * 300000
+                  )
+                """,
+                Long.class, symbol, marketType, lookbackMs);
+            long forwardFrom = lastMs + 300_000L;
+            fromMs = (firstGapMs != null) ? firstGapMs : forwardFrom;
+            log.info("[RollupCatchUp] {} {} 5m lastMs={}, firstGap={}, fromMs={}",
+                symbol, marketType, lastMs, firstGapMs, fromMs);
         }
-        long to5mMs = (nowMs / 300_000L) * 300_000L; // nowMs 기준 현재 5분 구간 시작 (미완료 구간 제외)
         if (fromMs >= to5mMs) return;
 
         log.info("[RollupCatchUp] {} {} 5m catch-up {} ~ {}", symbol, marketType, fromMs, to5mMs);
@@ -417,24 +436,24 @@ public class AggTradeRollupService {
             SELECT
                 symbol,
                 market_type,
-                MIN(candle_time_ms)     AS candle_time_ms,
-                MIN(low_price)          AS low_price,
-                MAX(high_price)         AS high_price,
-                SUM(buy_volume)         AS buy_volume,
-                SUM(sell_volume)        AS sell_volume,
-                SUM(total_volume)       AS total_volume,
-                SUM(buy_quantity)       AS buy_quantity,
-                SUM(sell_quantity)      AS sell_quantity,
-                SUM(buy_trade_count)    AS buy_trade_count,
-                SUM(sell_trade_count)   AS sell_trade_count,
-                SUM(trade_count)        AS trade_count,
-                MIN(min_agg_trade_id)   AS min_agg_trade_id,
-                MAX(max_agg_trade_id)   AS max_agg_trade_id,
-                MIN(min_first_trade_id) AS min_first_trade_id,
-                MAX(max_last_trade_id)  AS max_last_trade_id
+                FLOOR(candle_time_ms / 300000) * 300000  AS candle_time_ms,
+                MIN(low_price)                           AS low_price,
+                MAX(high_price)                          AS high_price,
+                SUM(buy_volume)                          AS buy_volume,
+                SUM(sell_volume)                         AS sell_volume,
+                SUM(total_volume)                        AS total_volume,
+                SUM(buy_quantity)                        AS buy_quantity,
+                SUM(sell_quantity)                       AS sell_quantity,
+                SUM(buy_trade_count)                     AS buy_trade_count,
+                SUM(sell_trade_count)                    AS sell_trade_count,
+                SUM(trade_count)                         AS trade_count,
+                MIN(min_agg_trade_id)                    AS min_agg_trade_id,
+                MAX(max_agg_trade_id)                    AS max_agg_trade_id,
+                MIN(min_first_trade_id)                  AS min_first_trade_id,
+                MAX(max_last_trade_id)                   AS max_last_trade_id
             FROM agg_trade_1m
             WHERE candle_time_ms >= ? AND candle_time_ms < ?
-            GROUP BY symbol, market_type
+            GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
             """;
         return jdbcTemplate.queryForList(sql, startMs, endMs);
     }
