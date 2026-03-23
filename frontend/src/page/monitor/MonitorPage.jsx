@@ -165,7 +165,7 @@ export default function MonitorPage() {
                 <div className={styles.topRow}>
                     <div className={styles.gauges}>
                         <GaugeBar label="CPU"  value={snapshot?.cpu  ?? null} />
-                        <GaugeBar label="RAM"  value={snapshot?.ram  ?? null} />
+                        <GaugeBar label="RAM (1 GB)"  value={snapshot?.ram  ?? null} />
                         <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
                         <LastUpdatedChip collectedAt={lastUpdatedAt} fmtTime={fmtTime} styles={styles} />
                     </div>
@@ -230,7 +230,7 @@ export default function MonitorPage() {
                         {!isMobile && (
                             <section className={styles.dockerCard}>
                                 <div className={styles.dockerHeader}>
-                                    <div className={styles.dockerTitle}>Docker</div>
+                                    <div className={styles.dockerTitle}>Docker <span style={{fontSize:'0.75rem', opacity:0.6}}>(Swap memory 8 GB)</span></div>
                                     <div className={`${styles.dockerStatus} ${anyContainerBad ? styles.dockerStatusBad : styles.dockerStatusOk}`}>
                                         {dockerSummary}
                                     </div>
