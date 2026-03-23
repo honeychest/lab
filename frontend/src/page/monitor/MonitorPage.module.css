@@ -166,7 +166,7 @@
   border-radius: 14px;
   padding: 14px;
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.04);
-  height: 106px;
+  min-height: 106px;
   overflow: hidden;
 }
 
@@ -216,7 +216,7 @@
 
 .wsBreakdown {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--monitor-text-secondary);
 }

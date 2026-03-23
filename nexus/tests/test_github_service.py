@@ -76,7 +76,7 @@ class TestGetRepoInfo(unittest.IsolatedAsyncioTestCase):
 
         mock_get.side_effect = [meta, readme]
 
-        with patch("services.github_service.asyncio.get_event_loop") as mock_loop:
+        with patch("services.github_service.asyncio.get_running_loop") as mock_loop:
             loop = MagicMock()
             mock_loop.return_value = loop
 

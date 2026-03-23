@@ -55,7 +55,7 @@ async def get_repo_info(url: str) -> dict:
     meta_url = f"{_GITHUB_API}/repos/{owner}/{repo}"
     readme_url = f"{_GITHUB_API}/repos/{owner}/{repo}/readme"
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     meta_resp, readme_resp = await asyncio.gather(
         loop.run_in_executor(None, lambda: requests.get(meta_url, headers=headers, timeout=10)),
         loop.run_in_executor(None, lambda: requests.get(readme_url, headers=headers, timeout=10)),
@@ -82,7 +82,7 @@ async def get_repo_info(url: str) -> dict:
             readme_data = readme_resp.json()
             encoded = readme_data.get("content", "")
             readme_text = base64.b64decode(encoded).decode("utf-8", errors="replace")
-            readme_text = readme_text[:8000]  # 앞 8000자만 (UTF-8 문자 기준)
+            readme_text = readme_text[:40000]  # webpage_service와 동일 기준
         except Exception as e:
             logger.warning(f"README 디코딩 실패, description만 사용: {e}")
 

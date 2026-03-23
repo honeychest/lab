@@ -26,10 +26,7 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = data[len("refresh:"):]
     await query.edit_message_text("🔄 갱신 중...")
 
-    # 기존 페이지 삭제
     existing_id = await exists(url)
-    if existing_id:
-        await delete_page(existing_id)
 
     try:
         repo_info = await get_repo_info(url)
@@ -48,6 +45,10 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     result = await summarize_github(repo_info)
     await save(url, result["title"], result["summary"], platform="github")
+
+    # 새 저장 성공 후 기존 페이지 삭제 (실패해도 새 데이터는 보존됨)
+    if existing_id:
+        await delete_page(existing_id)
 
     meta_line = f"⭐ {repo_info['stars']} | {repo_info['language']} | {repo_info['license']}"
     reply_text = f"{meta_line}\n\n{result['summary'][:_TELEGRAM_MAX]}"

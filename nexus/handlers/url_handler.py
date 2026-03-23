@@ -37,7 +37,12 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if platform == "shorts" and not settings.YOUTUBE_SHORTS_ENABLED:
             await update.message.reply_text("youtube shorts 는 6/1 이후 맥미니에서만 가능합니다.")
         elif platform == "github":
-            await _handle_github(update, context, url)
+            from services.github_service import _parse_github_url
+            if _parse_github_url(url):
+                await _handle_github(update, context, url)
+            else:
+                # github.com이지만 레포가 아닌 URL (프로필, gist 등) → 웹페이지로 fallback
+                await _handle_generic(update, url, "web")
         else:
             await _handle_generic(update, url, platform)
 
