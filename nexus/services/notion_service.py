@@ -10,8 +10,8 @@ client = AsyncClient(auth=settings.NOTION_API_KEY)
 async def exists(url: str) -> str | None:
     """URL이 Notion DB에 이미 저장되어 있으면 page_id 반환, 없으면 None."""
     try:
-        response = await client.databases.query(
-            database_id=settings.NOTION_DATABASE_ID,
+        response = await client.data_sources.query(
+            data_source_id=settings.NOTION_DATABASE_ID,
             filter={"property": "원본", "url": {"equals": url}},
         )
         results = response.get("results", [])
