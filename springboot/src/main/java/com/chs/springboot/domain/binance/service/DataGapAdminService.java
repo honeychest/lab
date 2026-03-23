@@ -55,7 +55,7 @@ public class DataGapAdminService {
             ) t
             WHERE next_id - agg_trade_id > 1
             ORDER BY missing_count DESC
-            LIMIT 200
+            LIMIT 100
             """;
         return jdbc.queryForList(sql);
     }
@@ -84,7 +84,7 @@ public class DataGapAdminService {
             ) t
             WHERE next_candle_ms - candle_time_ms > %d
             ORDER BY missing_candles DESC
-            LIMIT 200
+            LIMIT 100
             """, intervalMs, intervalMs, intervalMs, intervalMs, table, intervalMs);
         return jdbc.queryForList(sql);
     }
@@ -111,7 +111,7 @@ public class DataGapAdminService {
             ) t
             WHERE collected_at_ms - prev_time_ms > 600000
             ORDER BY gap_minutes DESC
-            LIMIT 200
+            LIMIT 100
             """;
         return jdbc.queryForList(sql);
     }
