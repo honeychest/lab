@@ -7,6 +7,10 @@ export default function ShortPanel({ energy, trades, compact = false }) {
     };
 
     const formatQty = (qty) => parseFloat(qty).toFixed(3);
+    const formatPrice = (price) => {
+        const num = parseFloat(price);
+        return num < 1 ? num.toFixed(4) : formatWithComma(Math.floor(num));
+    };
 
     return (
         <div
@@ -75,7 +79,7 @@ export default function ShortPanel({ energy, trades, compact = false }) {
                         <span style={{ color: trade.marketType === 'FUTURES' ? '#ff3b5c' : 'rgba(255,255,255,0.4)' }}>
                             [{trade.marketType === 'FUTURES' ? 'F' : 'S'}]
                         </span>
-                        <span style={{ textAlign: 'right' }}>${formatWithComma(Math.floor(trade.price))}</span>
+                        <span style={{ textAlign: 'right' }}>${formatPrice(trade.price)}</span>
                         <span style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{formatQty(trade.quantity)}</span>
                     </div>
                     );
