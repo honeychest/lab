@@ -1,0 +1,23 @@
+.pageWrap {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    padding: 18px;
+    box-sizing: border-box;
+    background:
+            radial-gradient(circle at 20% 10%, rgba(120, 80, 255, 0.16), transparent 40%),
+            radial-gradient(circle at 85% 80%, rgba(0, 245, 160, 0.14), transparent 38%),
+            #070b17;
+}
+
+@media (max-width: 900px) {
+    .pageWrap {
+        justify-content: stretch;
+        align-items: flex-start;
+        padding: 12px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+}

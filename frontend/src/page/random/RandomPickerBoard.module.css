@@ -1,0 +1,605 @@
+.card {
+    width: 100%;
+    max-width: 1400px;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    height: 64px;
+    padding: 8px 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #eef4ff;
+}
+
+.grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 14px;
+}
+
+.leftPanel {
+    border: 1px solid rgba(129, 149, 201, 0.24);
+    border-radius: 14px;
+    background: rgba(10, 16, 34, 0.72);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.inputCard {
+    border-radius: 14px;
+    border: 1px solid rgba(137, 160, 224, 0.2);
+    background: linear-gradient(180deg, rgba(15, 24, 48, 0.96), rgba(10, 16, 34, 0.92));
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+}
+
+.inputHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.headerStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.label {
+    display: block;
+    font-size: 0.9rem;
+    color: #dce7ff;
+    font-weight: 700;
+}
+
+.pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(93, 111, 255, 0.16);
+    border: 1px solid rgba(115, 134, 255, 0.28);
+    color: #cfd9ff;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.addRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 8px;
+}
+
+.menuInput {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(146, 165, 223, 0.28);
+    background: #0c1226;
+    color: #eaf2ff;
+    padding: 10px 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.menuInput:focus {
+    border-color: #74a6ff;
+    box-shadow: 0 0 0 3px rgba(91, 161, 255, 0.2);
+}
+
+.addButton {
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1f9fff, #00c2a8);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.addButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.badgePanel {
+    min-height: 140px;
+    max-height: 260px;
+    overflow: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 12px;
+    background: rgba(8, 14, 30, 0.7);
+}
+
+.menuBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 7px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(129, 149, 201, 0.2);
+    background: linear-gradient(135deg, rgba(39, 54, 98, 0.96), rgba(24, 33, 62, 0.92));
+    color: #edf4ff;
+    cursor: pointer;
+}
+
+.menuBadge:disabled {
+    cursor: default;
+    opacity: 0.94;
+}
+
+.menuBadgeText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.menuBadgeRemove {
+    color: #a8b9e0;
+    font-size: 0.92rem;
+    line-height: 1;
+}
+
+.statusPill {
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(45, 212, 191, 0.12);
+    border: 1px solid rgba(45, 212, 191, 0.24);
+    color: #9df0e2;
+    font-weight: 700;
+}
+
+.buttonRow {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.menuResetButton {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    flex: 1 1 calc(50% - 8px);
+}
+
+.primaryButton {
+    background: linear-gradient(135deg, #5f6fff, #8c4dff);
+}
+
+.secondaryButton {
+    background: linear-gradient(135deg, #1f9fff, #00c2a8);
+}
+
+.ghostButton {
+    background: #2a3556;
+    flex-basis: calc(50% - 8px);
+}
+
+.menuResetButton {
+    background: #38466e;
+    flex-basis: calc(50% - 8px);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.ghostButton:disabled,
+.menuResetButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.boardPanel {
+    border: 1px solid rgba(129, 149, 201, 0.24);
+    border-radius: 14px;
+    background: rgba(10, 16, 34, 0.72);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.boardViewport {
+    flex: 1;
+    min-height: 280px;
+    overflow: hidden;
+    padding: 14px;
+}
+
+.boardSurface {
+    width: 100%;
+    margin: 0 auto;
+    position: relative;
+}
+
+.stageScaler {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform-origin: top center;
+    will-change: transform;
+}
+
+.stage {
+    width: 1040px;
+    height: 960px;
+    max-width: none;
+    overflow: hidden;
+}
+
+.winnerDock {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    min-width: 220px;
+    max-width: 54%;
+    padding: 10px 16px 12px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 228, 156, 0.72);
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255, 223, 133, 0.28), transparent 48%),
+        linear-gradient(135deg, rgba(34, 42, 70, 0.96), rgba(20, 24, 42, 0.94));
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.34),
+        0 0 26px rgba(255, 214, 102, 0.16);
+    text-align: center;
+    pointer-events: none;
+    animation: winnerDockIn 260ms ease-out;
+}
+
+.winnerDockLabel {
+    display: block;
+    margin-bottom: 4px;
+    color: #ffe6a6;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+}
+
+.winnerDockValue {
+    display: block;
+    color: #fff7dc;
+    font-size: 1.15rem;
+    font-weight: 900;
+    text-shadow: 0 0 18px rgba(255, 214, 102, 0.24);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.resultCard {
+    margin: 0 10px 10px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(27, 38, 66, 0.96), rgba(16, 24, 46, 0.92));
+    border: 1px solid rgba(142, 170, 255, 0.34);
+    box-shadow: 0 18px 44px rgba(4, 8, 20, 0.44);
+    padding: 12px 14px;
+    animation: rankPanelIn 320ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.rankRow {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.rankRow + .rankRow {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(119, 145, 224, 0.12);
+}
+
+.resultTitle {
+    display: inline-block;
+    color: #9fb3da;
+}
+
+.resultValue {
+    color: #fff6d6;
+    text-shadow: 0 0 22px rgba(255, 214, 102, 0.34);
+}
+
+.resultSubValue {
+    color: #c7d4ee;
+}
+
+.fanfareOverlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: grid;
+    place-items: center;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.fanfareGlow,
+.fanfareBurst,
+.fanfareBurstSecondary {
+    position: absolute;
+    border-radius: 999px;
+    animation: fanfarePulse 1.8s ease-out forwards;
+}
+
+.fanfareGlow {
+    width: 540px;
+    height: 540px;
+    background: radial-gradient(circle, rgba(255, 213, 102, 0.26), rgba(255, 213, 102, 0.08), transparent 70%);
+}
+
+.fanfareBurst {
+    width: 760px;
+    height: 760px;
+    background:
+        conic-gradient(from 0deg, rgba(255, 214, 102, 0.0), rgba(255, 214, 102, 0.65), rgba(255, 214, 102, 0.0), rgba(128, 185, 255, 0.45), rgba(255, 214, 102, 0.0));
+    filter: blur(24px);
+    opacity: 0.7;
+}
+
+.fanfareBurstSecondary {
+    width: 980px;
+    height: 980px;
+    background:
+        radial-gradient(circle, rgba(255,255,255,0.18), transparent 36%),
+        conic-gradient(from 90deg, rgba(255,255,255,0), rgba(167, 139, 250, 0.28), rgba(255,255,255,0), rgba(96, 165, 250, 0.24), rgba(255,255,255,0));
+    filter: blur(36px);
+    opacity: 0.65;
+}
+
+.fanfareBox {
+    position: relative;
+    border: 1px solid rgba(255, 230, 160, 0.78);
+    background:
+        radial-gradient(circle at 50% 15%, rgba(255, 226, 149, 0.3), rgba(125, 92, 255, 0.28), rgba(18, 26, 52, 0.92));
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.08) inset,
+        0 0 60px rgba(255, 214, 102, 0.2),
+        0 24px 70px rgba(0, 0, 0, 0.46);
+    border-radius: 28px;
+    padding: 28px 34px 24px;
+    text-align: center;
+    animation: popIn 320ms cubic-bezier(.2, .85, .25, 1.15);
+}
+
+.fanfareRibbon {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255, 214, 102, 0.96), rgba(255, 244, 196, 0.92));
+    color: #322100;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.24em;
+}
+
+.fanfareSmall {
+    font-size: 1rem;
+    color: #fff0c4;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.fanfareMain {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.02em;
+    text-shadow:
+        0 0 22px rgba(255, 221, 128, 0.34),
+        0 4px 22px rgba(0, 0, 0, 0.34);
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.82) translateY(12px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes fanfarePulse {
+    from {
+        transform: scale(0.72);
+        opacity: 0;
+    }
+    22% {
+        opacity: 0.92;
+    }
+    to {
+        transform: scale(1.08);
+        opacity: 0;
+    }
+}
+
+@keyframes rankPanelIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes winnerDockIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 900px) {
+    .card {
+        height: auto;
+        min-height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        align-content: start;
+    }
+
+    .boardPanel {
+        order: 1;
+    }
+
+    .leftPanel {
+        order: 2;
+    }
+
+    .leftPanel {
+        max-height: none;
+    }
+
+    .boardPanel {
+        min-height: 320px;
+        overflow: visible;
+    }
+
+    .boardViewport {
+        min-height: 280px;
+        padding-top: 6px;
+        overflow: auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .header {
+        height: auto;
+        padding: 8px 10px 4px;
+    }
+
+    .header h2 {
+        font-size: 1rem;
+    }
+
+    .leftPanel,
+    .boardPanel {
+        border-radius: 12px;
+    }
+
+    .leftPanel {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .buttonRow {
+        order: 1;
+    }
+
+    .inputCard {
+        order: 2;
+    }
+
+    .inputCard {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .grid {
+        gap: 10px;
+    }
+
+    .pill {
+        display: none;
+    }
+
+    .headerStatus {
+        justify-content: flex-end;
+    }
+
+    .addRow {
+        grid-template-columns: 1fr 68px;
+    }
+
+    .badgePanel {
+        min-height: 0;
+        max-height: 88px;
+        gap: 4px;
+        padding: 2px;
+    }
+
+    .buttonRow {
+        gap: 6px;
+    }
+
+    .menuBadge {
+        padding: 5px 8px;
+    }
+
+    .menuBadgeText {
+        font-size: 0.72rem;
+    }
+
+    .menuBadgeRemove {
+        font-size: 0.78rem;
+    }
+
+    .primaryButton,
+    .secondaryButton,
+    .ghostButton,
+    .menuResetButton {
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: 0.95rem;
+    }
+
+    .boardViewport {
+        min-height: 240px;
+    }
+}

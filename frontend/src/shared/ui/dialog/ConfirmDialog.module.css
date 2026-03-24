@@ -1,0 +1,90 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(2, 6, 18, 0.62);
+    backdrop-filter: blur(10px);
+}
+
+.dialog {
+    width: min(100%, 420px);
+    border-radius: 22px;
+    border: 1px solid rgba(126, 149, 227, 0.28);
+    background:
+        radial-gradient(circle at top, rgba(117, 132, 255, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(16, 24, 47, 0.98), rgba(10, 16, 33, 0.98));
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.48),
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    padding: 22px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.title {
+    margin: 0;
+    color: #eef4ff;
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.description {
+    margin: 10px 0 0;
+    color: #b5c4e6;
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.cancelButton,
+.confirmButton {
+    border: 0;
+    border-radius: 12px;
+    min-width: 88px;
+    padding: 10px 14px;
+    font-weight: 800;
+    color: #fff;
+    cursor: pointer;
+}
+
+.cancelButton {
+    background: #2e3a5f;
+}
+
+.confirmButton {
+    background: linear-gradient(135deg, #5f6fff, #1fc4d7);
+}
+
+@media (max-width: 640px) {
+    .overlay {
+        padding: 16px;
+    }
+
+    .dialog {
+        border-radius: 18px;
+        padding: 18px;
+    }
+
+    .actions {
+        flex-direction: column-reverse;
+    }
+
+    .cancelButton,
+    .confirmButton {
+        width: 100%;
+    }
+}
