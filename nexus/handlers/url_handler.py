@@ -7,9 +7,6 @@ from services.webpage_service import get_content
 from services.github_service import get_repo_info
 from services.ai_service import summarize, summarize_github, summarize_youtube
 from services.notion_service import save, exists
-from config import settings
-
-
 logger = logging.getLogger(__name__)
 
 _TELEGRAM_MAX = 1500  # 텔레그램 요약 최대 글자 수
@@ -33,10 +30,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         platform = _get_platform(url)
-
-        if platform == "shorts" and not settings.YOUTUBE_SHORTS_ENABLED:
-            await update.message.reply_text("youtube shorts 는 6/1 이후 맥미니에서만 가능합니다.")
-            return
 
         existing_id = await exists(url)
         if existing_id:
