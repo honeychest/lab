@@ -17,6 +17,7 @@ const CHECKS = [
     { type: 'OI',            label: 'Open Interest',      days: null, desc: '10분 이상 공백' },
 ];
 
+const HEALTH_HOURS_OPTIONS = [1, 2, 4, 12, 24, 48];
 const SYMBOLS   = ['BTCUSDT', 'ENAUSDT'];
 const MARKETS   = ['SPOT', 'FUTURES'];
 // FORCE_ORDER·OI는 marketType 불필요
@@ -78,13 +79,10 @@ export default function AdminPage() {
     // ── 데이터 품질 ──────────────────────────────────────────────────────────
     const [healthSymbol, setHealthSymbol] = useState('BTCUSDT');
     const [healthMarket, setHealthMarket] = useState('FUTURES');
+    const [healthHours,  setHealthHours]  = useState(1);
     const [healthData,   setHealthData]   = useState(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError,   setHealthError]   = useState(null);
-    const todayStr     = new Date().toISOString().slice(0, 10);
-    const yesterdayStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    const [healthFrom, setHealthFrom] = useState(yesterdayStr);
-    const [healthTo,   setHealthTo]   = useState(todayStr);
 
     // ── 허용 IP 관리 ─────────────────────────────────────────────────────────
     const [allowedIps, setAllowedIps] = useState([]);
@@ -112,8 +110,8 @@ export default function AdminPage() {
         setHealthError(null);
         setHealthData(null);
         try {
-            const fromMs = new Date(healthFrom).getTime();
-            const toMs   = new Date(healthTo).getTime() + 86_400_000 - 1; // 선택 날짜 끝까지
+            const toMs   = Date.now();
+            const fromMs = toMs - healthHours * 60 * 60 * 1000;
             const r = await axios.get('/api/admin/backfill/health', {
                 params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
             });
@@ -387,12 +385,12 @@ export default function AdminPage() {
                                     </select>
                                 </div>
                                 <div className={styles.field}>
-                                    <div className={styles.label}>From</div>
-                                    <input type="date" className={styles.select} value={healthFrom} onChange={e => setHealthFrom(e.target.value)} />
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>To</div>
-                                    <input type="date" className={styles.select} value={healthTo} onChange={e => setHealthTo(e.target.value)} />
+                                    <div className={styles.label}>기간</div>
+                                    <select className={styles.select} value={healthHours} onChange={e => setHealthHours(Number(e.target.value))}>
+                                        {HEALTH_HOURS_OPTIONS.map(h => (
+                                            <option key={h} value={h}>{h}시간</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className={styles.field}>
                                     <div className={styles.label}>Action</div>

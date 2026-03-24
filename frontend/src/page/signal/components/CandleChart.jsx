@@ -207,7 +207,7 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             : 'rgba(var(--sell-rgb), 0.9)';
         const deltaLabel  = tooltip.delta >= 0 ? '순매수' : '순매도';
         const deltaStr    = tooltip.delta != null
-            ? `${deltaLabel} ${tooltip.delta >= 0 ? '+' : ''}${Number(tooltip.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC`
+            ? `${deltaLabel} ${tooltip.delta >= 0 ? '+' : ''}${Number(tooltip.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${symbol.replace('USDT', '')}`
             : null;
 
         const containerW = tooltip.containerW ?? 0;

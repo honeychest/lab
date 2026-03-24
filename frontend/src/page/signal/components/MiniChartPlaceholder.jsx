@@ -6,21 +6,21 @@ import CandleChart from './CandleChart.jsx';
 import EnergyGauge from './EnergyGauge.jsx';
 import TugOfWar from './TugOfWar.jsx';
 
-function getLastOiValue(oiData) {
+function getLastOiValue(oiData, symbol) {
     if (!oiData || oiData.length === 0) return null;
     const sorted = [...oiData].sort((a, b) => b.collectedAtMs - a.collectedAtMs);
     const val = parseFloat(sorted[0].openInterest);
-    return Math.round(val).toLocaleString() + ' BTC';
+    return Math.round(val).toLocaleString() + ' ' + symbol.replace('USDT', '');
 }
 
-function getLastDelta(candleHistory) {
+function getLastDelta(candleHistory, symbol) {
     if (!candleHistory || candleHistory.length === 0) return null;
     const sorted = [...candleHistory].sort((a, b) => b.time - a.time);
     const delta = sorted[0]?.delta ?? null;
     if (delta === null) return null;
     const label = delta >= 0 ? '순매수' : '순매도';
     const sign  = delta >= 0 ? '+' : '';
-    return { label, text: `${label} ${sign}${Number(delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC`, positive: delta >= 0 };
+    return { label, text: `${label} ${sign}${Number(delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${symbol.replace('USDT', '')}`, positive: delta >= 0 };
 }
 
 const slotStyle = {
@@ -50,8 +50,8 @@ const contentStyle = {
 };
 
 export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistory = [], candleType, rangeMs, onCandleTime, onCandleUpdate, longEnergy, shortEnergy }) {
-    const lastOiValue  = getLastOiValue(oiData);
-    const lastDelta    = getLastDelta(candleHistory);
+    const lastOiValue  = getLastOiValue(oiData, symbol);
+    const lastDelta    = getLastDelta(candleHistory, symbol);
 
     return (
         <div
