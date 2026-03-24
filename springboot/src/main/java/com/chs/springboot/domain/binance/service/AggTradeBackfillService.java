@@ -3,8 +3,8 @@
 // 대상: BTCUSDT SPOT, ENAUSDT SPOT/FUTURES | weight 90% 도달 시 60초 후 재시도 | rescheduleMinutes()로 flush 부하 시 4분 연기
 package com.chs.springboot.domain.binance.service;
 
-import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.model.AggTradeCollectStatus;
+import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.telegram.TelegramLog;
@@ -13,7 +13,9 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -299,14 +303,13 @@ public class AggTradeBackfillService {
                         currentFromId, array.size(), batchMinId, batchMaxId);
             }
 
-            String sql = "INSERT INTO raw_agg_trade " +
+            String sql = "INSERT IGNORE INTO raw_agg_trade " +
                     "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) " +
-                    "ON DUPLICATE KEY UPDATE id = id";
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) ";
 
-            jdbcTemplate.batchUpdate(sql, new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+            var setter = new BatchPreparedStatementSetter() {
                 @Override
-                public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
                     RawAggTrade t = entities.get(i);
                     ps.setString(1, t.getSymbol());
                     ps.setString(2, t.getMarketType());
@@ -323,7 +326,18 @@ public class AggTradeBackfillService {
                 public int getBatchSize() {
                     return entities.size();
                 }
-            });
+            };
+            try {
+                jdbcTemplate.batchUpdate(sql, setter);
+            } catch (DeadlockLoserDataAccessException e) {
+                log.warn("[AggtradeBackfill] 데드락 감지, 500ms 후 재시도 - symbol={} marketType={}", symbol, marketType);
+                try {
+                    Thread.sleep(500);
+                }catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                jdbcTemplate.batchUpdate(sql, setter);
+            }
 
             if (array.size() < 1000) {
                 break;

@@ -288,10 +288,9 @@ public class AggTradeStorageService {
     }
 
     private void batchInsert(List<RawAggTrade> entities, long startMs) {
-        String sql = "INSERT INTO raw_agg_trade " +
+        String sql = "INSERT IGNORE INTO raw_agg_trade " +
                 "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) " +
-                "ON DUPLICATE KEY UPDATE id = id";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) ";
 
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override

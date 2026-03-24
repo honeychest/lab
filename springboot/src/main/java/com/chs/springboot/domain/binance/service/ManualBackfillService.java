@@ -151,10 +151,9 @@ public class ManualBackfillService {
 
             if (!batch.isEmpty()) {
                 String sql = """
-                    INSERT INTO raw_agg_trade
+                    INSERT IGNORE INTO raw_agg_trade
                     (symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6))
-                    ON DUPLICATE KEY UPDATE id = id
                     """;
                 jdbc.batchUpdate(sql, batch);
                 total += batch.size();
