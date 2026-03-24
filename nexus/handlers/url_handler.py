@@ -1,13 +1,14 @@
 import logging
 import requests
+import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from services.youtube_service import get_transcript, TranscriptUnavailable, TranscriptBlocked
 from services.webpage_service import get_content
 from services.github_service import get_repo_info
-from services.ai_service import summarize, summarize_github
+from services.ai_service import summarize, summarize_github, summarize_youtube
 from services.notion_service import save, exists
 from config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,19 +30,34 @@ def _get_platform(url: str) -> str:
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
-    await update.message.reply_text("🔍 분석 중...")
 
     try:
         platform = _get_platform(url)
 
         if platform == "shorts" and not settings.YOUTUBE_SHORTS_ENABLED:
             await update.message.reply_text("youtube shorts 는 6/1 이후 맥미니에서만 가능합니다.")
-        elif platform == "github":
+            return
+
+        existing_id = await exists(url)
+        if existing_id:
+            key = uuid.uuid4().hex[:8]
+            context.user_data[key] = url
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("갱신하기", callback_data=f"refresh:{key}"),
+                    InlineKeyboardButton("취소", callback_data="cancel"),
+                ]
+            ])
+            await update.message.reply_text("이미 저장된 URL입니다. 갱신하시겠습니까?", reply_markup=keyboard)
+            return
+
+        await update.message.reply_text("🔍 분석 중...")
+
+        if platform == "github":
             from services.github_service import _parse_github_url
             if _parse_github_url(url):
                 await _handle_github(update, context, url)
             else:
-                # github.com이지만 레포가 아닌 URL (프로필, gist 등) → 웹페이지로 fallback
                 await _handle_generic(update, url, "web")
         else:
             await _handle_generic(update, url, platform)
@@ -53,20 +69,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _handle_github(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    existing_id = await exists(url)
-    if existing_id:
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("갱신하기", callback_data=f"refresh:{url}"),
-                InlineKeyboardButton("취소", callback_data="cancel"),
-            ]
-        ])
-        await update.message.reply_text(
-            "이미 저장된 레포입니다. 갱신하시겠습니까?",
-            reply_markup=keyboard,
-        )
-        return
-
     try:
         repo_info = await get_repo_info(url)
     except requests.HTTPError as e:
@@ -94,18 +96,14 @@ async def _handle_github(update: Update, context: ContextTypes.DEFAULT_TYPE, url
 async def _handle_generic(update: Update, url: str, platform: str):
     try:
         if platform in ("youtube", "shorts"):
-            text = await get_transcript(url)
+            result = await summarize_youtube(url)
         else:
             text = await get_content(url)
-    except (TranscriptUnavailable, TranscriptBlocked) as e:
-        await _log_failure(url, str(e))
-        await update.message.reply_text("⚠️ YouTube 영상을 처리할 수 없습니다. (자막 없음 또는 접근 차단)")
-        return
+            result = await summarize(text, url)
     except Exception as e:
         await _log_failure(url, str(e))
         raise
 
-    result = await summarize(text, url)
     await save(url, result["title"], result["summary"], platform)
     await update.message.reply_text(f"✔ 노션 저장 완료\n\n{result['summary'][:_TELEGRAM_MAX]}")
 

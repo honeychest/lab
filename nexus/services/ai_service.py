@@ -1,13 +1,94 @@
 import logging
 import re
+from google.genai import types
 from config import settings
 
 logger = logging.getLogger(__name__)
 
+YOUTUBE_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
+LLM_MODELS     = ["gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it", "gemma-3n-e2b-it", "gemma-3-1b-it"]
+
+
+async def summarize_youtube(url: str) -> dict:
+    """YouTube/Shorts URL을 Gemini에 직접 전달해 요약. AWS YouTube 차단 우회."""
+    from google import genai
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    prompt = _build_youtube_prompt()
+    for model in YOUTUBE_MODELS:
+        try:
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=[
+                    types.Part(file_data=types.FileData(file_uri=url)),
+                    prompt,
+                ]
+            )
+            return _parse_response(response.text)
+        except Exception as e:
+            logger.warning(f"youtube 모델 {model} 실패: {e}")
+    raise Exception("모든 youtube 모델 실패")
+
+
+async def summarize(text: str, source_url: str) -> dict:
+    """일반 텍스트 요약. llm_models 사용."""
+    prompt = _build_prompt(text, source_url)
+    return await _call_with_models(prompt, LLM_MODELS)
+
+
 async def summarize_github(repo_info: dict) -> dict:
     """GitHub 레포 전용 요약. 실행방법을 최우선으로 강조."""
     prompt = _build_github_prompt(repo_info)
-    return await _call_ai(prompt)
+    return await _call_with_models(prompt, LLM_MODELS)
+
+
+async def _call_with_models(prompt: str, models: list) -> dict:
+    if settings.AI_PROVIDER == "gemini":
+        return await _call_gemini(prompt, models)
+    return await _call_claude(prompt)
+
+
+async def _call_gemini(prompt: str, models: list) -> dict:
+    from google import genai
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    for model in models:
+        try:
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=prompt
+            )
+            return _parse_response(response.text)
+        except Exception as e:
+            logger.warning(f"모델 {model} 실패: {e}")
+    raise Exception("모든 모델 실패")
+
+
+async def _call_claude(prompt: str) -> dict:
+    from anthropic import AsyncAnthropic
+    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    message = await client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return _parse_response(message.content[0].text)
+
+
+def _build_youtube_prompt() -> str:
+    return """이 영상을 한국어로 요약해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
+요약 양식:
+제목: (한 줄 핵심 주제)
+  - 주요내용 내용 분량에 맞게 bullet 3~20개
+  - 한 줄 결론"""
+
+
+def _build_prompt(text: str, source_url: str) -> str:
+    return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
+요약 양식:
+제목: (한 줄 핵심 주제)
+  - 주요내용 내용 분량에 맞게 bullet 3~20개
+  - 한 줄 결론
+내용:
+{text}"""
 
 
 def _build_github_prompt(repo_info: dict) -> str:
@@ -34,53 +115,6 @@ README (앞 8000자):
 {readme_section}
 """
 
-
-async def summarize(text: str, source_url: str) -> dict:
-    prompt = _build_prompt(text, source_url)
-    return await _call_ai(prompt)
-
-
-async def _call_ai(prompt: str) -> dict:
-    if settings.AI_PROVIDER == "gemini":
-        return await _call_gemini(prompt)
-    return await _call_claude(prompt)
-
-
-async def _call_gemini(prompt: str) -> dict:
-    from google import genai
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    models = ["gemini-3.1-flash-lite-preview","gemma-3-27b-it","gemma-3-12b-it","gemma-3-4b-it","gemma-3n-e2b-it","gemma-3-1b-it"]
-    for model in models:
-        try:
-            response = await client.aio.models.generate_content(
-                model=model,
-                contents=prompt
-            )
-            return _parse_response(response.text)
-        except Exception as e:
-            logger.warning(f"모델 {model} 실패: {e}")
-    raise Exception("모든 모델 실패")
-
-
-async def _call_claude(prompt: str) -> dict:
-    from anthropic import AsyncAnthropic
-    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    message = await client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return _parse_response(message.content[0].text)
-
-def _build_prompt(text: str, source_url: str) -> str:
-    return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
-          요약 양식:
-          제목: (한 줄 핵심 주제)
-            - 주요내용 내용 분량에 맞게 bullet 3~20개
-            - 한 줄 결론
-          내용:
-          {text}
-                  """
 
 def _parse_response(text: str) -> dict:
     match = re.search(r'\*{0,2}제목:\*{0,2}\s*(.*)', text)
