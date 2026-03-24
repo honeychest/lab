@@ -1,4 +1,4 @@
-// [AGENT] 역할: 데이터 누락 구간 조회 + 수동 수집 어드민 페이지 | 연관파일: DataGapAdminController.java, ManualBackfillController.java
+// [AGENT] 역할: 데이터 누락 구간 조회 + 수동 수집 + 방문자 이력 어드민 페이지 | 연관파일: DataGapAdminController.java, ManualBackfillController.java, MonitorApiController.java
 // IP 인증: 마운트 시 /api/admin/data-gap/access 체크 → canAccess false면 접근 거부
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
 // 수동 수집: /api/admin/backfill/collect → Job 폴링
@@ -11,7 +11,6 @@ import '../../styles/themes/monitor-teal.css';
 
 const CHECKS = [
     { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (7일)', days: 7,    desc: 'agg_trade_id 연속성 갭 · 최근 7일' },
-    { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (전체)', days: null, desc: 'agg_trade_id 연속성 갭 · 전체 (느림)', danger: true },
     { type: 'AGG_1M',        label: '1분봉',               days: null, desc: 'candle_time_ms 1분 간격 초과' },
     { type: 'AGG_5M',        label: '5분봉',               days: null, desc: 'candle_time_ms 5분 간격 초과' },
     { type: 'OI',            label: 'Open Interest',      days: null, desc: '10분 이상 공백' },
@@ -84,6 +83,14 @@ export default function AdminPage() {
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError,   setHealthError]   = useState(null);
 
+    // ── 내 IP ────────────────────────────────────────────────────────────────
+    const [myIp, setMyIp] = useState(null);
+
+    // ── 방문자 이력 ───────────────────────────────────────────────────────────
+    const [visitorData,    setVisitorData]    = useState(null);
+    const [visitorLoading, setVisitorLoading] = useState(false);
+    const [visitorError,   setVisitorError]   = useState(null);
+
     // ── 허용 IP 관리 ─────────────────────────────────────────────────────────
     const [allowedIps, setAllowedIps] = useState([]);
     const [allowedLoading, setAllowedLoading] = useState(false);
@@ -155,6 +162,19 @@ export default function AdminPage() {
         }
     };
 
+    const loadVisitorLogs = async () => {
+        setVisitorLoading(true);
+        setVisitorError(null);
+        try {
+            const r = await axios.get('/api/admin/monitor/visitor-logs');
+            setVisitorData(r.data);
+        } catch (e) {
+            setVisitorError(e.response?.data?.error ?? '조회 실패');
+        } finally {
+            setVisitorLoading(false);
+        }
+    };
+
     const loadAllowedIps = async () => {
         setAllowedLoading(true);
         setAllowedError(null);
@@ -199,6 +219,11 @@ export default function AdminPage() {
     // 언마운트 시 폴링 정리
     useEffect(() => () => {
         if (pollRef.current) clearInterval(pollRef.current);
+    }, []);
+
+    useEffect(() => {
+        axios.get('/api/admin/my-ip').then(r => setMyIp(r.data)).catch(() => {});
+        loadVisitorLogs();
     }, []);
 
     // ── 허용 IP 목록 초기 로딩 (토글 ON일 때만) ────────────────────────────────
@@ -371,39 +396,24 @@ export default function AdminPage() {
                                 <div className={styles.title}>데이터 품질</div>
                                 <div className={styles.subtitle}>raw 대비 1s 불일치 현황</div>
                             </div>
-                            <div className={styles.inputRow}>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>Symbol</div>
-                                    <select className={styles.select} value={healthSymbol} onChange={e => setHealthSymbol(e.target.value)}>
-                                        {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>Market</div>
-                                    <select className={styles.select} value={healthMarket} onChange={e => setHealthMarket(e.target.value)}>
-                                        {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>기간</div>
-                                    <select className={styles.select} value={healthHours} onChange={e => setHealthHours(Number(e.target.value))}>
-                                        {HEALTH_HOURS_OPTIONS.map(h => (
-                                            <option key={h} value={h}>{h}시간</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>Action</div>
-                                    <button
-                                        type="button"
-                                        className={`${styles.btn} ${styles.btnActive}`}
-                                        onClick={handleHealthCheck}
-                                        disabled={healthLoading}
-                                        style={{ width: '100%', justifyContent: 'center' }}
-                                    >
-                                        {healthLoading ? '조회 중...' : '조회'}
-                                    </button>
-                                </div>
+                            <div className={styles.inlineRow}>
+                                <select className={styles.select} value={healthSymbol} onChange={e => setHealthSymbol(e.target.value)}>
+                                    {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <select className={styles.select} value={healthMarket} onChange={e => setHealthMarket(e.target.value)}>
+                                    {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <select className={styles.select} value={healthHours} onChange={e => setHealthHours(Number(e.target.value))}>
+                                    {HEALTH_HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}시간</option>)}
+                                </select>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={handleHealthCheck}
+                                    disabled={healthLoading}
+                                >
+                                    {healthLoading ? '조회 중...' : '조회'}
+                                </button>
                             </div>
                             {healthError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{healthError}</div>}
                             {healthData && (() => {
@@ -536,27 +546,17 @@ export default function AdminPage() {
                                 <div className={styles.title}>롤업</div>
                                 <div className={styles.subtitle}>1s → 1m → 5m 수동 실행</div>
                             </div>
-                            <div className={styles.inputRow}>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>From</div>
-                                    <input className={styles.input} type="datetime-local" value={rFrom} onChange={e => setRFrom(e.target.value)} />
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>To</div>
-                                    <input className={styles.input} type="datetime-local" value={rTo} onChange={e => setRTo(e.target.value)} />
-                                </div>
-                                <div className={styles.field}>
-                                    <div className={styles.label}>Action</div>
-                                    <button
-                                        type="button"
-                                        className={`${styles.btn} ${styles.btnActive}`}
-                                        onClick={handleRollup}
-                                        disabled={rLoading || !rFrom || !rTo}
-                                        style={{ width: '100%', justifyContent: 'center' }}
-                                    >
-                                        {rLoading ? '실행 중...' : '롤업 실행'}
-                                    </button>
-                                </div>
+                            <div className={styles.inlineRow}>
+                                <input className={styles.input} type="datetime-local" value={rFrom} onChange={e => setRFrom(e.target.value)} style={{ flex: 1 }} />
+                                <input className={styles.input} type="datetime-local" value={rTo} onChange={e => setRTo(e.target.value)} style={{ flex: 1 }} />
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={handleRollup}
+                                    disabled={rLoading || !rFrom || !rTo}
+                                >
+                                    {rLoading ? '실행 중...' : '롤업 실행'}
+                                </button>
                             </div>
                             {rResult && (
                                 <div className={styles.desc} style={{ color: rResult.ok ? 'var(--monitor-gauge-ok)' : 'var(--monitor-severity-critical)' }}>
@@ -663,34 +663,95 @@ export default function AdminPage() {
                             )}
                         </div>
 
-                        <div className={`${styles.card}`}>
+                        <div className={styles.card}>
                             <div className={styles.titleRow}>
-                                <div className={styles.title}>느린 조회</div>
-                                <div className={styles.subtitle}>주의</div>
+                                <div className={styles.title}>방문 현황</div>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={loadVisitorLogs}
+                                    disabled={visitorLoading}
+                                    style={{ marginLeft: 'auto' }}
+                                >
+                                    {visitorLoading ? '로딩 중...' : '새로고침'}
+                                </button>
                             </div>
-                            <div className={styles.btnRow}>
-                                {CHECKS.filter(c => c.danger).map(({ type, label, desc, days }) => {
-                                    const key = `${type}_${days ?? 'all'}`;
-                                    const active = activeKey === key;
-                                    return (
-                                        <button
-                                            key={key}
-                                            type="button"
-                                            className={`${styles.btn} ${styles.btnDanger} ${active ? styles.btnActive : ''}`}
-                                            onClick={() => handleCheck(type, days)}
-                                            disabled={loading}
-                                            title={desc}
-                                        >
-                                            {label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div className={styles.desc}>전체 RawAggTrade 조회는 서버 부하가 클 수 있습니다.</div>
+                            {visitorError && (
+                                <div className={styles.muted} style={{ color: 'var(--monitor-severity-critical)' }}>{visitorError}</div>
+                            )}
+                            {visitorData && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                                    <div>
+                                        <div className={styles.label} style={{ marginBottom: '8px' }}>경로별 집계</div>
+                                        <div className={styles.tableWrapScroll}>
+                                            <table className={styles.table}>
+                                                <thead>
+                                                    <tr>
+                                                        <th className={styles.th}>경로</th>
+                                                        <th className={styles.th}>횟수</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {visitorData.topPaths.map((p, i) => (
+                                                        <tr key={p.path} className={i % 2 === 1 ? styles.trOdd : ''}>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{p.path}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{p.cnt.toLocaleString()}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className={styles.label} style={{ marginBottom: '8px' }}>최근 방문 이력</div>
+                                        <div className={styles.tableWrapScroll}>
+                                            <table className={styles.table}>
+                                                <thead>
+                                                    <tr>
+                                                        <th className={styles.th}>일시</th>
+                                                        <th className={styles.th}>IP</th>
+                                                        <th className={styles.th}>경로</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {visitorData.recent.map((v, i) => (
+                                                        <tr key={i} className={i % 2 === 1 ? styles.trOdd : ''}>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{v.visitedAt.replace('T', ' ').substring(0, 19)}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{v.ip}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{v.path}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {visitorData.recent.length === 0 && (
+                                                        <tr><td colSpan={3} className={styles.muted} style={{ textAlign: 'center', padding: '12px' }}>데이터 없음</td></tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </section>
 
                     <aside className={styles.sidebar}>
+                        {myIp && (
+                            <div className={styles.card} style={{ padding: '12px 14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--monitor-gauge-ok)', boxShadow: '0 0 0 0 rgba(16,185,129,0.45)', display: 'inline-block', flexShrink: 0 }} />
+                                    <span style={{ fontWeight: 900, fontSize: '13px', color: 'var(--monitor-text-primary)' }}>접속 정보</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: '1px dashed rgba(17,24,39,0.10)' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--monitor-text-secondary)' }}>IP</span>
+                                        <span className={styles.mono} style={{ fontSize: '12px', fontWeight: 900, color: 'var(--monitor-gauge-ok)' }}>{myIp.ip}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: '1px dashed rgba(17,24,39,0.10)' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--monitor-text-secondary)' }}>remoteAddr</span>
+                                        <span className={styles.mono} style={{ fontSize: '12px', color: 'var(--monitor-text-primary)' }}>{myIp.remoteAddr}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className={styles.card}>
                             <div className={styles.titleRow}>
                                 <div className={styles.title}>Feature Flags</div>

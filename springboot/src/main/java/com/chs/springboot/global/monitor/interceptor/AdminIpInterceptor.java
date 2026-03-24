@@ -23,6 +23,13 @@ public class AdminIpInterceptor implements HandlerInterceptor {
             String key = "monitor:allowed-ip:" + clientIp;
             Boolean exists = redisTemplate.hasKey(key);
 
+            log.info("[AdminIpInterceptor] ip={} xff={} remoteAddr={} redisKey={} exists={}",
+                    clientIp,
+                    request.getHeader("X-Forwarded-For"),
+                    request.getRemoteAddr(),
+                    key,
+                    exists);
+
             if (Boolean.TRUE.equals(exists)) {
                 return true;
             }
@@ -31,7 +38,11 @@ public class AdminIpInterceptor implements HandlerInterceptor {
             return false;
         } catch (Exception e) {
             // fail-safe = 차단 (Redis 장애 등)
-            log.warn("AdminIpInterceptor error, blocking request: {}", e.getMessage());
+            log.warn("[AdminIpInterceptor] error, blocking request: ip={} xff={} remoteAddr={} error={}",
+                    extractClientIp(request),
+                    request.getHeader("X-Forwarded-For"),
+                    request.getRemoteAddr(),
+                    e.getMessage());
             try {
                 response.sendError(403);
             } catch (Exception ignored) {

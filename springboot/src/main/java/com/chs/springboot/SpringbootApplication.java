@@ -1,8 +1,9 @@
-// [AGENT] 역할: Spring Boot 앱 진입점 | 연관파일: DotenvConfig.java, WeatherScheduler.java | 핵심: main()에서 .env 로드→System.setProperty 후 SpringApplication.run (DotenvConfig @PostConstruct보다 앞서 로드), TimeZone KST 고정, SecurityAutoConfiguration exclude, @EnableScheduling 활성화
+// [AGENT] 역할: Spring Boot 앱 진입점 | 연관파일: DotenvConfig.java, WeatherScheduler.java | 핵심: main()에서 .env 로드→System.setProperty 후 SpringApplication.run (DotenvConfig @PostConstruct보다 앞서 로드), TimeZone KST 고정, SecurityAutoConfiguration exclude, @EnableScheduling + @EnableAsync 활성화
 package com.chs.springboot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
@@ -11,6 +12,7 @@ import java.util.TimeZone;
         org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class
 })
 @EnableScheduling
+@EnableAsync
 public class SpringbootApplication {
     public static void main(String[] args) {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));

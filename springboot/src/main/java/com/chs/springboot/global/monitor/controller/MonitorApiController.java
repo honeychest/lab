@@ -1,10 +1,13 @@
-// [AGENT] 모니터링 관련 REST API (access-request, allowed-ips, alert-history, ping)
+// [AGENT] 모니터링 관련 REST API (access-request, allowed-ips, alert-history, ping, visitor-logs, visitor-log-record)
 package com.chs.springboot.global.monitor.controller;
 
 import com.chs.springboot.global.monitor.entity.AlertHistory;
 import com.chs.springboot.global.monitor.entity.IpAuditLog;
+import com.chs.springboot.global.monitor.entity.VisitorLog;
 import com.chs.springboot.global.monitor.repository.AlertHistoryRepository;
+import com.chs.springboot.global.monitor.repository.VisitorLogRepository;
 import com.chs.springboot.global.monitor.service.IpAuditLogService;
+import com.chs.springboot.global.monitor.service.VisitorLogService;
 import com.chs.springboot.global.telegram.TelegramProvider;
 import com.chs.springboot.global.feature.FeatureFlagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,8 +38,19 @@ public class MonitorApiController {
     private final TelegramProvider telegramProvider;
     private final IpAuditLogService ipAuditLogService;
     private final AlertHistoryRepository alertHistoryRepository;
+    private final VisitorLogRepository visitorLogRepository;
+    private final VisitorLogService visitorLogService;
     private final FeatureFlagService featureFlagService;
     private final ObjectMapper objectMapper;
+
+    /** 방문 기록 (공개 엔드포인트 — Layout 마운트 시 프론트에서 호출) */
+    @PostMapping("/visitor/log")
+    public ResponseEntity<Void> recordVisit(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String path = body.getOrDefault("path", "/");
+        String ip = extractClientIp(request);
+        visitorLogService.record(ip, path);
+        return ResponseEntity.ok().build();
+    }
 
     /**
      * 접근 요청 (공개 엔드포인트)
@@ -141,6 +155,42 @@ public class MonitorApiController {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 200));
         Page<AlertHistory> result = alertHistoryRepository.findByFilters(fromDt, toDt, type, pageable);
         return ResponseEntity.ok(result);
+    }
+
+    /** 서버가 인식한 클라이언트 IP 확인 (디버그용) */
+    @GetMapping("/admin/my-ip")
+    public ResponseEntity<Map<String, String>> myIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        String remoteAddr = request.getRemoteAddr();
+        String resolved = (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : remoteAddr;
+        if ("0:0:0:0:0:0:0:1".equals(resolved) || "::1".equals(resolved)) resolved = "127.0.0.1";
+        return ResponseEntity.ok(Map.of(
+                "ip", resolved,
+                "xff", xff != null ? xff : "",
+                "remoteAddr", remoteAddr
+        ));
+    }
+
+    /** 방문자 이력 조회 (최근 100건 + 경로별 집계) */
+    @GetMapping("/admin/monitor/visitor-logs")
+    public ResponseEntity<Map<String, Object>> visitorLogs() {
+        List<VisitorLog> recent = visitorLogRepository.findTop100ByOrderByVisitedAtDesc();
+        List<Map<String, Object>> recentList = recent.stream()
+                .map(v -> Map.<String, Object>of(
+                        "ip", v.getIp(),
+                        "path", v.getPath(),
+                        "visitedAt", v.getVisitedAt().toString()
+                ))
+                .toList();
+
+        List<Map<String, Object>> topPaths = visitorLogRepository.countByPath().stream()
+                .map(p -> Map.<String, Object>of(
+                        "path", p.getPath(),
+                        "cnt", p.getCnt()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(Map.of("recent", recentList, "topPaths", topPaths));
     }
 
     private static String extractClientIp(HttpServletRequest request) {

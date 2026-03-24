@@ -1,6 +1,7 @@
-// [AGENT] 공통 레이아웃 — guestToken 기반 문의 목록 조회 + 미읽음 배지 관리
+// [AGENT] 공통 레이아웃 — guestToken 기반 문의 목록 조회 + 미읽음 배지 관리 + 방문 기록
 // 연관: TelegramPopup.jsx, Footer.jsx, contactApi.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
 import Header from "./Header.jsx";
 import Footer from "./Footer.jsx";
 import TelegramPopup from "../../../domain/support/ui/TelegramPopup.jsx";
@@ -19,6 +20,7 @@ function Layout({ children, footerCenter = [], enableSupport = true }) {
     const [hasReply, setHasReply]           = useState(false);
 
     const guestToken = getGuestToken();
+    const visitedRef = useRef(false);
 
     const loadInquiries = useCallback(async () => {
         try {
@@ -29,6 +31,12 @@ function Layout({ children, footerCenter = [], enableSupport = true }) {
             // 조회 실패 시 조용히 무시
         }
     }, [guestToken]);
+
+    useEffect(() => {
+        if (visitedRef.current) return;
+        visitedRef.current = true;
+        axios.post('/api/visitor/log', { path: window.location.pathname }).catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (!enableSupport) return;

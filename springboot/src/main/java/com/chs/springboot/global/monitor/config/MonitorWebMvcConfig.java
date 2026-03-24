@@ -1,4 +1,4 @@
-// [AGENT] AdminIpInterceptor 등록 (현재 비활성화)
+// [AGENT] AdminIpInterceptor 등록
 package com.chs.springboot.global.monitor.config;
 
 import com.chs.springboot.global.monitor.interceptor.AdminIpInterceptor;
