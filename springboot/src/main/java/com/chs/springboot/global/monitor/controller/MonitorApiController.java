@@ -174,7 +174,8 @@ public class MonitorApiController {
     /** 방문자 이력 조회 (최근 100건 + 경로별 집계) */
     @GetMapping("/admin/monitor/visitor-logs")
     public ResponseEntity<Map<String, Object>> visitorLogs() {
-        List<VisitorLog> recent = visitorLogRepository.findTop100ByOrderByVisitedAtDesc();
+        final String EXCLUDE_IP = "127.0.0.1";
+        List<VisitorLog> recent = visitorLogRepository.findTop100ByIpNotOrderByVisitedAtDesc(EXCLUDE_IP);
         List<Map<String, Object>> recentList = recent.stream()
                 .map(v -> Map.<String, Object>of(
                         "ip", v.getIp(),
@@ -183,7 +184,7 @@ public class MonitorApiController {
                 ))
                 .toList();
 
-        List<Map<String, Object>> topPaths = visitorLogRepository.countByPath().stream()
+        List<Map<String, Object>> topPaths = visitorLogRepository.countByPathExcluding(EXCLUDE_IP).stream()
                 .map(p -> Map.<String, Object>of(
                         "path", p.getPath(),
                         "cnt", p.getCnt()

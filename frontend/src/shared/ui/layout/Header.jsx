@@ -29,6 +29,8 @@ const NAV_ITEMS = [
  */
 function Header() {
     const [serverName, setServerName] = useState(null);
+    const [isNavScrolling, setIsNavScrolling] = useState(false);
+    const [scrollProgress, setScrollProgress] = useState(0);
     const location = useLocation();
     const navRef = useRef(null);
 
@@ -55,11 +57,17 @@ function Header() {
     useEffect(() => {
         const el = navRef.current;
         if (!el) return;
+        let timer;
         const onScroll = () => {
             sessionStorage.setItem('header.nav.scrollLeft', String(el.scrollLeft));
+            setIsNavScrolling(true);
+            const max = el.scrollWidth - el.clientWidth;
+            setScrollProgress(max > 0 ? el.scrollLeft / max : 0);
+            clearTimeout(timer);
+            timer = setTimeout(() => setIsNavScrolling(false), 500);
         };
         el.addEventListener('scroll', onScroll, { passive: true });
-        return () => el.removeEventListener('scroll', onScroll);
+        return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
     }, []);
 
     return (
@@ -89,8 +97,13 @@ function Header() {
                 connected
                 DOCKER1
             ──────────────────────────────────────────────── */}
+            <div
+                className={styles.scrollBar}
+                style={{ width: `${scrollProgress * 100}%` }}
+            />
+
             {serverName && (
-                <div className={styles.serverInfo}>
+                <div className={`${styles.serverInfo} ${isNavScrolling ? styles.serverInfoHidden : ''}`}>
                     <span className={styles.serverConnected}>connected</span>
                     <span className={styles.serverName}>{serverName}</span>
                 </div>

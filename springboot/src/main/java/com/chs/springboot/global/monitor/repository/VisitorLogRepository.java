@@ -9,10 +9,10 @@ import java.util.List;
 
 public interface VisitorLogRepository extends JpaRepository<VisitorLog, Long> {
 
-    List<VisitorLog> findTop100ByOrderByVisitedAtDesc();
+    List<VisitorLog> findTop100ByIpNotOrderByVisitedAtDesc(String ip);
 
-    @Query("SELECT v.path AS path, COUNT(v) AS cnt FROM VisitorLog v GROUP BY v.path ORDER BY cnt DESC")
-    List<PathCountProjection> countByPath();
+    @Query("SELECT v.path AS path, COUNT(v) AS cnt FROM VisitorLog v WHERE v.ip != :excludeIp GROUP BY v.path ORDER BY COUNT(v) DESC")
+    List<PathCountProjection> countByPathExcluding(String excludeIp);
 
     interface PathCountProjection {
         String getPath();
