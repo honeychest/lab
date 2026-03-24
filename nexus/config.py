@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     NOTION_API_KEY: str
     NOTION_DATABASE_ID: str
+    NOTION_DATA_SOURCE_ID: str
     AI_PROVIDER: str = "gemini"
     GITHUB_TOKEN: str = ""
     GROQ_API_KEY: str = ""
