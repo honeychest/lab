@@ -65,7 +65,7 @@ function readStoredMenus() {
             .slice(0, MAX_MENUS);
 
         return cleaned.length > 0 ? cleaned : DEFAULT_MENUS;
-    } catch (_error) {
+    } catch {
         return DEFAULT_MENUS;
     }
 }
@@ -205,7 +205,7 @@ function RandomPickerBoard() {
         setLaunchOrder(menuBalls);
         setIsRunning(false);
         resetUiState();
-    }, [menuBalls]);
+    }, [menuBalls]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(function () {
         if (stageRef.current == null) {
@@ -268,7 +268,7 @@ function RandomPickerBoard() {
                 worldRef.current = null;
             }
         };
-    }, [menuBalls.length]);
+    }, [menuBalls.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(function () {
         if (worldRef.current == null) {
@@ -277,7 +277,7 @@ function RandomPickerBoard() {
 
         syncStandbyBalls(worldRef.current, launchOrder);
         resetUiState();
-    }, [launchOrder]);
+    }, [launchOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(function () {
         if (boardViewportRef.current == null) {
