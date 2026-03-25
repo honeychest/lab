@@ -1,21 +1,21 @@
 export const BOARD_WIDTH = 1040;
 export const BOARD_HEIGHT = 960;
-export const BALL_RADIUS = 32;
+export const BALL_RADIUS = 29;
 export const MAX_BALL_SPEED = 18;
 export const STANDBY_Y = 96;
 export const STANDBY_INSET = 48;
 export const FUNNEL_LEFT_POINTS = [
     {
-        "x": 24,
-        "y": 34
+        "x": 29,
+        "y": -3
     },
     {
         "x": 36,
         "y": 201
     },
     {
-        "x": 146,
-        "y": 318
+        "x": 85,
+        "y": 376
     },
     {
         "x": 244,
@@ -69,24 +69,24 @@ export const DEFLECTORS = [
         "bounce": 1
     },
     {
-        "x": 520,
-        "y": 228,
-        "width": 220,
+        "x": 519,
+        "y": 225,
+        "width": 420,
         "height": 12,
         "angle": 0,
         "bounce": 1,
-        "motionAmplitude": 300,
+        "motionAmplitude": 200,
         "motionSpeed": 5,
         "motionPhase": 1
     },
     {
         "x": 520,
         "y": 417,
-        "width": 170,
+        "width": 220,
         "height": 12,
         "angle": 0,
         "bounce": 1,
-        "motionAmplitude": 200,
+        "motionAmplitude": 150,
         "motionSpeed": 3,
         "motionPhase": 2
     }
@@ -94,8 +94,8 @@ export const DEFLECTORS = [
 
 export const PINS = [
     {
-        "x": 519,
-        "y": 813,
+        "x": 520,
+        "y": 814,
         "radius": 18,
         "bounce": 1
     },
@@ -106,14 +106,14 @@ export const PINS = [
         "bounce": 1
     },
     {
-        "x": 442,
-        "y": 880,
+        "x": 435,
+        "y": 863,
         "radius": 18,
         "bounce": 2
     },
     {
-        "x": 590,
-        "y": 880,
+        "x": 605,
+        "y": 867,
         "radius": 18,
         "bounce": 2
     },
