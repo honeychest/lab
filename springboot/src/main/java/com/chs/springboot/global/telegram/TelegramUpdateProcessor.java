@@ -12,8 +12,10 @@ import com.chs.springboot.features.contact.service.SupportSseService;
 import com.chs.springboot.global.monitor.service.IpApprovalProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -49,6 +51,7 @@ public class TelegramUpdateProcessor {
     private final ContactInquiryRepository inquiryRepository;
     private final SupportSseService         sseService;
     private final IpApprovalProcessor       ipApprovalProcessor;
+    private final StringRedisTemplate       redisTemplate;
 
     /**
      * Telegram update 객체를 받아 관리자 답변 여부를 확인하고 DB에 저장한다.
@@ -68,9 +71,14 @@ public class TelegramUpdateProcessor {
             Long updateId = update.get("update_id") != null
                     ? ((Number) update.get("update_id")).longValue()
                     : null;
-            if (updateId != null && !processedIds.add(updateId)) {
-                log.warn("Duplicate update_id={}, skipping", updateId);
-                return;
+            if (updateId != null) {
+                Boolean firstSeen = redisTemplate.opsForValue()
+                        .setIfAbsent("telegram:update:" + updateId, "1", Duration.ofHours(6));
+                if (!Boolean.TRUE.equals(firstSeen)) {
+                    log.warn("Duplicate update_id={} via Redis, skipping", updateId);
+                    return;
+                }
+                processedIds.add(updateId);
             }
 
             @SuppressWarnings("unchecked")

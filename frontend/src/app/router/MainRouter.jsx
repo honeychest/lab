@@ -14,6 +14,8 @@ import SignalPage    from '../../page/signal/SignalPage.jsx';
 import AdminPage     from '../../page/admin/AdminPage.jsx';
 import AnalysisPage  from '../../page/analysis/AnalysisPage.jsx';
 import MonitorPage   from '../../page/monitor/MonitorPage.jsx';
+import RandomPage    from '../../page/random/RandomPage.jsx';
+import RandomLayoutEditorPage from '../../page/random/RandomLayoutEditorPage.jsx';
 import ForbiddenPage from '../../page/forbidden/ForbiddenPage.jsx';
 
 function MainRouter() {
@@ -43,6 +45,12 @@ function MainRouter() {
 
                 {/* Monitor 페이지 */}
                 <Route path="/monitor" element={<MonitorPage />} />
+
+                {/*Random Picker 페이지*/}
+                <Route path="/winner" element={<RandomPage />} />
+                <Route path="/winner/editor" element={<RandomLayoutEditorPage />} />
+                <Route path="/random" element={<Navigate to="/winner" replace />} />
+                <Route path="/random/editor" element={<Navigate to="/winner/editor" replace />} />
 
                 {/* Forbidden 페이지 (GNB/Footer 없이 단독) */}
                 <Route path="/forbidden" element={<ForbiddenPage />} />

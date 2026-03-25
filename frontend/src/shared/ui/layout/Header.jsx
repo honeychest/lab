@@ -14,6 +14,7 @@ const NAV_ITEMS = [
     { label: 'Signal',  path: '/signal' },
     { label: 'Analysis', path: '/analysis' },
     { label: 'Monitor', path: '/monitor' },
+    { label: 'Winner', path: '/winner' },
     { label: 'Admin',   path: '/admin'  },
 ];
 
