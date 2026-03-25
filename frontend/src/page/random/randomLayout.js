@@ -71,23 +71,23 @@ export const DEFLECTORS = [
     {
         "x": 520,
         "y": 228,
-        "width": 120,
+        "width": 220,
         "height": 12,
         "angle": 0,
         "bounce": 1,
-        "motionAmplitude": 400,
-        "motionSpeed": 10,
+        "motionAmplitude": 300,
+        "motionSpeed": 5,
         "motionPhase": 1
     },
     {
         "x": 520,
         "y": 417,
-        "width": 120,
+        "width": 170,
         "height": 12,
         "angle": 0,
         "bounce": 1,
-        "motionAmplitude": 250,
-        "motionSpeed": 5,
+        "motionAmplitude": 200,
+        "motionSpeed": 3,
         "motionPhase": 2
     }
 ];

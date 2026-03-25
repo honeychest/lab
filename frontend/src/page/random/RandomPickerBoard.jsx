@@ -17,7 +17,6 @@ const DEFAULT_MENUS = [
     '샐러드',
     '햄버거',
     '탕수육',
-    '파스타',
     '돈까스',
     '비빔밥',
     '마라탕',
@@ -358,7 +357,7 @@ function RandomPickerBoard() {
     return (
         <div className={styles.card}>
             <header className={styles.header}>
-                <h2>뭐먹지?</h2>
+                <h2>Winner is ... ?</h2>
             </header>
 
             <div className={styles.grid}>
@@ -382,7 +381,7 @@ function RandomPickerBoard() {
                                     setDraftMenu(e.target.value);
                                 }}
                                 onKeyDown={handleDraftKeyDown}
-                                placeholder="메뉴를 입력하고 Enter"
+                                placeholder="메뉴 최대 10개"
                                 disabled={menuItems.length >= MAX_MENUS}
                             />
                             <button
@@ -519,7 +518,7 @@ function RandomPickerBoard() {
             <ConfirmDialog
                 open={showMenuResetConfirm}
                 title="메뉴 초기화"
-                description="현재 저장된 메뉴를 기본 10개 메뉴로 되돌립니다. 계속할까요?"
+                description="현재 저장된 메뉴를 기본 9개 메뉴로 되돌립니다. 계속할까요?"
                 confirmText="초기화"
                 cancelText="취소"
                 onConfirm={handleMenuReset}
