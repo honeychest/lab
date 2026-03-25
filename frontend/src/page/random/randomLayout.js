@@ -75,7 +75,7 @@ export const DEFLECTORS = [
         "height": 12,
         "angle": 0,
         "bounce": 1,
-        "motionAmplitude": 200,
+        "motionAmplitude": 220,
         "motionSpeed": 5,
         "motionPhase": 1
     },
@@ -87,7 +87,7 @@ export const DEFLECTORS = [
         "angle": 0,
         "bounce": 1,
         "motionAmplitude": 150,
-        "motionSpeed": 3,
+        "motionSpeed": 4,
         "motionPhase": 2
     }
 ];

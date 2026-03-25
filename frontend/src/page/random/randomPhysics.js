@@ -394,6 +394,8 @@ function registerCollisionEvents(ctx) {
                 if (ctx.onGoal != null) {
                     ctx.onGoal(ball.plugin != null ? ball.plugin.menu : null, ctx.rankings.length);
                 }
+
+                World.remove(ctx.engine.world, ball);
             }
 
             var pin = null;
