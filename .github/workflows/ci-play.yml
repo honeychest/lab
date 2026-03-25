@@ -181,7 +181,10 @@ jobs: # 실행할 작업 단위(Job)들
     needs: [ summary ] # 안에 있는게 전부성공해야 가능
     if: |
       always() &&
-      github.event_name == 'push' &&
+      (
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch'
+      ) &&
       (
         inputs.deploy_only == true ||
         needs.summary.result == 'success'
