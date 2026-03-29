@@ -68,6 +68,21 @@ public class MonitorWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    public void broadcastRaw(String json) {
+        TextMessage message = new TextMessage(json);
+        for (WebSocketSession session : sessions){
+            try {
+                if(session.isOpen()){
+                    session.sendMessage(message);
+                }else{
+                    sessions.remove(session);
+                }
+            }catch (Exception e){
+                sessions.remove(session);
+            }
+        }
+    }
+
     public int getSessionCount() {
         return sessions.size();
     }

@@ -27,6 +27,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.w3c.dom.Text;
 
 import java.io.File;
 import java.net.URI;
@@ -77,6 +80,11 @@ public class MetricCollectorService {
         if (cpu != null) lastCpu = cpu;
 
         if (!leaderElectionService.isLeader()) {
+            // Redis에서 snapshot 읽어서 broadcast
+            String json = redisTemplate.opsForValue().get("monitor:snapshot");
+            if (json != null) {
+                monitorWebSocketHandler.broadcastRaw(json);
+            }
             return;
         }
         Double ram = safe(this::collectRamPercent);
