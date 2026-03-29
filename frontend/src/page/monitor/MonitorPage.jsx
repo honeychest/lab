@@ -324,26 +324,6 @@ export default function MonitorPage() {
                                                             </div>
                                                         </div>
                                                     </div>
-
-                                                    <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
-                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">config:aggtrade:max-queue-size</div>
-                                                        <div className={styles.redisColValue} role="cell">
-                                                            <div className={styles.redisValueBox}>
-                                                                {maxQueue ?? '—'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {threshold && (
-                                                        <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
-                                                            <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">config:threshold</div>
-                                                            <div className={styles.redisColValue} role="cell">
-                                                                <div className={styles.redisValueBox}>
-                                                                    {threshold.value ?? '—'}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             );
                                         })()}
