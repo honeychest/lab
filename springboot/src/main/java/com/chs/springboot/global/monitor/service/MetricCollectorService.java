@@ -20,12 +20,9 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -76,12 +73,12 @@ public class MetricCollectorService {
 
     @Scheduled(fixedDelay = 3000)
     public void collect() {
+        Double cpu = safe(this::collectCpuPercent);
+        if (cpu != null) lastCpu = cpu;
+
         if (!leaderElectionService.isLeader()) {
             return;
         }
-
-        Double cpu = safe(this::collectCpuPercent);
-        if (cpu != null) lastCpu = cpu;
         Double ram = safe(this::collectRamPercent);
         Double disk = safe(this::collectDiskPercent);
         Long diskTotalBytes = safe(this::collectDiskTotalBytes);
@@ -132,27 +129,32 @@ public class MetricCollectorService {
         } catch (Exception e) {
             log.warn("[MetricCollector] snapshot Redis 저장 실패: {}", e.getMessage());
         }
-        if (cpu != null) {
-            int targetSize;
-            if (cpu >= 90) {
-                targetSize = 1;
-            } else if (cpu >= 70) {
-                targetSize = 2;
-            } else if (cpu >= 50){
-                targetSize = 4;
-            } else {
-                targetSize = 6;
-            }
-            if (batchDataSource.getMaximumPoolSize() != targetSize) {
-                log.info("[BatchPool] CPU={}% → 풀 크기 {} → {}",
-                        String.format("%.1f", cpu),
-                        batchDataSource.getMaximumPoolSize(),
-                        targetSize);
-                batchDataSource.setMaximumPoolSize(targetSize);
-            }
-        }
         alertService.evaluate(snapshot);
     }
+
+    @Scheduled(fixedDelay = 3000)
+    public void adjustBatchPool() {
+        double cpu = lastCpu;
+        if (cpu < 0) return;
+        int targetSize;
+        if (cpu >= 90) {
+            targetSize = 1;
+        } else if (cpu >= 70) {
+            targetSize = 2;
+        } else if (cpu >= 50) {
+            targetSize = 4;
+        } else {
+            targetSize = 6;
+        }
+        if (batchDataSource.getMaximumPoolSize() != targetSize) {
+            log.info("[BatchPool] CPU={}% → 풀 크기 {} → {}",
+                    String.format("%.1f", cpu),
+                    batchDataSource.getMaximumPoolSize(),
+                    targetSize);
+            batchDataSource.setMaximumPoolSize(targetSize);
+        }
+    }
+
     @Scheduled(fixedDelay = 5000)
     public void collectContainerCache() {
         if (!leaderElectionService.isLeader()) return;
