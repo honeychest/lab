@@ -68,6 +68,11 @@ public class MetricCollectorService {
 
     private volatile double prev5xxCount = 0d;
     private volatile double prevTotalCount = 0d;
+    private volatile double lastCpu = -1d;
+
+    public double getLastCpu() {
+        return lastCpu;
+    }
 
     @Scheduled(fixedDelay = 3000)
     public void collect() {
@@ -76,6 +81,7 @@ public class MetricCollectorService {
         }
 
         Double cpu = safe(this::collectCpuPercent);
+        if (cpu != null) lastCpu = cpu;
         Double ram = safe(this::collectRamPercent);
         Double disk = safe(this::collectDiskPercent);
         Long diskTotalBytes = safe(this::collectDiskTotalBytes);
