@@ -147,7 +147,7 @@ public class MetricCollectorService {
             targetSize = 6;
         }
         if (batchDataSource.getMaximumPoolSize() != targetSize) {
-            log.info("[BatchPool] CPU={}% → 풀 크기 {} → {}",
+            log.warn("[BatchPool] CPU={}% → 풀 크기 {} → {}",
                     String.format("%.1f", cpu),
                     batchDataSource.getMaximumPoolSize(),
                     targetSize);

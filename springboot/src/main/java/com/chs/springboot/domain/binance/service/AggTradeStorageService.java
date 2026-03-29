@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -200,9 +201,12 @@ public class AggTradeStorageService {
                                 entities.size(), remainCount, bySymbolMarket);
                     } catch (Exception ex) {
                         long elapsed = System.currentTimeMillis() - startMs;
-                        log.error("[AggTrade] 배치 insert 실패: {}건, {}ms, checkpoint 업데이트 스킵", entities.size(), elapsed, ex);
+                        if (ex instanceof CannotGetJdbcConnectionException) {
+                            log.error("[AggTrade] 배치 insert 실패: {}건, {}ms, checkpoint 업데이트 스킵 error={}", entities.size(), elapsed, ex.getMessage());
+                        }else{
+                            log.error("[AggTrade] 배치 insert 실패: {}건, {}ms, checkpoint 업데이트 스킵", entities.size(), elapsed, ex);
+                        }
                         TelegramLog.error("[AggTrade] 배치 insert 실패: " + entities.size() + "건, " + elapsed + "ms, checkpoint 업데이트 스킵");
-                        // checkpoint 업데이트 안 함 → 다음 flush에서 재시도
                     }
                 }
                 if (values.size() < batchSize) {

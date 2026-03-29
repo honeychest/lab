@@ -29,7 +29,7 @@ export default function OverloadToast() {
             zIndex: 99999,
             boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
         }}>
-            서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.
+            서버 과부하(CPU 95%이상)로 모든 API요청을 중단합니다. 잠시 후 다시 시도해주세요.
         </div>
     );
 }
