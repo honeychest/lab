@@ -165,7 +165,6 @@ public class MetricCollectorService {
         } catch (Exception e) {
             log.warn("[MetricCollector] Docker 수집 실패: {}", e.getMessage());
         }
-
     }
 
     private Long collectRawAggTradeRowsEstimate() {

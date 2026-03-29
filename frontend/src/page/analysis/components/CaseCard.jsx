@@ -29,8 +29,9 @@ function build5mCandles(klineData, startIndex, count = 60, windowSize = 5) {
   return candles;
 }
 
-export default function CaseCard({ matchIndex, klineData, paletteLevel = 'MID', symbol }) {
-  const candles = build5mCandles(klineData, matchIndex, 60, 5);
+export default function CaseCard({ matchIndex, klineData, paletteLevel = 'MID', symbol, timeframe = '1m' }) {
+  const windowSize = timeframe === '5m' ? 1 : 5;
+  const candles = build5mCandles(klineData, matchIndex, 60, windowSize);
 
   const pal       = PALETTE[paletteLevel] ?? PALETTE.MID;
   const highlights = [{ idx: 0, color: pal.barColor }];

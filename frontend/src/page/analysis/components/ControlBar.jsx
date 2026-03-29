@@ -1,7 +1,9 @@
-// [AGENT] T4-ANALYSIS: 컨트롤 바 — 심볼 선택 + 날짜 범위 + 불러오기 버튼
+// [AGENT] T4-ANALYSIS: 컨트롤 바 — 심볼 선택 + 봉 단위(1m/5m) + 날짜 범위 + 불러오기 버튼
 export default function ControlBar({
   symbol,
   onSymbolChange,
+  timeframe,
+  onTimeframeChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -51,6 +53,28 @@ export default function ControlBar({
       <div style={{ display: 'flex', gap: '6px' }}>
         {['BTC', 'ENA'].map((s) => (
           <button key={s} onClick={() => !loading && onSymbolChange(s)} style={symBtn(s)}>{s}</button>
+        ))}
+      </div>
+
+      {/* 봉 단위 */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        {['1m', '5m'].map((tf) => (
+          <button
+            key={tf}
+            onClick={() => !loading && onTimeframeChange(tf)}
+            style={{
+              padding:         '5px 10px',
+              borderRadius:    '4px',
+              border:          timeframe === tf ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)',
+              backgroundColor: timeframe === tf ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color:           timeframe === tf ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.5)',
+              fontSize:        '12px',
+              fontWeight:      600,
+              cursor:          loading ? 'not-allowed' : 'pointer',
+              opacity:         loading ? 0.5 : 1,
+              fontFamily:      "'Pretendard', sans-serif",
+            }}
+          >{tf}</button>
         ))}
       </div>
 

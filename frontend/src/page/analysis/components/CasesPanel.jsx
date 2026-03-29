@@ -25,6 +25,7 @@ export default function CasesPanel({
   hasPrevPage,
   paletteLevel,
   symbol,
+  timeframe = '1m',
 }) {
   // 최신순(내림차순) 정렬 후 현재 페이지 4개 슬라이싱
   const sorted    = [...matchedIndices].sort((a, b) => b - a);
@@ -115,6 +116,7 @@ export default function CasesPanel({
                     klineData={klineData}
                     paletteLevel={paletteLevel}
                     symbol={symbol}
+                    timeframe={timeframe}
                   />
                 ))}
               </div>

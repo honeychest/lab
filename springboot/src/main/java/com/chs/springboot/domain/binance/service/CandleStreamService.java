@@ -42,7 +42,7 @@ public class CandleStreamService {
             msg.put("high",      c.getHighPrice().doubleValue());
             msg.put("low",       c.getLowPrice().doubleValue());
             msg.put("close",     c.getClosePrice().doubleValue());
-            msg.put("volume",    c.getTotalVolume().doubleValue());
+            msg.put("volume",    c.getBuyQuantity().add(c.getSellQuantity()).doubleValue());
             msg.put("delta",     c.getDelta().doubleValue());
             msg.put("is_closed", true);
             candleWebSocketHandler.broadcastCandle(c.getSymbol(), "5m", objectMapper.writeValueAsString(msg));
@@ -61,7 +61,7 @@ public class CandleStreamService {
             msg.put("high",      c.getHighPrice().doubleValue());
             msg.put("low",       c.getLowPrice().doubleValue());
             msg.put("close",     c.getClosePrice().doubleValue());
-            msg.put("volume",    c.getTotalVolume().doubleValue());
+            msg.put("volume",    c.getBuyQuantity().add(c.getSellQuantity()).doubleValue());
             msg.put("delta",     c.getDelta().doubleValue());
             msg.put("is_closed", true);
             candleWebSocketHandler.broadcastCandle(c.getSymbol(), "1m", objectMapper.writeValueAsString(msg));
@@ -70,7 +70,7 @@ public class CandleStreamService {
         }
     }
 
-    @Scheduled(fixedDelay = 15000)
+    @Scheduled(fixedDelay = 1000)
     public void broadcastInProgress5m() {
         Set<String> symbols = candleWebSocketHandler.getActiveSymbols("5m");
         if (symbols.isEmpty()) return;
@@ -87,10 +87,10 @@ public class CandleStreamService {
                         MAX(high_price)                                                                   AS high_price,
                         MIN(low_price)                                                                    AS low_price,
                         SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1) AS close_price,
-                        COALESCE(SUM(total_volume), 0)                                                   AS total_volume,
-                        COALESCE(SUM(buy_quantity) - SUM(sell_quantity), 0)                              AS delta
+                        COALESCE(SUM(buy_quantity) + SUM(sell_quantity), 0)                              AS total_volume,
+                        COALESCE(SUM(delta), 0)                                                          AS delta
                     FROM agg_trade_1s
-                    WHERE symbol = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+                    WHERE symbol = ? AND market_type = 'FUTURES' AND candle_time_ms >= ? AND candle_time_ms < ?
                     """;
                 List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, symbol, current5mStart, nowMs);
                 if (rows.isEmpty() || rows.get(0).get("open_price") == null) continue;
@@ -112,7 +112,7 @@ public class CandleStreamService {
         }
     }
 
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelay = 1000)
     public void broadcastInProgress1m() {
         Set<String> symbols = candleWebSocketHandler.getActiveSymbols("1m");
         if (symbols.isEmpty()) return;
@@ -129,10 +129,10 @@ public class CandleStreamService {
                         MAX(high_price)                                                                   AS high_price,
                         MIN(low_price)                                                                    AS low_price,
                         SUBSTRING_INDEX(MAX(CONCAT(LPAD(candle_time_ms,20,'0'),'|',close_price)),'|',-1) AS close_price,
-                        COALESCE(SUM(total_volume), 0)                                                   AS total_volume,
-                        COALESCE(SUM(buy_quantity) - SUM(sell_quantity), 0)                              AS delta
+                        COALESCE(SUM(buy_quantity) + SUM(sell_quantity), 0)                              AS total_volume,
+                        COALESCE(SUM(delta), 0)                                                          AS delta
                     FROM agg_trade_1s
-                    WHERE symbol = ? AND candle_time_ms >= ? AND candle_time_ms < ?
+                    WHERE symbol = ? AND market_type = 'FUTURES' AND candle_time_ms >= ? AND candle_time_ms < ?
                     """;
                 List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, symbol, current1mStart, nowMs);
                 if (rows.isEmpty() || rows.get(0).get("open_price") == null) continue;

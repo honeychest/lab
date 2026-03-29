@@ -10,8 +10,6 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
     const tooltipRef = useRef(null);
     const isInitializedRef = useRef(false);
     const priceMapRef = useRef({});
-    const initialNowRef = useRef(null);
-    const prevRangeMsRef = useRef(rangeMs);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -24,8 +22,8 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
                 // 차트 생성
                 const chart = createChart(containerRef.current, {
                     autoSize: true,
-                    handleScale: false,
-                    handleScroll: false,
+                    handleScale: true,
+                    handleScroll: true,
                     layout: {
                         background: { color: '#0e0f18' },
                         textColor: 'rgba(255,255,255,0.3)',
@@ -104,23 +102,9 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
             }
         }
 
-        // 데이터 업데이트 (초기화 후) — 첫 수신 시점 고정, rangeMs 변경 시 리셋
-        if (prevRangeMsRef.current !== rangeMs) {
-            prevRangeMsRef.current = rangeMs;
-            initialNowRef.current  = null;
-        }
-        if (!initialNowRef.current && oiData.length > 0) {
-            initialNowRef.current = Date.now();
-            console.log('[OiLineChart] initialNow 캡처:', new Date(initialNowRef.current).toLocaleString(), '| rangeMs:', rangeMs);
-        }
-        const sliced = oiData.filter((item) => initialNowRef.current
-            ? item.collectedAtMs >= initialNowRef.current - rangeMs
-            : false
-        );
-        if (sliced.length > 0) {
-            const _first = sliced[0];
-            const _last  = sliced[sliced.length - 1];
-        }
+        // 데이터 업데이트: rangeMs 기준 현재 시각에서 슬라이싱
+        const nowMs  = Date.now();
+        const sliced = oiData.filter((item) => item.collectedAtMs >= nowMs - rangeMs);
         if (seriesRef.current && sliced.length > 0) {
             try {
                 priceMapRef.current = {};
@@ -155,7 +139,10 @@ export default function OiLineChart({ oiData = [], rangeMs }) {
 
                 }
 
-                chartRef.current?.timeScale().fitContent();
+                chartRef.current?.timeScale().setVisibleRange({
+                    from: chartData[0].time,
+                    to: chartData[chartData.length - 1].time,
+                });
             } catch (err) {
                 console.error('[OiLineChart] 데이터 업데이트 에러:', err);
             }

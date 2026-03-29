@@ -17,7 +17,7 @@ function evalUnit(klineData, idx, unit) {
  */
 function evalGroup(klineData, idx, group) {
   const { operator, units } = group;
-  if (!units || units.length === 0) return true;
+  if (!units || units.length === 0) return false;
 
   if (operator === 'OR') {
     return units.some((unit) => evalUnit(klineData, idx, unit));

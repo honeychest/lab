@@ -39,6 +39,7 @@ export default function AnalysisPage() {
   const [modalOpen,         setModalOpen]         = useState(false);
   const [toast,             setToast]             = useState(null);
   const [hasExtendedData,   setHasExtendedData]   = useState(false);
+  const [timeframe,         setTimeframe]         = useState('1m');
   const [isMobile,          setIsMobile]          = useState(() => window.innerWidth < 768);
   const [viewMode,          setViewMode]          = useState(() => {
     const p = new URLSearchParams(window.location.search);
@@ -76,11 +77,11 @@ export default function AnalysisPage() {
 
   // ─── 데이터 로드 ─────────────────────────────────────────────────────────────
 
-  const loadData = useCallback(async (sym, start, end) => {
+  const loadData = useCallback(async (sym, start, end, tf = '1m') => {
     setLoading(true);
     setLoadError(null);
     try {
-      const klines = await fetchKlines(sym, start, end);
+      const klines = await fetchKlines(sym, start, end, tf);
       setKlineData(klines);
       setPage(0);
       setHasExtendedData(false);
@@ -120,14 +121,20 @@ export default function AnalysisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 심볼 변경 즉시 재로드 (REQ-002)
+  // 심볼·타임프레임 변경 즉시 재로드 (REQ-002)
   useEffect(() => {
     if (!mountedRef.current) return;
-    loadData(symbol, startDate, endDate);
+    loadData(symbol, startDate, endDate, timeframe);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]);
+  }, [symbol, timeframe]);
 
-  const handleLoad = () => loadData(symbol, startDate, endDate);
+  const handleLoad = () => loadData(symbol, startDate, endDate, timeframe);
+
+  const handleTimeframeChange = (tf) => {
+    setTimeframe(tf);
+    setMatchedIndices([]);
+    setPage(0);
+  };
 
   // ─── 조건 변경 → 즉시 재계산 (REQ-011) ────────────────────────────────────
 
@@ -184,6 +191,28 @@ export default function AnalysisPage() {
     setMatchedIndices([]);
     setDetectionError(null);
     setPage(0);
+  };
+
+  // ─── Analysis 더블클릭 수동 탐색 ─────────────────────────────────────────
+
+  const handleAnalysisSearch = async (requestBody) => {
+    const fromMs = new Date(startDate + 'T00:00:00Z').getTime();
+    const endNext = new Date(endDate + 'T00:00:00Z');
+    endNext.setUTCDate(endNext.getUTCDate() + 1);
+    const toMs = endNext.getTime();
+
+    try {
+      const res = await apiClient.post('/api/analysis/search', { ...requestBody, fromMs, toMs });
+      const times = Array.isArray(res.data) ? res.data : [];
+      const indices = times
+        .map((ms) => klineData.findIndex((c) => c.time === ms))
+        .filter((idx) => idx !== -1);
+      setMatchedIndices(indices);
+      setTimeframe(requestBody.timeframe);
+      setPage(0);
+    } catch (e) {
+      setToast({ message: `검색 실패: ${e.message}`, type: 'error' });
+    }
   };
 
   // ─── 템플릿 저장 ──────────────────────────────────────────────────────────
@@ -344,6 +373,8 @@ export default function AnalysisPage() {
         <ControlBar
           symbol={symbol}
           onSymbolChange={setSymbol}
+          timeframe={timeframe}
+          onTimeframeChange={handleTimeframeChange}
           startDate={startDate}
           endDate={endDate}
           onStartDateChange={setStartDate}
@@ -374,6 +405,9 @@ export default function AnalysisPage() {
                   loading={loading}
                   error={loadError}
                   onRetry={handleLoad}
+                  symbol={symbol}
+                  onSearch={handleAnalysisSearch}
+                  timeframe={timeframe}
                 />
               </div>
 
@@ -429,6 +463,7 @@ export default function AnalysisPage() {
               hasPrevPage={!hasExtendedData}
               paletteLevel={paletteLevel}
               symbol={symbol}
+              timeframe={timeframe}
             />
           </div>
         </div>

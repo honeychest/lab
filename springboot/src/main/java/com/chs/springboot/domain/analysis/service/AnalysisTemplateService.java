@@ -1,5 +1,5 @@
-// [AGENT] T4-ANALYSIS: AnalysisTemplate CRUD 서비스 + delta 조회
-// 연관파일: AnalysisTemplateRepository.java, AggTrade1mRepository.java, AnalysisTemplateController.java
+// [AGENT] T4-ANALYSIS: AnalysisTemplate CRUD 서비스 + delta 조회 (1m/5m interval 라우팅)
+// 연관파일: AnalysisTemplateRepository.java, AggTrade1mRepository.java, AggTrade5mRepository.java, AnalysisTemplateController.java
 package com.chs.springboot.domain.analysis.service;
 
 import com.chs.springboot.domain.analysis.dto.ConditionTreeDto;
@@ -67,16 +67,20 @@ public class AnalysisTemplateService {
     }
 
     /**
-     * delta 시간범위 조회 (TASK-04b)
-     * @param symbol  'BTC' | 'ENA' → BTCUSDT / ENAUSDT 변환
+     * delta 시간범위 조회 — interval에 따라 1m/5m 테이블 라우팅
+     * @param symbol   'BTC' | 'ENA' → BTCUSDT / ENAUSDT 변환
+     * @param interval '1m' | '5m'
      */
-    public List<Map<String, Object>> getDelta(String symbol, long startMs, long endMs) {
+    public List<Map<String, Object>> getDelta(String symbol, long startMs, long endMs, String interval) {
         String dbSymbol = symbol.toUpperCase() + "USDT";
-        List<Map<String, Object>> rows = agg1mRepository.findDeltaByTimeRange(dbSymbol, startMs, endMs);
+        List<Map<String, Object>> rows = "5m".equals(interval)
+                ? agg5mRepository.findDeltaByTimeRange(dbSymbol, startMs, endMs)
+                : agg1mRepository.findDeltaByTimeRange(dbSymbol, startMs, endMs);
         return rows.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("timeMs", toBd(r.get("timeMs")).longValue());
-            m.put("delta",  toBd(r.get("delta")).doubleValue());
+            m.put("timeMs",  toBd(r.get("timeMs")).longValue());
+            m.put("volume",  toBd(r.get("volume")).doubleValue());
+            m.put("delta",   toBd(r.get("delta")).doubleValue());
             return m;
         }).toList();
     }

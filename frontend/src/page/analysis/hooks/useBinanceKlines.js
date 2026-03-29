@@ -1,10 +1,12 @@
 // [AGENT] T4-ANALYSIS: 바이낸스 Kline(OHLCV) + 백엔드 delta 병합 조회
 // 429 응답 시: Retry-After 파싱 후 1회 자동 재시도
-// Binance klines limit=1000 제한으로 하루(1440분)를 2회 요청으로 분할 처리
+// 1m: 하루(1440분)를 2회 요청으로 분할 처리 (limit=720)
+// 5m: 하루(288봉)를 1회 요청으로 처리 (limit=288 < 1000)
 import apiClient from '@/api/apiClient.js';
 
-const BINANCE_KLINE_URL = 'https://api.binance.com/api/v3/klines';
-const BINANCE_KLINE_LIMIT = 720; // 1일 1440분을 2회로 분할 (max 1000 이내)
+const BINANCE_KLINE_URL  = 'https://api.binance.com/api/v3/klines';
+const LIMIT_1M = 720; // 1일 1440분 → 2회 분할
+const LIMIT_5M = 288; // 1일 288봉 → 1회
 
 function dateToMs(dateStr) {
   return new Date(dateStr + 'T00:00:00Z').getTime();
@@ -21,8 +23,8 @@ function dateRangeDays(startDateStr, endDateStr) {
   return days;
 }
 
-async function fetchKlineChunk(symbolUsdt, startMs, endMs) {
-  const url = `${BINANCE_KLINE_URL}?symbol=${symbolUsdt}&interval=1m&startTime=${startMs}&endTime=${endMs - 1}&limit=${BINANCE_KLINE_LIMIT}`;
+async function fetchKlineChunk(symbolUsdt, interval, startMs, endMs, limit) {
+  const url = `${BINANCE_KLINE_URL}?symbol=${symbolUsdt}&interval=${interval}&startTime=${startMs}&endTime=${endMs - 1}&limit=${limit}`;
 
   const doFetch = async () => {
     try {
@@ -53,23 +55,28 @@ async function fetchKlineChunk(symbolUsdt, startMs, endMs) {
   }));
 }
 
-async function fetchOneDayKlines(symbolUsdt, dateStr) {
-  const startMs  = dateToMs(dateStr);
-  const endMs    = startMs + 86_400_000;
-  const midMs    = startMs + BINANCE_KLINE_LIMIT * 60_000; // 720분 = 12시간 경계
+async function fetchOneDayKlines(symbolUsdt, dateStr, interval) {
+  const startMs = dateToMs(dateStr);
+  const endMs   = startMs + 86_400_000;
 
+  if (interval === '5m') {
+    // 1일 288봉 → 한 번에 fetch
+    return fetchKlineChunk(symbolUsdt, '5m', startMs, endMs, LIMIT_5M);
+  }
+
+  // 1m: 하루 1440봉 → 12시간씩 2회 분할
+  const midMs = startMs + LIMIT_1M * 60_000;
   const [firstHalf, secondHalf] = await Promise.all([
-    fetchKlineChunk(symbolUsdt, startMs, midMs),
-    fetchKlineChunk(symbolUsdt, midMs,   endMs),
+    fetchKlineChunk(symbolUsdt, '1m', startMs, midMs, LIMIT_1M),
+    fetchKlineChunk(symbolUsdt, '1m', midMs,   endMs, LIMIT_1M),
   ]);
-
   return [...firstHalf, ...secondHalf];
 }
 
-async function fetchDelta(symbol, startMs, endMs) {
+async function fetchDelta(symbol, startMs, endMs, interval) {
   try {
     const res = await apiClient.get('/api/analysis/delta', {
-      params: { symbol, startMs, endMs },
+      params: { symbol, startMs, endMs, interval },
     });
     return res.data; // [{ timeMs, delta }]
   } catch (e) {
@@ -83,17 +90,18 @@ async function fetchDelta(symbol, startMs, endMs) {
  * @param {'BTC'|'ENA'} symbol
  * @param {string} startDateStr 'YYYY-MM-DD'
  * @param {string} endDateStr   'YYYY-MM-DD'
+ * @param {'1m'|'5m'} interval
  * @returns {Promise<kline[]>} { time(ms), open, high, low, close, volume, delta }
  */
-export async function fetchKlines(symbol, startDateStr, endDateStr) {
+export async function fetchKlines(symbol, startDateStr, endDateStr, interval = '1m') {
   const symbolUsdt = symbol.toUpperCase() + 'USDT';
   const days       = dateRangeDays(startDateStr, endDateStr);
   const startMs    = dateToMs(startDateStr);
   const endMs      = dateToMs(endDateStr) + 86_400_000;
 
   const [klinesByDay, deltaList] = await Promise.all([
-    Promise.all(days.map((d) => fetchOneDayKlines(symbolUsdt, d))),
-    fetchDelta(symbol, startMs, endMs),
+    Promise.all(days.map((d) => fetchOneDayKlines(symbolUsdt, d, interval))),
+    fetchDelta(symbol, startMs, endMs, interval),
   ]);
 
   const klines = klinesByDay
@@ -102,10 +110,13 @@ export async function fetchKlines(symbol, startDateStr, endDateStr) {
     .filter((c, i, arr) => i === 0 || c.time !== arr[i - 1].time);
 
   if (deltaList.length > 0) {
-    const deltaMap = new Map(deltaList.map((d) => [d.timeMs, d.delta]));
+    const deltaMap = new Map(deltaList.map((d) => [d.timeMs, d]));
     klines.forEach((c) => {
       const d = deltaMap.get(c.time);
-      if (d !== undefined) c.delta = d;
+      if (d !== undefined) {
+        c.delta  = d.delta;
+        c.volume = d.volume;
+      }
     });
   }
 

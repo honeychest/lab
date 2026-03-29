@@ -1,5 +1,5 @@
-// [AGENT] T4-ANALYSIS: findDeltaByTimeRange 추가 — 시간 범위 내 S+F 합산 delta 조회
-// [AGENT] 역할: AggTrade1m JPA Repository | 연관파일: AggTrade1m.java, AggTradeRollupService.java, SignalDataService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, insertIgnoreDuplicate
+// [AGENT] T4-VOLUME-FIX: findTopNWithCombinedDelta() total_volume 추가 — 1m 차트 부피 데이터 표시 수정
+// [AGENT] 역할: AggTrade1m JPA Repository | 연관파일: AggTrade1m.java, AggTradeRollupService.java, SignalDataService.java, MainCandleChart.jsx | 주요메서드: sumEnergyBySymbolAndTimeRange, findTopNWithCombinedDelta(volume포함), insertIgnoreDuplicate, findByDateRange, findLastNBefore, findSimilarCandle
 package com.chs.springboot.domain.binance.repository;
 
 import com.chs.springboot.domain.binance.model.AggTrade1m;
@@ -47,16 +47,18 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
         @Param("marketType") String marketType,
         @Param("limitCount") int limitCount);
 
-    // getCandles 용 — FUTURES 가격 + S+F delta 합산 (내림차순, 호출측에서 reverse 필요)
+    // getCandles 용 — FUTURES 가격 + S+F delta 합산 + volume (내림차순, 호출측에서 reverse 필요)
     @Query(value = """
         SELECT f.candle_time_ms,
                f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
                COALESCE(SUM(a.delta), 0) AS delta
         FROM agg_trade_1m f
         JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
         WHERE f.symbol = :symbol
           AND f.market_type = 'FUTURES'
-        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price,
+                 f.total_volume
         ORDER BY f.candle_time_ms DESC
         LIMIT :limitCount
         """, nativeQuery = true)
@@ -64,23 +66,121 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
         @Param("symbol")     String symbol,
         @Param("limitCount") int limitCount);
 
-    // delta API 용 — 시간 범위 내 S+F 합산 delta (오름차순)
+    // delta API 용 — 시간 범위 내 FUTURES delta + FUTURES total_volume (오름차순)
     @Query(value = """
         SELECT f.candle_time_ms AS timeMs,
+               (f.buy_quantity + f.sell_quantity) AS volume,
                COALESCE(SUM(a.delta), 0) AS delta
         FROM agg_trade_1m f
         JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+                            AND a.market_type = 'FUTURES'
         WHERE f.symbol = :symbol
           AND f.market_type = 'FUTURES'
           AND f.candle_time_ms >= :startMs
           AND f.candle_time_ms < :endMs
-        GROUP BY f.candle_time_ms
+        GROUP BY f.candle_time_ms, f.total_volume
         ORDER BY f.candle_time_ms ASC
         """, nativeQuery = true)
     List<Map<String, Object>> findDeltaByTimeRange(
         @Param("symbol")  String symbol,
         @Param("startMs") long startMs,
         @Param("endMs")   long endMs);
+
+    // getCandlesByDate 용 — 날짜 범위 1m 봉 조회 (ASC, market_type=FUTURES 고정)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_1m f
+        JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms >= :fromMs AND f.candle_time_ms < :toMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Map<String, Object>> findByDateRange(
+        @Param("symbol") String symbol,
+        @Param("fromMs")  long fromMs,
+        @Param("toMs")    long toMs);
+
+    // getCandlesByDate 용 — day 시작 전 N봉 (DESC 반환 → 서비스에서 reverse)
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_1m f
+        JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms < :beforeMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms DESC
+        LIMIT :n
+        """, nativeQuery = true)
+    List<Map<String, Object>> findLastNBefore(
+        @Param("symbol")   String symbol,
+        @Param("beforeMs") long beforeMs,
+        @Param("n")        int n);
+
+    // Signal 수동 탐색 — 전봉 대비 등락율 기준 유사 봉 조회 (LAG 서브쿼리)
+    @Query(value = """
+        SELECT candle_time_ms, open_price, high_price, low_price, close_price, total_volume
+        FROM (
+            SELECT candle_time_ms, open_price, high_price, low_price, close_price, total_volume,
+                   LAG(close_price) OVER (ORDER BY candle_time_ms) AS prev_close
+            FROM agg_trade_1m
+            WHERE symbol = :symbol
+              AND market_type = 'FUTURES'
+              AND candle_time_ms >= :fromMs
+              AND candle_time_ms < :toMs
+        ) t
+        WHERE prev_close IS NOT NULL
+          AND (:useRateFilter = 0 OR (close_price - prev_close) / prev_close * 100
+              BETWEEN (:priceChangeRate - :rateTolerance) AND (:priceChangeRate + :rateTolerance))
+          AND (:useVolFilter = 0 OR total_volume BETWEEN :volMin AND :volMax)
+        ORDER BY candle_time_ms DESC
+        LIMIT 1
+        """, nativeQuery = true)
+    List<Object[]> findSimilarCandle(
+        @Param("symbol")          String symbol,
+        @Param("fromMs")          long fromMs,
+        @Param("toMs")            long toMs,
+        @Param("priceChangeRate") double priceChangeRate,
+        @Param("rateTolerance")   double rateTolerance,
+        @Param("volMin")          java.math.BigDecimal volMin,
+        @Param("volMax")          java.math.BigDecimal volMax,
+        @Param("useRateFilter")   int useRateFilter,
+        @Param("useVolFilter")    int useVolFilter);
+
+    // Analysis 수동 탐색 — 범위 내 조건 충족 전체 봉 조회 (LIMIT 없음, ASC)
+    @Query(value = """
+        SELECT candle_time_ms, open_price, high_price, low_price, close_price, total_volume
+        FROM (
+            SELECT candle_time_ms, open_price, high_price, low_price, close_price, total_volume,
+                   LAG(close_price) OVER (ORDER BY candle_time_ms) AS prev_close
+            FROM agg_trade_1m
+            WHERE symbol = :symbol
+              AND market_type = 'FUTURES'
+              AND candle_time_ms >= :fromMs
+              AND candle_time_ms < :toMs
+        ) t
+        WHERE prev_close IS NOT NULL
+          AND (:useRateFilter = 0 OR (close_price - prev_close) / prev_close * 100
+              BETWEEN (:priceChangeRate - :rateTolerance) AND (:priceChangeRate + :rateTolerance))
+          AND (:useVolFilter = 0 OR total_volume BETWEEN :volMin AND :volMax)
+        ORDER BY candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Object[]> findAllSimilarCandles(
+        @Param("symbol")          String symbol,
+        @Param("fromMs")          long fromMs,
+        @Param("toMs")            long toMs,
+        @Param("priceChangeRate") double priceChangeRate,
+        @Param("rateTolerance")   double rateTolerance,
+        @Param("volMin")          java.math.BigDecimal volMin,
+        @Param("volMax")          java.math.BigDecimal volMax,
+        @Param("useRateFilter")   int useRateFilter,
+        @Param("useVolFilter")    int useVolFilter);
 
     @Transactional
     @Modifying

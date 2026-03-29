@@ -350,9 +350,8 @@ public class WeatherService {
             if (!data.isEmpty()) return data; // 데이터 있으면 반환
         } catch (Exception e) {
             String msg = e.getMessage();
-            System.err.println("API call error: " + msg);
             if (msg != null && msg.contains("429")) {
-                log.warn("[WeatherQuota] 429 Too Many Requests date={} count={} limit={} region={} baseDate={} baseTime={} msg={}",
+                log.debug("[WeatherQuota] 429 Too Many Requests date={} count={} limit={} region={} baseDate={} baseTime={} msg={}",
                         baseDate, callCount, dailyLimit, regionName, baseDate, baseTime, msg);
             } else {
                 log.warn("[WeatherQuota] API error date={} count={} limit={} region={} baseDate={} baseTime={} msg={}",

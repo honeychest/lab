@@ -25,7 +25,9 @@ const TIME_RANGES = [
     { value: '5m',  label: '5분',   dataRange: '5m',  candleType: '1m', displayCount: 60  },
     { value: '30m', label: '30분',  dataRange: '30m', candleType: '1m', displayCount: 90  },
     { value: '4h',  label: '4시간', dataRange: '4h',  candleType: '5m', displayCount: 432 },
-    { value: '48h', label: '48시간', dataRange: '48h', candleType: '5m', displayCount: 1728 },
+    { value: '48h',  label: '48시간',  dataRange: '48h',  candleType: '5m', displayCount: 1728 },
+    { value: '168h', label: '168시간', dataRange: '168h', candleType: '5m', displayCount: 6048 },
+    { value: '336h', label: '336시간', dataRange: '336h', candleType: '5m', displayCount: 12096 },
 ];
 const LIMIT_1M = TIME_RANGES[2].displayCount;
 const LIMIT_5M = TIME_RANGES[TIME_RANGES.length - 1].displayCount;
@@ -112,18 +114,21 @@ export default function SignalPage() {
         loadHistory();
     }, [symbol, timeRange]);
 
-    // OI 히스토리: 120h 최대치 1회 로드 → 클라이언트에서 timeRange 기준 슬라이싱
+    // OI 히스토리: timeRange 이상 데이터 로드 (최소 120h 보장) → 클라이언트에서 rangeMs 기준 슬라이싱
+    const LARGE_OI_RANGES = new Set(['168h', '336h']);
     useEffect(() => {
         const loadOiHistory = async () => {
             try {
-                const res = await apiClient.get(`/api/signal/oi?symbol=${symbol}&range=120h`);
+                const oiRange = LARGE_OI_RANGES.has(timeRange) ? timeRange : '120h';
+                const res = await apiClient.get(`/api/signal/oi?symbol=${symbol}&range=${oiRange}`);
                 if (Array.isArray(res.data)) setOiDataHistory(res.data);
             } catch (err) {
                 console.error('[SignalPage] OI history failed', err);
             }
         };
         loadOiHistory();
-    }, [symbol]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [symbol, timeRange]);
 
     useEffect(() => {
         const loadParams = async () => {
@@ -242,7 +247,7 @@ export default function SignalPage() {
         if (latestOi.symbol !== symbol) return;
 
         setOiDataHistory((prev) => {
-            const updated = [...prev, latestOi].slice(-500); // 최근 500개 유지 (5분봉 40h = 480개)
+            const updated = [...prev, latestOi].slice(-5000); // 최근 5000개 유지 (5분봉 ~17일)
             return updated;
         });
     }, [latestOi, symbol]);

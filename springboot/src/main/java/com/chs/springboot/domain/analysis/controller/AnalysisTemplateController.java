@@ -1,12 +1,15 @@
 // [AGENT] T4-ANALYSIS: 애널리시스 템플릿 REST 컨트롤러
 // 엔드포인트: GET/POST /api/analysis/templates, PUT/DELETE /api/analysis/templates/{id}
-//             GET /api/analysis/delta
-// 연관파일: AnalysisTemplateService.java
+//             GET /api/analysis/delta, POST /api/analysis/search
+// 연관파일: AnalysisTemplateService.java, AnalysisSearchService.java
 package com.chs.springboot.domain.analysis.controller;
 
+import com.chs.springboot.domain.analysis.dto.AnalysisSearchRequest;
 import com.chs.springboot.domain.analysis.dto.TemplateRequestDto;
 import com.chs.springboot.domain.analysis.dto.TemplateResponseDto;
+import com.chs.springboot.domain.analysis.service.AnalysisSearchService;
 import com.chs.springboot.domain.analysis.service.AnalysisTemplateService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,6 +26,7 @@ import java.util.Map;
 public class AnalysisTemplateController {
 
     private final AnalysisTemplateService templateService;
+    private final AnalysisSearchService analysisSearchService;
 
     @GetMapping("/templates")
     public ResponseEntity<List<TemplateResponseDto>> getAll() {
@@ -51,9 +55,17 @@ public class AnalysisTemplateController {
     public ResponseEntity<List<Map<String, Object>>> getDelta(
             @RequestParam String symbol,
             @RequestParam long startMs,
-            @RequestParam long endMs) {
-        log.debug("[AnalysisTemplateController] /delta symbol={} startMs={} endMs={}", symbol, startMs, endMs);
-        return ResponseEntity.ok(templateService.getDelta(symbol, startMs, endMs));
+            @RequestParam long endMs,
+            @RequestParam(defaultValue = "1m") String interval) {
+        log.debug("[AnalysisTemplateController] /delta symbol={} startMs={} endMs={} interval={}", symbol, startMs, endMs, interval);
+        return ResponseEntity.ok(templateService.getDelta(symbol, startMs, endMs, interval));
+    }
+
+    @PostMapping("/search")
+    public ResponseEntity<List<Long>> search(@RequestBody @Valid AnalysisSearchRequest req) {
+        log.debug("[AnalysisTemplateController] /search symbol={} timeframe={} fromMs={} toMs={}",
+                req.getSymbol(), req.getTimeframe(), req.getFromMs(), req.getToMs());
+        return ResponseEntity.ok(analysisSearchService.search(req));
     }
 
     @GetMapping("/templates/{id}/signals")
