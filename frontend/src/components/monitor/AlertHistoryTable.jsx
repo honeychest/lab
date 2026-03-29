@@ -1,6 +1,6 @@
 // [AGENT] 알림 이력 테이블 (필터 + 페이징)
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import styles from './AlertHistoryTable.module.css';
 
 const fmt = (dt) => {
@@ -35,7 +35,7 @@ export default function AlertHistoryTable() {
     }, [query, page]);
 
     useEffect(() => {
-        axios.get('/api/monitor/alert-history', { params })
+        apiClient.get('/api/monitor/alert-history', { params })
             .then(r => setData(r.data))
             .catch(() => setData({ content: [], totalPages: 0, totalElements: 0 }));
     }, [params]);

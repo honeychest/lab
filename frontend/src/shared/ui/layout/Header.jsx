@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
@@ -36,7 +36,7 @@ function Header() {
     const navRef = useRef(null);
 
     useEffect(() => {
-        axios.get('/api/binance/price')
+        apiClient.get('/api/binance/price')
             .then((res) => {
                 const sn = res.headers['x-server-name'];
                 if (sn) setServerName(sn);

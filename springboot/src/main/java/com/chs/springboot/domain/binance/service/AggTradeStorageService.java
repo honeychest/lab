@@ -38,7 +38,7 @@ public class AggTradeStorageService {
     private static final String DEDUP_KEY_PREFIX = "dedup:aggtrade:";
 
     private final StringRedisTemplate redisTemplate;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate batchJdbcTemplate;
     private final AggTradeConfigService configService;
     private final LeaderElectionService leaderElectionService;
     private final AggTradeBackfillService backfillService;
@@ -64,7 +64,7 @@ public class AggTradeStorageService {
                                   AggTradeBackfillService backfillService,
                                   AggTradeCollectStatusRepository statusRepository) {
         this.redisTemplate = redisTemplate;
-        this.jdbcTemplate = jdbcTemplate;
+        this.batchJdbcTemplate = jdbcTemplate;
         this.configService = configService;
         this.leaderElectionService = leaderElectionService;
         this.backfillService = backfillService;
@@ -292,7 +292,7 @@ public class AggTradeStorageService {
                 "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6)) ";
 
-        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+        batchJdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 RawAggTrade t = entities.get(i);

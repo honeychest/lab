@@ -38,7 +38,7 @@ public class AggTradeRollupService {
     private final AggTrade5mRepository agg5mRepository;
     private final AggTradeCollectStatusRepository statusRepository;
     private final StringRedisTemplate redisTemplate;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate batchJdbcTemplate;
     private final AggTrade1sRollupService agg1sRollupService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
@@ -91,10 +91,10 @@ public class AggTradeRollupService {
             .orElse(null);
         long fromMs;
         if (lastMs == null) {
-            Long firstMs = jdbcTemplate.queryForObject(
+            Long firstMs = batchJdbcTemplate.queryForObject(
                 "SELECT MIN(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
                 Long.class, symbol, marketType);
-            Long lastAvailMs = jdbcTemplate.queryForObject(
+            Long lastAvailMs = batchJdbcTemplate.queryForObject(
                 "SELECT MAX(candle_time_ms) FROM agg_trade_1s WHERE symbol = ? AND market_type = ?",
                 Long.class, symbol, marketType);
             log.info("[RollupCatchUp] {} {} 1m lastMs=null, 1s범위={} ~ {}", symbol, marketType, firstMs, lastAvailMs);
@@ -105,7 +105,7 @@ public class AggTradeRollupService {
             fromMs = (firstMs / 60_000L) * 60_000L;
         } else {
             long lookbackMs = nowMs - 7 * 24 * 60 * 60 * 1000L; // 7일 내 갭만 탐지
-            Long firstGapMs = jdbcTemplate.queryForObject(
+            Long firstGapMs = batchJdbcTemplate.queryForObject(
                 """
                 SELECT MIN(FLOOR(s.candle_time_ms / 60000) * 60000)
                 FROM agg_trade_1s s
@@ -167,7 +167,7 @@ public class AggTradeRollupService {
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
             ON DUPLICATE KEY UPDATE id = id
             """;
-        int rows = jdbcTemplate.update(sql, symbol, marketType, fromMs, nowMs);
+        int rows = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, nowMs);
         log.info("[RollupCatchUp] {} {} 1m {}건 삽입", symbol, marketType, rows);
     }
 
@@ -178,7 +178,7 @@ public class AggTradeRollupService {
         long to5mMs = (nowMs / 300_000L) * 300_000L; // 미완료 구간 제외
         long fromMs;
         if (lastMs == null) {
-            Long firstMs = jdbcTemplate.queryForObject(
+            Long firstMs = batchJdbcTemplate.queryForObject(
                 "SELECT MIN(candle_time_ms) FROM agg_trade_1m WHERE symbol = ? AND market_type = ?",
                 Long.class, symbol, marketType);
             if (firstMs == null) {
@@ -189,7 +189,7 @@ public class AggTradeRollupService {
         } else {
             // 중간 갭 탐지: 7일 내 1m봉은 있지만 5m봉이 없는 최초 구간
             long lookbackMs = nowMs - 7 * 24 * 60 * 60 * 1000L;
-            Long firstGapMs = jdbcTemplate.queryForObject(
+            Long firstGapMs = batchJdbcTemplate.queryForObject(
                 """
                 SELECT MIN(FLOOR(m.candle_time_ms / 300000) * 300000)
                 FROM agg_trade_1m m
@@ -248,7 +248,7 @@ public class AggTradeRollupService {
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
             ON DUPLICATE KEY UPDATE id = id
             """;
-        int rows = jdbcTemplate.update(sql, symbol, marketType, fromMs, to5mMs);
+        int rows = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, to5mMs);
         log.info("[RollupCatchUp] {} {} 5m {}건 삽입", symbol, marketType, rows);
     }
 
@@ -304,7 +304,7 @@ public class AggTradeRollupService {
                 ON DUPLICATE KEY UPDATE id = id
                 """;
             for (var t : targets) {
-                int n = jdbcTemplate.update(sql1m, t.getSymbol(), t.getMarketType(), fromMs, toMs);
+                int n = batchJdbcTemplate.update(sql1m, t.getSymbol(), t.getMarketType(), fromMs, toMs);
                 total1m += n;
                 log.info("[RollupRange] {} {} 1m {}건", t.getSymbol(), t.getMarketType(), n);
             }
@@ -349,7 +349,7 @@ public class AggTradeRollupService {
                 ON DUPLICATE KEY UPDATE id = id
                 """;
             for (var t : targets) {
-                int n = jdbcTemplate.update(sql5m, t.getSymbol(), t.getMarketType(), from5m, to5m);
+                int n = batchJdbcTemplate.update(sql5m, t.getSymbol(), t.getMarketType(), from5m, to5m);
                 total5m += n;
                 log.info("[RollupRange] {} {} 5m {}건", t.getSymbol(), t.getMarketType(), n);
             }
@@ -426,7 +426,7 @@ public class AggTradeRollupService {
             WHERE candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type
             """;
-        return jdbcTemplate.queryForList(sql, startMs, endMs);
+        return batchJdbcTemplate.queryForList(sql, startMs, endMs);
     }
 
     // ─── 5m: agg_trade_1m 집계 ────────────────────────────────────────────
@@ -455,7 +455,7 @@ public class AggTradeRollupService {
             WHERE candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
             """;
-        return jdbcTemplate.queryForList(sql, startMs, endMs);
+        return batchJdbcTemplate.queryForList(sql, startMs, endMs);
     }
 
     // ─── fillCandle ───────────────────────────────────────────────────────
@@ -528,7 +528,7 @@ public class AggTradeRollupService {
             ORDER BY candle_time_ms ASC
             LIMIT 1
             """;
-        List<BigDecimal> result = jdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
+        List<BigDecimal> result = batchJdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
         return result.isEmpty() ? BigDecimal.ZERO : result.get(0);
     }
 
@@ -539,7 +539,7 @@ public class AggTradeRollupService {
             ORDER BY candle_time_ms DESC
             LIMIT 1
             """;
-        List<BigDecimal> result = jdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
+        List<BigDecimal> result = batchJdbcTemplate.queryForList(sql, BigDecimal.class, symbol, marketType, startMs, endMs);
         return result.isEmpty() ? BigDecimal.ZERO : result.get(0);
     }
 

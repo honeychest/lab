@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './RandomLayoutEditorPage.module.css';
@@ -78,7 +78,7 @@ function RandomLayoutEditorPage() {
     var svgRef = useRef(null);
 
     useEffect(function () {
-        axios.get('/api/admin/data-gap/access')
+        apiClient.get('/api/admin/data-gap/access')
             .then(function (response) {
                 setCanAccess(response.data.canAccess);
             })

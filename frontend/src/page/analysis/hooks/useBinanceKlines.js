@@ -1,7 +1,7 @@
 // [AGENT] T4-ANALYSIS: 바이낸스 Kline(OHLCV) + 백엔드 delta 병합 조회
 // 429 응답 시: Retry-After 파싱 후 1회 자동 재시도
 // Binance klines limit=1000 제한으로 하루(1440분)를 2회 요청으로 분할 처리
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 
 const BINANCE_KLINE_URL = 'https://api.binance.com/api/v3/klines';
 const BINANCE_KLINE_LIMIT = 720; // 1일 1440분을 2회로 분할 (max 1000 이내)
@@ -25,26 +25,20 @@ async function fetchKlineChunk(symbolUsdt, startMs, endMs) {
   const url = `${BINANCE_KLINE_URL}?symbol=${symbolUsdt}&interval=1m&startTime=${startMs}&endTime=${endMs - 1}&limit=${BINANCE_KLINE_LIMIT}`;
 
   const doFetch = async () => {
-    const res = await fetch(url);
-    if (res.status === 429) {
-      const retryAfter = Number(res.headers.get('Retry-After') ?? '5');
-      await new Promise((r) => setTimeout(r, retryAfter * 1000));
-      const retry = await fetch(url);
-      if (!retry.ok) {
-        const err = new Error(`바이낸스 API 오류: ${retry.statusText}`);
-        err.status  = retry.status;
-        err.message = retry.statusText;
-        throw err;
+    try {
+      const res = await apiClient.get(url);
+      return res.data;
+    } catch (error) {
+      if (error.response?.status === 429) {
+        const retryAfter = Number(error.response.headers['retry-after'] ?? '5');
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        const retry = await apiClient.get(url);
+        return retry.data;
       }
-      return retry.json();
-    }
-    if (!res.ok) {
-      const err = new Error(`바이낸스 API 오류: ${res.statusText}`);
-      err.status  = res.status;
-      err.message = res.statusText;
+      const err = new Error(`바이낸스 API 오류: ${error.response?.statusText ?? error.message}`);
+      err.status = error.response?.status;
       throw err;
     }
-    return res.json();
   };
 
   const raw = await doFetch();
@@ -74,7 +68,7 @@ async function fetchOneDayKlines(symbolUsdt, dateStr) {
 
 async function fetchDelta(symbol, startMs, endMs) {
   try {
-    const res = await axios.get('/api/analysis/delta', {
+    const res = await apiClient.get('/api/analysis/delta', {
       params: { symbol, startMs, endMs },
     });
     return res.data; // [{ timeMs, delta }]

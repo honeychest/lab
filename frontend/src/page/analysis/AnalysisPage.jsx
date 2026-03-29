@@ -1,6 +1,6 @@
 // [AGENT] T4-ANALYSIS: 애널리시스 페이지 — 조건 빌더 + 메인 차트 + 사례 패널 + 템플릿
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import Layout                from '../../shared/ui/layout/Layout.jsx';
 import ControlBar            from './components/ControlBar.jsx';
 import MainChart             from './components/MainChart.jsx';
@@ -97,7 +97,7 @@ export default function AnalysisPage() {
     mountedRef.current = true;
     Promise.all([
       loadData('BTC', fiveDaysAgoStr(), todayStr()),
-      axios.get('/api/analysis/templates')
+      apiClient.get('/api/analysis/templates')
         .then((r) => {
           const list = Array.isArray(r.data) ? r.data : [];
           setTemplates(list);
@@ -205,7 +205,7 @@ export default function AnalysisPage() {
 
     try {
       if (isOverwrite && selectedId != null) {
-        const res = await axios.put(`/api/analysis/templates/${selectedId}`, {
+        const res = await apiClient.put(`/api/analysis/templates/${selectedId}`, {
           name: trimmed,
           conditions: JSON.stringify(conditionTree),
           palette:    conditionTree.palette ?? 'MID',
@@ -214,7 +214,7 @@ export default function AnalysisPage() {
         setToast({ message: `'${trimmed}' 템플릿이 업데이트되었습니다.`, type: 'success' });
       } else {
         // 새 이름이거나 선택된 템플릿이 없는 경우 → 새 템플릿 생성
-        const res = await axios.post('/api/analysis/templates', {
+        const res = await apiClient.post('/api/analysis/templates', {
           name: trimmed,
           conditions: JSON.stringify(conditionTree),
           palette:    conditionTree.palette ?? 'MID',
@@ -249,7 +249,7 @@ export default function AnalysisPage() {
 
   const handleRename = async (id, newName) => {
     try {
-      const res = await axios.put(`/api/analysis/templates/${id}`, { name: newName });
+      const res = await apiClient.put(`/api/analysis/templates/${id}`, { name: newName });
       setTemplates((prev) => prev.map((t) => t.id === id ? res.data : t));
       setToast({ message: '이름이 변경되었습니다.', type: 'success' });
     } catch {
@@ -259,7 +259,7 @@ export default function AnalysisPage() {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`/api/analysis/templates/${id}`);
+      await apiClient.delete(`/api/analysis/templates/${id}`);
       setTemplates((prev) => prev.filter((t) => t.id !== id));
       if (selectedId === id) setSelectedId(null);
       setToast({ message: '삭제되었습니다.', type: 'delete' });

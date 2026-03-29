@@ -1,11 +1,12 @@
 // [AGENT] 공통 레이아웃 — guestToken 기반 문의 목록 조회 + 미읽음 배지 관리 + 방문 기록
 // 연관: TelegramPopup.jsx, Footer.jsx, contactApi.js
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import axios from "axios";
+import apiClient from "@/api/apiClient.js";
 import Header from "./Header.jsx";
 import Footer from "./Footer.jsx";
-import TelegramPopup from "../../../domain/support/ui/TelegramPopup.jsx";
-import { fetchInquiries, markReplyRead, getGuestToken } from '../../../domain/support/api/contactApi.js';
+import OverLoadToast from "@/components/toast/OverLoadToast.jsx"
+import TelegramPopup from "@/domain/support/ui/TelegramPopup.jsx";
+import { fetchInquiries, markReplyRead, getGuestToken } from '@/domain/support/api/contactApi.js';
 import styles from './Layout.module.css';
 import '@/app/style/coolors.css';
 
@@ -35,7 +36,7 @@ function Layout({ children, footerCenter = [], enableSupport = true }) {
     useEffect(() => {
         if (visitedRef.current) return;
         visitedRef.current = true;
-        axios.post('/api/visitor/log', { path: window.location.pathname }).catch(() => {});
+        apiClient.post('/api/visitor/log', { path: window.location.pathname }).catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -69,6 +70,7 @@ function Layout({ children, footerCenter = [], enableSupport = true }) {
 
     return (
         <div className={styles.layout}>
+            <OverLoadToast />
             <Header />
             {enableSupport && (
                 <TelegramPopup

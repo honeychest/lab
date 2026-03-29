@@ -32,7 +32,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
  * axios  → axios.get(url).then(res => ...).catch(err => ...)
  *       또는 await axios.get(url) (async 함수 내에서)
  */
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 
 /**
  * Layout: 헤더+푸터를 감싸는 전체 페이지 레이아웃 컴포넌트.
@@ -195,16 +195,16 @@ function BinancePage() {
         const fetchWallet = async () => {
             try {
                 /**
-                 * axios.get('/api/binance/account'):
+                 * apiClient.get('/api/binance/account'):
                  *   Spring Boot BinanceController의 GET /api/binance/account 호출.
                  *   vite.config.js 프록시 설정으로 /api → http://localhost:8080 으로 전달.
                  */
-                const res = await axios.get('/api/binance/account');
+                const res = await apiClient.get('/api/binance/account');
 
                 /**
                  * Nginx proxy_intercept_errors 대응:
                  *   백엔드 다운 시 Nginx가 502를 가로채 /50x.html을 200 OK + text/html로 반환.
-                 *   axios는 200이므로 에러로 인식하지 않아 catch가 타지 않음.
+                 *   apiClient는 200이므로 에러로 인식하지 않아 catch가 타지 않음.
                  *   → Content-Type이 application/json이 아니면 서버 다운으로 판단.
                  *   navigate 대신 setServerError로 URL을 유지하면서 에러 UI 표시.
                  */

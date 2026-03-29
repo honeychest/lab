@@ -12,7 +12,7 @@ import ShortLiqPanel from './components/ShortLiqPanel.jsx';
 import LiquidationPanel from './components/LiquidationPanel.jsx';
 import MainCore from './components/MainCore.jsx';
 import PatternStrip from './components/PatternStrip.jsx';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
 
@@ -77,7 +77,7 @@ export default function SignalPage() {
     useEffect(() => {
         const loadInit = async () => {
             try {
-                const res = await axios.get(`/api/signal/init?symbol=${symbol}`);
+                const res = await apiClient.get(`/api/signal/init?symbol=${symbol}`);
                 setInitData(res.data);
             } catch (err) {
                 console.error('[SignalPage] init failed', err);
@@ -94,7 +94,7 @@ export default function SignalPage() {
 
         const loadHistory = async () => {
             try {
-                const res = await axios.get(`/api/signal/history?symbol=${symbol}&range=${getDataRange(timeRange)}`, {
+                const res = await apiClient.get(`/api/signal/history?symbol=${symbol}&range=${getDataRange(timeRange)}`, {
                     signal: abortControllerRef.current.signal,
                 });
                 if (res.data.longEnergy !== undefined) setLongEnergy(res.data.longEnergy);
@@ -116,7 +116,7 @@ export default function SignalPage() {
     useEffect(() => {
         const loadOiHistory = async () => {
             try {
-                const res = await axios.get(`/api/signal/oi?symbol=${symbol}&range=120h`);
+                const res = await apiClient.get(`/api/signal/oi?symbol=${symbol}&range=120h`);
                 if (Array.isArray(res.data)) setOiDataHistory(res.data);
             } catch (err) {
                 console.error('[SignalPage] OI history failed', err);
@@ -128,7 +128,7 @@ export default function SignalPage() {
     useEffect(() => {
         const loadParams = async () => {
             try {
-                const res = await axios.get(`/api/signal/params?symbol=${symbol}`);
+                const res = await apiClient.get(`/api/signal/params?symbol=${symbol}`);
                 const { canEdit: ce, ...rest } = res.data;
                 setParams(rest);
                 setCanEdit(!!ce);
@@ -142,7 +142,7 @@ export default function SignalPage() {
     useEffect(() => {
         const loadTemplates = async () => {
             try {
-                const res = await axios.get('/api/analysis/templates');
+                const res = await apiClient.get('/api/analysis/templates');
                 const list = Array.isArray(res.data) ? res.data : [];
                 setTemplates(list);
                 if (list.length === 0) {
@@ -176,7 +176,7 @@ export default function SignalPage() {
     const candleLimit = getDisplayCount(timeRange);
     useEffect(() => {
         setCandleHistory([]);
-        axios.get(`/api/signal/candles?symbol=${symbol}&type=${candleType}&limit=${candleLimit}`)
+        apiClient.get(`/api/signal/candles?symbol=${symbol}&type=${candleType}&limit=${candleLimit}`)
             .then((res) => setCandleHistory(res.data))
             .catch((err) => console.error('[SignalPage] candles failed', err));
     }, [symbol, candleType, candleLimit]);
@@ -186,7 +186,7 @@ export default function SignalPage() {
     };
 
     const handleParamsSave = async (newParams) => {
-        const res = await axios.put(`/api/signal/params?symbol=${symbol}`, newParams);
+        const res = await apiClient.put(`/api/signal/params?symbol=${symbol}`, newParams);
         const { canEdit: _ce, ...rest } = res.data;
         setParams(rest);
         // params 참조 변경 → PatternStrip useEffect 재실행 (자동 재계산 트리거)

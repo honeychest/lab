@@ -2,7 +2,7 @@
 // 연관: useBinanceTradeSse.ts, TradePanel.tsx, BinanceTradeController.java
 // 주요기능: 스캔슬롯 애니메이션, 200건 캡(데스크탑), 무한스크롤(모바일), Sheet 사이드 패널
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useBinanceTradeSse } from '../../domain/binance/model/hook/useBinanceTradeSse.ts';
 import { useRawTickSse } from '../../domain/binance/model/hook/useRawTickSse.ts';
@@ -89,7 +89,7 @@ function TradePage() {
     const [threshold, setThreshold] = useState(null);
     const [canEditThreshold, setCanEditThreshold] = useState(false);
     useEffect(() => {
-        axios.get('/api/binance/trades/threshold').then(r => {
+        apiClient.get('/api/binance/trades/threshold').then(r => {
             setThreshold(r.data.value);
             setCanEditThreshold(!!r.data.canEdit);
         });

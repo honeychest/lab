@@ -2,7 +2,7 @@
 // 에러 시 3초마다 재시도, 5회 실패 시 중단
 // 읽은 뉴스: localStorage 저장 (24시간 TTL), 회색 표시
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import styles from './NewsFeed.module.css';
 
 const BADGE_CLASS = { '경제': styles.badgeEco, 'IT': styles.badgeIt, '인기': styles.badgeHot, '최신': styles.badgeLatest };
@@ -77,7 +77,7 @@ export default function NewsFeed() {
 
         const load = () => {
             setLoading(true);
-            axios.get('/api/news')
+            apiClient.get('/api/news')
                 .then(res => {
                     if (cancelled.current) return;
                     setItems(Array.isArray(res.data) ? res.data : []);

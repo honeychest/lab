@@ -1,7 +1,7 @@
 // [AGENT] 조회 사이드 패널 — 필터(심볼/시장/날짜/정렬) + GET /api/binance/trades 페이지네이션
 // 연관파일: TradePage.jsx, BinanceTradeController.java
 import { useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import {
     Select,
     SelectContent,

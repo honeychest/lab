@@ -1,5 +1,6 @@
 // [AGENT] /ws/monitor WebSocket 연결 훅 (5초 스냅샷 수신)
 import { useEffect, useRef, useState } from 'react';
+import apiClient from '@/api/apiClient.js';
 
 export function useMonitorWebSocket() {
     const [snapshot, setSnapshot] = useState(null);
@@ -26,9 +27,10 @@ export function useMonitorWebSocket() {
                 retryRef.current = window.setTimeout(connect, 2000);
             };
         };
-        fetch('/api/monitor/snapshot')
-            .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setSnapshot(data); })
+        apiClient.get('/api/monitor/snapshot')
+            .then(res => {
+                if (res.data) setSnapshot(res.data);
+            })
             .catch(() => {});
         connect();
 

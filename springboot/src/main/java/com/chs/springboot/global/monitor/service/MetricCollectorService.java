@@ -15,12 +15,17 @@ import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
+import com.zaxxer.hikari.HikariDataSource;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -51,6 +56,10 @@ public class MetricCollectorService {
     private final AppConfigService appConfigService;
     private final ObjectMapper objectMapper;
     private final LeaderElectionService leaderElectionService;
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Resource(name = "batchDataSource")
+    private final HikariDataSource batchDataSource;
     private volatile List<MetricSnapshot.ContainerInfo> cachedContainers = List.of();
 
     private final String containerId = Optional.ofNullable(System.getenv("HOSTNAME"))
@@ -117,11 +126,31 @@ public class MetricCollectorService {
         } catch (Exception e) {
             log.warn("[MetricCollector] snapshot Redis 저장 실패: {}", e.getMessage());
         }
+        if (cpu != null) {
+            int targetSize;
+            if (cpu >= 90) {
+                targetSize = 1;
+            } else if (cpu >= 70) {
+                targetSize = 2;
+            } else if (cpu >= 50){
+                targetSize = 4;
+            } else {
+                targetSize = 6;
+            }
+            if (batchDataSource.getMaximumPoolSize() != targetSize) {
+                log.info("[BatchPool] CPU={}% → 풀 크기 {} → {}",
+                        String.format("%.1f", cpu),
+                        batchDataSource.getMaximumPoolSize(),
+                        targetSize);
+                batchDataSource.setMaximumPoolSize(targetSize);
+            }
+        }
         alertService.evaluate(snapshot);
     }
     @Scheduled(fixedDelay = 5000)
     public void collectContainerCache() {
         if (!leaderElectionService.isLeader()) return;
+        if (!new File("/var/run/docker.sock").exists()) return;
         try {
             List<MetricSnapshot.ContainerInfo> result = collectContainers();
             if (result != null) cachedContainers = result;

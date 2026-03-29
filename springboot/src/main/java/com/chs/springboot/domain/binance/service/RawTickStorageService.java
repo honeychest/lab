@@ -52,7 +52,7 @@ public class RawTickStorageService {
     private static final int QUEUE_WARN_90_PCT = (int) (MAX_REDIS_QUEUE * 0.90);
 
     private final StringRedisTemplate redisTemplate;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate batchJdbcTemplate;
     private final LeaderElectionService leaderElection;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -70,7 +70,7 @@ public class RawTickStorageService {
                                  JdbcTemplate jdbcTemplate,
                                  LeaderElectionService leaderElection) {
         this.redisTemplate = redisTemplate;
-        this.jdbcTemplate = jdbcTemplate;
+        this.batchJdbcTemplate = jdbcTemplate;
         this.leaderElection = leaderElection;
         flushExecutor.scheduleWithFixedDelay(this::scheduleFlush, FLUSH_INTERVAL_SEC, FLUSH_INTERVAL_SEC, TimeUnit.SECONDS);
     }
@@ -78,7 +78,7 @@ public class RawTickStorageService {
     @PostConstruct
     private void logBatchSetting() {
         try {
-            var ds = jdbcTemplate.getDataSource();
+            var ds = batchJdbcTemplate.getDataSource();
             if (ds instanceof HikariDataSource hikari) {
                 String url = hikari.getJdbcUrl() != null ? hikari.getJdbcUrl() : "";
                 boolean rewrite = url.contains("rewriteBatchedStatements=true");
@@ -195,7 +195,7 @@ public class RawTickStorageService {
     private void batchInsert(List<RawTick> entities, long startMs) {
         String sql = "INSERT INTO raw_tick (market_type, trade_id, price, quantity, is_buyer_maker, traded_at, saved_at) VALUES (?, ?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE id = id";
         try {
-            jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+            batchJdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
                 @Override
                 public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
                     RawTick t = entities.get(i);

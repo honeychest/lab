@@ -8,6 +8,8 @@ import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.telegram.TelegramLog;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -20,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -28,6 +31,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +48,7 @@ public class AggTradeBackfillService {
     private final AggTradeConfigService configService;
     private final LeaderElectionService leaderElectionService;
     private final AggTradeCollectStatusRepository statusRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate batchJdbcTemplate;
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(new CustomizableThreadFactory("aggtrade-backfill-"));
@@ -67,12 +71,12 @@ public class AggTradeBackfillService {
                                    AggTradeConfigService configService,
                                    LeaderElectionService leaderElectionService,
                                    AggTradeCollectStatusRepository statusRepository,
-                                   JdbcTemplate jdbcTemplate) {
+                                   JdbcTemplate batchJdbcTemplate) {
         this.redisTemplate = redisTemplate;
         this.configService = configService;
         this.leaderElectionService = leaderElectionService;
         this.statusRepository = statusRepository;
-        this.jdbcTemplate = jdbcTemplate;
+        this.batchJdbcTemplate = batchJdbcTemplate;
     }
 
     @PostConstruct
@@ -258,25 +262,25 @@ public class AggTradeBackfillService {
             }
 
             String body = response.body();
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode array = mapper.readTree(body);
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode array = mapper.readTree(body);
             if (!array.isArray() || array.isEmpty()) {
                 log.info("[AggTradeBackfill] {} {} fromId={} 응답 0건, 종료", symbol, marketType, currentFromId);
                 break;
             }
             log.info("[AggTradeBackfill] {} {} fromId={} 응답 {}건", symbol, marketType, currentFromId, array.size());
 
-            List<RawAggTrade> entities = new java.util.ArrayList<>();
+            List<RawAggTrade> entities = new ArrayList<>();
             long batchMaxId = currentFromId;
             long batchMinId = Long.MAX_VALUE;
-            for (com.fasterxml.jackson.databind.JsonNode node : array) {
+            for (JsonNode node : array) {
                 RawAggTrade t = new RawAggTrade();
                 t.setSymbol(symbol);
                 t.setMarketType(marketType);
                 long aggId = node.get("a").asLong();
                 t.setAggTradeId(aggId);
-                t.setPrice(new java.math.BigDecimal(node.get("p").asText()));
-                t.setQuantity(new java.math.BigDecimal(node.get("q").asText()));
+                t.setPrice(new BigDecimal(node.get("p").asText()));
+                t.setQuantity(new BigDecimal(node.get("q").asText()));
                 t.setFirstTradeId(node.get("f").asLong());
                 t.setLastTradeId(node.get("l").asLong());
                 t.setIsBuyerMaker(node.get("m").asBoolean());
@@ -328,7 +332,7 @@ public class AggTradeBackfillService {
                 }
             };
             try {
-                jdbcTemplate.batchUpdate(sql, setter);
+                batchJdbcTemplate.batchUpdate(sql, setter);
             } catch (DeadlockLoserDataAccessException e) {
                 log.warn("[AggtradeBackfill] 데드락 감지, 500ms 후 재시도 - symbol={} marketType={}", symbol, marketType);
                 try {
@@ -336,7 +340,7 @@ public class AggTradeBackfillService {
                 }catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
-                jdbcTemplate.batchUpdate(sql, setter);
+                batchJdbcTemplate.batchUpdate(sql, setter);
             }
 
             if (array.size() < 1000) {

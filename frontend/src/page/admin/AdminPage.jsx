@@ -4,7 +4,7 @@
 // 수동 수집: /api/admin/backfill/collect → Job 폴링
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './AdminPage.module.css';
 import '../../styles/themes/monitor-teal.css';
@@ -101,7 +101,7 @@ export default function AdminPage() {
     const handleDeleteFlat = async (tableKey) => {
         setDeletingFlat(tableKey);
         try {
-            await axios.delete('/api/admin/backfill/flat', {
+            await apiClient.delete('/api/admin/backfill/flat', {
                 params: { symbol: healthSymbol, marketType: healthMarket, tableKey },
             });
             await handleHealthCheck();
@@ -119,7 +119,7 @@ export default function AdminPage() {
         try {
             const toMs   = Date.now();
             const fromMs = toMs - healthHours * 60 * 60 * 1000;
-            const r = await axios.get('/api/admin/backfill/health', {
+            const r = await apiClient.get('/api/admin/backfill/health', {
                 params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
             });
             setHealthData(r.data);
@@ -133,7 +133,7 @@ export default function AdminPage() {
     const pollRef = useRef(null);
 
     useEffect(() => {
-        axios.get('/api/admin/data-gap/access')
+        apiClient.get('/api/admin/data-gap/access')
             .then(r => setCanAccess(r.data.canAccess))
             .catch((e) => {
                 if (e?.response?.status === 403) {
@@ -146,7 +146,7 @@ export default function AdminPage() {
 
     useEffect(() => {
         setFlagsLoading(true);
-        axios.get('/api/admin/feature-flags')
+        apiClient.get('/api/admin/feature-flags')
             .then(r => setFlags(r.data))
             .catch(() => {})
             .finally(() => setFlagsLoading(false));
@@ -155,7 +155,7 @@ export default function AdminPage() {
     const patchFlags = async (next) => {
         setFlags(next);
         try {
-            const r = await axios.patch('/api/admin/feature-flags', next);
+            const r = await apiClient.patch('/api/admin/feature-flags', next);
             setFlags(r.data);
         } catch {
             // ignore
@@ -166,7 +166,7 @@ export default function AdminPage() {
         setVisitorLoading(true);
         setVisitorError(null);
         try {
-            const r = await axios.get('/api/admin/monitor/visitor-logs');
+            const r = await apiClient.get('/api/admin/monitor/visitor-logs');
             setVisitorData(r.data);
         } catch (e) {
             setVisitorError(e.response?.data?.error ?? '조회 실패');
@@ -179,7 +179,7 @@ export default function AdminPage() {
         setAllowedLoading(true);
         setAllowedError(null);
         try {
-            const r = await axios.get('/api/admin/monitor/allowed-ips');
+            const r = await apiClient.get('/api/admin/monitor/allowed-ips');
             setAllowedIps(r.data ?? []);
         } catch (e) {
             setAllowedIps([]);
@@ -194,7 +194,7 @@ export default function AdminPage() {
         setAllowedLoading(true);
         setAllowedError(null);
         try {
-            await axios.delete(`/api/admin/monitor/allowed-ips/${encodeURIComponent(ip)}`);
+            await apiClient.delete(`/api/admin/monitor/allowed-ips/${encodeURIComponent(ip)}`);
             await loadAllowedIps();
         } catch (e) {
             setAllowedError(e?.response?.status === 403 ? '기능이 비활성화되어 있습니다.' : '허용 IP 삭제 실패');
@@ -207,7 +207,7 @@ export default function AdminPage() {
         const hasRunning = jobs.some(j => j.status === 'RUNNING');
         if (hasRunning && !pollRef.current) {
             pollRef.current = setInterval(() => {
-                axios.get('/api/admin/backfill/jobs').then(r => setJobs(r.data)).catch(() => {});
+                apiClient.get('/api/admin/backfill/jobs').then(r => setJobs(r.data)).catch(() => {});
             }, 3000);
         } else if (!hasRunning && pollRef.current) {
             clearInterval(pollRef.current);
@@ -222,7 +222,7 @@ export default function AdminPage() {
     }, []);
 
     useEffect(() => {
-        axios.get('/api/admin/my-ip').then(r => setMyIp(r.data)).catch(() => {});
+        apiClient.get('/api/admin/my-ip').then(r => setMyIp(r.data)).catch(() => {});
         loadVisitorLogs();
     }, []);
 
@@ -242,7 +242,7 @@ export default function AdminPage() {
         setLoading(true);
         try {
             const params = days != null ? { type, days } : { type };
-            const r = await axios.get('/api/admin/data-gap/check', { params });
+            const r = await apiClient.get('/api/admin/data-gap/check', { params });
             const data = r.data;
             setRows(data);
             setColumns(data.length > 0 ? Object.keys(data[0]) : []);
@@ -281,9 +281,9 @@ export default function AdminPage() {
                     body.fromMs = Math.min(...g.rows.map(r => Number(r.gap_start_ms)));
                     body.toMs   = Math.max(...g.rows.map(r => Number(r.gap_end_ms)));
                 }
-                await axios.post('/api/admin/backfill/collect', body);
+                await apiClient.post('/api/admin/backfill/collect', body);
             }
-            const jobs2 = await axios.get('/api/admin/backfill/jobs');
+            const jobs2 = await apiClient.get('/api/admin/backfill/jobs');
             setJobs(jobs2.data);
             setSelectedRows(new Set());
             if (activeCheck) handleCheck(activeCheck.type, activeCheck.days);
@@ -299,7 +299,7 @@ export default function AdminPage() {
         setRLoading(true);
         setRResult(null);
         try {
-            const r = await axios.post('/api/admin/aggtrade/rollup', {
+            const r = await apiClient.post('/api/admin/aggtrade/rollup', {
                 fromMs: datetimeLocalToMs(rFrom),
                 toMs:   datetimeLocalToMs(rTo),
             });
@@ -324,8 +324,8 @@ export default function AdminPage() {
                 if (cFrom) body.fromMs = datetimeLocalToMs(cFrom);
                 if (cTo)   body.toMs   = datetimeLocalToMs(cTo);
             }
-            await axios.post('/api/admin/backfill/collect', body);
-            const jobs2 = await axios.get('/api/admin/backfill/jobs');
+            await apiClient.post('/api/admin/backfill/collect', body);
+            const jobs2 = await apiClient.get('/api/admin/backfill/jobs');
             setJobs(jobs2.data);
         } catch (e) {
             setCollectError(e.response?.data?.error ?? '수집 요청 실패');

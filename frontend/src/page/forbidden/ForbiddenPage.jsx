@@ -1,6 +1,6 @@
 // [AGENT] 403 차단 페이지 (헤더/푸터 유지, 문의 팝업 비활성)
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './ForbiddenPage.module.css';
 import '../../styles/themes/monitor-teal.css';
@@ -17,7 +17,7 @@ export default function ForbiddenPage() {
         if (isPending) return;
         setIsPending(true);
         try {
-            const res = await axios.post('/api/monitor/access-request');
+            const res = await apiClient.post('/api/monitor/access-request');
             if (res?.data?.status === 'already_pending') {
                 // 이미 요청 중이면 버튼 비활성 유지
                 return;

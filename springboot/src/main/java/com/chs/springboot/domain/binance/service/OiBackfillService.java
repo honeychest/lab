@@ -43,7 +43,7 @@ public class OiBackfillService {
     private final OpenInterestRepository          openInterestRepository;
     private final AggTradeCollectStatusRepository statusRepository;
     private final StringRedisTemplate             redisTemplate;
-    private final JdbcTemplate                    jdbcTemplate;
+    private final JdbcTemplate                    batchJdbcTemplate;
     private final ObjectMapper                    objectMapper = new ObjectMapper();
 
     @PostConstruct
@@ -178,7 +178,7 @@ public class OiBackfillService {
                     VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE price = COALESCE(price, VALUES(price))
                     """;
-                jdbcTemplate.batchUpdate(sql, batch);
+                batchJdbcTemplate.batchUpdate(sql, batch);
 
                 total += batch.size();
                 log.info("[OiBackfill] {} {}건 삽입 (startMs={})", symbol, batch.size(), startMs);
@@ -198,7 +198,7 @@ public class OiBackfillService {
     /** price IS NULL 레코드 보정 — NULL이 없으면 즉시 skip */
     private void fillMissingPrices() {
         String countSql = "SELECT COUNT(*) FROM open_interest WHERE price IS NULL";
-        long nullCount = jdbcTemplate.queryForObject(countSql, Long.class);
+        long nullCount = batchJdbcTemplate.queryForObject(countSql, Long.class);
         if (nullCount == 0) {
             log.info("[OiFillPrice] NULL price 없음, skip");
             return;
@@ -206,7 +206,7 @@ public class OiBackfillService {
         log.info("[OiFillPrice] NULL price {}건 보정 시작", nullCount);
 
         String selectSql = "SELECT id, symbol, collected_at_ms FROM open_interest WHERE price IS NULL ORDER BY symbol, collected_at_ms";
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(selectSql);
+        List<Map<String, Object>> rows = batchJdbcTemplate.queryForList(selectSql);
 
         // 심볼별로 그룹핑
         Map<String, List<Map<String, Object>>> bySymbol = rows.stream()
@@ -270,7 +270,7 @@ public class OiBackfillService {
             }
 
             if (!updates.isEmpty()) {
-                jdbcTemplate.batchUpdate("UPDATE open_interest SET price = ? WHERE id = ?", updates);
+                batchJdbcTemplate.batchUpdate("UPDATE open_interest SET price = ? WHERE id = ?", updates);
                 totalUpdated += updates.size();
                 log.info("[OiFillPrice] {} {}건 업데이트", symbol, updates.size());
             }

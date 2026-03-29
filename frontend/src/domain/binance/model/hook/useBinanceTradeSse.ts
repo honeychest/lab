@@ -2,7 +2,7 @@
 // 연관파일: TradePage.jsx, /api/binance/trades/sse, /api/binance/trades/recent
 // 주요상태: trades(목록), scanState(스캔슬롯 애니메이션), initError(초기 로드 실패)
 import { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 
 export interface TradeEntry {
     id: number;
@@ -42,7 +42,7 @@ export function useBinanceTradeSse() {
             const tag = '[SSE loadRecent]';
             try {
                 console.log(tag, 'start');
-                const res = await axios.get<TradeEntry[]>('/api/binance/trades/recent?limit=100');
+                const res = await apiClient.get<TradeEntry[]>('/api/binance/trades/recent?limit=100');
                 if (closed) return;
                 const incoming = res.data;
                 console.log(tag, 'ok', incoming.length, 'rows');
@@ -175,7 +175,7 @@ export function useBinanceTradeSse() {
 
     /** 모바일 무한스크롤 — before-id 기반 추가 로드 */
     const loadMore = useCallback(async (beforeId: number, limit = 20): Promise<TradeEntry[]> => {
-        const res = await axios.get<TradeEntry[]>(
+        const res = await apiClient.get<TradeEntry[]>(
             `/api/binance/trades/recent?before=${beforeId}&limit=${limit}`
         );
         const incoming = res.data;

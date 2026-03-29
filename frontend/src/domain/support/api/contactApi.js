@@ -1,6 +1,6 @@
 // [AGENT] 문의 관련 API 함수 + guestToken 유틸
 // 엔드포인트: POST /inquiry, GET /inquiries, PATCH /reply/{id}/read
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 
 const API_BASE_URL = '/api/support';
 const GUEST_TOKEN_KEY = 'chs_guest_token';
@@ -41,7 +41,7 @@ export const sendTelegramInquiry = async (message, file = null, inquiryId, guest
     if (file) formData.append('file', file, 'image.jpg');
 
     try {
-        const response = await axios.post(`${API_BASE_URL}/inquiry`, formData);
+        const response = await apiClient.post(`${API_BASE_URL}/inquiry`, formData);
         return response.data;
     } catch (error) {
         console.error("Failed to send inquiry:", error);
@@ -56,7 +56,7 @@ export const sendTelegramInquiry = async (message, file = null, inquiryId, guest
  */
 export const fetchInquiries = async (guestToken) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/inquiries`, { params: { guestToken } });
+        const response = await apiClient.get(`${API_BASE_URL}/inquiries`, { params: { guestToken } });
         return response.data;
     } catch (error) {
         console.error("Failed to fetch inquiries:", error);
@@ -71,7 +71,7 @@ export const fetchInquiries = async (guestToken) => {
  */
 export const markReplyRead = async (inquiryId, guestToken) => {
     try {
-        await axios.patch(`${API_BASE_URL}/reply/${inquiryId}/read`, { guestToken });
+        await apiClient.patch(`${API_BASE_URL}/reply/${inquiryId}/read`, { guestToken });
     } catch (error) {
         console.error("Failed to mark reply as read:", error);
     }

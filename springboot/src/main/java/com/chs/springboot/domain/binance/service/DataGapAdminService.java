@@ -12,10 +12,10 @@ import java.util.Map;
 @Service
 public class DataGapAdminService {
 
-    private final JdbcTemplate jdbc;
+    private final JdbcTemplate batchJdbcTemplate;
 
-    public DataGapAdminService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    public DataGapAdminService(JdbcTemplate batchJdbcTemplate) {
+        this.batchJdbcTemplate = batchJdbcTemplate;
     }
 
     /** days: null이면 전체, 숫자면 최근 N일 */
@@ -57,7 +57,7 @@ public class DataGapAdminService {
             ORDER BY missing_count DESC
             LIMIT 100
             """;
-        return jdbc.queryForList(sql);
+        return batchJdbcTemplate.queryForList(sql);
     }
 
     /** agg_trade_1m / agg_trade_5m: candle_time_ms 간격 갭 탐지 */
@@ -86,7 +86,7 @@ public class DataGapAdminService {
             ORDER BY missing_candles DESC
             LIMIT 100
             """, intervalMs, intervalMs, intervalMs, intervalMs, table, intervalMs);
-        return jdbc.queryForList(sql);
+        return batchJdbcTemplate.queryForList(sql);
     }
 
     /** open_interest: 2분 이상 공백 탐지 (symbol 파티션) */
@@ -113,6 +113,6 @@ public class DataGapAdminService {
             ORDER BY gap_minutes DESC
             LIMIT 100
             """;
-        return jdbc.queryForList(sql);
+        return batchJdbcTemplate.queryForList(sql);
     }
 }

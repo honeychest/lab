@@ -40,7 +40,7 @@ public class AggTrade1sRollupService {
     private final AggTrade1sRepository agg1sRepository;
     private final AggTradeCollectStatusRepository statusRepository;
     private final StringRedisTemplate redisTemplate;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate batchJdbcTemplate;
 
     private volatile CompletableFuture<Void> catchUpFuture;
 
@@ -155,7 +155,7 @@ public class AggTrade1sRollupService {
             .orElse(null);
 
         if (lastMs == null) {
-            Long firstTradedAt = jdbcTemplate.queryForObject(
+            Long firstTradedAt = batchJdbcTemplate.queryForObject(
                 "SELECT MIN(traded_at) FROM raw_agg_trade WHERE symbol = ? AND market_type = ?",
                 Long.class, symbol, marketType);
             if (firstTradedAt == null) {
@@ -246,7 +246,7 @@ public class AggTrade1sRollupService {
             GROUP BY symbol, market_type, FLOOR(traded_at / 1000) * 1000
             """;
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, startMs, endMs);
+        List<Map<String, Object>> rows = batchJdbcTemplate.queryForList(sql, startMs, endMs);
         Map<String, CandleData> result = new HashMap<>();
         for (Map<String, Object> row : rows) {
             String key = row.get("symbol") + "|" + row.get("market_type");
@@ -282,7 +282,7 @@ public class AggTrade1sRollupService {
             GROUP BY FLOOR(traded_at / 1000) * 1000
             """;
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, symbol, marketType, startMs, endMs);
+        List<Map<String, Object>> rows = batchJdbcTemplate.queryForList(sql, symbol, marketType, startMs, endMs);
         Map<Long, CandleData> result = new HashMap<>();
         for (Map<String, Object> row : rows) {
             long candleTimeMs = ((Number) row.get("candle_time_ms")).longValue();
@@ -378,7 +378,7 @@ public class AggTrade1sRollupService {
                 min_first_trade_id = IF(trade_count = 0, VALUES(min_first_trade_id), min_first_trade_id),
                 max_last_trade_id  = IF(trade_count = 0, VALUES(max_last_trade_id),  max_last_trade_id)
             """;
-        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+        batchJdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 AggTrade1s c = candles.get(i);

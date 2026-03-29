@@ -1,6 +1,6 @@
 // [AGENT] T4-STEALTH: 메인 컨테이너 — 상태 머신 + 데이터 캐시 + WS + 슬롯 배치
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 import StealthSlot from './StealthSlot.jsx';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -59,7 +59,7 @@ export default function StealthCaseViewer({
 
     const load = async () => {
       try {
-        const res = await axios.get(`/api/analysis/templates/${templateId}/signals`, {
+        const res = await apiClient.get(`/api/analysis/templates/${templateId}/signals`, {
           params: { symbol, days: 10 },
         });
         if (cancelled) return;

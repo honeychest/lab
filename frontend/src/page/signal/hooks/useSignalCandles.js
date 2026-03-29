@@ -1,5 +1,5 @@
 // [AGENT] T4-STEALTH: 날짜별 캔들 / 날짜 목록 비동기 유틸 함수
-import axios from 'axios';
+import apiClient from '@/api/apiClient.js';
 
 /**
  * 날짜별 5분봉 캔들 조회.
@@ -9,7 +9,7 @@ import axios from 'axios';
  * @returns Promise<candle[]>  — isOverlap 플래그 포함. 시간 오름차순.
  */
 export async function fetchDayCandles(symbol, date, overlap = 20) {
-  const res = await axios.get(
+  const res = await apiClient.get(
     `/api/signal/candles?symbol=${symbol}&type=5m&date=${date}&overlap=${overlap}`
   );
   return res.data;
@@ -20,6 +20,6 @@ export async function fetchDayCandles(symbol, date, overlap = 20) {
  * @returns Promise<string[]>  — 'YYYY-MM-DD' 배열, 최신순
  */
 export async function fetchCandleDates(symbol) {
-  const res = await axios.get(`/api/signal/candles/dates?symbol=${symbol}`);
+  const res = await apiClient.get(`/api/signal/candles/dates?symbol=${symbol}`);
   return res.data.dates;
 }

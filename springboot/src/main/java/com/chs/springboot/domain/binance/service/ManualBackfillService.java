@@ -26,7 +26,7 @@ public class ManualBackfillService {
     private static final Logger log = LoggerFactory.getLogger(ManualBackfillService.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final JdbcTemplate jdbc;
+    private final JdbcTemplate batchJdbcTemplate;
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "manual-backfill");
         t.setDaemon(true);
@@ -40,8 +40,9 @@ public class ManualBackfillService {
     @Value("${binance.rest.futures.base-url:https://fapi.binance.com}")
     private String futuresBaseUrl;
 
-    public ManualBackfillService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    // JdbcTemplate 중에서 이름이 batchJdbcTemplate인 Bean을 주입해달라는 요청
+    public ManualBackfillService(JdbcTemplate batchJdbcTemplate) {
+        this.batchJdbcTemplate = batchJdbcTemplate;
     }
 
     // ─── Job Record ──────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ public class ManualBackfillService {
                     (symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6))
                     """;
-                jdbc.batchUpdate(sql, batch);
+                batchJdbcTemplate.batchUpdate(sql, batch);
                 total += batch.size();
             }
 
@@ -177,7 +178,7 @@ public class ManualBackfillService {
         int total = 0;
 
         // 1. agg_trade_1s 데이터 있으면 rollup
-        Long s1Count = jdbc.queryForObject(
+        Long s1Count = batchJdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM agg_trade_1s WHERE symbol=? AND market_type=? AND candle_time_ms >= ? AND candle_time_ms < ?",
             Long.class, symbol, marketType, fromMs, toMs
         );
@@ -218,7 +219,7 @@ public class ManualBackfillService {
                 GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
                 ON DUPLICATE KEY UPDATE id = id
                 """;
-            int s1Inserted = jdbc.update(sql, symbol, marketType, fromMs, toMs);
+            int s1Inserted = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, toMs);
             log.info("[ManualBackfill] 1m {} {} 1s rollup {}건", symbol, marketType, s1Inserted);
             total += s1Inserted;
         } else {
@@ -312,7 +313,7 @@ public class ManualBackfillService {
             }
 
             if (!batch.isEmpty()) {
-                int[] results = jdbc.batchUpdate(insertSql, batch);
+                int[] results = batchJdbcTemplate.batchUpdate(insertSql, batch);
                 for (int v : results) if (v == 1) total++;
             }
 
@@ -326,7 +327,7 @@ public class ManualBackfillService {
     // ─── AGG_5M rollup ───────────────────────────────────────────────────────
 
     private int collectRollup5m(String symbol, String marketType, Long fromMs, Long toMs) {
-        Long oneM = jdbc.queryForObject(
+        Long oneM = batchJdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM agg_trade_1m WHERE symbol=? AND market_type=? AND candle_time_ms >= ? AND candle_time_ms < ?",
             Long.class, symbol, marketType, fromMs, toMs
         );
@@ -370,7 +371,7 @@ public class ManualBackfillService {
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
             ON DUPLICATE KEY UPDATE id = id
             """;
-        return jdbc.update(sql, symbol, marketType, fromMs, toMs);
+        return batchJdbcTemplate.update(sql, symbol, marketType, fromMs, toMs);
     }
 
     // ─── OI ──────────────────────────────────────────────────────────────────
@@ -417,7 +418,7 @@ public class ManualBackfillService {
                 VALUES (?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE price = COALESCE(price, VALUES(price))
                 """;
-            jdbc.batchUpdate(sql, batch);
+            batchJdbcTemplate.batchUpdate(sql, batch);
             total += batch.size();
 
             if (array.size() < LIMIT) break;
@@ -436,7 +437,7 @@ public class ManualBackfillService {
             case "5m" -> "agg_trade_5m";
             default   -> throw new IllegalArgumentException("지원하지 않는 테이블: " + tableKey);
         };
-        return jdbc.update("""
+        return batchJdbcTemplate.update("""
             DELETE FROM %s
             WHERE symbol = ? AND market_type = ?
               AND trade_count = 0
@@ -468,7 +469,7 @@ public class ManualBackfillService {
               )
             """;
 
-        result.put("mismatch1s", jdbc.queryForMap(mismatchSql,
+        result.put("mismatch1s", batchJdbcTemplate.queryForMap(mismatchSql,
             symbol, marketType, fromMs, toMs,
             symbol, marketType, fromMs, toMs));
 
