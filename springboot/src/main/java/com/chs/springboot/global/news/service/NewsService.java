@@ -29,7 +29,8 @@ public class NewsService {
                     "구글", "경제"},
             new String[]{"https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko",
                     "구글", "IT"},
-            new String[]{"https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko", "구글", "인기"}
+            new String[]{"https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko", "구글", "인기"},
+            new String[]{"https://feeds.feedburner.com/geeknews-feed", "긱뉴스", "IT"}
     );
 
     // 캐시 — 마지막으로 수집한 뉴스 목록을 메모리에 보관
@@ -49,6 +50,8 @@ public class NewsService {
                 log.warn("[NewsService] RSS 수집 실패 - source={}, error={}", src[0], e.getMessage());
             }
         }
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(24); // 하루가 지난 기사 배제
+        collected.removeIf(item -> item.publishedAt() != null && item.publishedAt().isBefore(cutoff));
         cache = deduplicate(collected);
         log.debug("[NewsService] 뉴스 캐시 갱신 완료 - {}건", cache.size());
     }

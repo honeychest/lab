@@ -7,16 +7,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CpuLoadSheddingFilter extends OncePerRequestFilter {
 
-    private static final double CPU_THRESHOLD = 90.0;
+    private static final double CPU_THRESHOLD = 95.0;
 
     private final MeterRegistry meterRegistry;
 
@@ -25,6 +27,9 @@ public class CpuLoadSheddingFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         if (isCpuOverloaded()) {
+            Gauge g = meterRegistry.find("system.cpu.usage").gauge();
+            double cpu = g != null ? g.value() * 100d : -1;
+            log.warn("[LoadShedding] CPU={}% >= {}% → 503 반환 uri={}", String.format("%.1f", cpu), CPU_THRESHOLD, request.getRequestURI());
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"error\":\"Server overloaded\"}");
