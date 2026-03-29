@@ -290,7 +290,7 @@ export default function MonitorPage() {
                                         {(() => {
                                             const telegram = business.redisKeys.find(x => x?.key === 'telegram:leader');
                                             const maxQueue = business.redisKeys.find(x => x?.key === 'config:aggtrade:max-queue-size')?.value;
-                                            const threshold = business.redisKeys.find(x => x?.key === 'config:threshold');
+                                            // const threshold = business.redisKeys.find(x => x?.key === 'config:threshold');
 
                                             const maxQueueNum = Number(maxQueue);
                                             const q = Number(business.redisQueue);
