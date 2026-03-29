@@ -1,3 +1,7 @@
+# -----------------------------------------------------------------------------
+# 문서 정책: 팀 공유는 docs/, springboot/docs/, frontend/docs/, (선택) TODOS.md·ARCHITECTURE.md
+# 상세는 docs/README.md 참고. 아래는 로컬·비공유 위주.
+# -----------------------------------------------------------------------------
 CLAUDE.md
 .cursorrules
 context.md
@@ -8,7 +12,7 @@ geminirules.md
 /honeychest-home-main.txt
 /.claudeignore
 /.claude/roles
-# 로컬 전용 테스트 파일
+# 로컬 전용 테스트 파일 (저장소에 없어도 두는 ignore 는 정상)
 springboot/src/test/java/com/chs/springboot/unitTest.java
 .idea/
 .cursor/
@@ -16,4 +20,13 @@ springboot/src/test/java/com/chs/springboot/unitTest.java
 .history/
 # git rm -r --cached devcontext
 /devcontext/
+/private/
 /logs/
+
+# JS 의존성 (루트 등 — frontend/node_modules 는 frontend/.gitignore 에도 있음)
+node_modules/
+
+# Python (nexus 등)
+__pycache__/
+*.pyc
+.pytest_cache/

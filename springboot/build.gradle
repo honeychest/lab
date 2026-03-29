@@ -78,6 +78,20 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
+tasks.named('test', Test) {
     useJUnitPlatform()
+    // 터미널에서 "테스트 돌았는지 / 뭐가 통과했는지" 보이게 (Gradle 기본은 거의 출력 없음)
+    testLogging {
+        events "started", "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showStandardStreams = false
+    }
+    afterSuite { desc, result ->
+        if (desc.parent == null) {
+            println ""
+            println "======== 테스트 요약 | ${result.resultType} | 통과 ${result.successfulTestCount} | 실패 ${result.failedTestCount} | 스킵 ${result.skippedTestCount} ========"
+            println "======== HTML 리포트: build/reports/tests/test/index.html ========="
+            println ""
+        }
+    }
 }

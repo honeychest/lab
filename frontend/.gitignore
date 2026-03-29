@@ -13,9 +13,9 @@ dist-ssr
 *.local
 
 # Editor directories and files
+# .idea 는 저장소 루트 .gitignore 에서 전역 처리
 .vscode/*
 !.vscode/extensions.json
-.idea
 .DS_Store
 *.suo
 *.ntvs*
