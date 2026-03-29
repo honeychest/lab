@@ -3,9 +3,10 @@
   background: var(--monitor-card-bg);
   border: 1px solid var(--monitor-border);
   border-radius: 14px;
-  max-height: 260px;
+  /* 카드 전체 max-height 제거 — 헤더+페이저까지 같은 박스에 넣으면 260px 에서 하단 버튼이 잘림 */
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .head {
@@ -50,6 +51,8 @@
 .tableWrap {
   flex: 1;
   min-height: 0;
+  /* 표 영역만 스크롤 — 이전/다음은 항상 카드 안에서 전부 보이게 */
+  max-height: min(360px, 45vh);
   overflow-y: auto;
 }
 
@@ -132,8 +135,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 12px 14px 14px;
   flex-shrink: 0;
+  border-top: 1px solid var(--monitor-border);
+  background: var(--monitor-sidebar-bg);
+  border-radius: 0 0 13px 13px;
 }
 
 .pager button {
