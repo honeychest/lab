@@ -27,7 +27,11 @@ def _get_platform(url: str) -> str:
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
-
+    if not url:
+        await update.message.reply_text("❌ 주소파싱에 실패했습니다. 올바른 주소를 입력해주세요.")
+        return
+    else:
+        url = url.split()[0]
     try:
         platform = _get_platform(url)
 
@@ -103,6 +107,7 @@ async def _handle_generic(update: Update, url: str, platform: str):
 
 async def _log_failure(url: str, error: str):
     """처리 실패 시 Notion에 오류 로그 저장."""
+    logger.warning(f"{url}처리중 오류 발생. {error}")
     try:
         await save(url, f"[오류] {url[:50]}", f"오류 내용:\n{error}", platform="error")
     except Exception as log_err:
