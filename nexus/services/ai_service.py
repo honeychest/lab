@@ -72,6 +72,83 @@ async def _call_claude(prompt: str) -> dict:
     )
     return _parse_response(message.content[0].text)
 
+async def explain_word(text: str) -> dict:
+    """단어/문장 설명. {"word": ..., "meaning_ko": ..., "example": ...} 반환."""
+    prompt = f"""아래 단어나 문장을 설명해줘. 반드시 아래 형식으로만 답해. 다른 말 붙이지 마.
+단어: (핵심 단어 또는 표현)
+뜻: (품사별로 주요 의미 모두 나열. 어려운 개념은 비유나 쉬운 말로 풀어서. 형식: (품사) 의미 / (품사) 의미. 한국어, 한 줄)
+예문: (가장 대표적인 용법의 영어 예문 1줄)
+
+입력: {text}"""
+    result = await _call_with_models(prompt, LLM_MODELS)
+    return _parse_explain_response(result["summary"])
+
+
+async def generate_quiz(word: str, meaning_ko: str, stage: int) -> str:
+    """단계별 퀴즈 문제 생성."""
+    if stage == 1:
+        # 한글 뜻 + 영어 원어 설명을 보여주고 단어 입력
+        prompt = f"""영단어 퀴즈 지문을 만들어줘. 조건을 반드시 지켜.
+조건: 영어로 뜻을 쉽게 1줄 설명. 단어 자체 절대 포함 금지. 마크다운 금지. 설명 문장만 출력.
+단어: {word}
+뜻: {meaning_ko}"""
+
+    elif stage == 2:
+        # 영어 문장 빈칸 채우기
+        prompt = f"""Make an English fill-in-the-blank sentence. Follow all conditions strictly.
+Conditions: Only 1 blank. Only "{word}" fits naturally. Elementary school level. No markdown. Output the sentence only.
+Format: Use _______ for the blank.
+Word: {word}"""
+
+    else:
+        # 짧은 일상 한국어 상황 제시, 작문
+        prompt = f"""영어 작문 퀴즈용 한국어 문장을 만들어줘. 조건을 반드시 지켜.
+조건: 영어로 쓸 때 {word}를 자연스럽게 써야 하는 한국어 문장. {word} 외 다른 영단어로는 어색한 문장. 짧고 쉬운 한 문장 (25자 이내). 대화체. 복잡한 설명 금지. 영단어({word})와 뜻({meaning_ko}) 절대 포함 금지. 마크다운 금지.
+단어: {word}
+뜻: {meaning_ko}"""
+
+    result = await _call_with_models(prompt, LLM_MODELS)
+    return result["summary"].strip()
+
+
+async def grade_writing(word: str, answer: str) -> dict:
+    """작문 채점. {"used_correctly": bool, "context_ok": bool, "errors": [...]} 반환."""
+    prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
+사용여부: (yes/no) — "{word}"를 올바른 맥락으로 사용했는지
+맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
+오류: (문법 오류 목록, 없으면 "없음". 형식: "오류내용 → 수정내용" 한 줄씩)
+
+단어: {word}
+작문: {answer}"""
+    result = await _call_with_models(prompt, LLM_MODELS)
+    return _parse_grade_response(result["summary"])
+
+def _parse_explain_response(text: str) -> dict:
+    word = re.search(r'단어:\s*(.*)', text)
+    meaning_ko = re.search(r'뜻:\s*(.*)', text)
+    example = re.search(r'예문:\s*(.*)', text)
+    return {
+        "word": word.group(1).strip() if word else "",
+        "meaning_ko": meaning_ko.group(1).strip() if meaning_ko else "",
+        "example": example.group(1).strip() if example else "",
+    }
+
+
+def _parse_grade_response(text: str) -> dict:
+    used = re.search(r'사용여부:\s*(yes|no)', text, re.IGNORECASE)
+    context = re.search(r'맥락:\s*(yes|no)', text, re.IGNORECASE)
+    errors_raw = re.search(r'오류:\s*([\s\S]*)', text)
+    errors = []
+    if errors_raw:
+        raw = errors_raw.group(1).strip()
+        if raw != "없음":
+            errors = [e.strip() for e in raw.splitlines() if e.strip()]
+    return {
+        "used_correctly": used.group(1).lower() == "yes" if used else False,
+        "context_ok": context.group(1).lower() == "yes" if context else False,
+        "errors": errors,
+    }
+
 
 def _build_youtube_prompt() -> str:
     return """이 영상을 한국어로 요약해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
