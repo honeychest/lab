@@ -18,7 +18,7 @@
 }
 
 .highLowLabel {
-    color: #9ca3af;
+    color: var(--dark-text-muted);
     font-size: 11px;
 }
 
@@ -41,7 +41,7 @@
 
 /* 고가↔현재가, 현재가↔저가 사이 구분선 */
 .priceDivider {
-    border-top: 1px solid #1e293b;
+    border-top: 1px solid var(--dark-border);
 }
 
 .currentPrice {
@@ -49,7 +49,7 @@
     font-size: 32px;
     font-weight: 800;
     font-family: monospace;
-    color: #F3BA2F;
+    color: var(--dark-accent-gold);
     letter-spacing: -1px;
     padding: 12px 0 6px;
 }
@@ -66,7 +66,7 @@
 /* border-top으로 priceSection과 구분, border-bottom은 없음 (krwSection이 자체 border-top 가짐) */
 
 .premiumSection {
-    border-top: 1px solid #1e293b;
+    border-top: 1px solid var(--dark-border);
     padding: 14px 0;
     text-align: center;
     display: flex;
@@ -76,7 +76,7 @@
 }
 
 .premiumLabel {
-    color: #475569;
+    color: var(--dark-text-secondary);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
@@ -99,13 +99,13 @@
 .krwSection {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    border-top: 1px solid #1e293b;
+    border-top: 1px solid var(--dark-border);
     padding: 14px 0;
 }
 
 /* 좌측 열 우측에 세로 구분선 */
 .krwCol:first-child {
-    border-right: 1px solid #1e293b;
+    border-right: 1px solid var(--dark-border);
 }
 
 .krwCol {
@@ -116,7 +116,7 @@
 }
 
 .krwLabel {
-    color: #475569;
+    color: var(--dark-text-secondary);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -138,14 +138,14 @@
 }
 
 .infoBox {
-    background: #1e293b;
+    background: var(--dark-border);
     border-radius: 10px;
     padding: 10px 8px;
     text-align: center;
 }
 
 .infoLabel {
-    color: #64748b;
+    color: var(--dark-text-secondary);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -163,7 +163,7 @@
 
 .period {
     margin-top: 12px;
-    color: #475569;
+    color: var(--dark-text-secondary);
     font-size: 10px;
     text-align: center;
 }

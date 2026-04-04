@@ -36,10 +36,10 @@ const OP_OPTIONS = {
 const UNIT_OPERATORS = ['AND', 'OR', 'NOT'];
 
 const sel = {
-  background:  'rgba(255,255,255,0.06)',
-  border:      '1px solid rgba(255,255,255,0.12)',
+  background:  'var(--dark-input-bg)',
+  border:      '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:       'rgba(255,255,255,0.8)',
+  color:       'var(--dark-input-text)',
   fontSize:    '11px',
   padding:     '3px 6px',
   cursor:      'pointer',
@@ -103,19 +103,19 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
               onChange={(e) => onUnitChange({ ...unit, startHour: Number(e.target.value) })}
               style={{ ...inp, width: '48px' }} placeholder="시"
             />
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.81rem' }}>:</span>
+            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>:</span>
             <input
               type="number" min={0} max={59} value={unit.startMinute ?? 0}
               onChange={(e) => onUnitChange({ ...unit, startMinute: Number(e.target.value) })}
               style={{ ...inp, width: '48px' }} placeholder="분"
             />
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.81rem' }}>~</span>
+            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>~</span>
             <input
               type="number" min={0} max={23} value={unit.endHour ?? 23}
               onChange={(e) => onUnitChange({ ...unit, endHour: Number(e.target.value) })}
               style={{ ...inp, width: '48px' }} placeholder="시"
             />
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.81rem' }}>:</span>
+            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>:</span>
             <input
               type="number" min={0} max={59} value={unit.endMinute ?? 59}
               onChange={(e) => onUnitChange({ ...unit, endMinute: Number(e.target.value) })}
@@ -154,7 +154,7 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
       {/* 가운데: 조건 한글 설명 (나머지 전체, 좌측 정렬, 세로 가운데 정렬 느낌) */}
       <div style={{
         fontSize:     '13px',
-        color:        'rgba(255,255,255,0.75)',
+        color:        'var(--dark-text-primary)',
         flex:         1,
         minWidth:     80,
         whiteSpace:   'nowrap',
@@ -173,7 +173,7 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
         style={{
           background:   'transparent',
           border:       'none',
-          color:        'rgba(255,255,255,0.7)',
+          color:        'var(--dark-text-muted)',
           cursor:       'pointer',
           fontSize:     '16px',
           padding:      '2px 4px',

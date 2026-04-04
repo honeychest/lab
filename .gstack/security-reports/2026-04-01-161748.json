@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "date": "2026-04-01T00:00:00Z",
+  "mode": "daily",
+  "scope": "uncommitted-jwt-auth",
+  "diff_mode": true,
+  "phases_run": [0, 1, 2, 9, 12, 13, 14],
+  "findings": [
+    {"id": 1, "severity": "CRITICAL", "confidence": 10, "status": "VERIFIED", "phase": 9, "category": "Auth Design", "title": "JWT 발급만 있고 검증 필터 없음", "file": "SecurityConfig.java", "description": "anyRequest().permitAll() + JwtAuthenticationFilter 없음"},
+    {"id": 2, "severity": "HIGH", "confidence": 10, "status": "VERIFIED", "phase": 1, "category": "Info Exposure", "title": "Debug API 프로덕션 노출", "file": "AuthController.java:22"},
+    {"id": 3, "severity": "HIGH", "confidence": 9, "status": "VERIFIED", "phase": 9, "category": "Brute Force", "title": "로그인 레이트리밋 없음", "file": "AuthController.java:18"},
+    {"id": 4, "severity": "HIGH", "confidence": 9, "status": "VERIFIED", "phase": 2, "category": "Secrets", "title": "JWT secret 기본값 예측 가능", "file": "application.properties"},
+    {"id": 5, "severity": "MEDIUM", "confidence": 9, "status": "VERIFIED", "phase": 1, "category": "Info Exposure", "title": "/auth-test 프로덕션 라우트 노출", "file": "MainRouter.jsx"},
+    {"id": 6, "severity": "MEDIUM", "confidence": 8, "status": "VERIFIED", "phase": 9, "category": "Scope Creep", "title": "AuthExceptionHandler 전역 적용 부작용", "file": "AuthExceptionHandler.java"}
+  ],
+  "totals": {"critical": 1, "high": 3, "medium": 2, "tentative": 0},
+  "trend": {"prior_report_date": null, "resolved": 0, "persistent": 0, "new": 6, "direction": "first_run"}
+}

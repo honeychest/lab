@@ -17,10 +17,10 @@ export default function LongPanel({ energy, trades, compact = false }) {
             style={{
                 position: 'relative',
                 height: '100%',
-                backgroundColor: '#0e0f18',
+                backgroundColor: 'var(--black-panel-bg)',
                 borderRadius: '10px',
                 padding: '10px',
-                borderLeft: '3px solid #00e887',
+                borderLeft: '3px solid var(--black-long)',
                 boxShadow: '-4px 0 12px rgba(0,232,135,0.15)',
                 overflow: 'hidden',
                 display: 'flex',
@@ -30,7 +30,7 @@ export default function LongPanel({ energy, trades, compact = false }) {
             <div
                 style={{
                     fontSize: '13px',
-                    color: 'rgba(255,255,255,0.65)',
+                    color: 'var(--black-text-secondary)',
                     marginBottom: '4px',
                     letterSpacing: '0.5px',
                 }}
@@ -42,7 +42,7 @@ export default function LongPanel({ energy, trades, compact = false }) {
                 style={{
                     fontSize: compact ? '20px' : '36px',
                     fontWeight: '700',
-                    color: '#00e887',
+                    color: 'var(--black-long)',
                     marginBottom: '4px',
                     textAlign: 'center',
                     fontFamily: "'Pretendard', sans-serif",
@@ -71,16 +71,16 @@ export default function LongPanel({ energy, trades, compact = false }) {
                         style={{
                             display: 'grid',
                             gridTemplateColumns: '28px 1fr 1fr',
-                            color: 'rgba(255,255,255,0.6)',
+                            color: 'var(--black-text-secondary)',
                             opacity: total < 17 ? 1 : Math.max(0.3, 1 - Math.max(0, idx - 5) * 0.07),
                             animation: isLatest ? 'slideDownFromTop 0.3s ease-out' : 'none',
                         }}
                     >
-                        <span style={{ color: trade.marketType === 'FUTURES' ? '#00e887' : 'rgba(255,255,255,0.4)' }}>
+                        <span style={{ color: trade.marketType === 'FUTURES' ? 'var(--black-long)' : 'var(--black-text-muted)' }}>
                             [{trade.marketType === 'FUTURES' ? 'F' : 'S'}]
                         </span>
                         <span style={{ textAlign: 'right' }}>${formatPrice(trade.price)}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{formatQty(trade.quantity)}</span>
+                        <span style={{ color: 'var(--black-text-muted)', textAlign: 'right' }}>{formatQty(trade.quantity)}</span>
                     </div>
                     );
                 })}

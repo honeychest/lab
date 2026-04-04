@@ -252,7 +252,7 @@ function SkeletonBox({
             width,
             height,
             borderRadius,
-            background: 'linear-gradient(90deg, #1e293b 25%, #2d3f52 50%, #1e293b 75%)',
+            background: 'linear-gradient(90deg, var(--dark-border) 25%, #2d3f52 50%, var(--dark-border) 75%)',
             backgroundSize: '200% 100%',
             animation: 'shimmer 1.5s infinite linear',
             ...style,
@@ -299,7 +299,7 @@ function BinanceTickerSkeleton() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {[1, 2, 3, 4].map((i) => (
                     <div key={i} style={{
-                        background: '#1e293b',
+                        background: 'var(--dark-border)',
                         borderRadius: '10px',
                         padding: '12px 16px',
                         flex: '1 1 120px',
@@ -338,14 +338,14 @@ function BinanceTickerSkeleton() {
 function InfoBox({ label, value, color = '#94a3b8' }: InfoBoxProps) {
     return (
         <div style={{
-            background: '#1e293b',      // 어두운 배경 (카드 느낌)
+            background: 'var(--dark-border)',
             borderRadius: '10px',
             padding: '12px 16px',
             minWidth: '120px',
             flex: '1 1 120px',          // flex-grow: 1, flex-shrink: 1, 최소 120px
         }}>
             {/* 라벨: 항목명, 흐린 회색으로 작게 표시 */}
-            <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px', fontWeight: '600', letterSpacing: '0.5px' }}>
+            <div style={{ color: 'var(--dark-text-secondary)', fontSize: '11px', marginBottom: '4px', fontWeight: '600', letterSpacing: '0.5px' }}>
                 {label}
             </div>
             {/* 값: props로 받은 color 적용 */}
@@ -422,13 +422,13 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
     const premium     = (hasUpbitData && calcKrw !== null) ? upbitTradePrice - calcKrw : null;
     const premiumRate = (premium !== null && calcKrw !== null) ? (premium / calcKrw) * 100 : null;
     // 프리미엄 양수(한국 비쌈) → 초록, 음수(역프리미엄) → 빨강, 미계산 → 회색
-    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : '#475569';
+    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : 'var(--dark-text-secondary)';
     const premiumSign  = premium !== null && premium >= 0 ? '+' : '';
 
     return (
         <div>
             {/* 24시간 고가: 실시간 시세 블록 위에 배치 (현재가와의 차이 함께 표시) */}
-            <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
+            <div style={{ marginBottom: '8px', fontSize: '12px', color: 'var(--dark-text-muted)' }}>
                 <span style={{ marginRight: '6px' }}>24H 고가</span>
                 <span style={{ color: '#2ecc71', fontWeight: 700, fontFamily: 'monospace' }}>
                     {fmt(ticker.h)}
@@ -468,7 +468,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                 {/* ── 좌상: 바이낸스 USD 현재가 ── */}
                 <span style={{
                     gridColumn: 1, gridRow: 1,
-                    color: '#F3BA2F', fontSize: '40px', fontWeight: '800',
+                    color: 'var(--dark-accent-gold)', fontSize: '40px', fontWeight: '800',
                     fontFamily: 'monospace', letterSpacing: '-1px',
                 }}>
                     {fmt(ticker.c)}
@@ -484,8 +484,8 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                     gridColumn: 2, gridRow: '1 / 3',
                     textAlign: 'center',
                     padding: '10px 20px',
-                    borderLeft: '1px solid #1e293b',
-                    borderRight: '1px solid #1e293b',
+                    borderLeft: '1px solid var(--dark-border)',
+                    borderRight: '1px solid var(--dark-border)',
                     alignSelf: 'stretch',
                     display: 'flex',
                     flexDirection: 'column',
@@ -493,7 +493,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                     gap: '4px',
                 }}>
                     {/* 라벨 */}
-                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '1px' }}>
+                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '1px' }}>
                         프리미엄
                     </div>
                     {/* KRW 차이금액: 두 데이터 수신 완료 후 표시, 대기 중 스켈레톤 */}
@@ -517,7 +517,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                 {/* ── 우상: USD × USDT 환율기준 KRW ── */}
                 <div style={{ gridColumn: 3, gridRow: 1, textAlign: 'right' }}>
                     {/* 라벨 */}
-                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
+                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
                         USD × USDT
                     </div>
                     {/* 환율기준 KRW: usdtKrwTicker 수신 완료 후 표시 */}
@@ -543,7 +543,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                 {/* ── 우하: 업비트 실제 KRW ── */}
                 <div style={{ gridColumn: 3, gridRow: 2, textAlign: 'right' }}>
                     {/* 라벨 */}
-                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
+                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
                         UPBIT
                     </div>
                     {/* 업비트 KRW 현재가 */}
@@ -561,7 +561,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
             </div>{/* overflowX 래퍼 닫기 */}
 
             {/* 24시간 저가: 실시간 시세 블록 바로 아래에 배치 (현재가와의 차이 함께 표시) */}
-            <div style={{ marginBottom: '20px', fontSize: '12px', color: '#9ca3af' }}>
+            <div style={{ marginBottom: '20px', fontSize: '12px', color: 'var(--dark-text-muted)' }}>
                 <span style={{ marginRight: '6px' }}>24H 저가</span>
                 <span style={{ color: '#e74c3c', fontWeight: 700, fontFamily: 'monospace' }}>
                     {fmt(ticker.l)}
@@ -610,7 +610,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
               ticker.C = 통계 종료 Unix ms → Date 변환 → 시간 문자열
               이 두 값은 항상 24시간 간격임.
             */}
-            <div style={{ marginTop: '12px', color: '#475569', fontSize: '11px' }}>
+            <div style={{ marginTop: '12px', color: 'var(--dark-text-secondary)', fontSize: '11px' }}>
                 집계 기간: {new Date(ticker.O).toLocaleString('ko-KR')} ~ {new Date(ticker.C).toLocaleString('ko-KR')}
             </div>
         </div>

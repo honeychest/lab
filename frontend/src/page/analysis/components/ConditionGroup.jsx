@@ -33,7 +33,7 @@ export default function ConditionGroup({ group, onGroupChange, onDelete, showDel
 
   return (
     <div style={{
-      border:       '1px dashed rgba(255,255,255,0.12)',
+      border:       '1px dashed var(--dark-input-border)',
       borderRadius: '6px',
       padding:      '8px',
       display:      'flex',
@@ -42,17 +42,17 @@ export default function ConditionGroup({ group, onGroupChange, onDelete, showDel
     }}>
       {/* 그룹 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontFamily: "'Pretendard', sans-serif" }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', fontFamily: "'Pretendard', sans-serif" }}>
           그룹
         </span>
         <select
           value={group.operator ?? 'AND'}
           onChange={(e) => onGroupChange({ ...group, operator: e.target.value })}
           style={{
-            background:   'rgba(255,255,255,0.06)',
-            border:       '1px solid rgba(255,255,255,0.12)',
+            background:   'var(--dark-btn-secondary)',
+            border:       '1px solid var(--dark-input-border)',
             borderRadius: '4px',
-            color:        'rgba(255,255,255,0.8)',
+            color:        'var(--dark-input-text)',
             fontSize:     '11px',
             padding:      '2px 6px',
             cursor:       'pointer',
@@ -69,7 +69,7 @@ export default function ConditionGroup({ group, onGroupChange, onDelete, showDel
             style={{
               background:  'transparent',
               border:      'none',
-              color:       'rgba(255,255,255,0.35)',
+              color:       'var(--dark-text-muted)',
               cursor:      'pointer',
               fontSize:    '11px',
               padding:     '2px 4px',
@@ -98,9 +98,9 @@ export default function ConditionGroup({ group, onGroupChange, onDelete, showDel
         style={{
           alignSelf:    'flex-start',
           background:   'transparent',
-          border:       '1px solid rgba(255,255,255,0.12)',
+          border:       '1px solid var(--dark-input-border)',
           borderRadius: '4px',
-          color:        'rgba(255,255,255,0.5)',
+          color:        'var(--dark-text-muted)',
           fontSize:     '11px',
           padding:      '3px 8px',
           cursor:       'pointer',

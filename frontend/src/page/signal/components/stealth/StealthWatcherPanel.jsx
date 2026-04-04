@@ -1,5 +1,5 @@
 // [AGENT] T4-STEALTH: 중앙 슬롯 오버레이 (상태 레이블 + 리셋 버튼)
-const WATCHING_COLOR = '#00e887';
+const WATCHING_COLOR = 'var(--black-long)';
 const SIGNAL_COLOR   = 'rgba(240,192,64,0.9)';
 const WS_RECON_COLOR = 'rgba(255,160,50,0.9)';
 
@@ -52,7 +52,7 @@ export default function StealthWatcherPanel({ watchState, signalLabel, onReset }
             width:        12,
             height:       12,
             borderRadius: '50%',
-            border:       '2px solid rgba(255,255,255,0.18)',
+            border:       '2px solid var(--black-border-strong)',
             borderTop:    `2px solid ${getColor()}`,
             animation:    'stealthSpin 0.9s linear infinite',
           }} />
@@ -78,9 +78,9 @@ export default function StealthWatcherPanel({ watchState, signalLabel, onReset }
             right:           8,
             bottom:          8,
             fontSize:        '10px',
-            color:           'rgba(255,255,255,0.5)',
-            background:      'rgba(255,255,255,0.06)',
-            border:          '1px solid rgba(255,255,255,0.12)',
+            color:           'var(--black-text-muted)',
+            background:      'var(--black-border)',
+            border:          '1px solid var(--black-border-strong)',
             borderRadius:    '3px',
             padding:         '2px 6px',
             cursor:          'pointer',

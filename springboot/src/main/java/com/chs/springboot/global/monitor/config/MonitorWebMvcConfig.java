@@ -15,9 +15,11 @@ public class MonitorWebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(adminIpInterceptor)
+        /* registry는 "인터셉터 목록을 관리하는 객체"예요. .addInterceptor()로 인터셉터를 등록하고, .addPathPatterns()로
+           어느 경로에 적용할지 지정해요.*/
+        /*registry.addInterceptor(adminIpInterceptor)
                 .addPathPatterns("/api/admin/**")
-                .excludePathPatterns("/api/monitor/access-request");
+                .excludePathPatterns("/api/monitor/access-request");*/
     }
 }
 

@@ -123,7 +123,7 @@ function SkeletonBox({
             width,
             height,
             borderRadius,
-            background: 'linear-gradient(90deg, #1e293b 25%, #2d3f52 50%, #1e293b 75%)',
+            background: 'linear-gradient(90deg, var(--dark-border) 25%, #2d3f52 50%, var(--dark-border) 75%)',
             backgroundSize: '200% 100%',
             animation: 'shimmerMobile 1.5s infinite linear',
             ...style,
@@ -146,7 +146,7 @@ function BinanceTickerMobileSkeleton() {
             </div>
 
             {/* 구분선 */}
-            <div style={{ borderTop: '1px solid #1e293b' }} />
+            <div style={{ borderTop: '1px solid var(--dark-border)' }} />
 
             {/* 현재가 */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
@@ -159,7 +159,7 @@ function BinanceTickerMobileSkeleton() {
             </div>
 
             {/* 구분선 */}
-            <div style={{ borderTop: '1px solid #1e293b' }} />
+            <div style={{ borderTop: '1px solid var(--dark-border)' }} />
 
             {/* 저가 라인 */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
@@ -167,14 +167,14 @@ function BinanceTickerMobileSkeleton() {
             </div>
 
             {/* 프리미엄 섹션 */}
-            <div style={{ borderTop: '1px solid #1e293b', padding: '14px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <div style={{ borderTop: '1px solid var(--dark-border)', padding: '14px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <SkeletonBox width="60px" height="12px" />
                 <SkeletonBox width="130px" height="22px" borderRadius="4px" />
                 <SkeletonBox width="50px" height="14px" borderRadius="4px" />
             </div>
 
             {/* KRW 2열 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #1e293b', padding: '14px 0', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--dark-border)', padding: '14px 0', gap: '8px' }}>
                 <SkeletonBox height="48px" borderRadius="8px" />
                 <SkeletonBox height="48px" borderRadius="8px" />
             </div>
@@ -247,7 +247,7 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
     const calcKrw      = hasUsdtRate ? currentPrice * usdtKrwTicker!.trade_price : null;
     const premium      = (hasUpbitData && calcKrw !== null) ? upbitPrice - calcKrw : null;
     const premiumRate  = (premium !== null && calcKrw !== null) ? (premium / calcKrw) * 100 : null;
-    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : '#475569';
+    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : 'var(--dark-text-secondary)';
     const premiumSign  = premium !== null && premium >= 0 ? '+' : '';
 
     return (

@@ -137,7 +137,7 @@ export default function AdminPage() {
             .then(r => setCanAccess(r.data.canAccess))
             .catch((e) => {
                 if (e?.response?.status === 403) {
-                    navigate('/forbidden', { replace: true });
+                    navigate('/admin/login', { replace: true });
                     return;
                 }
                 setCanAccess(false);

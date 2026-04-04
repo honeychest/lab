@@ -2,10 +2,10 @@
 import { useState } from 'react';
 
 const FIELD_STYLE = {
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'var(--dark-input-bg)',
+    border: '1px solid var(--dark-input-border)',
     borderRadius: '4px',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'var(--dark-input-text)',
     fontSize: '12px',
     padding: '3px 7px',
     outline: 'none',
@@ -19,7 +19,7 @@ const TOLERANCE_STYLE = {
 };
 
 const LABEL_STYLE = {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'var(--dark-text-muted)',
     fontSize: '11px',
     width: '60px',
     flexShrink: 0,
@@ -146,17 +146,17 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
             position: 'fixed', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 1000,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'var(--dark-overlay-bg)',
         }}>
             <div style={{
-                background: '#0e0f18',
-                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'var(--dark-modal-bg)',
+                border: '1px solid var(--dark-input-border)',
                 borderRadius: '10px',
                 padding: '20px 24px',
                 minWidth: '320px',
                 fontFamily: "'Pretendard', sans-serif",
             }}>
-                <div style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>
+                <div style={{ color: 'var(--dark-input-text)', fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>
                     유사한 거래 패턴 검색
                 </div>
 
@@ -164,18 +164,18 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
                 <div style={{ ...ROW_STYLE, marginBottom: '8px' }}>
                     <input type="checkbox" checked={useRateFilter}
                         onChange={(e) => { if (!e.target.checked && !useVolFilter) return; setUseRateFilter(e.target.checked); }}
-                        style={{ cursor: 'pointer', accentColor: 'rgba(80,160,255,0.9)' }} />
+                        style={{ cursor: 'pointer', accentColor: 'var(--dark-accent)' }} />
                     <span style={{ ...LABEL_STYLE, opacity: useRateFilter ? 1 : 0.35 }}>등락율</span>
                     <input type="number" step="0.01" style={{ ...FIELD_STYLE, opacity: useRateFilter ? 1 : 0.35 }}
                         disabled={!useRateFilter}
                         value={priceChangeRate}
                         onChange={(e) => handleRateChange(e.target.value)} />
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>%  ±</span>
+                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%  ±</span>
                     <input type="number" step="0.01" min="0" style={{ ...TOLERANCE_STYLE, opacity: useRateFilter ? 1 : 0.35 }}
                         disabled={!useRateFilter}
                         value={rateTolerance}
                         onChange={(e) => setRateTolerance(e.target.value)} />
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>%p</span>
+                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%p</span>
                 </div>
 
                 {/* OHLC */}
@@ -197,32 +197,32 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
                 <div style={{ ...ROW_STYLE, marginBottom: '12px', marginTop: '2px' }}>
                     <input type="checkbox" checked={useVolFilter}
                         onChange={(e) => { if (!e.target.checked && !useRateFilter) return; setUseVolFilter(e.target.checked); }}
-                        style={{ cursor: 'pointer', accentColor: 'rgba(80,160,255,0.9)' }} />
+                        style={{ cursor: 'pointer', accentColor: 'var(--dark-accent)' }} />
                     <span style={{ ...LABEL_STYLE, opacity: useVolFilter ? 1 : 0.35 }}>거래대금</span>
                     <input type="number" step="1" min="0" style={{ ...FIELD_STYLE, opacity: useVolFilter ? 1 : 0.35 }}
                         disabled={!useVolFilter}
                         value={totalVolume}
                         onChange={(e) => setTotalVolume(e.target.value)} />
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>±</span>
+                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>±</span>
                     <input type="number" step="1" min="0" style={{ ...TOLERANCE_STYLE, opacity: useVolFilter ? 1 : 0.35 }}
                         disabled={!useVolFilter}
                         value={volTolerance}
                         onChange={(e) => setVolTolerance(e.target.value)} />
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>%</span>
+                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%</span>
                 </div>
 
                 {/* 오류 메시지 */}
                 {Object.values(errors).length > 0 && (
                     <div style={{ marginBottom: '10px' }}>
                         {Object.values(errors).map((msg) => (
-                            <div key={msg} style={{ color: '#ff3b5c', fontSize: '11px', marginBottom: '2px' }}>{msg}</div>
+                            <div key={msg} style={{ color: 'var(--dark-error)', fontSize: '11px', marginBottom: '2px' }}>{msg}</div>
                         ))}
                     </div>
                 )}
 
                 {/* 쿨다운 */}
                 {cooldownTimeLeft > 0 && (
-                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginBottom: '8px' }}>
+                    <div style={{ color: 'var(--dark-text-muted)', fontSize: '11px', marginBottom: '8px' }}>
                         {cooldownTimeLeft}초 뒤 다시 시도 가능합니다
                     </div>
                 )}
@@ -230,15 +230,15 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
                 {/* 버튼 */}
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     <button onClick={onClose}
-                        style={{ ...btnBase, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }}>
+                        style={{ ...btnBase, background: 'var(--dark-btn-secondary)', color: 'var(--dark-text-muted)' }}>
                         취소
                     </button>
                     <button onClick={handleSearch}
                         disabled={cooldownTimeLeft > 0}
                         style={{
                             ...btnBase,
-                            background: cooldownTimeLeft > 0 ? 'rgba(80,160,255,0.3)' : 'rgba(80,160,255,0.8)',
-                            color: '#fff',
+                            background: cooldownTimeLeft > 0 ? 'var(--dark-btn-secondary)' : 'var(--dark-btn-primary)',
+                            color: 'var(--dark-text-primary)',
                             cursor: cooldownTimeLeft > 0 ? 'not-allowed' : 'pointer',
                         }}>
                         조회

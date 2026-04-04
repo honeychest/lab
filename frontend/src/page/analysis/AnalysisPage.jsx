@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '@/api/apiClient.js';
 import Layout                from '../../shared/ui/layout/Layout.jsx';
+import '../../styles/themes/theme-dark.css';
+import { usePageTheme }      from '@/app/context/ThemeContext.jsx';
 import ControlBar            from './components/ControlBar.jsx';
 import MainChart             from './components/MainChart.jsx';
 import ConditionBuilder      from './components/ConditionBuilder.jsx';
@@ -298,6 +300,8 @@ export default function AnalysisPage() {
   };
 
   const paletteLevel = conditionTree.palette ?? 'MID';
+  const [theme] = usePageTheme('analysis');
+  const themeClass = theme !== 'dark' ? `theme-${theme}` : '';
 
   return (
     <Layout>
@@ -306,11 +310,11 @@ export default function AnalysisPage() {
         * { box-sizing: border-box; }
       `}</style>
 
-      <div style={{
+      <div className={themeClass || undefined} style={{
         display:         'flex',
         flexDirection:   'column',
         height:          '100%',
-        backgroundColor: '#06060c',
+        backgroundColor: 'var(--dark-bg)',
         padding:         '4px',
         gap:             '4px',
         overflow:        'hidden',
@@ -322,7 +326,7 @@ export default function AnalysisPage() {
             flexDirection:  'column',
             alignItems:     'center',
             justifyContent: 'center',
-            color:          'rgba(255,255,255,0.7)',
+            color:          'var(--dark-text-primary)',
             fontFamily:     "'Pretendard', sans-serif",
             fontSize:       '0.94rem',
             gap:            '12px',
@@ -332,9 +336,9 @@ export default function AnalysisPage() {
               type="button"
               onClick={() => setDesktopView('desktop')}
               style={{
-                border:       '1px solid rgba(255,255,255,0.14)',
-                background:   'rgba(255,255,255,0.06)',
-                color:        'rgba(255,255,255,0.92)',
+                border:       '1px solid var(--dark-input-border)',
+                background:   'var(--dark-btn-secondary)',
+                color:        'var(--dark-text-primary)',
                 borderRadius: '10px',
                 padding:      '10px 12px',
                 fontWeight:   900,
@@ -356,9 +360,9 @@ export default function AnalysisPage() {
               type="button"
               onClick={() => setDesktopView('auto')}
               style={{
-                border:       '1px solid rgba(255,255,255,0.14)',
-                background:   'rgba(255,255,255,0.06)',
-                color:        'rgba(255,255,255,0.92)',
+                border:       '1px solid var(--dark-input-border)',
+                background:   'var(--dark-btn-secondary)',
+                color:        'var(--dark-text-primary)',
                 borderRadius: '10px',
                 padding:      '8px 10px',
                 fontWeight:   900,
@@ -414,9 +418,9 @@ export default function AnalysisPage() {
               <div style={{
                 flex:         1,
                 minHeight:    0,
-                background:   '#0e0f18',
+                background:   'var(--dark-card-bg)',
                 borderRadius: '10px',
-                border:       '1px solid rgba(255,255,255,0.06)',
+                border:       '1px solid var(--dark-input-border)',
                 padding:      '10px 12px',
                 overflowY:    'auto',
               }}>
@@ -432,9 +436,9 @@ export default function AnalysisPage() {
 
             {/* 템플릿 바 (하단 고정) */}
             <div style={{
-              background:   '#0e0f18',
+              background:   'var(--dark-card-bg)',
               borderRadius: '10px',
-              border:       '1px solid rgba(255,255,255,0.06)',
+              border:       '1px solid var(--dark-input-border)',
               padding:      '8px 12px',
               flexShrink:   0,
             }}>

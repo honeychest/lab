@@ -28,6 +28,8 @@ import {
 } from '@/shared/ui/shadcn/table.js';
 import styles from './TradePage.module.css';
 import { formatWithComma } from '@/shared/lib/utils.js';
+import '@/styles/themes/theme-dark.css';
+import { usePageTheme } from '@/app/context/ThemeContext.jsx';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────
 const formatThreshold = (v) => {
@@ -75,6 +77,8 @@ const formatTickQtyTotal = (v) => v.toFixed(4);
 
 // ── 컴포넌트 ──────────────────────────────────────────────────
 function TradePage() {
+    const [theme] = usePageTheme('trade');
+    const themeClass = theme !== 'dark' ? `theme-${theme}` : '';
     const { trades, scanState, initError, loadMore } = useBinanceTradeSse();
     const { ticks, isConnecting: isTickConnecting } = useRawTickSse();
 
@@ -206,7 +210,7 @@ function TradePage() {
 
     return (
         <Layout footerCenter={['SSE', 'TypeScript', 'Binance API', 'shadcn/ui', 'Tailwind CSS']}>
-            <div className="min-h-full md:h-full md:overflow-hidden bg-[#0a0f1e] p-4 md:p-8 box-border">
+            <div className={`min-h-full md:h-full md:overflow-hidden bg-[var(--dark-bg)] p-4 md:p-8 box-border ${themeClass}`}>
                 <div className="max-w-6xl mx-auto md:flex md:flex-col md:gap-2 md:h-full md:overflow-hidden">
 
                     {/* ── 페이지 헤더 (전체 너비) ───────────────────── */}
@@ -221,7 +225,7 @@ function TradePage() {
                                             <InputOTPSlot
                                                 key={i}
                                                 index={i}
-                                                className="h-12 w-12 text-xl font-bold font-mono text-[#F0B90B] border-[#2B3139] bg-transparent data-[active=true]:ring-0 data-[active=true]:border-[#2B3139] data-[active=true]:shadow-none"
+                                                className="h-12 w-12 text-xl font-bold font-mono text-[var(--dark-accent-gold)] border-[var(--dark-btn-bg)] bg-transparent data-[active=true]:ring-0 data-[active=true]:border-[var(--dark-btn-bg)] data-[active=true]:shadow-none"
                                             />
                                         ))}
                                     </InputOTPGroup>
@@ -229,7 +233,7 @@ function TradePage() {
                                 </div>
                                 <button
                                     onClick={() => setIsPanelOpen(true)}
-                                    className="absolute right-0 bg-transparent text-xs text-[#475569] hover:text-[#94a3b8] border border-[#2B3139] rounded px-3 py-1.5 transition-colors"
+                                    className="absolute right-0 bg-transparent text-xs text-[var(--dark-text-secondary)] hover:text-[var(--dark-text-neutral)] border border-[var(--dark-btn-bg)] rounded px-3 py-1.5 transition-colors"
                                 >
                                     조회
                                 </button>
@@ -239,7 +243,7 @@ function TradePage() {
 
                     {/* ── 초기 로드 실패 ───────────────────────────── */}
                     {initError && (
-                        <div className="bg-[#0f172a] border border-red-500/30 rounded-xl p-6 text-center text-[#94a3b8] text-sm">
+                        <div className="bg-[var(--dark-card-bg)] border border-red-500/30 rounded-xl p-6 text-center text-[var(--dark-text-neutral)] text-sm">
                             체결 내역을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
                         </div>
                     )}
@@ -248,23 +252,23 @@ function TradePage() {
                     {!initError && (
                         <div className="hidden md:flex md:flex-1 md:min-h-0 md:gap-2">
                             {/* 좌: 큰거래 테이블 (스캔 슬롯 + 테이블, 스크롤바는 부모로 클리핑) */}
-                            <div className="flex-1 min-h-0 flex flex-col bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden">
+                            <div className="flex-1 min-h-0 flex flex-col bg-[var(--dark-card-bg)] border border-[var(--dark-border)] rounded-2xl overflow-hidden">
                                 {/* 스캔 슬롯 */}
                                 <div
-                                    className={`relative overflow-hidden border-b border-[#1e293b] flex items-center justify-center px-4 h-10 flex-shrink-0 transition-colors duration-500 ${
-                                        scanSlotExpanding ? 'bg-blue-950/30' : 'bg-[#0a0f1e]'
+                                    className={`relative overflow-hidden border-b border-[var(--dark-border)] flex items-center justify-center px-4 h-10 flex-shrink-0 transition-colors duration-500 ${
+                                        scanSlotExpanding ? 'bg-blue-950/30' : 'bg-[var(--dark-bg)]'
                                     }`}
                                 >
                                     {scanSlotReconnecting ? (
                                         <span className="text-xs text-yellow-400 font-mono">재연결 중...</span>
                                     ) : (
                                         <>
-                                            <span className="text-xs text-[#475569] font-mono tracking-widest select-none">
+                                            <span className="text-xs text-[var(--dark-text-secondary)] font-mono tracking-widest select-none">
                                                 {scanSlotExpanding ? '● 체결 감지' : '○ 감시중'}
                                             </span>
                                             {!scanSlotExpanding && (
                                                 <>
-                                                    <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
+                                                    <span className="text-xs text-[var(--dark-text-secondary)] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
                                                     <div
                                                         className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                     />
@@ -279,20 +283,20 @@ function TradePage() {
                                     <div className={styles.scrollbarClipWide}>
                                 <Table className="table-fixed w-full flex-shrink-0">
                                 <TableHeader>
-                                    <TableRow className="border-[#1e293b] hover:bg-transparent">
-                                        <TableHead className="text-[#475569] text-xs w-24">체결시각</TableHead>
-                                        <TableHead className="text-[#475569] text-xs w-20">시장</TableHead>
-                                        <TableHead className="text-[#475569] text-xs w-16">방향</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right">금액(USD)</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right">금액(원)</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right">가격(USDT)</TableHead>
-                                        <TableHead className="text-[#475569] text-xs text-right w-20">경과</TableHead>
+                                    <TableRow className="border-[var(--dark-border)] hover:bg-transparent">
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs w-24">체결시각</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs w-20">시장</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs w-16">방향</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right">금액(USD)</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right">금액(원)</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right">가격(USDT)</TableHead>
+                                        <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right w-20">경과</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {trades.length === 0 && !initError && (
-                                        <TableRow className="border-[#1e293b] hover:bg-transparent">
-                                            <TableCell colSpan={8} className="text-center text-[#475569] text-sm py-12">
+                                        <TableRow className="border-[var(--dark-border)] hover:bg-transparent">
+                                            <TableCell colSpan={8} className="text-center text-[var(--dark-text-secondary)] text-sm py-12">
                                                 체결 감시 중...
                                             </TableCell>
                                         </TableRow>
@@ -303,21 +307,21 @@ function TradePage() {
                                         return (
                                             <TableRow
                                                 key={trade.id}
-                                                className={`border-[#1e293b] hover:bg-[#1e293b]/40 transition-colors ${isNew ? styles.newRow : ''}`}
+                                                className={`border-[var(--dark-border)] hover:bg-[var(--dark-border)]/40 transition-colors ${isNew ? styles.newRow : ''}`}
                                             >
                                                 {isNew ? (
                                                     <>
-                                                        <TableCell className="py-3"><Skeleton className="w-16 bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-10 bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-8 bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-20 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-24 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[#1e293b] h-4" /></TableCell>
-                                                        <TableCell className="py-3"><Skeleton className="w-10 ml-auto bg-[#1e293b] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-16 bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-10 bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-8 bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-20 ml-auto bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-24 ml-auto bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-14 ml-auto bg-[var(--dark-border)] h-4" /></TableCell>
+                                                        <TableCell className="py-3"><Skeleton className="w-10 ml-auto bg-[var(--dark-border)] h-4" /></TableCell>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <TableCell className="text-xs text-[#94a3b8] font-mono py-2.5">
+                                                        <TableCell className="text-xs text-[var(--dark-text-neutral)] font-mono py-2.5">
                                                             {formatTime(trade.tradedAt)}
                                                         </TableCell>
                                                         <TableCell className="py-2.5">
@@ -335,16 +339,16 @@ function TradePage() {
                                                         <TableCell className={`text-xs font-semibold py-2.5 ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                             {isSell ? '매도' : '매수'}
                                                         </TableCell>
-                                                        <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
+                                                        <TableCell className="text-xs font-mono font-bold text-[var(--dark-text-primary)] py-2.5 text-right">
                                                             ${formatWithComma(trade.tradeValue)}
                                                         </TableCell>
-                                                        <TableCell className="text-xs font-mono font-bold text-[#e5e7eb] py-2.5 text-right">
+                                                        <TableCell className="text-xs font-mono font-bold text-[var(--dark-text-primary)] py-2.5 text-right">
                                                             {formatKrw(trade.tradeValue)}
                                                         </TableCell>
                                                         <TableCell className={`text-xs font-mono font-semibold py-2.5 text-right ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                             ${formatWithComma(trade.price)}
                                                         </TableCell>
-                                                        <TableCell className="text-xs text-[#475569] font-mono py-2.5 text-right">
+                                                        <TableCell className="text-xs text-[var(--dark-text-secondary)] font-mono py-2.5 text-right">
                                                             {getElapsed(trade.tradedAt)}
                                                         </TableCell>
                                                     </>
@@ -358,11 +362,11 @@ function TradePage() {
                                 </div>
                             </div>
                             {/* 우: 틱 테이블 (스크롤바 클리핑) */}
-                            <div className="w-3/18 min-h-0 flex flex-col flex-shrink-0 border border-[#1e293b] rounded-2xl overflow-hidden bg-[#0f172a]">
-                                <div className="h-10 flex-shrink-0 border-b border-[#1e293b] bg-[#0a0f1e] px-3 flex items-center justify-between">
+                            <div className="w-3/18 min-h-0 flex flex-col flex-shrink-0 border border-[var(--dark-border)] rounded-2xl overflow-hidden bg-[var(--dark-card-bg)]">
+                                <div className="h-10 flex-shrink-0 border-b border-[var(--dark-border)] bg-[var(--dark-bg)] px-3 flex items-center justify-between">
                                 <div className="grid grid-cols-2 gap-x-4 text-right leading-tight flex-grow-1">
-                                    <span className="text-xs text-[#94a3b8] font-mono text-center">매수 BTC</span>
-                                    <span className="text-xs text-[#94a3b8] font-mono text-center">매도 BTC</span>
+                                    <span className="text-xs text-[var(--dark-text-neutral)] font-mono text-center">매수 BTC</span>
+                                    <span className="text-xs text-[var(--dark-text-neutral)] font-mono text-center">매도 BTC</span>
                                     <span className="text-xs font-mono text-green-400 text-center">
                                         {formatTickQtyTotal(tickTotals.buy)}
                                     </span>
@@ -386,19 +390,19 @@ function TradePage() {
                             {/* 모바일 스캔 슬롯 */}
                             <div
                                 className={`relative overflow-hidden rounded-xl border flex items-center justify-center px-4 h-10 transition-colors duration-500 ${
-                                    scanSlotExpanding ? 'bg-blue-950/30 border-blue-500/30' : 'bg-[#0f172a] border-[#1e293b]'
+                                    scanSlotExpanding ? 'bg-blue-950/30 border-blue-500/30' : 'bg-[var(--dark-card-bg)] border-[var(--dark-border)]'
                                 }`}
                             >
                                 {scanSlotReconnecting ? (
                                     <span className="text-xs text-yellow-400 font-mono">재연결 중...</span>
                                 ) : (
                                     <>
-                                        <span className="text-xs text-[#475569] font-mono tracking-widest select-none">
+                                        <span className="text-xs text-[var(--dark-text-secondary)] font-mono tracking-widest select-none">
                                             {scanSlotExpanding ? '● 체결 감지' : '○ 감시중'}
                                         </span>
                                         {!scanSlotExpanding && (
                                             <>
-                                                <span className="text-xs text-[#475569] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
+                                                <span className="text-xs text-[var(--dark-text-secondary)] font-mono tracking-widest ml-2 select-none"> {formatThreshold(threshold)} 이상</span>
                                                 <div
                                                     className={`absolute inset-0 w-1/4 bg-gradient-to-r from-transparent via-blue-400/15 to-transparent pointer-events-none ${styles.scanBeam}`}
                                                 />
@@ -410,7 +414,7 @@ function TradePage() {
 
                             {/* 카드 목록 */}
                             {trades.length === 0 && (
-                                <div className="text-center text-[#475569] text-sm py-8">
+                                <div className="text-center text-[var(--dark-text-secondary)] text-sm py-8">
                                     체결 감시 중...
                                 </div>
                             )}
@@ -420,13 +424,13 @@ function TradePage() {
                                 return (
                                     <div
                                         key={trade.id}
-                                        className={`bg-[#0f172a] border border-[#1e293b] rounded-xl p-3 flex flex-col gap-1.5 ${isNew ? styles.newRow : ''}`}
+                                        className={`bg-[var(--dark-card-bg)] border border-[var(--dark-border)] rounded-xl p-3 flex flex-col gap-1.5 ${isNew ? styles.newRow : ''}`}
                                     >
                                         {isNew ? (
                                             <>
-                                                <Skeleton className="h-5 w-full bg-[#1e293b]" />
-                                                <Skeleton className="h-5 w-2/3 bg-[#1e293b]" />
-                                                <Skeleton className="h-5 w-1/2 bg-[#1e293b]" />
+                                                <Skeleton className="h-5 w-full bg-[var(--dark-border)]" />
+                                                <Skeleton className="h-5 w-2/3 bg-[var(--dark-border)]" />
+                                                <Skeleton className="h-5 w-1/2 bg-[var(--dark-border)]" />
                                             </>
                                         ) : (<>
                                         <div className="flex items-center justify-between">
@@ -445,7 +449,7 @@ function TradePage() {
                                                     {isSell ? '매도' : '매수'}
                                                 </span>
                                             </div>
-                                            <span className="text-xs text-[#475569] font-mono">
+                                            <span className="text-xs text-[var(--dark-text-secondary)] font-mono">
                                                 {formatTime(trade.tradedAt)}
                                             </span>
                                         </div>
@@ -453,11 +457,11 @@ function TradePage() {
                                             <span className={`text-base font-bold font-mono ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                 ${formatPrice(trade.price)}
                                             </span>
-                                            <span className="text-sm font-bold font-mono text-[#e5e7eb]">
+                                            <span className="text-sm font-bold font-mono text-[var(--dark-text-primary)]">
                                                 {formatValue(trade.tradeValue)}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between text-xs text-[#475569] font-mono">
+                                        <div className="flex justify-between text-xs text-[var(--dark-text-secondary)] font-mono">
                                             <span>{formatQty(trade.quantity)} BTC</span>
                                             <span>{getElapsed(trade.tradedAt)}</span>
                                         </div>
@@ -470,7 +474,7 @@ function TradePage() {
                             {isLoadingMore && (
                                 <div className="flex flex-col gap-2">
                                     {[1, 2, 3].map(i => (
-                                        <Skeleton key={i} className="h-20 w-full rounded-xl bg-[#1e293b]" />
+                                        <Skeleton key={i} className="h-20 w-full rounded-xl bg-[var(--dark-border)]" />
                                     ))}
                                 </div>
                             )}
@@ -480,7 +484,7 @@ function TradePage() {
                                 <div className="flex justify-center py-3">
                                     <button
                                         onClick={handleLoadMore}
-                                        className="text-xs text-[#94a3b8] border border-[#334155] rounded-lg px-4 py-2 hover:bg-[#1e293b]"
+                                        className="text-xs text-[var(--dark-text-neutral)] border border-[var(--dark-border-strong)] rounded-lg px-4 py-2 hover:bg-[var(--dark-border)]"
                                     >
                                         다시 시도
                                     </button>
@@ -499,11 +503,11 @@ function TradePage() {
                 <SheetContent
                     side="right"
                     aria-describedby={undefined}
-                    className="md:w-80 md:sm:w-96 p-0 border-[#1e293b] bg-[#0f172a] md:max-w-96 w-full"
+                    className="md:w-80 md:sm:w-96 p-0 border-[var(--dark-border)] bg-[var(--dark-card-bg)] md:max-w-96 w-full"
                     showCloseButton={true}
                 >
-                    <SheetHeader className="px-4 py-3 border-b border-[#1e293b] flex flex-row items-center justify-between">
-                        <SheetTitle className="text-[#e5e7eb] text-sm">체결 조회</SheetTitle>
+                    <SheetHeader className="px-4 py-3 border-b border-[var(--dark-border)] flex flex-row items-center justify-between">
+                        <SheetTitle className="text-[var(--dark-text-primary)] text-sm">체결 조회</SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-hidden h-[calc(100%-56px)]">
                         <TradePanel threshold={threshold} canEditThreshold={canEditThreshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />

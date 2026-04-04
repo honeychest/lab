@@ -24,17 +24,17 @@ function getLastDelta(candleHistory, symbol) {
 }
 
 const slotStyle = {
-    backgroundColor: 'rgba(255,255,255,0.015)',
+    backgroundColor: 'var(--black-surface-bg)',
     borderRadius: '6px',
     padding: '12px',
-    border: '1px solid rgba(255,255,255,0.04)',
+    border: '1px solid var(--black-border-subtle)',
     display: 'flex',
     flexDirection: 'column',
 };
 
 const labelStyle = {
     fontSize: '11px',
-    color: 'rgba(255,255,255,0.72)',
+    color: 'var(--black-text-secondary)',
     letterSpacing: '0.5px',
     marginBottom: '8px',
     fontFamily: "'Pretendard', sans-serif",
@@ -93,7 +93,7 @@ export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistor
                 <div style={labelStyle}>
                     <span>오픈 포지션 볼륨</span>
                     {lastOiValue && (
-                        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: '600' }}>
+                        <span style={{ color: 'var(--black-text-muted)', fontSize: '10px', fontWeight: '600' }}>
                             {lastOiValue}
                         </span>
                     )}

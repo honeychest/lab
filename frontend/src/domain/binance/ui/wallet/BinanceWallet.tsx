@@ -99,7 +99,7 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
     // jQuery에서 $.ajax 호출 전 $('#spinner').show() 하는 것과 유사
     if (loading) {
         return (
-            <div style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ color: 'var(--dark-text-secondary)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
                 잔고 조회 중...
             </div>
         );
@@ -118,7 +118,7 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
     // ── 데이터 없음 상태 ─────────────────────────────────────────
     if (!accountInfo) {
         return (
-            <div style={{ color: '#64748b', fontSize: '14px', padding: '20px 0' }}>
+            <div style={{ color: 'var(--dark-text-secondary)', fontSize: '14px', padding: '20px 0' }}>
                 계좌 정보 없음
             </div>
         );
@@ -143,13 +143,13 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
     return (
         <div>
             {/* ── 섹션 제목 ──────────────────────────────────────── */}
-            <h2 style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 16px 0' }}>
+            <h2 style={{ color: 'var(--dark-text-muted)', fontSize: '13px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 16px 0' }}>
                 지갑 잔고 · {nonZeroBalances.length}개 코인
             </h2>
 
             {/* ── 잔고 없음 안내 ──────────────────────────────────── */}
             {nonZeroBalances.length === 0 && (
-                <div style={{ color: '#64748b', fontSize: '14px' }}>보유 중인 코인이 없습니다.</div>
+                <div style={{ color: 'var(--dark-text-secondary)', fontSize: '14px' }}>보유 중인 코인이 없습니다.</div>
             )}
 
             {/* ── 잔고 목록 테이블 ────────────────────────────────── */}
@@ -181,13 +181,13 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '10px 14px',
-                            background: '#1e293b',
+                            background: 'var(--dark-border)',
                             borderRadius: '10px',
                             flexWrap: 'wrap',
                             gap: '8px',
                         }}>
                             {/* 코인 심볼 (예: BTC, USDT) */}
-                            <span style={{ color: '#F3BA2F', fontWeight: '800', fontSize: '14px', minWidth: '60px' }}>
+                            <span style={{ color: 'var(--dark-accent-gold)', fontWeight: '800', fontSize: '14px', minWidth: '60px' }}>
                                 {b.asset}
                             </span>
 
@@ -195,8 +195,8 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
                             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                                 {/* 사용 가능 잔고 */}
                                 <div>
-                                    <span style={{ color: '#64748b', fontSize: '11px' }}>가용 </span>
-                                    <span style={{ color: '#e2e8f0', fontSize: '13px', fontFamily: 'monospace' }}>
+                                    <span style={{ color: 'var(--dark-text-secondary)', fontSize: '11px' }}>가용 </span>
+                                    <span style={{ color: 'var(--dark-text-primary)', fontSize: '13px', fontFamily: 'monospace' }}>
                                         {freeAmt}
                                     </span>
                                 </div>
@@ -205,7 +205,7 @@ function BinanceWallet({ accountInfo, loading, error }: BinanceWalletProps) {
                                     오픈 주문이 없으면 locked = 0 이므로 숨김 */}
                                 {hasLocked && (
                                     <div>
-                                        <span style={{ color: '#64748b', fontSize: '11px' }}>주문중 </span>
+                                        <span style={{ color: 'var(--dark-text-secondary)', fontSize: '11px' }}>주문중 </span>
                                         <span style={{ color: '#f39c12', fontSize: '13px', fontFamily: 'monospace' }}>
                                             {lockAmt}
                                         </span>

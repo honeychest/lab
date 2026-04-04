@@ -50,8 +50,8 @@ export default function CaseCard({ matchIndex, klineData, paletteLevel = 'MID', 
     <div style={{
       padding:         '6px 8px',
       borderRadius:    '6px',
-      background:      'rgba(255,255,255,0.03)',
-      border:          '1px solid rgba(255,255,255,0.06)',
+      background:      'var(--dark-surface-bg)',
+      border:          '1px solid var(--dark-input-border)',
       display:         'flex',
       flexDirection:   'column',
       gap:             '4px',
@@ -59,7 +59,7 @@ export default function CaseCard({ matchIndex, klineData, paletteLevel = 'MID', 
     }}>
       <div style={{
         fontSize:   '11px',
-        color:      'rgba(255,255,255,0.55)',
+        color:      'var(--dark-text-muted)',
         fontFamily: "'Pretendard', sans-serif",
       }}>
         {dateStr}

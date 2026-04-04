@@ -1,0 +1,113 @@
+/* [AGENT] 다크 테마 토큰 — 암호화폐 페이지(Binance, Trade, Signal, Analysis) 공용 */
+/* 현재 하드코딩된 색상값을 변수로 정의. 페이지별 적용은 2단계에서 진행. */
+:root {
+  /* 배경 */
+  --dark-bg:          #0a0f1e;
+  --dark-card-bg:     #0f172a;
+  --dark-surface-bg:  rgba(0, 0, 0, 0.15);
+
+  /* 텍스트 */
+  --dark-text-primary:   #e5e7eb;
+  --dark-text-secondary: #64748b;
+  --dark-text-neutral:   #94a3b8;
+  --dark-text-muted:     rgba(255, 255, 255, 0.5);
+
+  /* 테두리 */
+  --dark-border:        #1e293b;
+  --dark-border-strong: #334155;
+  --dark-border-subtle: rgba(255, 255, 255, 0.18);
+
+  /* 강조색 */
+  --dark-accent:      #60a5fa;
+  --dark-accent-gold: #F3BA2F;
+
+  /* 상태 */
+  --dark-status-ok:    #2ecc71;
+  --dark-status-warn:  #f39c12;
+  --dark-status-error: #e74c3c;
+
+  /* 에러/삭제 (핑크-빨강) */
+  --dark-error: #ff3b5c;
+
+  /* 입력 */
+  --dark-input-bg:     rgba(255, 255, 255, 0.06);
+  --dark-input-border: rgba(255, 255, 255, 0.12);
+  --dark-input-text:   rgba(255, 255, 255, 0.8);
+
+  /* 버튼 */
+  --dark-btn-primary:   rgba(80, 160, 255, 0.85);
+  --dark-btn-secondary: rgba(255, 255, 255, 0.06);
+  --dark-btn-bg:        #2B3139;
+
+  /* 오버레이/모달 */
+  --dark-overlay-bg:  rgba(0, 0, 0, 0.5);
+  --dark-modal-bg:    #12131e;
+  --dark-toast-bg:    rgba(14, 15, 24, 0.96);
+
+  /* 스피너 */
+  --dark-spinner-track: rgba(255, 255, 255, 0.08);
+  --dark-spinner-fill:  rgba(80, 160, 255, 0.7);
+}
+
+/* ── 블랙 테마 오버라이드 (signal 계열 순수 블랙) ── */
+.theme-black {
+  --dark-bg:          #06060c;
+  --dark-card-bg:     #0e0f18;
+  --dark-surface-bg:  rgba(0, 0, 0, 0.2);
+
+  --dark-text-primary:   rgba(255,255,255,0.85);
+  --dark-text-secondary: rgba(255,255,255,0.65);
+  --dark-text-neutral:   rgba(255,255,255,0.45);
+  --dark-text-muted:     rgba(255,255,255,0.3);
+
+  --dark-border:        rgba(255,255,255,0.06);
+  --dark-border-strong: rgba(255,255,255,0.12);
+  --dark-border-subtle: rgba(255,255,255,0.08);
+
+  --dark-input-bg:     rgba(255,255,255,0.06);
+  --dark-input-border: rgba(255,255,255,0.12);
+
+  --dark-overlay-bg:  rgba(0, 0, 0, 0.6);
+  --dark-modal-bg:    #0e0f18;
+  --dark-toast-bg:    rgba(6, 6, 12, 0.96);
+}
+
+/* ── Teal 라이트 테마 오버라이드 (monitor-teal 계열) ── */
+.theme-teal {
+  --dark-bg:          #F0FAFA;
+  --dark-card-bg:     #FFFFFF;
+  --dark-surface-bg:  #F8FFFE;
+
+  --dark-text-primary:   #111827;
+  --dark-text-secondary: #6B7280;
+  --dark-text-neutral:   #9CA3AF;
+  --dark-text-muted:     rgba(0, 0, 0, 0.4);
+
+  --dark-border:        #D1FAF5;
+  --dark-border-strong: #A7F3D0;
+  --dark-border-subtle: rgba(13, 148, 136, 0.2);
+
+  --dark-accent:      #0D9488;
+  --dark-accent-gold: #D97706;
+
+  --dark-status-ok:    #16a34a;
+  --dark-status-warn:  #ca8a04;
+  --dark-status-error: #dc2626;
+
+  --dark-error: #dc2626;
+
+  --dark-input-bg:     #FFFFFF;
+  --dark-input-border: rgba(13, 148, 136, 0.25);
+  --dark-input-text:   #111827;
+
+  --dark-btn-primary:   #0D9488;
+  --dark-btn-secondary: #F0FAFA;
+  --dark-btn-bg:        #F0FAFA;
+
+  --dark-overlay-bg:  rgba(0, 0, 0, 0.35);
+  --dark-modal-bg:    #FFFFFF;
+  --dark-toast-bg:    rgba(255, 255, 255, 0.96);
+
+  --dark-spinner-track: rgba(13, 148, 136, 0.15);
+  --dark-spinner-fill:  #0D9488;
+}

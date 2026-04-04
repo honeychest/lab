@@ -13,10 +13,10 @@ function defaultGroup() {
 }
 
 const btn = (primary = false) => ({
-  background:   primary ? 'rgba(80,160,255,0.85)' : 'rgba(255,255,255,0.06)',
-  border:       primary ? 'none' : '1px solid rgba(255,255,255,0.12)',
+  background:   primary ? 'var(--dark-btn-primary)' : 'var(--dark-btn-secondary)',
+  border:       primary ? 'none' : '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:        'rgba(255,255,255,0.9)',
+  color:        'var(--dark-input-text)',
   fontSize:     '12px',
   padding:      '5px 12px',
   cursor:       'pointer',
@@ -76,7 +76,7 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
     }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '0.81rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.5px' }}>
+        <span style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)', letterSpacing: '0.5px' }}>
           조건 빌더
         </span>
         <div style={{ flex: 1 }} />
@@ -90,7 +90,7 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
           padding:   '16px',
           textAlign: 'center',
           fontSize:  '12px',
-          color:     'rgba(255,255,255,0.2)',
+          color:     'var(--dark-text-muted)',
         }}>
           조건을 추가하세요
         </div>
@@ -106,10 +106,10 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
                 value={groupOperator}
                 onChange={(e) => handleGroupLinkOpChange(e.target.value)}
                 style={{
-                  background:   'rgba(255,255,255,0.06)',
-                  border:       '1px solid rgba(255,255,255,0.12)',
+                  background:   'var(--dark-btn-secondary)',
+                  border:       '1px solid var(--dark-input-border)',
                   borderRadius: '4px',
-                  color:        'rgba(255,255,255,0.8)',
+                  color:        'var(--dark-input-text)',
                   fontSize:     '11px',
                   padding:      '2px 6px',
                   cursor:       'pointer',
@@ -134,10 +134,10 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
       <div style={{
         marginTop:   '4px',
         paddingTop:  '4px',
-        borderTop:   '1px dashed rgba(255,255,255,0.08)',
+        borderTop:   '1px dashed var(--dark-input-border)',
         fontSize:    '10px',
         lineHeight:  1.4,
-        color:       'rgba(255,255,255,0.55)',
+        color:       'var(--dark-text-muted)',
         fontFamily:  "'Pretendard', sans-serif",
       }}>
         {explainTree(conditionTree)}
@@ -149,9 +149,9 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
         style={{
           alignSelf:    'flex-start',
           background:   'transparent',
-          border:       '1px solid rgba(255,255,255,0.15)',
+          border:       '1px solid var(--dark-input-border)',
           borderRadius: '4px',
-          color:        'rgba(255,255,255,0.5)',
+          color:        'var(--dark-text-muted)',
           fontSize:     '11px',
           padding:      '3px 10px',
           cursor:       'pointer',
@@ -161,7 +161,7 @@ export default function ConditionBuilder({ conditionTree, onTreeChange, onSave, 
 
       {/* 오류 */}
       {detectionError && (
-        <div style={{ fontSize: '0.81rem', color: '#ff3b5c', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.81rem', color: 'var(--dark-error)', marginTop: '2px' }}>
           {detectionError}
         </div>
       )}

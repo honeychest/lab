@@ -26,11 +26,17 @@
  */
 package com.chs.springboot.global.config;
 
+import com.chs.springboot.global.auth.jwt.JwtAuthenticationFilter;
+import com.chs.springboot.global.auth.jwt.JwtTokenProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.resource.ResourceResolver;
 
 /**
  * @Configuration:
@@ -45,7 +51,10 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
+    JwtTokenProvider jwtTokenProvider;
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider) {
+        this.jwtTokenProvider = jwtTokenProvider;
+    }
     /**
      * filterChain: Spring Security 필터 체인 설정 빈.
      *
@@ -80,13 +89,32 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
         http
             // CSRF 보호 비활성화 (REST API + WebSocket 사용 시 필요)
+            // CSRF는 사용자가 로그인된 상태를 악용해서, 악성 사이트가 몰래 서버에 요청을 보내는 공격
+            // CSRF 보호가 있으면 서버가 "이 요청은 우리 사이트에서 온 게 맞아?" 토큰으로 검증
+            // JWT는 브라우저가 자동으로 붙여주지 않고, 코드에서 명시적으로
+            // Authorization 헤더에 넣어요. 악성 사이트는 그 토큰을 모르니까 CSRF 공격 자체가 불가능 해서 disable()
             .csrf(csrf -> csrf.disable())
+            // addFilterBefore(A, B)의 두 인자 A — 끼워 넣을 필터 객체 B — "A를 이것보다 앞에 실행해라"는 기준점
+            // .class는 "이 클래스 자체"를 가리켜요. 객체(인스턴스)가 아니라 클래스 타입정보를 전달
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             // 모든 요청 인증 없이 허용
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> auth.requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN_ACCESS")
                 .anyRequest().permitAll()
             );
         return http.build();
+    }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // 인코더 생성 -> 알고리즘을 SHA256 계열로 지정 -> 반환
+        return new Pbkdf2PasswordEncoder(
+                "", // 추가 secret(perpper) 없음
+                16, // salt 길이
+                610000, // 반복횟수 SWASP 권고 60만회 이상.
+                Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256 // 해시 알고리즘
+        );
+
     }
 }

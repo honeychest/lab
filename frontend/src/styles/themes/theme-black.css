@@ -1,0 +1,66 @@
+/* [AGENT] 블랙 테마 토큰 — Signal 페이지 전용 */
+:root {
+  /* 배경 */
+  --black-bg:            #06060c;
+  --black-panel-bg:      #0e0f18;
+  --black-panel-alt-bg:  #12131e;
+  --black-topbar-bg:     #0a0a12;
+  --black-surface-bg:    rgba(255,255,255,0.015);
+
+  /* 텍스트 */
+  --black-text-primary:   rgba(255,255,255,0.85);
+  --black-text-secondary: rgba(255,255,255,0.65);
+  --black-text-muted:     rgba(255,255,255,0.45);
+
+  /* 테두리 */
+  --black-border:        rgba(255,255,255,0.06);
+  --black-border-strong: rgba(255,255,255,0.12);
+  --black-border-subtle: rgba(255,255,255,0.04);
+
+  /* 신호 (도메인 색상 — 패널 구조에 적용) */
+  --black-long:  #00e887;
+  --black-short: #ff3b5c;
+  --black-warn:  rgba(240,192,64,0.9);
+}
+
+/* ── 다크 테마 오버라이드 (dark navy 계열) ── */
+.theme-dark {
+  --black-bg:            #0a0f1e;
+  --black-panel-bg:      #0f172a;
+  --black-panel-alt-bg:  #12131e;
+  --black-topbar-bg:     #0a0f1e;
+  --black-surface-bg:    rgba(0, 0, 0, 0.15);
+
+  --black-text-primary:   #e5e7eb;
+  --black-text-secondary: #64748b;
+  --black-text-muted:     rgba(255, 255, 255, 0.3);
+
+  --black-border:        #1e293b;
+  --black-border-strong: #334155;
+  --black-border-subtle: rgba(255, 255, 255, 0.04);
+
+  --black-long:  #2ecc71;
+  --black-short: #e74c3c;
+  --black-warn:  #f39c12;
+}
+
+/* ── Teal 라이트 테마 오버라이드 ── */
+.theme-teal {
+  --black-bg:            #F0FAFA;
+  --black-panel-bg:      #FFFFFF;
+  --black-panel-alt-bg:  #F8FFFE;
+  --black-topbar-bg:     #E2F8F8;
+  --black-surface-bg:    rgba(13, 148, 136, 0.04);
+
+  --black-text-primary:   #111827;
+  --black-text-secondary: #6B7280;
+  --black-text-muted:     rgba(0, 0, 0, 0.4);
+
+  --black-border:        #D1FAF5;
+  --black-border-strong: #A7F3D0;
+  --black-border-subtle: rgba(13, 148, 136, 0.08);
+
+  --black-long:  #059669;
+  --black-short: #dc2626;
+  --black-warn:  rgba(217, 119, 6, 0.9);
+}

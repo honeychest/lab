@@ -6,9 +6,9 @@ const PAGE_SIZE = 18;
 const navBtn = (disabled) => ({
   padding:      '4px 10px',
   background:   'transparent',
-  border:       '1px solid rgba(255,255,255,0.1)',
+  border:       '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:        disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
+  color:        disabled ? 'var(--dark-text-muted)' : 'var(--dark-text-secondary)',
   fontSize:     '11px',
   cursor:       disabled ? 'not-allowed' : 'pointer',
   opacity:      disabled ? 0.3 : 1,
@@ -52,9 +52,9 @@ export default function CasesPanel({
       height:        '100%',
       display:       'flex',
       flexDirection: 'column',
-      background:    '#0e0f18',
+      background:    'var(--dark-card-bg)',
       borderRadius:  '10px',
-      border:        '1px solid rgba(255,255,255,0.06)',
+      border:        '1px solid var(--dark-input-border)',
       overflow:      'hidden',
     }}>
       {/* 헤더 */}
@@ -67,7 +67,7 @@ export default function CasesPanel({
       }}>
         <span style={{
           fontSize:   '11px',
-          color:      'rgba(255,255,255,0.5)',
+          color:      'var(--dark-text-muted)',
           fontFamily: "'Pretendard', sans-serif",
         }}>
           {countLabel}
@@ -89,7 +89,7 @@ export default function CasesPanel({
             alignItems:     'center',
             justifyContent: 'center',
             fontSize:       '12px',
-            color:          'rgba(255,255,255,0.3)',
+            color:          'var(--dark-text-muted)',
             fontFamily:     "'Pretendard', sans-serif",
           }}>
             매칭 없음
@@ -133,7 +133,7 @@ export default function CasesPanel({
         alignItems:     'center',
         justifyContent: 'space-between',
         padding:        '0 12px',
-        borderTop:      '1px solid rgba(255,255,255,0.05)',
+        borderTop:      '1px solid var(--dark-input-border)',
       }}>
         <button
           onClick={onPrev}

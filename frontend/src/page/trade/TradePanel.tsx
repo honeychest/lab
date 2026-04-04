@@ -149,11 +149,11 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
     const endItem   = result ? Math.min((currentPage + 1) * size, result.totalElements) : 0;
 
     return (
-        <div className="flex flex-col h-full bg-[#0f172a] text-[#e5e7eb] overflow-hidden">
+        <div className="flex flex-col h-full bg-[var(--dark-card-bg)] text-[var(--dark-text-primary)] overflow-hidden">
             {/* threshold (허용 IP에서만 변경 UI 표시) */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]">
-                <span className="text-xs text-[#475569] shrink-0">임계값</span>
-                <span className="text-xs text-[#94a3b8] font-mono shrink-0">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--dark-border)]">
+                <span className="text-xs text-[var(--dark-text-secondary)] shrink-0">임계값</span>
+                <span className="text-xs text-[var(--dark-text-neutral)] font-mono shrink-0">
                     {threshold != null ? `${Number(threshold).toLocaleString()} USD` : '...'}
                 </span>
                 {canEditThreshold && (
@@ -170,12 +170,12 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                 if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
                                 if (e.key === 'Enter') handleThresholdApply();
                             }}
-                            className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-7 text-xs flex-1"
+                            className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-7 text-xs flex-1"
                         />
                         <Button
                             onClick={handleThresholdApply}
                             disabled={thresholdLoading}
-                            className="bg-[#2B3139] hover:bg-[#334155] text-[#94a3b8] h-7 text-xs px-3 shrink-0"
+                            className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
                         >
                             적용
                         </Button>
@@ -184,7 +184,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                 {onClose && (
                     <Button
                         onClick={onClose}
-                        className="bg-[#2B3139] hover:bg-[#334155] text-[#94a3b8] h-7 text-xs px-3 shrink-0"
+                        className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
                     >
                         닫기
                     </Button>
@@ -192,15 +192,15 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
             </div>
 
             {/* 필터 영역 */}
-            <div className="flex flex-col gap-3 p-4 border-b border-[#1e293b]">
+            <div className="flex flex-col gap-3 p-4 border-b border-[var(--dark-border)]">
                 {/* 심볼 */}
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#94a3b8]">심볼</label>
+                    <label className="text-xs text-[var(--dark-text-neutral)]">심볼</label>
                     <Select value={symbol} onValueChange={setSymbol}>
-                        <SelectTrigger className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm">
+                        <SelectTrigger className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#1e293b] border-[#334155] text-[#e5e7eb]">
+                        <SelectContent className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)]">
                             <SelectItem value="BTCUSDT">BTCUSDT</SelectItem>
                         </SelectContent>
                     </Select>
@@ -208,12 +208,12 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
 
                 {/* 시장 */}
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#94a3b8]">시장</label>
+                    <label className="text-xs text-[var(--dark-text-neutral)]">시장</label>
                     <Select value={marketType} onValueChange={setMarketType}>
-                        <SelectTrigger className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm">
+                        <SelectTrigger className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm">
                             <SelectValue placeholder="전체" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#1e293b] border-[#334155] text-[#e5e7eb]">
+                        <SelectContent className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)]">
                             <SelectItem value="ALL">전체</SelectItem>
                             <SelectItem value="SPOT">SPOT</SelectItem>
                             <SelectItem value="FUTURES">FUTURES</SelectItem>
@@ -224,21 +224,21 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                 {/* 날짜 범위 */}
                 <div className="flex gap-2">
                     <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-[#94a3b8]">시작일</label>
+                        <label className="text-xs text-[var(--dark-text-neutral)]">시작일</label>
                         <Input
                             type="date"
                             value={from}
                             onChange={e => setFrom(e.target.value)}
-                            className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm"
+                            className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm"
                         />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-[#94a3b8]">종료일</label>
+                        <label className="text-xs text-[var(--dark-text-neutral)]">종료일</label>
                         <Input
                             type="date"
                             value={to}
                             onChange={e => setTo(e.target.value)}
-                            className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm"
+                            className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm"
                         />
                     </div>
                 </div>
@@ -246,12 +246,12 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                 {/* 정렬 */}
                 <div className="flex gap-2">
                     <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-[#94a3b8]">정렬 기준</label>
+                        <label className="text-xs text-[var(--dark-text-neutral)]">정렬 기준</label>
                         <Select value={sort} onValueChange={setSort}>
-                            <SelectTrigger className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm">
+                            <SelectTrigger className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-[#1e293b] border-[#334155] text-[#e5e7eb]">
+                            <SelectContent className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)]">
                                 <SelectItem value="tradedAt">체결시각</SelectItem>
                                 <SelectItem value="price">가격</SelectItem>
                                 <SelectItem value="quantity">수량</SelectItem>
@@ -260,12 +260,12 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                         </Select>
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-[#94a3b8]">순서</label>
+                        <label className="text-xs text-[var(--dark-text-neutral)]">순서</label>
                         <Select value={order} onValueChange={setOrder}>
-                            <SelectTrigger className="bg-[#1e293b] border-[#334155] text-[#e5e7eb] h-8 text-sm">
+                            <SelectTrigger className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-8 text-sm">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-[#1e293b] border-[#334155] text-[#e5e7eb]">
+                            <SelectContent className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)]">
                                 <SelectItem value="DESC">최신순</SelectItem>
                                 <SelectItem value="ASC">오래된순</SelectItem>
                             </SelectContent>
@@ -275,7 +275,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
 
                 {/* 건수 */}
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#94a3b8]">건수</label>
+                    <label className="text-xs text-[var(--dark-text-neutral)]">건수</label>
                     <div className="flex gap-1">
                         {[30, 90, 200].map(n => (
                             <button
@@ -285,7 +285,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                 className={`px-2 py-1 text-xs rounded border transition-colors ${
                                     size === n
                                         ? 'bg-blue-600 border-blue-500 text-white'
-                                        : 'bg-[#1e293b] border-[#334155] text-[#94a3b8] hover:border-blue-500'
+                                        : 'bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] hover:border-blue-500'
                                 }`}
                             >
                                 {n}
@@ -310,13 +310,13 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
             <div className="flex-1 overflow-y-auto">
                 {/* 에러 */}
                 {error && (
-                    <div className="flex flex-col items-center gap-3 py-8 text-[#94a3b8]">
+                    <div className="flex flex-col items-center gap-3 py-8 text-[var(--dark-text-neutral)]">
                         <span className="text-sm">조회에 실패했습니다</span>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => fetchPage(currentPage)}
-                            className="border-[#334155] text-[#94a3b8] hover:bg-[#1e293b]"
+                            className="border-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] hover:bg-[var(--dark-border)]"
                         >
                             재시도
                         </Button>
@@ -325,7 +325,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
 
                 {/* 결과 없음 */}
                 {!error && result && result.content.length === 0 && (
-                    <div className="flex items-center justify-center py-8 text-sm text-[#94a3b8]">
+                    <div className="flex items-center justify-center py-8 text-sm text-[var(--dark-text-neutral)]">
                         체결 내역이 없습니다
                     </div>
                 )}
@@ -335,11 +335,11 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                     <>
                         <Table>
                             <TableHeader>
-                                <TableRow className="border-[#1e293b] hover:bg-transparent">
-                                    <TableHead className="text-[#475569] text-xs py-2 flex-1">시장</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2 text-right flex-1">가격</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2 text-right flex-1">금액</TableHead>
-                                    <TableHead className="text-[#475569] text-xs py-2 text-right w-14">경과</TableHead>
+                                <TableRow className="border-[var(--dark-border)] hover:bg-transparent">
+                                    <TableHead className="text-[var(--dark-text-secondary)] text-xs py-2 flex-1">시장</TableHead>
+                                    <TableHead className="text-[var(--dark-text-secondary)] text-xs py-2 text-right flex-1">가격</TableHead>
+                                    <TableHead className="text-[var(--dark-text-secondary)] text-xs py-2 text-right flex-1">금액</TableHead>
+                                    <TableHead className="text-[var(--dark-text-secondary)] text-xs py-2 text-right w-14">경과</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -348,7 +348,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                     return (
                                         <TableRow
                                             key={row.id}
-                                            className="border-[#1e293b] hover:bg-[#1e293b]/50"
+                                            className="border-[var(--dark-border)] hover:bg-[var(--dark-border)]/50"
                                         >
                                             <TableCell className="py-2 flex-1">
                                                 <Badge
@@ -365,10 +365,10 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                             <TableCell className={`text-xs py-2 text-right font-mono font-semibold flex-1 ${isSell ? 'text-red-400' : 'text-green-400'}`}>
                                                 ${formatPrice(row.price)}
                                             </TableCell>
-                                            <TableCell className="text-xs py-2 text-right font-mono text-[#e5e7eb] flex-1">
+                                            <TableCell className="text-xs py-2 text-right font-mono text-[var(--dark-text-primary)] flex-1">
                                                 {formatValue(row.tradeValue)}
                                             </TableCell>
-                                            <TableCell className="text-xs py-2 text-right text-[#475569] font-mono w-14">
+                                            <TableCell className="text-xs py-2 text-right text-[var(--dark-text-secondary)] font-mono w-14">
                                                 {getElapsed(row.tradedAt)}
                                             </TableCell>
                                         </TableRow>
@@ -378,7 +378,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                         </Table>
 
                         {/* 페이지네이션 */}
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-[#1e293b] text-xs text-[#94a3b8]">
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--dark-border)] text-xs text-[var(--dark-text-neutral)]">
                             <span>
                                 {startItem}–{endItem} / 총 {result.totalElements.toLocaleString()}건
                             </span>
@@ -388,7 +388,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                     size="sm"
                                     disabled={currentPage === 0}
                                     onClick={() => fetchPage(currentPage - 1)}
-                                    className="h-7 w-7 p-0 text-[#94a3b8] hover:bg-[#1e293b] disabled:opacity-30"
+                                    className="h-7 w-7 p-0 text-[var(--dark-text-neutral)] hover:bg-[var(--dark-border)] disabled:opacity-30"
                                 >
                                     ‹
                                 </Button>
@@ -397,7 +397,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                                     size="sm"
                                     disabled={currentPage >= result.totalPages - 1}
                                     onClick={() => fetchPage(currentPage + 1)}
-                                    className="h-7 w-7 p-0 text-[#94a3b8] hover:bg-[#1e293b] disabled:opacity-30"
+                                    className="h-7 w-7 p-0 text-[var(--dark-text-neutral)] hover:bg-[var(--dark-border)] disabled:opacity-30"
                                 >
                                     ›
                                 </Button>

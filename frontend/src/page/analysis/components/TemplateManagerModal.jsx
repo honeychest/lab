@@ -2,10 +2,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 const rowBtn = {
-  background:   'rgba(255,255,255,0.06)',
-  border:       '1px solid rgba(255,255,255,0.1)',
+  background:   'var(--dark-btn-secondary)',
+  border:       '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:        'rgba(255,255,255,0.7)',
+  color:        'var(--dark-text-muted)',
   fontSize:     '11px',
   padding:      '3px 8px',
   cursor:       'pointer',
@@ -33,7 +33,7 @@ function TemplateRow({ template, onLoad, onRename, onDelete }) {
       alignItems:  'center',
       gap:         '8px',
       padding:     '8px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
+      borderBottom: '1px solid var(--dark-input-border)',
     }}>
       {editing ? (
         <input
@@ -44,10 +44,10 @@ function TemplateRow({ template, onLoad, onRename, onDelete }) {
           onBlur={commitRename}
           style={{
             flex:         1,
-            background:   'rgba(255,255,255,0.08)',
-            border:       '1px solid rgba(255,255,255,0.2)',
+            background:   'var(--dark-input-bg)',
+            border:       '1px solid var(--dark-border-subtle)',
             borderRadius: '4px',
-            color:        'rgba(255,255,255,0.9)',
+            color:        'var(--dark-input-text)',
             fontSize:     '13px',
             padding:      '3px 8px',
             outline:      'none',
@@ -58,7 +58,7 @@ function TemplateRow({ template, onLoad, onRename, onDelete }) {
         <span style={{
           flex:       1,
           fontSize:   '13px',
-          color:      'rgba(255,255,255,0.85)',
+          color:      'var(--dark-text-primary)',
           fontFamily: "'Pretendard', sans-serif",
         }}>
           {template.name}
@@ -66,7 +66,7 @@ function TemplateRow({ template, onLoad, onRename, onDelete }) {
       )}
       <button onClick={() => { onLoad(template); }} style={rowBtn}>불러오기</button>
       <button onClick={() => setEditing(true)} style={rowBtn}>이름변경</button>
-      <button onClick={() => onDelete(template.id)} style={{ ...rowBtn, color: '#ff3b5c', borderColor: 'rgba(255,59,92,0.3)' }}>삭제</button>
+      <button onClick={() => onDelete(template.id)} style={{ ...rowBtn, color: 'var(--dark-error)', borderColor: 'rgba(255,59,92,0.3)' }}>삭제</button>
     </div>
   );
 }
@@ -84,7 +84,7 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
       style={{
         position:   'fixed',
         inset:      0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'var(--dark-overlay-bg)',
         zIndex:     100,
         display:    'flex',
         alignItems: 'center',
@@ -96,9 +96,9 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
         style={{
           width:        '420px',
           maxHeight:    '60vh',
-          background:   '#12131e',
+          background:   'var(--dark-modal-bg)',
           borderRadius: '10px',
-          border:       '1px solid rgba(255,255,255,0.1)',
+          border:       '1px solid var(--dark-input-border)',
           display:      'flex',
           flexDirection: 'column',
           overflow:     'hidden',
@@ -109,10 +109,10 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
           display:    'flex',
           alignItems: 'center',
           padding:    '14px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid var(--dark-input-border)',
           flexShrink: 0,
         }}>
-          <span style={{ flex: 1, fontSize: '1rem', color: 'rgba(255,255,255,0.9)', fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>
+          <span style={{ flex: 1, fontSize: '1rem', color: 'var(--dark-input-text)', fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>
             템플릿 관리
           </span>
           <button
@@ -120,7 +120,7 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
             style={{
               background:  'transparent',
               border:      'none',
-              color:       'rgba(255,255,255,0.5)',
+              color:       'var(--dark-text-muted)',
               fontSize:    '18px',
               cursor:      'pointer',
               lineHeight:  1,
@@ -137,7 +137,7 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
               padding:    '24px 0',
               textAlign:  'center',
               fontSize:   '13px',
-              color:      'rgba(255,255,255,0.3)',
+              color:      'var(--dark-text-muted)',
               fontFamily: "'Pretendard', sans-serif",
             }}>
               저장된 템플릿이 없습니다.

@@ -3,10 +3,10 @@ import { useRef, useEffect } from 'react';
 
 const sel = {
   flex:         1,
-  background:   'rgba(255,255,255,0.06)',
-  border:       '1px solid rgba(255,255,255,0.12)',
+  background:   'var(--dark-input-bg)',
+  border:       '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:        'rgba(255,255,255,0.8)',
+  color:        'var(--dark-input-text)',
   fontSize:     '12px',
   padding:      '5px 8px',
   cursor:       'pointer',
@@ -15,10 +15,10 @@ const sel = {
 };
 
 const btn = (primary = false) => ({
-  background:   primary ? 'rgba(80,160,255,0.85)' : 'rgba(255,255,255,0.06)',
-  border:       primary ? 'none' : '1px solid rgba(255,255,255,0.12)',
+  background:   primary ? 'var(--dark-btn-primary)' : 'var(--dark-btn-secondary)',
+  border:       primary ? 'none' : '1px solid var(--dark-input-border)',
   borderRadius: '4px',
-  color:        'rgba(255,255,255,0.9)',
+  color:        'var(--dark-input-text)',
   fontSize:     '12px',
   padding:      '5px 12px',
   cursor:       'pointer',
@@ -57,10 +57,10 @@ export default function TemplateBar({
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-          <span style={{ fontSize: '0.81rem', color: 'rgba(255,255,255,0.6)', fontFamily: "'Pretendard', sans-serif" }}>
+          <span style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)', fontFamily: "'Pretendard', sans-serif" }}>
             템플릿 이름을 확인해주세요.
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', fontFamily: "'Pretendard', sans-serif" }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', fontFamily: "'Pretendard', sans-serif" }}>
             같은 이름으로 저장하면 기존 템플릿이 덮어쓰기 되고, 다른 이름이면 새 템플릿이 생성됩니다.
           </span>
         </div>
@@ -73,10 +73,10 @@ export default function TemplateBar({
           onKeyDown={handleKeyDown}
           style={{
             flex:         1.2,
-            background:   'rgba(255,255,255,0.06)',
-            border:       '1px solid rgba(255,255,255,0.2)',
+            background:   'var(--dark-input-bg)',
+            border:       '1px solid var(--dark-border-subtle)',
             borderRadius: '4px',
-            color:        'rgba(255,255,255,0.9)',
+            color:        'var(--dark-input-text)',
             fontSize:     '12px',
             padding:      '5px 10px',
             outline:      'none',
@@ -87,8 +87,8 @@ export default function TemplateBar({
           <div style={{
             width:        '16px',
             height:       '16px',
-            border:       '2px solid rgba(255,255,255,0.1)',
-            borderTop:    '2px solid rgba(80,160,255,0.8)',
+            border:       '2px solid var(--dark-spinner-track)',
+            borderTop:    '2px solid var(--dark-spinner-fill)',
             borderRadius: '50%',
             animation:    'spin 0.8s linear infinite',
             flexShrink:   0,
@@ -104,7 +104,7 @@ export default function TemplateBar({
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <span style={{
         fontSize:   '0.81rem',
-        color:      'rgba(255,255,255,0.4)',
+        color:      'var(--dark-text-muted)',
         flexShrink: 0,
         fontFamily: "'Pretendard', sans-serif",
       }}>템플릿</span>
