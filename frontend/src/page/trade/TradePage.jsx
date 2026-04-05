@@ -29,7 +29,7 @@ import {
 import styles from './TradePage.module.css';
 import { formatWithComma } from '@/shared/lib/utils.js';
 import '@/styles/themes/theme-dark.css';
-import { usePageTheme } from '@/app/context/ThemeContext.jsx';
+import { usePageTheme } from '@/app/context/useTheme.js';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────
 const formatThreshold = (v) => {

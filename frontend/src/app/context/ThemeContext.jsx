@@ -1,10 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import apiClient from '@/api/apiClient.js';
-
-const ThemeContext = createContext({
-    themes: {},
-    setPageTheme: () => {},
-});
+import { ThemeContext } from './useTheme.js';
 
 export function ThemeProvider({ children }) {
     const [themes, setThemes] = useState({});
@@ -30,17 +26,4 @@ export function ThemeProvider({ children }) {
             {children}
         </ThemeContext.Provider>
     );
-}
-
-/** 특정 페이지의 현재 테마를 반환 */
-export function usePageTheme(page) {
-    const { themes, setPageTheme } = useContext(ThemeContext);
-    const theme = themes[page] ?? 'dark';
-    const setTheme = useCallback((t) => setPageTheme(page, t), [page, setPageTheme]);
-    return [theme, setTheme];
-}
-
-/** 전체 테마 맵 + setter */
-export function useThemeContext() {
-    return useContext(ThemeContext);
 }

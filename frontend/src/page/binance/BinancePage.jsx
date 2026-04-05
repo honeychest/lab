@@ -41,7 +41,7 @@ import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import ErrorPage from '../error/ErrorPage.tsx';
 import '../../styles/themes/theme-dark.css';
-import { usePageTheme } from '@/app/context/ThemeContext.jsx';
+import { usePageTheme } from '@/app/context/useTheme.js';
 
 /**
  * useBinanceWebSocket: WebSocket 연결 로직을 담은 커스텀 훅.

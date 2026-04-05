@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '@/api/apiClient.js';
 import Layout                from '../../shared/ui/layout/Layout.jsx';
 import '../../styles/themes/theme-dark.css';
-import { usePageTheme }      from '@/app/context/ThemeContext.jsx';
+import { usePageTheme } from '@/app/context/useTheme.js';
 import ControlBar            from './components/ControlBar.jsx';
 import MainChart             from './components/MainChart.jsx';
 import ConditionBuilder      from './components/ConditionBuilder.jsx';

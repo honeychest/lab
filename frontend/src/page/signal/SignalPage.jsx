@@ -16,7 +16,7 @@ import apiClient from '@/api/apiClient.js';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
 import '@/styles/themes/theme-black.css';
-import { usePageTheme } from '@/app/context/ThemeContext.jsx';
+import { usePageTheme } from '@/app/context/useTheme.js';
 
 // value: 타임라인 식별자 | dataRange: 에너지·청산·OI 조회 범위 | candleType: 캔들 테이블(1m/5m) | displayCount: 차트 표시 봉 수
 // 이곳의 index 2개가 1m 5m 의 limit count를 결정한다

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import styled from 'styled-components';
 import { sendTelegramInquiry, getGuestToken } from '../api/contactApi.js';
-import { useThemeContext } from '@/app/context/ThemeContext.jsx';
+import { useThemeContext } from '@/app/context/useTheme.js';
 
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
