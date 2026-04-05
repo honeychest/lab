@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from config import settings
-from services import ai_service, notion_service
+from services import ai_service, notion_service, grammar_service
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,8 @@ KEY_QUIZ_COUNT   = "nexus:quiz:count:{chat_id}"
 KEY_WORD_PENDING = "nexus:word:pending:{chat_id}"
 # 퀴즈 일시정지 플래그 — 존재하면 일시정지 상태 (TTL 없음, 명시적 삭제)
 KEY_QUIZ_PAUSE   = "nexus:quiz:pause:{chat_id}"
+# 문법 오류 등록 대기 중인 오류 목록 (버튼 콜백에서 사용)
+KEY_GRAMMAR_PENDING = "nexus:grammar:pending:{chat_id}"
 
 DAILY_QUIZ_LIMIT = 20  # 하루 퀴즈 최대 출제 수
 
@@ -110,7 +112,8 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
         await update.message.reply_text("진행 중인 퀴즈가 없어요.")
         return
 
-    session = json.loads(raw)
+    ttl      = _seconds_until_midnight()
+    session  = json.loads(raw)
     word     = session["word"]       # 정답 단어
     stage    = session["stage"]      # 현재 단계 (1/2/3)
     page_id  = session["page_id"]    # Notion page_id (단계 업데이트용)
@@ -131,20 +134,46 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
                 correct = False
                 reply = f"❌ 오답. '{word}'를 사용한 문장을 만들어보세요. 1단계로 돌아갑니다."
         else:
-            # 단어 사용함 — AI로 문법 오류만 분석
+            # 단어 사용함 — AI로 올바른 사용 여부 + 문법 오류 분석
             result = await ai_service.grade_writing(word, text)
-            correct = True
-            reply = "✅ 정답! 올바르게 사용했어요."
+            correct = result["used_correctly"]
+            if correct:
+                reply = "✅ 정답! 올바르게 사용했어요."
+            else:
+                reply = f"❌ 오답. '{word}'를 올바른 맥락으로 사용해야 해요. 1단계로 돌아갑니다."
 
-        # 문법 오류 등록 버튼
-        if correct and result["errors"]:
-            error_lines = "\n".join(result["errors"])
-            reply += f"\n\n⚠️ 문법 오류 발견:\n{error_lines}"
-            buttons = [[
-                InlineKeyboardButton("📝 오류 등록", callback_data="grammar:register"),
-                InlineKeyboardButton("넘어가기", callback_data="grammar:skip"),
-            ]]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(buttons))
+        grammar_errors     = result.get("grammar_errors", [])
+        collocation_errors = result.get("collocation_errors", [])
+
+        # 문법 오류 메시지 구성
+        if correct and (grammar_errors or collocation_errors):
+            if grammar_errors:
+                error_lines = "\n".join(f"[{e['type']}] {e['detail']}" for e in grammar_errors)
+                reply += f"\n\n⚠️ 문법 오류:\n{error_lines}"
+            if collocation_errors:
+                colloc_lines = "\n".join(collocation_errors)
+                reply += f"\n\n💡 연어 등록 추천:\n{colloc_lines}"
+
+            # grammar 세션 Redis에 임시 저장
+            await redis.set(
+                _k(KEY_GRAMMAR_PENDING, chat_id),
+                json.dumps({
+                    "expression": word,
+                    "wrong_sentence": text,
+                    "grammar_errors": grammar_errors,
+                    "collocation_errors": collocation_errors,
+                }),
+                ex=ttl,
+            )
+
+            # 버튼 구성 — 문법/연어 각각 있을 때만 버튼 표시
+            btn_row = []
+            if grammar_errors:
+                btn_row.append(InlineKeyboardButton("📝 문법 오류 등록", callback_data="grammar:register"))
+            if collocation_errors:
+                btn_row.append(InlineKeyboardButton("✅ 단어장 등록", callback_data="grammar:register_collocation"))
+            btn_row.append(InlineKeyboardButton("넘어가기", callback_data="grammar:skip"))
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup([btn_row]))
         else:
             await update.message.reply_text(reply)
     else:
@@ -370,8 +399,58 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text("오늘은 여기까지! 내일 또 봐요 💪")
 
     elif data == "grammar:register":
-        # 문법 오류 등록 (추후 grammar_db 구현 시 연결)
-        await query.edit_message_text("📝 문법 오류 등록됐어요. (grammar DB 구현 예정)")
+        # 문법 오류 grammar DB 저장 + 연어 있으면 단어장에도 함께 등록
+        raw = await redis.get(_k(KEY_GRAMMAR_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_text("⏰ 등록 정보가 만료됐어요.")
+            return
+        await query.edit_message_text("⏳ 등록 중...")
+        info = json.loads(raw)
+        grammar_errors     = info.get("grammar_errors", [])
+        collocation_errors = info.get("collocation_errors", [])
+
+        grammar_saved = 0
+        for err in grammar_errors:
+            await grammar_service.save_grammar_error(
+                error_type=err["type"],
+                expression=info["expression"],
+                wrong_sentence=info["wrong_sentence"],
+                error_detail=err["detail"],
+            )
+            grammar_saved += 1
+
+        colloc_saved = 0
+        for expression in collocation_errors:
+            existing = await notion_service.exists_word(expression)
+            if not existing:
+                word_info = await ai_service.explain_word(expression)
+                await notion_service.add_word(word_info["word"] or expression, word_info["meaning_ko"])
+                colloc_saved += 1
+
+        await redis.delete(_k(KEY_GRAMMAR_PENDING, chat_id))
+        msg = f"📝 문법 오류 {grammar_saved}개 등록됐어요. 내일부터 퀴즈에 나올게요!"
+        if colloc_saved:
+            msg += f"\n✅ 연어 {colloc_saved}개 단어장에도 등록됐어요!"
+        await query.edit_message_text(msg)
+
+    elif data == "grammar:register_collocation":
+        # 연어만 있을 때 단독 단어장 등록
+        raw = await redis.get(_k(KEY_GRAMMAR_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_text("⏰ 등록 정보가 만료됐어요.")
+            return
+        await query.edit_message_text("⏳ 등록 중...")
+        info = json.loads(raw)
+        collocation_errors = info.get("collocation_errors", [])
+        saved = 0
+        for expression in collocation_errors:
+            existing = await notion_service.exists_word(expression)
+            if not existing:
+                word_info = await ai_service.explain_word(expression)
+                await notion_service.add_word(word_info["word"] or expression, word_info["meaning_ko"])
+                saved += 1
+        await redis.delete(_k(KEY_GRAMMAR_PENDING, chat_id))
+        await query.edit_message_text(f"✅ 연어 {saved}개 단어장에 등록됐어요!")
 
     elif data == "grammar:skip":
         # 문법 오류 넘어가기

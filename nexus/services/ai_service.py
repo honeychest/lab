@@ -81,47 +81,97 @@ async def explain_word(text: str) -> dict:
 예문: (가장 대표적인 용법의 영어 예문 1줄)
 
 입력: {text}"""
-    result = await _call_with_models(prompt, LLM_MODELS)
+    result = await _call_with_models(prompt, GENAI_MODELS)
     return _parse_explain_response(result["summary"])
+
+
+def _has_invalid_content(text: str, word: str) -> bool:
+    """생성된 퀴즈 문제에 단어, 마크다운, 빈칸 패턴이 포함되어 있으면 True."""
+    if word.lower() in text.lower():
+        return True
+    if any(c in text for c in ("*", "#", "`")):
+        return True
+    if any(p in text for p in ("()", "( )", "___", "______")):
+        return True
+    return False
+
+
+def _force_clean(text: str, word: str) -> str:
+    """3회 실패 fallback — 프로그램 수준에서 문제 있는 요소 강제 제거."""
+    # 단어 치환 (외래어 등 AI가 포함하는 케이스)
+    result = re.sub(re.escape(word), "___", text, flags=re.IGNORECASE)
+    # 마크다운 기호 제거
+    result = re.sub(r'[*#`]', "", result)
+    # 빈칸 패턴 통일
+    result = re.sub(r'\(\s*\)|_{2,}', "___", result)
+    return result.strip()
 
 
 async def generate_quiz(word: str, meaning_ko: str, stage: int) -> str:
     """단계별 퀴즈 문제 생성."""
     if stage == 1:
-        # 한글 뜻 + 영어 원어 설명을 보여주고 단어 입력
         prompt = f"""영단어 퀴즈 지문을 만들어줘. 조건을 반드시 지켜.
 조건: 영어로 뜻을 쉽게 1줄 설명. 단어 자체 절대 포함 금지. 마크다운 금지. 설명 문장만 출력.
 단어: {word}
 뜻: {meaning_ko}"""
 
     elif stage == 2:
-        # 영어 문장 빈칸 채우기
         prompt = f"""Make an English fill-in-the-blank sentence. Follow all conditions strictly.
 Conditions: Only 1 blank. Only "{word}" fits naturally. Elementary school level. No markdown. Output the sentence only.
 Format: Use _______ for the blank.
 Word: {word}"""
 
     else:
-        # 짧은 일상 한국어 상황 제시, 작문
-        prompt = f"""영어 작문 퀴즈용 한국어 문장을 만들어줘. 조건을 반드시 지켜.
-조건: 영어로 쓸 때 {word}를 자연스럽게 써야 하는 한국어 문장. {word} 외 다른 영단어로는 어색한 문장. 짧고 쉬운 한 문장 (25자 이내). 대화체. 복잡한 설명 금지. 영단어({word})와 뜻({meaning_ko}) 절대 포함 금지. 마크다운 금지.
-단어: {word}
-뜻: {meaning_ko}"""
+        prompt = f"""너는 영어 단어 학습 퀴즈 출제자야. 학습자는 "{word}"라는 단어를 모르는 상태로 문제를 풀어.
+아래 단어를 영어 작문에 정확한 품사로 써야만 자연스러운 한국어 상황 문장을 만들어줘.
 
-    result = await _call_with_models(prompt, LLM_MODELS)
-    return result["summary"].strip()
+규칙:
+- 뜻({meaning_ko})에 표기된 품사에 맞는 상황. 예) 형용사면 명사 수식 상황, 동사면 행동 상황.
+- "{word}" 외 다른 영단어로는 어색한 상황.
+- 25자 이내 짧은 대화체.
+- 빈칸·괄호·밑줄 사용 금지.
+- 마크다운 금지.
+
+반드시 아래 형식으로만 출력해. 다른 말 일절 금지.
+상황: (완성된 한국어 문장)
+
+단어: {word} / 뜻: {meaning_ko}"""
+
+    last = ""
+    for attempt in range(3):
+        result = await _call_with_models(prompt, GENAI_MODELS)
+        raw = result["summary"].strip()
+        if stage == 3:
+            m = re.search(r'상황[:：]\s*(.+)', raw)
+            last = m.group(1).strip() if m else raw
+        else:
+            last = raw
+        if stage != 3 or not _has_invalid_content(last, word):
+            return last
+        logger.warning(f"[generate_quiz] 재시도 {attempt + 1}/3 — 검수 실패: {last!r}")
+
+    # TODO: [generate_quiz] 3회 재시도 실패 — 프롬프트 또는 모델 개선 필요
+    # 원인: AI가 단어를 외래어로 인식하거나 형식 지시를 반복 무시함
+    # 임시처리: 단어/마크다운/빈칸 강제 치환 후 반환
+    cleaned = _force_clean(last, word)
+    logger.warning(
+        f"[generate_quiz] 3회 실패 — 강제 치환 적용. 단어: {word!r}, 원본: {last!r}, 결과: {cleaned!r}. "
+        f"근본 해결 필요: 프롬프트 개선 또는 더 강한 모델 사용 권장."
+    )
+    return cleaned
 
 
 async def grade_writing(word: str, answer: str) -> dict:
-    """작문 채점. {"used_correctly": bool, "context_ok": bool, "errors": [...]} 반환."""
+    """작문 채점. {"used_correctly": bool, "context_ok": bool, "grammar_errors": [...], "collocation_errors": [...]} 반환."""
     prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
 사용여부: (yes/no) — "{word}"를 올바른 맥락으로 사용했는지
 맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
-오류: (문법 오류 목록, 없으면 "없음". 형식: "오류내용 → 수정내용" 한 줄씩)
+오류: (오류 목록, 없으면 "없음". 형식: "[유형] 오류내용 → 수정내용" 한 줄씩.
+  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동명사 / 동사원형 / 시제 / 어순 / 철자 / 연어)
 
 단어: {word}
 작문: {answer}"""
-    result = await _call_with_models(prompt, LLM_MODELS)
+    result = await _call_with_models(prompt, GENAI_MODELS)
     return _parse_grade_response(result["summary"])
 
 def _parse_explain_response(text: str) -> dict:
@@ -135,19 +185,39 @@ def _parse_explain_response(text: str) -> dict:
     }
 
 
+COLLOCATION_TYPE = "연어"
+
 def _parse_grade_response(text: str) -> dict:
     used = re.search(r'사용여부:\s*(yes|no)', text, re.IGNORECASE)
     context = re.search(r'맥락:\s*(yes|no)', text, re.IGNORECASE)
     errors_raw = re.search(r'오류:\s*([\s\S]*)', text)
-    errors = []
+    grammar_errors = []   # [{"type": "관사", "detail": "habit → a habit"}, ...]
+    collocation_errors = []  # ["making an effort", ...]  (수정된 표현만 추출)
     if errors_raw:
         raw = errors_raw.group(1).strip()
         if raw != "없음":
-            errors = [e.strip() for e in raw.splitlines() if e.strip()]
+            for line in raw.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                m = re.match(r'\[(.+?)\]\s*(.*)', line)
+                if m:
+                    error_type = m.group(1).strip()
+                    detail = m.group(2).strip()
+                    if error_type == COLLOCATION_TYPE:
+                        # "오류표현 → 올바른표현" 에서 올바른표현 추출
+                        parts = detail.split("→")
+                        collocation_errors.append(parts[1].strip() if len(parts) > 1 else detail)
+                    else:
+                        grammar_errors.append({"type": error_type, "detail": detail})
+                else:
+                    # 유형 태그 없는 경우 grammar로 처리
+                    grammar_errors.append({"type": "기타", "detail": line})
     return {
         "used_correctly": used.group(1).lower() == "yes" if used else False,
         "context_ok": context.group(1).lower() == "yes" if context else False,
-        "errors": errors,
+        "grammar_errors": grammar_errors,
+        "collocation_errors": collocation_errors,
     }
 
 
