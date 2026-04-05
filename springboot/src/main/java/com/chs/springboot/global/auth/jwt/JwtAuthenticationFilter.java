@@ -3,6 +3,7 @@ package com.chs.springboot.global.auth.jwt;
 import com.chs.springboot.global.auth.dto.AuthenticatedUserInfo;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,12 +27,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { // Spring이
     protected void doFilterInternal(HttpServletRequest request,
                                  HttpServletResponse response,
                                  FilterChain filterChain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) { // header 값이 "Bearer eyJhbGci..." 형태라서 컷
-            filterChain.doFilter(request, response);
+        String token = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if("accessToken".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (token == null) {
+            filterChain.doFilter(request, response); // 토큰 없음 → doFilter → ... → FilterSecurityInterceptor
+            // SecurityContext 비어있음 → 403 Forbidden
             return;
         }
-        String token = header.replace("Bearer ", "");
         boolean validToken = jwtTokenProvider.validateToken(token);
         if (!validToken) {
             filterChain.doFilter(request, response); // 유효하지 않을 때 예외를 던지면(500에러가남) 안됨, 다음 필터로 넘겨야 함

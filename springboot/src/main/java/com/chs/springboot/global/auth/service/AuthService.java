@@ -4,6 +4,7 @@ package com.chs.springboot.global.auth.service;
 import com.chs.springboot.global.auth.dto.AccessTokenDebugResponse;
 import com.chs.springboot.global.auth.dto.AuthTokenPair;
 import com.chs.springboot.global.auth.dto.AuthenticatedUser;
+import com.chs.springboot.global.auth.dto.CookieDebugResponse;
 import com.chs.springboot.global.auth.dto.RefreshTokenDebugResponse;
 import com.chs.springboot.global.auth.entity.UserAccount;
 import com.chs.springboot.global.auth.entity.UserAccountPermission;
@@ -114,6 +115,35 @@ public class AuthService {
         AccessTokenDebugResponse response = jwtTokenProvider.getAccessTokenDebug(accessToken);
         log.warn("[Auth] access token debug valid={} message={}", response.getValid(), response.getMessage());
         return response;
+    }
+
+    // httpOnly 쿠키에서 꺼낸 accessToken/refreshToken으로 디버그 정보 반환
+    // 쿠키가 없는 경우(null)도 graceful하게 처리
+    public CookieDebugResponse getCookieDebug(String accessToken, String refreshToken) {
+        CookieDebugResponse.AccessInfo accessInfo;
+        if (accessToken == null) {
+            accessInfo = new CookieDebugResponse.AccessInfo(false, null, null, null, null);
+        } else {
+            AccessTokenDebugResponse accessDebug = jwtTokenProvider.getAccessTokenDebug(accessToken);
+            accessInfo = new CookieDebugResponse.AccessInfo(
+                accessDebug.getValid(),
+                accessDebug.getSubject(),
+                accessDebug.getPermissionCodes(),
+                accessDebug.getIssuedAt(),
+                accessDebug.getExpiresAt()
+            );
+        }
+
+        CookieDebugResponse.RefreshInfo refreshInfo;
+        if (refreshToken == null) {
+            refreshInfo = new CookieDebugResponse.RefreshInfo(false, null);
+        } else {
+            RefreshTokenDebugResponse refreshDebug = getRefreshTokenDebug(refreshToken);
+            refreshInfo = new CookieDebugResponse.RefreshInfo(refreshDebug.getExists(), refreshDebug.getTtlSeconds());
+        }
+
+        log.warn("[Auth] cookie debug access.valid={} refresh.stored={}", accessInfo.isValid(), refreshInfo.isStored());
+        return new CookieDebugResponse(accessInfo, refreshInfo);
     }
 
 }

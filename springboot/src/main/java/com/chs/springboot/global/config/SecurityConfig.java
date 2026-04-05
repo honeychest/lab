@@ -28,6 +28,7 @@ package com.chs.springboot.global.config;
 
 import com.chs.springboot.global.auth.jwt.JwtAuthenticationFilter;
 import com.chs.springboot.global.auth.jwt.JwtTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -36,7 +37,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.resource.ResourceResolver;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @Configuration:
@@ -52,6 +59,11 @@ import org.springframework.web.servlet.resource.ResourceResolver;
 @EnableWebSecurity
 public class SecurityConfig {
     JwtTokenProvider jwtTokenProvider;
+
+    // cors.allowed-origins 프로퍼티가 없으면 빈 리스트 → CORS 비활성화 (prod)
+    @Value("${cors.allowed-origins:}")
+    private String allowedOriginsRaw;
+
     public SecurityConfig(JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
     }
@@ -97,8 +109,12 @@ public class SecurityConfig {
             // JWT는 브라우저가 자동으로 붙여주지 않고, 코드에서 명시적으로
             // Authorization 헤더에 넣어요. 악성 사이트는 그 토큰을 모르니까 CSRF 공격 자체가 불가능 해서 disable()
             .csrf(csrf -> csrf.disable())
-            // addFilterBefore(A, B)의 두 인자 A — 끼워 넣을 필터 객체 B — "A를 이것보다 앞에 실행해라"는 기준점
-            // .class는 "이 클래스 자체"를 가리켜요. 객체(인스턴스)가 아니라 클래스 타입정보를 전달
+            // cors.allowed-origins 가 있을 때만 CORS 활성화 (로컬 개발용)
+            // prod 는 nginx same-origin 이라 불필요
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // spring security 필터체인은 목록을 가지고 있고 순서대로 실행함. UsernamePasswordAuthenticationFilter의 위치도 정해져 있음
+            // 인가 체크(FilterSecurityInterceptor)는 훨씬 뒤에 있음 그 전까지만 SecurityContext에 사용자 정보가 채워져 있으면 됨
+            // 관례적으로 UsernamePasswordAuthenticationFilter를 기준점으로 많이 씀
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             // 모든 요청 인증 없이 허용
             .authorizeHttpRequests(auth -> auth.requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN_ACCESS")
@@ -106,6 +122,25 @@ public class SecurityConfig {
             );
         return http.build();
     }
+    // CORS 관련 허용해주려고 했는데 서버는 nginx 가
+    // nginx가 프론트(https://devcontext.duckdns.org)와 /api 백엔드를 같은 도메인으로 묶어주기 때문에 same-origin
+    // 그래서 로컬테스트용으로 만듦
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // cors.allowed-origins 가 비어있으면 아무 origin도 허용 안 함 (prod)
+        if (!allowedOriginsRaw.isBlank()) {
+            List<String> origins = Arrays.asList(allowedOriginsRaw.split(","));
+            config.setAllowedOrigins(origins);
+            config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            config.setAllowedHeaders(List.of("*"));
+            config.setAllowCredentials(true); // withCredentials: true 와 쌍으로 필요
+        }
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         // 인코더 생성 -> 알고리즘을 SHA256 계열로 지정 -> 반환
