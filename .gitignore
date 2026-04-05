@@ -20,6 +20,7 @@ springboot/src/test/java/com/chs/springboot/unitTest.java
 .cursorignore*
 .history/
 /logs/
+*.stackdump
 
 # JS 의존성 (루트 등 — frontend/node_modules 는 frontend/.gitignore 에도 있음)
 node_modules/
