@@ -1,5 +1,6 @@
-// [AGENT] 인증 테스트 페이지 — /api/auth/login + /api/admin/test/auth/debug 호출로 token 응답 확인
-import { useEffect, useMemo, useState } from 'react';
+// [AGENT] 인증 테스트 페이지 — httpOnly 쿠키 기반 인증 흐름 확인
+// 로그인 → 쿠키 자동 설정 → /api/admin/test/auth/debug/cookie-info 로 토큰 상태 조회
+import { useEffect, useState } from 'react';
 import apiClient from '@/api/apiClient.js';
 import '../../../styles/themes/monitor-teal.css';
 
@@ -65,23 +66,6 @@ const statusCardStyle = {
     gap: '8px',
 };
 
-function parseJwtPayload(token) {
-    try {
-        const base64 = token.split('.')[1];
-        if (!base64) return null;
-        const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
-        const json = decodeURIComponent(
-            atob(normalized)
-                .split('')
-                .map((ch) => `%${(`00${ch.charCodeAt(0).toString(16)}`).slice(-2)}`)
-                .join('')
-        );
-        return JSON.parse(json);
-    } catch {
-        return null;
-    }
-}
-
 function formatRemain(seconds) {
     if (seconds == null) return '-';
     if (seconds <= 0) return '0s';
@@ -95,12 +79,10 @@ export default function AuthTestPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [result, setResult] = useState(null);
-    const [redisResult, setRedisResult] = useState(null);
-    const [accessResult, setAccessResult] = useState(null);
+    const [cookieInfo, setCookieInfo] = useState(null);       // /debug/cookie-info 응답
+    const [fetchedAtMs, setFetchedAtMs] = useState(null);     // cookie-info 조회 시각
     const [error, setError] = useState(null);
     const [nowMs, setNowMs] = useState(Date.now());
-    const [loginAtMs, setLoginAtMs] = useState(null);
 
     useEffect(() => {
         const timer = window.setInterval(() => {
@@ -109,62 +91,33 @@ export default function AuthTestPage() {
         return () => window.clearInterval(timer);
     }, []);
 
-    const accessPayload = useMemo(() => {
-        if (!result?.accessToken) return null;
-        return parseJwtPayload(result.accessToken);
-    }, [result]);
+    // cookie-info 조회 시점으로부터 경과된 시간을 빼서 남은 refresh TTL 계산
+    const refreshRemainSeconds = (() => {
+        const ttl = cookieInfo?.refresh?.ttlSeconds;
+        if (ttl == null || fetchedAtMs == null) return null;
+        const elapsed = Math.max(0, Math.floor((nowMs - fetchedAtMs) / 1000));
+        return Math.max(0, ttl - elapsed);
+    })();
 
-    const accessRemainSeconds = useMemo(() => {
-        const exp = accessPayload?.exp;
-        if (!exp) return null;
-        return Math.max(0, Math.floor(exp - nowMs / 1000));
-    }, [accessPayload, nowMs]);
-
-    const refreshRemainSeconds = useMemo(() => {
-        if (redisResult?.ttlSeconds == null) return null;
-        if (!loginAtMs) return redisResult.ttlSeconds;
-        const elapsed = Math.max(0, Math.floor((nowMs - loginAtMs) / 1000));
-        return Math.max(0, redisResult.ttlSeconds - elapsed);
-    }, [redisResult, loginAtMs, nowMs]);
-
-    const tokenSummary = useMemo(() => {
-        return {
-            accessStatus: accessRemainSeconds > 0 ? 'VALID' : (accessRemainSeconds === 0 ? 'EXPIRED' : '-'),
-            accessRemain: formatRemain(accessRemainSeconds),
-            refreshStatus: refreshRemainSeconds > 0 ? 'STORED' : (refreshRemainSeconds === 0 ? 'EXPIRED' : '-'),
-            refreshRemain: formatRemain(refreshRemainSeconds),
-            subject: accessPayload?.sub ?? '-',
-            permissionCount: Array.isArray(accessPayload?.permissionCodes) ? accessPayload.permissionCodes.length : 0,
-        };
-    }, [accessPayload, accessRemainSeconds, refreshRemainSeconds]);
+    const fetchCookieInfo = async () => {
+        const res = await apiClient.get('/api/admin/test/auth/debug/cookie-info');
+        setCookieInfo(res.data);
+        setFetchedAtMs(Date.now());
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (isSubmitting) return;
 
         setIsSubmitting(true);
-        setResult(null);
-        setRedisResult(null);
-        setAccessResult(null);
+        setCookieInfo(null);
+        setFetchedAtMs(null);
         setError(null);
-        setLoginAtMs(null);
 
         try {
-            const requestStartMs = Date.now();
-            const res = await apiClient.post('/api/auth/login', {
-                email,
-                password,
-            });
-            setResult(res.data);
-            setLoginAtMs(requestStartMs);
-
-            const refreshToken = res?.data?.refreshToken;
-            if (refreshToken) {
-                const redisRes = await apiClient.post('/api/admin/test/auth/debug/refresh-token', {
-                    refreshToken,
-                });
-                setRedisResult(redisRes.data);
-            }
+            await apiClient.post('/api/auth/login', { email, password });
+            // 로그인 성공 → 쿠키 설정됨 → 바로 cookie-info 조회
+            await fetchCookieInfo();
         } catch (err) {
             setError(err?.response?.data ?? { message: '요청 실패', errorCode: 'AUTH_TEST_UNKNOWN' });
         } finally {
@@ -172,19 +125,8 @@ export default function AuthTestPage() {
         }
     };
 
-    const handleAccessCheck = async () => {
-        const accessToken = result?.accessToken;
-        if (!accessToken) return;
-
-        try {
-            const res = await apiClient.post('/api/admin/test/auth/debug/access-token', {
-                accessToken,
-            });
-            setAccessResult(res.data);
-        } catch (err) {
-            setAccessResult(err?.response?.data ?? { valid: false, message: 'ACCESS_TOKEN_CHECK_FAILED' });
-        }
-    };
+    const accessInfo = cookieInfo?.access;
+    const refreshInfo = cookieInfo?.refresh;
 
     return (
         <div style={wrapStyle}>
@@ -192,25 +134,29 @@ export default function AuthTestPage() {
                 <div>
                     <div style={{ fontSize: '24px', fontWeight: 700 }}>Auth Test</div>
                     <div style={{ opacity: 0.8, marginTop: '6px' }}>
-                        로그인 테스트 페이지. /api/auth/login 응답을 바로 확인합니다.
+                        httpOnly 쿠키 기반 인증 테스트. 로그인 후 쿠키 상태를 서버에서 조회합니다.
                     </div>
                 </div>
 
                 <div style={statusGridStyle}>
                     <div style={statusCardStyle}>
                         <div style={{ fontWeight: 700 }}>Access Status</div>
-                        <div>{tokenSummary.accessStatus}</div>
-                        <div>남은 시간: {tokenSummary.accessRemain}</div>
+                        <div>{accessInfo ? (accessInfo.valid ? 'VALID' : 'INVALID') : '-'}</div>
+                        <div>userId: {accessInfo?.userId ?? '-'}</div>
+                        <div>만료: {accessInfo?.expiresAt ?? '-'}</div>
                     </div>
                     <div style={statusCardStyle}>
                         <div style={{ fontWeight: 700 }}>Refresh Status</div>
-                        <div>{tokenSummary.refreshStatus}</div>
-                        <div>남은 시간: {tokenSummary.refreshRemain}</div>
+                        <div>{refreshInfo ? (refreshInfo.stored ? 'STORED' : 'NOT STORED') : '-'}</div>
+                        <div>남은 시간: {formatRemain(refreshRemainSeconds)}</div>
                     </div>
                     <div style={statusCardStyle}>
-                        <div style={{ fontWeight: 700 }}>Token Summary</div>
-                        <div>subject: {tokenSummary.subject}</div>
-                        <div>permission count: {tokenSummary.permissionCount}</div>
+                        <div style={{ fontWeight: 700 }}>Permissions</div>
+                        <div>
+                            {accessInfo?.permissionCodes?.length
+                                ? accessInfo.permissionCodes.join(', ')
+                                : '-'}
+                        </div>
                     </div>
                 </div>
 
@@ -234,39 +180,26 @@ export default function AuthTestPage() {
                     </button>
                 </form>
 
+                <button
+                    style={buttonStyle}
+                    type="button"
+                    onClick={fetchCookieInfo}
+                    disabled={!cookieInfo}
+                >
+                    쿠키 상태 새로고침
+                </button>
+
                 <div style={gridStyle}>
-                    <div style={{ fontWeight: 700 }}>Success</div>
+                    <div style={{ fontWeight: 700 }}>Cookie Debug 응답</div>
                     <div style={blockStyle}>
-                        {result ? JSON.stringify(result, null, 2) : '응답 없음'}
+                        {cookieInfo ? JSON.stringify(cookieInfo, null, 2) : '응답 없음'}
                     </div>
-                    <button
-                        style={buttonStyle}
-                        type="button"
-                        onClick={handleAccessCheck}
-                        disabled={!result?.accessToken}
-                    >
-                        access token 상태 확인
-                    </button>
                 </div>
 
                 <div style={gridStyle}>
                     <div style={{ fontWeight: 700 }}>Error</div>
                     <div style={blockStyle}>
                         {error ? JSON.stringify(error, null, 2) : '에러 없음'}
-                    </div>
-                </div>
-
-                <div style={gridStyle}>
-                    <div style={{ fontWeight: 700 }}>Access Token Debug</div>
-                    <div style={blockStyle}>
-                        {accessResult ? JSON.stringify(accessResult, null, 2) : '토큰 확인 전'}
-                    </div>
-                </div>
-
-                <div style={gridStyle}>
-                    <div style={{ fontWeight: 700 }}>Redis Debug</div>
-                    <div style={blockStyle}>
-                        {redisResult ? JSON.stringify(redisResult, null, 2) : 'Redis 조회 없음'}
                     </div>
                 </div>
             </div>

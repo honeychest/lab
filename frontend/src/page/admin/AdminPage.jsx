@@ -3,7 +3,7 @@
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
 // 수동 수집: /api/admin/backfill/collect → Job 폴링
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './AdminPage.module.css';
@@ -43,6 +43,7 @@ function msToDatetimeLocal(ms) {
 
 export default function AdminPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     // ── 접근 권한 ──────────────────────────────────────────────────────────
     const [canAccess, setCanAccess] = useState(null);
 
@@ -137,7 +138,7 @@ export default function AdminPage() {
             .then(r => setCanAccess(r.data.canAccess))
             .catch((e) => {
                 if (e?.response?.status === 403) {
-                    navigate('/admin/login', { replace: true });
+                    navigate('/admin/login', { replace: true, state: { from: location.pathname } });
                     return;
                 }
                 setCanAccess(false);

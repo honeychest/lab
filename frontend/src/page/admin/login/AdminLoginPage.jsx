@@ -1,11 +1,17 @@
 // [AGENT] Admin 로그인 페이지 — /admin/login
-// /api/auth/login 호출 후 httpOnly 쿠키 방식으로 전환 예정
+// /api/auth/login 호출 → httpOnly 쿠키 설정 → 이전 경로로 복귀
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import apiClient from '../../../api/apiClient.js';
 import Layout from '../../../shared/ui/layout/Layout.jsx';
 import styles from './AdminLoginPage.module.css';
 import '../../../styles/themes/monitor-teal.css';
 
 export default function AdminLoginPage() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from ?? '/admin'; // 로그인 전 접근하려던 경로
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,9 +24,15 @@ export default function AdminLoginPage() {
         setIsSubmitting(true);
         setError(null);
 
-        // TODO: httpOnly 쿠키 방식 로그인 연동
-        setError('로그인 기능 연동 전입니다.');
-        setIsSubmitting(false);
+        try {
+            await apiClient.post('/api/auth/login', { email, password });
+            navigate(from, { replace: true }); // 원래 가려던 경로로 복귀
+        } catch (err) {
+            const message = err?.response?.data?.message ?? '로그인에 실패했습니다.';
+            setError(message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
