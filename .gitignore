@@ -8,6 +8,7 @@ context.md
 chs-rules.md
 geminirules.md
 /.claude/settings.local.json
+/.claude/agents/
 /.vscode/settings.json
 /honeychest-home-main.txt
 /.claudeignore
@@ -18,9 +19,7 @@ springboot/src/test/java/com/chs/springboot/unitTest.java
 .cursor/
 .cursorignore*
 .history/
-# git rm -r --cached devcontext
-/devcontext/
-/private/
+/chs/
 /logs/
 
 # JS 의존성 (루트 등 — frontend/node_modules 는 frontend/.gitignore 에도 있음)
