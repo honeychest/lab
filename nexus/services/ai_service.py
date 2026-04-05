@@ -5,8 +5,7 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-YOUTUBE_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
-LLM_MODELS     = ["gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it", "gemma-3n-e2b-it", "gemma-3-1b-it"]
+GENAI_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
 
 
 async def summarize_youtube(url: str) -> dict:
@@ -14,7 +13,7 @@ async def summarize_youtube(url: str) -> dict:
     from google import genai
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     prompt = _build_youtube_prompt()
-    for model in YOUTUBE_MODELS:
+    for model in GENAI_MODELS:
         try:
             response = await client.aio.models.generate_content(
                 model=model,
@@ -23,6 +22,7 @@ async def summarize_youtube(url: str) -> dict:
                     prompt,
                 ]
             )
+            logger.info(f"[youtube] 사용 모델: {model}")
             return _parse_response(response.text)
         except Exception as e:
             logger.warning(f"youtube 모델 {model} 실패: {e}")
@@ -32,13 +32,13 @@ async def summarize_youtube(url: str) -> dict:
 async def summarize(text: str, source_url: str) -> dict:
     """일반 텍스트 요약. llm_models 사용."""
     prompt = _build_prompt(text, source_url)
-    return await _call_with_models(prompt, LLM_MODELS)
+    return await _call_with_models(prompt, GENAI_MODELS)
 
 
 async def summarize_github(repo_info: dict) -> dict:
     """GitHub 레포 전용 요약. 실행방법을 최우선으로 강조."""
     prompt = _build_github_prompt(repo_info)
-    return await _call_with_models(prompt, LLM_MODELS)
+    return await _call_with_models(prompt, GENAI_MODELS)
 
 
 async def _call_with_models(prompt: str, models: list) -> dict:
@@ -56,6 +56,7 @@ async def _call_gemini(prompt: str, models: list) -> dict:
                 model=model,
                 contents=prompt
             )
+            logger.info(f"[llm] 사용 모델: {model}")
             return _parse_response(response.text)
         except Exception as e:
             logger.warning(f"모델 {model} 실패: {e}")
