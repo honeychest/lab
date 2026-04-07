@@ -3,6 +3,7 @@
 // 1m: 하루(1440분)를 2회 요청으로 분할 처리 (limit=720)
 // 5m: 하루(288봉)를 1회 요청으로 처리 (limit=288 < 1000)
 import apiClient from '@/api/apiClient.js';
+import externalClient from '@/api/externalClient.js';
 
 const BINANCE_KLINE_URL  = 'https://api.binance.com/api/v3/klines';
 const LIMIT_1M = 720; // 1일 1440분 → 2회 분할
@@ -28,13 +29,13 @@ async function fetchKlineChunk(symbolUsdt, interval, startMs, endMs, limit) {
 
   const doFetch = async () => {
     try {
-      const res = await apiClient.get(url);
+      const res = await externalClient.get(url);
       return res.data;
     } catch (error) {
       if (error.response?.status === 429) {
         const retryAfter = Number(error.response.headers['retry-after'] ?? '5');
         await new Promise((r) => setTimeout(r, retryAfter * 1000));
-        const retry = await apiClient.get(url);
+        const retry = await externalClient.get(url);
         return retry.data;
       }
       const err = new Error(`바이낸스 API 오류: ${error.response?.statusText ?? error.message}`);

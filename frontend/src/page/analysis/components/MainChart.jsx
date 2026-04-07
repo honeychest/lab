@@ -88,15 +88,15 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
       handleScroll: true,
       layout: {
         background:      { color: 'transparent' },
-        textColor:       'rgba(255,255,255,0.3)',
+        textColor:       'var(--dark-text-muted)',
         attributionLogo: false,
       },
       grid: {
         vertLines: { color: 'rgba(255,255,255,0.03)' },
         horzLines: { color: 'rgba(255,255,255,0.03)' },
       },
-      timeScale:       { visible: true, borderColor: 'rgba(255,255,255,0.06)' },
-      rightPriceScale: { visible: true, borderColor: 'rgba(255,255,255,0.06)' },
+      timeScale:       { visible: true, borderColor: 'var(--dark-input-border)' },
+      rightPriceScale: { visible: true, borderColor: 'var(--dark-input-border)' },
       crosshair: {
         horzLine: { labelVisible: true },
         vertLine: { labelVisible: true },
@@ -357,8 +357,8 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
         position:      'absolute',
         left,
         top:           Math.max(4, tooltip.y - 36),
-        background:    'rgba(14,15,24,0.95)',
-        border:        `1px solid ${tooltip.isMatched ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)'}`,
+        background:    'var(--dark-toast-bg)',
+        border:        `1px solid ${tooltip.isMatched ? 'var(--dark-border-subtle)' : 'var(--dark-input-border)'}`,
         borderRadius:  '6px',
         padding:       '5px 10px',
         pointerEvents: 'none',
@@ -368,16 +368,16 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
         whiteSpace:    'nowrap',
         zIndex:        10,
       }}>
-        <div style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '2px' }}>
+        <div style={{ color: 'var(--dark-text-muted)', marginBottom: '2px' }}>
           {timeStr}
         </div>
-        <div style={{ color: 'rgba(255,255,255,0.6)' }}>
+        <div style={{ color: 'var(--dark-text-muted)' }}>
           거래량 {Number(tooltip.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}
         </div>
         <div style={{ color: deltaColor }}>
           {deltaLabel} {Number(deltaValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}
         </div>
-        <div style={{ color: 'rgba(255,255,255,0.7)' }}>
+        <div style={{ color: 'var(--dark-text-primary)' }}>
           가격변화 {tooltip.priceChg}%
         </div>
       </div>
@@ -396,14 +396,14 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'center',
-          background:     'rgba(6,6,12,0.5)',
+          background:     'var(--dark-overlay-bg)',
           zIndex:         5,
         }}>
           <div style={{
             width:        '28px',
             height:       '28px',
-            border:       '3px solid rgba(255,255,255,0.08)',
-            borderTop:    '3px solid rgba(80,160,255,0.7)',
+            border:       '3px solid var(--dark-spinner-track)',
+            borderTop:    '3px solid var(--dark-spinner-fill)',
             borderRadius: '50%',
             animation:    'spin 0.8s linear infinite',
           }} />
@@ -422,10 +422,10 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
           gap:            '8px',
           zIndex:         5,
         }}>
-          <div style={{ fontSize: '0.94rem', color: '#ff3b5c', fontFamily: "'Pretendard', sans-serif" }}>
+          <div style={{ fontSize: '0.94rem', color: 'var(--dark-error)', fontFamily: "'Pretendard', sans-serif" }}>
             데이터를 불러오지 못했습니다.
           </div>
-          <div style={{ fontSize: '0.81rem', color: 'rgba(255,255,255,0.4)', fontFamily: "'Pretendard', sans-serif" }}>
+          <div style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)', fontFamily: "'Pretendard', sans-serif" }}>
             {error.status ? `HTTP ${error.status} — ${error.message}` : error.message}
           </div>
           <button
@@ -433,10 +433,10 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
             style={{
               marginTop:    '4px',
               padding:      '5px 14px',
-              background:   'rgba(255,255,255,0.08)',
-              border:       '1px solid rgba(255,255,255,0.15)',
+              background:   'var(--dark-input-bg)',
+              border:       '1px solid var(--dark-border-subtle)',
               borderRadius: '4px',
-              color:        'rgba(255,255,255,0.8)',
+              color:        'var(--dark-input-text)',
               fontSize:     '12px',
               cursor:       'pointer',
               fontFamily:   "'Pretendard', sans-serif",

@@ -31,7 +31,7 @@ export default function MainCore({ symbol, longEnergy, shortEnergy, fundingRate,
         <div
             style={{
                 height: '100%',
-                backgroundColor: '#0e0f18',
+                backgroundColor: 'var(--black-panel-bg)',
                 borderRadius: '10px',
                 padding: '10px',
                 display: 'flex',

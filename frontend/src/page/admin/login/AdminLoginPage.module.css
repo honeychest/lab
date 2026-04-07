@@ -1,0 +1,165 @@
+/* [AGENT] AdminLoginPage 스타일 (monitor-teal 테마) */
+
+.wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(800px circle at 30% 15%, rgba(13, 148, 136, 0.14), transparent 55%),
+    radial-gradient(600px circle at 75% 85%, rgba(16, 185, 129, 0.10), transparent 50%),
+    var(--monitor-bg);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* ── 로그인 카드 ──────────────────────────────────── */
+.card {
+  width: min(420px, 92vw);
+  background: var(--monitor-card-bg);
+  border: 1px solid var(--monitor-border);
+  border-radius: 20px;
+  padding: 40px 32px 36px;
+  box-shadow:
+    0 1px 3px rgba(13, 148, 136, 0.06),
+    0 12px 48px rgba(2, 6, 23, 0.08);
+  animation: cardIn 0.4s ease-out;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 헤더 영역 ──────────────────────────────────── */
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.lockIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(13, 148, 136, 0.15);
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+  letter-spacing: -0.6px;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--monitor-text-secondary);
+}
+
+/* ── 폼 ──────────────────────────────────────── */
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--monitor-text-secondary);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1.5px solid var(--monitor-border);
+  border-radius: 12px;
+  background: var(--monitor-sidebar-bg);
+  color: var(--monitor-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input::placeholder {
+  color: var(--monitor-primary-dim);
+  font-weight: 500;
+}
+
+.input:focus {
+  border-color: var(--monitor-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.10);
+}
+
+/* ── 에러 메시지 ──────────────────────────────── */
+.error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  background: rgba(220, 38, 38, 0.05);
+  color: var(--monitor-gauge-critical);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── 버튼 ─────────────────────────────────────── */
+.button {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--monitor-primary) 0%, #10b981 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.20);
+  transition: box-shadow 0.2s, transform 0.15s;
+  margin-top: 4px;
+}
+
+.button:hover:not(:disabled) {
+  box-shadow: 0 12px 32px rgba(13, 148, 136, 0.30);
+  transform: translateY(-1px);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.18);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── 푸터 안내 ──────────────────────────────────── */
+.footer {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--monitor-text-secondary);
+  opacity: 0.7;
+}

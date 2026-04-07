@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import styled from 'styled-components';
 import { sendTelegramInquiry, getGuestToken } from '../api/contactApi.js';
+import { useThemeContext } from '@/app/context/useTheme.js';
 
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
@@ -62,6 +63,20 @@ const formatDate = (isoStr) => {
     return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 };
 
+/** --dark-* 테마를 사용하는 페이지 경로 → 테마 키 매핑 */
+const DARK_PAGE_MAP = {
+    '/analysis': 'analysis',
+    '/binance': 'binance',
+    '/trade': 'trade',
+    '/signal': 'signal',
+};
+
+const THEME_OPTIONS = [
+    { value: 'dark', label: '다크' },
+    { value: 'black', label: '블랙' },
+    { value: 'teal', label: 'Teal' },
+];
+
 const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries = [], onSent }) => {
     const guestToken            = guestTokenProp || getGuestToken();
     const [text, setText]       = useState('');
@@ -82,6 +97,11 @@ const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries 
     const isDone      = status === 'success' && checkStep >= activeSteps.length;
 
     const hasAnyReply = inquiries.some(i => i.replyText);
+
+    const { themes, setPageTheme } = useThemeContext();
+    const currentPath = window.location.pathname;
+    const darkPageKey = Object.keys(DARK_PAGE_MAP).find((p) => currentPath.startsWith(p));
+    const themeKey    = darkPageKey ? DARK_PAGE_MAP[darkPageKey] : null;
 
     useEffect(() => {
         if (!isOpen) {
@@ -255,6 +275,21 @@ const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries 
                             </BtnGroup>
                         </BottomRow>
                     </>
+                )}
+
+                {/* ── 테마 셀렉터 (다크 테마 페이지에서만 표시) ── */}
+                {themeKey && !isChecking && (
+                    <ThemeBar>
+                        <ThemeLabel>테마</ThemeLabel>
+                        <ThemeSelect
+                            value={themes[themeKey] ?? 'dark'}
+                            onChange={(e) => setPageTheme(themeKey, e.target.value)}
+                        >
+                            {THEME_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </ThemeSelect>
+                    </ThemeBar>
                 )}
 
             </Container>
@@ -475,6 +510,31 @@ const HistoryItemDivider = styled.div`
     background: rgba(255, 255, 255, 0.04);
     border-radius: 1px;
     margin: 4px 0;
+`;
+
+// ── 테마 셀렉터 ─────────────────────────────────────────────────────────────
+
+const ThemeBar = styled.div`
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    flex-shrink: 0;
+`;
+
+const ThemeLabel = styled.span`
+    font-size: 12px; color: #64748b;
+`;
+
+const ThemeSelect = styled.select`
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #cbd5e1;
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    &:focus { border-color: rgba(59, 130, 246, 0.4); }
 `;
 
 const NewInquiryBtn = styled.button`

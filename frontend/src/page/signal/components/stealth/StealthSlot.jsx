@@ -33,10 +33,10 @@ export default function StealthSlot({
   const tempHighlightColor = isCenter ? pal.barColor : null;
 
   const getBorderStyle = () => {
-    if (!isCenter) return '1px solid rgba(255,255,255,0.1)';
+    if (!isCenter) return `1px solid var(--black-border-strong)`;
     if (watchState === 'TRIGGERED_LIVE')     return '1px solid rgba(240,192,64,0.4)';
     if (watchState === 'LOCKED_AFTER_CLOSE') return '1px solid rgba(240,192,64,0.3)';
-    return '1px solid rgba(255,255,255,0.1)';
+    return `1px solid var(--black-border-strong)`;
   };
 
   const getBoxShadow = () => {
@@ -74,7 +74,7 @@ export default function StealthSlot({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--black-text-muted)',
               fontSize: '0.81rem',
               fontFamily: "'Pretendard', sans-serif",
             }}>
@@ -93,13 +93,13 @@ export default function StealthSlot({
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                border: '4px solid rgba(255,255,255,0.12)',
-                borderTopColor: '#00e887',
+                border: '4px solid var(--black-border-strong)',
+                borderTopColor: 'var(--black-long)',
                 animation: 'stealthBigSpin 1s linear infinite',
               }} />
               <span style={{
                 fontSize: '0.81rem',
-                color: 'rgba(255,255,255,0.7)',
+                color: 'var(--black-text-secondary)',
                 fontFamily: "'Pretendard', sans-serif",
               }}>
                 {(templateName || '템플릿')} 탐색중...
@@ -122,7 +122,7 @@ export default function StealthSlot({
           }}>
             <span style={{
               fontSize:   '11px',
-              color:      'rgba(255,255,255,0.5)',
+              color:      'var(--black-text-muted)',
               fontFamily: "'Pretendard', sans-serif",
             }}>
               {slotData.date}

@@ -17,9 +17,9 @@ export default function PatternStrip({
       height:          '100%',
       display:         'flex',
       flexDirection:   'column',
-      backgroundColor: '#0e0f18',
+      backgroundColor: 'var(--black-panel-bg)',
       borderRadius:    '10px',
-      border:          '1px solid rgba(255,255,255,0.06)',
+      border:          '1px solid var(--black-border)',
       overflow:        'hidden',
     }}>
       {/* 헤더 */}
@@ -45,8 +45,8 @@ export default function PatternStrip({
                   width:        14,
                   height:       14,
                   borderRadius: '50%',
-                  border:       '2px solid rgba(255,255,255,0.18)',
-                  borderTop:    '2px solid #00e887',
+                  border:       '2px solid var(--black-border-strong)',
+                  borderTop:    '2px solid var(--black-long)',
                   animation:    'stealthHeaderSpin 0.9s linear infinite',
                 }}
               />
@@ -56,7 +56,7 @@ export default function PatternStrip({
             <span
               style={{
                 fontSize:   '0.81rem',
-                color:      'rgba(255,255,255,0.45)',
+                color:      'var(--black-text-muted)',
                 fontFamily: "'Pretendard', sans-serif",
               }}
             >
@@ -71,10 +71,10 @@ export default function PatternStrip({
                 if (id != null && onTemplateChange) onTemplateChange(id);
               }}
               style={{
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                border:          '1px solid rgba(255,255,255,0.12)',
+                backgroundColor: 'var(--black-border)',
+                border:          '1px solid var(--black-border-strong)',
                 borderRadius:    '6px',
-                color:           'rgba(255,255,255,0.85)',
+                color:           'var(--black-text-primary)',
                 fontSize:        '0.81rem',
                 padding:         '4px 8px',
                 cursor:          'pointer',

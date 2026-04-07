@@ -14,9 +14,9 @@ export default function ControlBar({
   const symBtn = (s) => ({
     padding:         '5px 14px',
     borderRadius:    '4px',
-    border:          symbol === s ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)',
-    backgroundColor: symbol === s ? 'rgba(255,255,255,0.08)' : 'transparent',
-    color:           symbol === s ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.5)',
+    border:          symbol === s ? '1px solid var(--dark-border-subtle)' : '1px solid var(--dark-input-border)',
+    backgroundColor: symbol === s ? 'var(--dark-input-bg)' : 'transparent',
+    color:           symbol === s ? 'var(--dark-text-primary)' : 'var(--dark-text-muted)',
     fontSize:        '12px',
     fontWeight:      600,
     cursor:          loading ? 'not-allowed' : 'pointer',
@@ -25,10 +25,10 @@ export default function ControlBar({
   });
 
   const dateInp = {
-    background:   'rgba(255,255,255,0.06)',
-    border:       '1px solid rgba(255,255,255,0.12)',
+    background:   'var(--dark-input-bg)',
+    border:       '1px solid var(--dark-input-border)',
     borderRadius: '4px',
-    color:        'rgba(255,255,255,0.8)',
+    color:        'var(--dark-input-text)',
     fontSize:     '12px',
     padding:      '4px 8px',
     outline:      'none',
@@ -40,7 +40,7 @@ export default function ControlBar({
   return (
     <div style={{
       height:          '44px',
-      backgroundColor: '#0a0a12',
+      backgroundColor: 'var(--dark-bg)',
       borderRadius:    '10px',
       display:         'flex',
       alignItems:      'center',
@@ -65,9 +65,9 @@ export default function ControlBar({
             style={{
               padding:         '5px 10px',
               borderRadius:    '4px',
-              border:          timeframe === tf ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)',
-              backgroundColor: timeframe === tf ? 'rgba(255,255,255,0.08)' : 'transparent',
-              color:           timeframe === tf ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.5)',
+              border:          timeframe === tf ? '1px solid var(--dark-border-subtle)' : '1px solid var(--dark-input-border)',
+              backgroundColor: timeframe === tf ? 'var(--dark-input-bg)' : 'transparent',
+              color:           timeframe === tf ? 'var(--dark-text-primary)' : 'var(--dark-text-muted)',
               fontSize:        '12px',
               fontWeight:      600,
               cursor:          loading ? 'not-allowed' : 'pointer',
@@ -79,7 +79,7 @@ export default function ControlBar({
       </div>
 
       {/* 날짜 범위 */}
-        <span style={{ fontSize: '0.81rem', color: 'rgba(255,255,255,0.3)' }}>범위</span>
+        <span style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)' }}>범위</span>
       <input
         type="date"
         value={startDate}
@@ -87,7 +87,7 @@ export default function ControlBar({
         onChange={(e) => onStartDateChange(e.target.value)}
         style={dateInp}
       />
-        <span style={{ fontSize: '0.81rem', color: 'rgba(255,255,255,0.3)' }}>~</span>
+        <span style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)' }}>~</span>
       <input
         type="date"
         value={endDate}
@@ -102,10 +102,10 @@ export default function ControlBar({
         disabled={loading}
         style={{
           padding:      '5px 14px',
-          background:   'rgba(80,160,255,0.85)',
+          background:   'var(--dark-btn-primary)',
           border:       'none',
           borderRadius: '4px',
-          color:        '#fff',
+          color:        'var(--dark-text-primary)',
           fontSize:     '12px',
           fontWeight:   600,
           cursor:       loading ? 'not-allowed' : 'pointer',

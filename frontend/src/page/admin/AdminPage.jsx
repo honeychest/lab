@@ -3,7 +3,7 @@
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
 // 수동 수집: /api/admin/backfill/collect → Job 폴링
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './AdminPage.module.css';
@@ -43,6 +43,7 @@ function msToDatetimeLocal(ms) {
 
 export default function AdminPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     // ── 접근 권한 ──────────────────────────────────────────────────────────
     const [canAccess, setCanAccess] = useState(null);
 
@@ -137,12 +138,12 @@ export default function AdminPage() {
             .then(r => setCanAccess(r.data.canAccess))
             .catch((e) => {
                 if (e?.response?.status === 403) {
-                    navigate('/forbidden', { replace: true });
+                    navigate('/admin/login', { replace: true, state: { from: location.pathname } });
                     return;
                 }
                 setCanAccess(false);
             });
-    }, [navigate]);
+    }, [navigate, location.pathname]);
 
     useEffect(() => {
         setFlagsLoading(true);
@@ -390,6 +391,20 @@ export default function AdminPage() {
             <div className={styles.page}>
                 <div className={styles.grid}>
                     <section className={styles.main}>
+
+                        <div className={styles.card}>
+                            <div className={styles.titleRow}>
+                                <div className={styles.title}>수동 검증</div>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={() => navigate('/admin/test')}
+                                >
+                                    Admin Test 열기
+                                </button>
+                            </div>
+                            <p className={styles.desc}>인증·디버그 등 운영자 전용 확인 UI (`/admin/test`).</p>
+                        </div>
 
                         <div className={styles.card}>
                             <div className={styles.titleRow}>

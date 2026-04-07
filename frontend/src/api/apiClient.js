@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const apiClient = axios.create();
+const apiClient = axios.create({
+    withCredentials: true, // 요청 시 쿠키를 자동으로 붙여서 전송함 (httpOnly 인증용 쿠키)
+});
 
 apiClient.interceptors.response.use(
     (res) => res,

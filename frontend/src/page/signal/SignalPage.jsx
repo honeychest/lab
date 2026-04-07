@@ -15,6 +15,8 @@ import PatternStrip from './components/PatternStrip.jsx';
 import apiClient from '@/api/apiClient.js';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
+import '@/styles/themes/theme-black.css';
+import { usePageTheme } from '@/app/context/useTheme.js';
 
 // value: 타임라인 식별자 | dataRange: 에너지·청산·OI 조회 범위 | candleType: 캔들 테이블(1m/5m) | displayCount: 차트 표시 봉 수
 // 이곳의 index 2개가 1m 5m 의 limit count를 결정한다
@@ -40,6 +42,8 @@ const getDataRange    = (range) => TIME_RANGES.find((r) => r.value === range)?.d
 const getDisplayCount = (range) => TIME_RANGES.find((r) => r.value === range)?.displayCount ?? 90;
 
 export default function SignalPage() {
+    const [theme] = usePageTheme('signal');
+    const themeClass = theme !== 'black' ? `theme-${theme}` : '';
     const [symbol, setSymbol] = useState('BTCUSDT');
     const [timeRange, setTimeRange] = useState(() => localStorage.getItem('signal_timeRange') || TIME_RANGES[Math.floor(TIME_RANGES.length / 2)].value);
     const [initData, setInitData] = useState(null);
@@ -293,7 +297,7 @@ export default function SignalPage() {
     if (isMobile) {
         return (
             <Layout footerCenter={['SSE', 'ECharts', 'React 19', 'Tailwind CSS']}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px', backgroundColor: '#06060c', fontFamily: "'Pretendard', sans-serif", height: '100%', overflow: 'hidden' }}>
+                <div className={themeClass || undefined} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px', backgroundColor: 'var(--black-bg)', fontFamily: "'Pretendard', sans-serif", height: '100%', overflow: 'hidden' }}>
                     <TopBar
                         symbol={symbol}
                         onSymbolChange={handleSymbolChange}
@@ -303,7 +307,7 @@ export default function SignalPage() {
                         timeRanges={TIME_RANGES}
                         compact
                     />
-                    <div style={{ backgroundColor: '#0e0f18', borderRadius: '10px', padding: '10px', position: 'relative', height: '200px', flexShrink: 0 }}>
+                    <div style={{ backgroundColor: 'var(--black-panel-bg)', borderRadius: '10px', padding: '10px', position: 'relative', height: '200px', flexShrink: 0 }}>
                         <EnergyGauge longEnergy={longEnergy} shortEnergy={shortEnergy} compact />
                         <TugOfWar longEnergy={longEnergy} shortEnergy={shortEnergy} />
                         <div style={{ position: 'absolute', bottom: '20px', left: '30px', fontSize: '10px', color: 'rgba(0,232,135,0.35)' }}>LONG</div>
@@ -325,6 +329,7 @@ export default function SignalPage() {
     return (
         <Layout footerCenter={['SSE', 'ECharts', 'Lightweight Charts', 'React 19', 'Tailwind CSS']}>
             <div
+                className={themeClass || undefined}
                 style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(12, 1fr)',
@@ -332,7 +337,7 @@ export default function SignalPage() {
                     gap: '4px',
                     padding: '4px',
                     height: '100%',
-                    backgroundColor: '#06060c',
+                    backgroundColor: 'var(--black-bg)',
                     fontFamily: "'Pretendard', sans-serif",
                 }}
             >

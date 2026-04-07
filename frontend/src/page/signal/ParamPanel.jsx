@@ -49,8 +49,8 @@ export default function ParamPanel({ params, onParamsSave }) {
         top: '48px',
         right: '0',
         zIndex: 100,
-        backgroundColor: '#12131e',
-        border: '1px solid rgba(255,255,255,0.1)',
+        backgroundColor: 'var(--black-panel-alt-bg)',
+        border: '1px solid var(--black-border-strong)',
         borderRadius: '8px',
         padding: '16px',
         minWidth: '240px',
@@ -60,21 +60,21 @@ export default function ParamPanel({ params, onParamsSave }) {
 
     const labelStyle = {
         fontSize: '11px',
-        color: 'rgba(255,255,255,0.6)',
+        color: 'var(--black-text-secondary)',
         marginBottom: '6px',
         display: 'flex',
         justifyContent: 'space-between',
     };
 
     const valueStyle = {
-        color: 'rgba(255,255,255,0.9)',
+        color: 'var(--black-text-primary)',
         fontWeight: '600',
         fontSize: '12px',
     };
 
     return (
         <div style={panelStyle}>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginBottom: '14px', letterSpacing: '0.4px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--black-text-primary)', fontWeight: '700', marginBottom: '14px', letterSpacing: '0.4px' }}>
                 ⚙ 파라미터 설정
             </div>
 

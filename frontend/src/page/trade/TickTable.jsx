@@ -16,7 +16,7 @@ const formatQty = (v) => (v != null ? parseFloat(v).toFixed(4) : '—');
 export default function TickTable({ ticks, isConnecting }) {
     if (isConnecting) {
         return (
-            <div className="flex items-center justify-center py-8 text-xs text-[#475569] font-mono">
+            <div className="flex items-center justify-center py-8 text-xs text-[var(--dark-text-secondary)] font-mono">
                 수신중...
             </div>
         );
@@ -24,7 +24,7 @@ export default function TickTable({ ticks, isConnecting }) {
 
     if (ticks.length === 0) {
         return (
-            <div className="flex items-center justify-center py-8 text-xs text-[#475569] font-mono">
+            <div className="flex items-center justify-center py-8 text-xs text-[var(--dark-text-secondary)] font-mono">
                 틱 없음
             </div>
         );
@@ -33,10 +33,10 @@ export default function TickTable({ ticks, isConnecting }) {
     return (
         <Table className="table-fixed w-full">
             <TableHeader>
-                <TableRow className="border-[#1e293b] hover:bg-transparent">
-                    <TableHead className="text-[#475569] text-xs w-8 py-1">F/S</TableHead>
-                    <TableHead className="text-[#475569] text-xs text-right py-1">가격</TableHead>
-                    <TableHead className="text-[#475569] text-xs text-right py-1">수량</TableHead>
+                <TableRow className="border-[var(--dark-border)] hover:bg-transparent">
+                    <TableHead className="text-[var(--dark-text-secondary)] text-xs w-8 py-1">F/S</TableHead>
+                    <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right py-1">가격</TableHead>
+                    <TableHead className="text-[var(--dark-text-secondary)] text-xs text-right py-1">수량</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -47,7 +47,7 @@ export default function TickTable({ ticks, isConnecting }) {
                     return (
                         <TableRow
                             key={`${t.price}-${t.quantity}-${i}`}
-                            className="border-[#1e293b] hover:bg-[#1e293b]/40"
+                            className="border-[var(--dark-border)] hover:bg-[#1e293b]/40"
                         >
                             <TableCell className="py-0.5">
                                 <Badge
@@ -68,7 +68,7 @@ export default function TickTable({ ticks, isConnecting }) {
                             >
                                 {formatWithComma(t.price)}
                             </TableCell>
-                            <TableCell className="text-[10px] font-mono text-[#94a3b8] py-0.5 text-right">
+                            <TableCell className="text-[10px] font-mono text-[var(--dark-text-neutral)] py-0.5 text-right">
                                 {formatQty(t.quantity)}
                             </TableCell>
                         </TableRow>

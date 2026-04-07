@@ -14,6 +14,10 @@ import SignalPage    from '../../page/signal/SignalPage.jsx';
 import AdminPage     from '../../page/admin/AdminPage.jsx';
 import AnalysisPage  from '../../page/analysis/AnalysisPage.jsx';
 import MonitorPage   from '../../page/monitor/MonitorPage.jsx';
+import AdminLoginPage   from '../../page/admin/login/AdminLoginPage.jsx';
+import AdminTestLayout from '../../page/admin/test/AdminTestLayout.jsx';
+import AuthTestPage    from '../../page/admin/test/AuthTestPage.jsx';
+import AdminTestDomainPlaceholder from '../../page/admin/test/AdminTestDomainPlaceholder.jsx';
 import RandomPage    from '../../page/random/RandomPage.jsx';
 import RandomLayoutEditorPage from '../../page/random/RandomLayoutEditorPage.jsx';
 import ForbiddenPage from '../../page/forbidden/ForbiddenPage.jsx';
@@ -42,6 +46,18 @@ function MainRouter() {
 
                 {/* Admin 페이지 */}
                 <Route path="/admin" element={<AdminPage />} />
+
+                {/* Admin 로그인 */}
+                <Route path="/admin/login" element={<AdminLoginPage />} />
+
+                {/* Admin 테스트 페이지 */}
+                <Route path="/admin/test" element={<AdminTestLayout />}>
+                    <Route index element={<Navigate to="auth" replace />} />
+                    <Route path="auth" element={<AuthTestPage />} />
+                    <Route path="trade" element={<AdminTestDomainPlaceholder domainLabel="Trade" />} />
+                    <Route path="monitor" element={<AdminTestDomainPlaceholder domainLabel="Monitor" />} />
+                    <Route path="user" element={<AdminTestDomainPlaceholder domainLabel="User" />} />
+                </Route>
 
                 {/* Monitor 페이지 */}
                 <Route path="/monitor" element={<MonitorPage />} />

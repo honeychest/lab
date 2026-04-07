@@ -26,11 +26,22 @@
  */
 package com.chs.springboot.global.config;
 
+import com.chs.springboot.global.auth.jwt.JwtAuthenticationFilter;
+import com.chs.springboot.global.auth.jwt.JwtTokenProvider;
+import com.chs.springboot.global.auth.service.AuthService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @Configuration:
@@ -45,7 +56,17 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    JwtTokenProvider jwtTokenProvider;
+    AuthService authService;
 
+    // cors.allowed-origins 프로퍼티가 없으면 빈 리스트 → CORS 비활성화 (prod)
+    @Value("${cors.allowed-origins:}")
+    private String allowedOriginsRaw;
+
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider, AuthService authService) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.authService = authService;
+    }
     /**
      * filterChain: Spring Security 필터 체인 설정 빈.
      *
@@ -80,13 +101,43 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider, authService);
         http
             // CSRF 보호 비활성화 (REST API + WebSocket 사용 시 필요)
+            // CSRF는 사용자가 로그인된 상태를 악용해서, 악성 사이트가 몰래 서버에 요청을 보내는 공격
+            // CSRF 보호가 있으면 서버가 "이 요청은 우리 사이트에서 온 게 맞아?" 토큰으로 검증
+            // JWT는 브라우저가 자동으로 붙여주지 않고, 코드에서 명시적으로
+            // Authorization 헤더에 넣어요. 악성 사이트는 그 토큰을 모르니까 CSRF 공격 자체가 불가능 해서 disable()
             .csrf(csrf -> csrf.disable())
+            // cors.allowed-origins 가 있을 때만 CORS 활성화 (로컬 개발용)
+            // prod 는 nginx same-origin 이라 불필요
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // spring security 필터체인은 목록을 가지고 있고 순서대로 실행함. UsernamePasswordAuthenticationFilter의 위치도 정해져 있음
+            // 인가 체크(FilterSecurityInterceptor)는 훨씬 뒤에 있음 그 전까지만 SecurityContext에 사용자 정보가 채워져 있으면 됨
+            // 관례적으로 UsernamePasswordAuthenticationFilter를 기준점으로 많이 씀
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             // 모든 요청 인증 없이 허용
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> auth.requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN_ACCESS")
                 .anyRequest().permitAll()
             );
         return http.build();
+    }
+    // CORS 관련 허용해주려고 했는데 서버는 nginx 가
+    // nginx가 프론트(https://devcontext.duckdns.org)와 /api 백엔드를 같은 도메인으로 묶어주기 때문에 same-origin
+    // 그래서 로컬테스트용으로 만듦
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // cors.allowed-origins 가 비어있으면 아무 origin도 허용 안 함 (prod)
+        if (!allowedOriginsRaw.isBlank()) {
+            List<String> origins = Arrays.asList(allowedOriginsRaw.split(","));
+            config.setAllowedOrigins(origins);
+            config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            config.setAllowedHeaders(List.of("*"));
+            config.setAllowCredentials(true); // withCredentials: true 와 쌍으로 필요
+        }
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

@@ -12,10 +12,10 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
         <div
             style={{
                 height: '100%',
-                backgroundColor: '#0e0f18',
+                backgroundColor: 'var(--black-panel-bg)',
                 borderRadius: '10px',
                 padding: '10px',
-                border: '1px solid rgba(255,255,255,0.06)',
+                border: '1px solid var(--black-border)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -24,7 +24,7 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
             <div
                 style={{
                     fontSize: '13px',
-                    color: 'rgba(255,255,255,0.65)',
+                    color: 'var(--black-text-secondary)',
                     marginBottom: '8px',
                     letterSpacing: '0.5px',
                 }}
@@ -40,12 +40,12 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
                             display: 'flex',
                             justifyContent: 'space-between',
                             fontSize: '11px',
-                            color: 'rgba(255,255,255,0.6)',
+                            color: 'var(--black-text-secondary)',
                             opacity: 1 - idx * 0.06,
                             animation: idx === 0 ? 'slideDown 0.2s ease-out' : 'none',
                         }}
                     >
-                        <span style={{ color: '#ff3b5c' }}>LONG LIQ</span>
+                        <span style={{ color: 'var(--black-short)' }}>LONG LIQ</span>
                         <span>{formatValue(e.price, e.quantity)}</span>
                     </div>
                 ))}
@@ -53,14 +53,14 @@ export default function LiquidationPanel({ total = 0, events = [] }) {
 
             <div
                 style={{
-                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    borderTop: '1px solid var(--black-border)',
                     paddingTop: '8px',
                     marginTop: '6px',
                     textAlign: 'right',
                 }}
             >
                 {/*<div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '2px' }}>누계</div>*/}
-                <div style={{ fontSize: '22px', fontWeight: '700', color: '#ff3b5c', fontFamily: "'Pretendard', sans-serif" }}>
+                <div style={{ fontSize: '22px', fontWeight: '700', color: 'var(--black-short)', fontFamily: "'Pretendard', sans-serif" }}>
                     ${formatTotal(total)}
                 </div>
             </div>

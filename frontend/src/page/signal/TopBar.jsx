@@ -5,10 +5,10 @@ import { useState, useRef, useEffect } from 'react';
 import ParamPanel from './ParamPanel.jsx';
 
 const TEMPLATE_SELECT_STYLE = {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    backgroundColor: 'var(--black-border)',
+    border: '1px solid var(--black-border-strong)',
     borderRadius: '6px',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'var(--black-text-primary)',
     fontSize: '11px',
     fontWeight: '500',
     padding: '3px 8px',
@@ -75,10 +75,10 @@ export default function TopBar({
     };
 
     const selectStyle = {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.12)',
+        backgroundColor: 'var(--black-border)',
+        border: '1px solid var(--black-border-strong)',
         borderRadius: '6px',
-        color: 'rgba(255,255,255,0.85)',
+        color: 'var(--black-text-primary)',
         fontSize: '12px',
         fontWeight: '600',
         padding: '4px 8px',
@@ -94,7 +94,7 @@ export default function TopBar({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 height: '44px',
-                backgroundColor: '#0a0a12',
+                backgroundColor: 'var(--black-topbar-bg)',
                 borderRadius: '10px',
                 padding: '0 16px',
                 fontFamily: "'Pretendard', sans-serif",
@@ -115,7 +115,7 @@ export default function TopBar({
                         style={selectStyle}
                     >
                         {['BTCUSDT', 'ENAUSDT'].map((sym) => (
-                            <option key={sym} value={sym} style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}>{sym.replace('USDT', '')}</option>
+                            <option key={sym} value={sym} style={{ backgroundColor: 'var(--black-panel-bg)', color: 'var(--black-text-primary)' }}>{sym.replace('USDT', '')}</option>
                         ))}
                     </select>
                     <select
@@ -124,7 +124,7 @@ export default function TopBar({
                         style={selectStyle}
                     >
                         {timeRanges.map(({ value, label }) => (
-                            <option key={value} value={value} style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}>{label}</option>
+                            <option key={value} value={value} style={{ backgroundColor: 'var(--black-panel-bg)', color: 'var(--black-text-primary)' }}>{label}</option>
                         ))}
                     </select>
                 </div>
@@ -138,9 +138,9 @@ export default function TopBar({
                                 style={{
                                     padding: '6px 14px',
                                     borderRadius: '4px',
-                                    border: symbol === sym ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)',
+                                    border: symbol === sym ? '1px solid rgba(255,255,255,0.2)' : `1px solid var(--black-border)`,
                                     backgroundColor: symbol === sym ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                    color: symbol === sym ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.5)',
+                                    color: symbol === sym ? 'var(--black-text-primary)' : 'var(--black-text-muted)',
                                     fontSize: '12px',
                                     fontWeight: '600',
                                     cursor: 'pointer',
@@ -160,14 +160,14 @@ export default function TopBar({
                                 }}
                                 style={TEMPLATE_SELECT_STYLE}
                             >
-                                <option value="" disabled style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.5)' }}>
+                                <option value="" disabled style={{ backgroundColor: 'var(--black-panel-bg)', color: 'var(--black-text-muted)' }}>
                                     분석 템플릿 선택
                                 </option>
                                 {templates.map((t) => (
                                     <option
                                         key={t.id}
                                         value={t.id}
-                                        style={{ backgroundColor: '#0e0f18', color: 'rgba(255,255,255,0.85)' }}
+                                        style={{ backgroundColor: 'var(--black-panel-bg)', color: 'var(--black-text-primary)' }}
                                     >
                                         {t.name}
                                     </option>
@@ -184,8 +184,8 @@ export default function TopBar({
                                     padding: '4px 10px',
                                     borderRadius: '3px',
                                     border: timeRange === value ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                                    backgroundColor: timeRange === value ? 'rgba(255,255,255,0.06)' : 'transparent',
-                                    color: timeRange === value ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+                                    backgroundColor: timeRange === value ? 'var(--black-border)' : 'transparent',
+                                    color: timeRange === value ? 'var(--black-text-primary)' : 'var(--black-text-muted)',
                                     fontSize: '11px',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
@@ -205,7 +205,7 @@ export default function TopBar({
                         borderRadius: '4px',
                         fontSize: '11px',
                         fontWeight: '600',
-                        color: fundingRate !== null ? (fundingRate >= 0 ? '#00e887' : '#ff3b5c') : 'transparent',
+                        color: fundingRate !== null ? (fundingRate >= 0 ? 'var(--black-long)' : 'var(--black-short)') : 'transparent',
                         visibility: fundingRate !== null ? 'visible' : 'hidden',
                         ...getFundingStyle(),
                     }}
@@ -218,9 +218,9 @@ export default function TopBar({
                             onClick={() => setPanelOpen((v) => !v)}
                             style={{
                                 background: panelOpen ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                border: '1px solid rgba(255,255,255,0.1)',
+                                border: `1px solid var(--black-border-strong)`,
                                 borderRadius: '5px',
-                                color: 'rgba(255,255,255,0.6)',
+                                color: 'var(--black-text-secondary)',
                                 fontSize: '14px',
                                 cursor: 'pointer',
                                 padding: '3px 8px',

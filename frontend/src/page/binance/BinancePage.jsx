@@ -40,6 +40,8 @@ import apiClient from '@/api/apiClient.js';
  */
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import ErrorPage from '../error/ErrorPage.tsx';
+import '../../styles/themes/theme-dark.css';
+import { usePageTheme } from '@/app/context/useTheme.js';
 
 /**
  * useBinanceWebSocket: WebSocket 연결 로직을 담은 커스텀 훅.
@@ -259,6 +261,9 @@ function BinancePage() {
      */
     const { color, text } = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
 
+    const [theme] = usePageTheme('binance');
+    const themeClass = theme !== 'dark' ? `theme-${theme}` : '';
+
     // ── 현재 선택된 코인 정보 ─────────────────────────────────────
     /**
      * selectedCoin:
@@ -351,9 +356,9 @@ function BinancePage() {
     return (
         <Layout footerCenter={['TypeScript', 'WebSocket', 'Binance API', 'Axios']}>
             {/* 전체 페이지 배경 */}
-            <div style={{
+            <div className={themeClass || undefined} style={{
                 minHeight: '100%',
-                background: '#0a0f1e',       // 아주 어두운 남색 배경
+                background: 'var(--dark-bg)',
                 padding: '32px',
                 boxSizing: 'border-box',      // padding이 width에 포함되도록
                 display: 'flex',
@@ -375,17 +380,17 @@ function BinancePage() {
                         marginBottom: '24px',
                     }}>
                         {/* 좌측: 기준시각 */}
-                        <span style={{ color: '#475569', fontSize: '11px' }}>
-                            {ticker ? new Date(ticker.E).toLocaleTimeString('ko-KR') + ' 기준' : ''}
+                        <span style={{ color: 'var(--dark-text-secondary)', fontSize: '11px' }}>
+                            {/* {ticker ? new Date(ticker.E).toLocaleTimeString('ko-KR') + ' 기준' : ''} */}
                         </span>
 
                         {/* 우측: 거래소 표시 — 테두리 없이 색상으로만 구분, 크기 업 */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ color: '#F3BA2F', fontWeight: 800, fontSize: '20px' }}>
+                            <span style={{ color: 'var(--dark-accent-gold)', fontWeight: 800, fontSize: '20px' }}>
                                 Binance
                             </span>
-                            <span style={{ color: '#475569', fontSize: '20px', fontWeight: 300 }}>×</span>
-                            <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: '20px' }}>
+                            <span style={{ color: 'var(--dark-text-secondary)', fontSize: '20px', fontWeight: 300 }}>×</span>
+                            <span style={{ color: 'var(--dark-accent)', fontWeight: 800, fontSize: '20px' }}>
                                 Upbit
                             </span>
                         </div>
@@ -399,8 +404,8 @@ function BinancePage() {
                         borderRadius: '16px' = 둥근 모서리
                     */}
                     <div style={{
-                        background: '#0f172a',
-                        border: '1px solid #1e293b',
+                        background: 'var(--dark-card-bg)',
+                        border: '1px solid var(--dark-border)',
                         borderRadius: '16px',
                         padding: '24px',
                         marginBottom: '20px',
@@ -430,14 +435,14 @@ function BinancePage() {
                                             style={{
                                                 padding: '6px 12px',
                                                 borderRadius: '999px',
-                                                border: isActive ? '1px solid #F3BA2F' : '1px solid #1e293b',
-                                                background: isActive ? '#F3BA2F' : 'transparent',
-                                                color: isActive ? '#000000' : '#e5e7eb',
+                                                border: isActive ? '1px solid var(--dark-accent-gold)' : '1px solid var(--dark-border)',
+                                                background: isActive ? 'var(--dark-accent-gold)' : 'transparent',
+                                                color: isActive ? '#000000' : 'var(--dark-text-primary)',
                                                 fontSize: '12px',
                                                 fontWeight: 700,
                                                 cursor: 'pointer',
                                                 touchAction: 'manipulation',
-                                                outline: isActive ? '2px solid #F3BA2F' : 'none',
+                                                outline: isActive ? '2px solid var(--dark-accent-gold)' : 'none',
                                                 outlineOffset: '2px',
                                             }}
                                         >
@@ -479,7 +484,7 @@ function BinancePage() {
                                     </span>
                                 </div>
                                 {/* USDT 환율: 수신 완료 시 실값, 대기 중이면 '...' */}
-                                <span style={{ color: '#475569', fontSize: '11px', fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+                                <span style={{ color: 'var(--dark-text-secondary)', fontSize: '11px', fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
                                     {usdtTicker
                                         ? '1 USDT = ₩' + Math.round(usdtTicker.trade_price).toLocaleString('ko-KR')
                                         : '1 USDT = ...'}
@@ -525,8 +530,8 @@ function BinancePage() {
 
                     {/* ── 지갑 잔고 카드 ──────────────────────────────────────── */}
                     <div style={{
-                        background: '#0f172a',
-                        border: '1px solid #1e293b',
+                        background: 'var(--dark-card-bg)',
+                        border: '1px solid var(--dark-border)',
                         borderRadius: '16px',
                         padding: '24px',
                     }}>
