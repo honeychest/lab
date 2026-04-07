@@ -73,8 +73,6 @@ public class OpenInterestPollingService {
                 dto.put("collectedAtMs", timestamp);
                 dto.put("price",         price != null ? price.toPlainString() : null);
                 signalSseService.broadcastOiUpdate(dto);
-
-                log.info("[OI Polling] {} OI={} price={}", symbol, oiValue, price);
             } catch (Exception e) {
                 log.warn("[OI Polling] {} 실패: {}", symbol, e.getMessage());
             }

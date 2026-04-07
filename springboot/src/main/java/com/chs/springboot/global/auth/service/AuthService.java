@@ -46,7 +46,6 @@ public class AuthService {
     }
 
     public AuthenticatedUser authenticate(String email, String password) {
-        log.warn("[Auth] authenticate start email={}", email);
         // email 로 사용자를 찾고 . 있다면 꺼내고 . 없으면 IllegalArgumentException 을 던져라
         UserAccount account = userAccountRepository.findByEmail(email)
                 // .orElseThrow(예외 만드는 코드) 미친 람다식 못쓰게 하던지 해야지 안읽히네...
@@ -60,7 +59,6 @@ public class AuthService {
                       - 람다, 체이닝, 스트림, 삼항 연산자 사용 금지
                       - [람다 없이] [체이닝 없이] [단계형 변수로] [if 문 우선] 이런걸 요청하면 저렇게 풀어준다고함 */
                 .orElseThrow(() -> new AuthException("이메일 또는 비밀번호가 올바르지 않습니다.", "AUTH_LOGIN_FAILED"));
-        log.warn("[Auth] account lookup success userId={} enabled={}", account.getId(), account.getEnabled());
         if(!account.getEnabled()){
             throw new AuthException(
                     "비활성화 된 계정입니다. 관리자에게 문의해주세요.",
@@ -71,7 +69,6 @@ public class AuthService {
         if(!passwordEncoder.matches(password, account.getPasswordHash())){
             throw new AuthException("이메일 또는 비밀번호가 올바르지 않습니다.", "AUTH_LOGIN_FAILED");
         }
-        log.warn("[Auth] password verified userId={}", account.getId());
         List<UserAccountPermission> userAccountPermissions = userAccountPermissionRepository.findByUserAccount(account);
         List<String> permissionCodes = new ArrayList<>();
         if(!userAccountPermissions.isEmpty()){
@@ -79,7 +76,6 @@ public class AuthService {
                 permissionCodes.add(userAccountPermission.getUserPermission().getCode());
             }
         }
-        log.warn("[Auth] permissions loaded userId={} count={}", account.getId(), permissionCodes.size());
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(account, permissionCodes);
         return authenticatedUser;
     }
@@ -92,7 +88,7 @@ public class AuthService {
         userAccount.setLastLoginAt(LocalDateTime.now());
         userAccountRepository.save(userAccount);
         setRedisRefreshToken(String.valueOf(authenticatedUser.getAccount().getId()), authTokenPair);
-        log.warn("[Auth] login completed userId={}", authenticatedUser.getAccount().getId());
+        log.info("[Auth] login completed userId={}", authenticatedUser.getAccount().getId());
         return authTokenPair;
     }
 
@@ -106,7 +102,6 @@ public class AuthService {
                 jwtTokenProvider.getRefreshTokenExpirationSeconds(),
                 TimeUnit.SECONDS
         );
-        log.warn("[Auth] refresh token saved userId={} ttlSeconds={}", userId, jwtTokenProvider.getRefreshTokenExpirationSeconds());
     }
 
     public RefreshTokenDebugResponse getRefreshTokenDebug(String refreshToken) {
@@ -114,23 +109,19 @@ public class AuthService {
         String userId = stringRedisTemplate.opsForValue().get(redisKey);
         Long ttlSeconds = stringRedisTemplate.getExpire(redisKey, TimeUnit.SECONDS);
         boolean exists = userId != null;
-        log.warn("[Auth] refresh token debug exists={} ttlSeconds={}", exists, ttlSeconds);
         return new RefreshTokenDebugResponse(redisKey, userId, ttlSeconds, exists);
     }
 
     // accessToken 재발급
     @Transactional(readOnly = true)
     public String refreshAccessToken(String refreshToken) {
-        log.warn("[Auth] refreshAccessToken start tokenLength={}", refreshToken != null ? refreshToken.length() : 0);
         boolean valid = jwtTokenProvider.validateToken(refreshToken);
-        log.warn("[Auth] refreshAccessToken validateToken={}", valid);
         if (!valid) {
             throw new AuthException("유효하지 않은 refresh token 입니다.", "AUTH_REFRESH_INVALID");
         }
 
         String redisKey = "auth:refresh:" + refreshToken;
         String userIdStr = stringRedisTemplate.opsForValue().get(redisKey);
-        log.warn("[Auth] refreshAccessToken redis lookup key=auth:refresh:***{} found={}", refreshToken.substring(Math.max(0, refreshToken.length()-8)), userIdStr != null);
         if (userIdStr == null) {
             throw new AuthException("만료되었거나 존재하지 않는 refresh token 입니다.", "AUTH_REFRESH_NOT_FOUND");
         }
@@ -155,14 +146,12 @@ public class AuthService {
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(account, permissionCodes);
         String newAccessToken = jwtTokenProvider.createAccessToken(authenticatedUser);
-        log.warn("[Auth] access token refreshed userId={}", userId);
+        log.info("[Auth] access token refreshed userId={}", userId);
         return newAccessToken;
     }
 
     public AccessTokenDebugResponse getAccessTokenDebug(String accessToken) {
-        AccessTokenDebugResponse response = jwtTokenProvider.getAccessTokenDebug(accessToken);
-        log.warn("[Auth] access token debug valid={} message={}", response.getValid(), response.getMessage());
-        return response;
+        return jwtTokenProvider.getAccessTokenDebug(accessToken);
     }
 
     // httpOnly 쿠키에서 꺼낸 accessToken/refreshToken으로 디버그 정보 반환
@@ -190,7 +179,6 @@ public class AuthService {
             refreshInfo = new CookieDebugResponse.RefreshInfo(refreshDebug.getExists(), refreshDebug.getTtlSeconds());
         }
 
-        log.warn("[Auth] cookie debug access.valid={} refresh.stored={}", accessInfo.isValid(), refreshInfo.isStored());
         return new CookieDebugResponse(accessInfo, refreshInfo);
     }
 
@@ -201,7 +189,7 @@ public class AuthService {
         }
         String redisKey = "auth:refresh:" + refreshToken;
         Boolean deleted = stringRedisTemplate.delete(redisKey);
-        log.warn("[Auth] refresh redis invalidate key={} deleted={}", redisKey, deleted);
+        log.warn("[Auth] refresh token invalidated key={} deleted={}", redisKey, deleted);
     }
 
 }

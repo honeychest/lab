@@ -1,535 +1,275 @@
-// [AGENT] 인증 테스트 페이지 — httpOnly 쿠키 기반 (admin/test 전용)
-// 실행: api/adminTest/auth.js · 기록: shared/logApiCall + 3열 컴포넌트
-import { useEffect, useMemo, useState } from 'react';
-import {
-    debugAccessToken,
-    debugAccessTokenFromCookie,
-    debugRefreshToken,
-    debugRefreshTokenFromCookie,
-    fetchCookieDebug,
-    invalidateRefreshRedisOnly,
-    login,
-    logout,
-    refreshAccessToken,
-    refreshAccessTokenOmitCredentials,
-} from '@/api/adminTest/auth.js';
-import {
-    fetchBinanceTradesBadDate,
-    fetchSupportSseBadGuestToken,
-} from '@/api/adminTest/regressionApi.js';
+import { useState } from 'react';
+import { login, fetchCookieDebug } from '@/api/adminTest/auth.js';
+import { fetchArchiveCount, runArchive } from '@/api/adminTest/archive.js';
 import { logApiCall } from './shared/logApiCall.js';
-import AuthTestActionsColumn from './auth/AuthTestActionsColumn.jsx';
-import AuthTestAnalysisColumn from './auth/AuthTestAnalysisColumn.jsx';
-import AuthTestMetricsColumn from './auth/AuthTestMetricsColumn.jsx';
-import {
-    getGridStyle,
-    pageDescriptionStyle,
-    pageRootStyle,
-    pageTitleStyle,
-} from './auth/authTestStyles.js';
-import '../../../styles/themes/monitor-teal.css';
+import ApiCallLogPanel from './shared/ApiCallLogPanel.jsx';
 
-const BREAKPOINT = 1200;
+const FEATURES = [
+    { key: 'login', label: '로그인' },
+    { key: 'cookieSnapshot', label: 'Cookie Snapshot' },
+    { key: 'archive', label: 'S3 아카이빙' },
+];
 
-function stepFromLog(name, log) {
-    return {
-        name,
-        ok: log.ok,
-        durationMs: log.durationMs,
-        statusCode: log.statusCode,
-        errorMessage: log.errorMessage,
-    };
-}
+const containerStyle = {
+    display: 'grid',
+    gridTemplateColumns: '140px 1fr 1fr',
+    gap: '12px',
+    height: 'calc(100vh - 220px)',
+    color: 'var(--monitor-text-primary)',
+};
 
-function buildSequenceLog(requestSummary, startedAtIso, totalMs, steps, allOk, firstError) {
-    return {
-        ok: allOk,
-        startedAt: startedAtIso,
-        durationMs: totalMs,
-        statusCode: null,
-        requestSummary,
-        errorMessage: allOk ? null : (firstError ?? '일부 단계 실패'),
-        responseBody: { steps },
-    };
-}
+const colStyle = {
+    border: '1px solid var(--monitor-border)',
+    background: 'var(--monitor-card-bg)',
+    padding: '16px',
+    overflowY: 'auto',
+    display: 'grid',
+    alignContent: 'start',
+    gap: '10px',
+};
 
-function bodyLooksLikeAuthLoginFailed(body) {
-    if (body == null) return false;
-    if (typeof body === 'object' && body.errorCode === 'AUTH_LOGIN_FAILED') return true;
-    if (typeof body === 'string' && body.includes('AUTH_LOGIN_FAILED')) return true;
-    return false;
-}
+const featureBtnStyle = (active) => ({
+    padding: '12px 16px',
+    border: '1px solid var(--monitor-border)',
+    background: active ? 'var(--monitor-primary)' : 'var(--monitor-sidebar-bg)',
+    color: active ? '#ffffff' : 'var(--monitor-text-primary)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    width: '100%',
+});
 
-/**
- * 비회귀: HTTP 400/500이어도 auth 전용(AuthErrorResponse + AUTH_LOGIN_FAILED)만 아니면 통과로 표시한다.
- * (logApiCall은 4xx/5xx를 ok:false로 두므로 여기서 덮어씀)
- */
-function enrichRegressionLog(log, passHint) {
-    if (bodyLooksLikeAuthLoginFailed(log.responseBody)) {
-        return {
-            ...log,
-            ok: false,
-            errorMessage: [log.errorMessage, '비회귀 실패: AUTH_LOGIN_FAILED(auth 전용)로 변질됨']
-                .filter(Boolean)
-                .join(' · '),
-        };
+const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid var(--monitor-border)',
+    background: 'var(--monitor-sidebar-bg)',
+    color: 'var(--monitor-text-primary)',
+    outline: 'none',
+    boxSizing: 'border-box',
+};
+
+const primaryBtnStyle = {
+    padding: '12px 16px',
+    border: '1px solid var(--monitor-border)',
+    background: 'var(--monitor-primary)',
+    color: '#ffffff',
+    cursor: 'pointer',
+    width: '100%',
+};
+
+const labelStyle = {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: 'var(--monitor-text-secondary)',
+};
+
+function ResultPanel({ result, featureKey }) {
+    const statusColor = result.ok ? 'var(--monitor-primary)' : 'var(--monitor-severity-critical)';
+
+    if (featureKey === 'login') {
+        return (
+            <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+                <div style={{ fontWeight: 700, color: statusColor }}>
+                    {result.ok ? '로그인 성공' : '로그인 실패'}
+                </div>
+                <div>상태 코드: {result.statusCode ?? '-'}</div>
+                <div>소요 시간: {result.durationMs != null ? `${result.durationMs} ms` : '-'}</div>
+                {!result.ok && <div style={{ color: statusColor }}>오류: {result.errorMessage ?? '-'}</div>}
+            </div>
+        );
     }
-    return {
-        ...log,
-        ok: true,
-        errorMessage: null,
-        requestSummary: `${log.requestSummary} · ${passHint}`,
-    };
+
+    if (featureKey === 'archive') {
+        const body = result.responseBody;
+        // 오류
+        if (!result.ok) {
+            return (
+                <div style={{ fontSize: '13px', color: 'var(--monitor-severity-critical)' }}>
+                    오류: {result.errorMessage ?? '알 수 없는 오류'}
+                </div>
+            );
+        }
+        // 건수 조회 결과
+        if (result._isCount) {
+            return (
+                <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
+                    <div style={{ fontWeight: 700, color: statusColor }}>건수 조회 완료</div>
+                    <div>대상 건수: <strong>{body?.count?.toLocaleString()}건</strong></div>
+                </div>
+            );
+        }
+        // 실행 결과
+        if (body) {
+            const rows = [
+                ['상태',        body.success ? (body.skipped ? '스킵 (데이터 없음)' : '성공') : '실패'],
+                ['범위',        body.rangeLabel ?? '-'],
+                ['S3 키',       body.s3Key ?? '-'],
+                ['대상 건수',   body.totalCount?.toLocaleString() ?? '-'],
+                ['삭제 건수',   body.deletedCount?.toLocaleString() ?? '-'],
+                ['파일 크기',   body.fileSizeBytes != null ? `${(body.fileSizeBytes / 1024).toFixed(1)} KB` : '-'],
+                ['건수 조회',   body.countElapsedMs != null ? `${body.countElapsedMs} ms` : '-'],
+                ['S3 업로드',   body.uploadElapsedMs != null ? `${body.uploadElapsedMs} ms` : '-'],
+                ['DB 삭제',     body.deleteElapsedMs != null ? `${body.deleteElapsedMs} ms` : '-'],
+                ['전체 소요',   body.totalElapsedMs != null ? `${body.totalElapsedMs} ms` : '-'],
+                ['건당 평균',   body.perRecordMs != null ? `${body.perRecordMs} ms` : '-'],
+                ['오류',        body.errorMessage ?? '-'],
+            ];
+            return (
+                <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
+                    <div style={{ fontWeight: 700, color: statusColor }}>실행 결과</div>
+                    {rows.map(([label, value]) => (
+                        <div key={label} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
+                            <span style={{ color: 'var(--monitor-text-secondary)' }}>{label}</span>
+                            <span>{value}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+    }
+
+    return <ApiCallLogPanel result={result} title="결과" />;
 }
 
 export default function AuthTestPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [manualAccessToken, setManualAccessToken] = useState('');
-    const [manualRefreshToken, setManualRefreshToken] = useState('');
-    const [writeConfirmed, setWriteConfirmed] = useState(false);
+    const [selected, setSelected]   = useState('login');
+    const [email, setEmail]         = useState('');
+    const [password, setPassword]   = useState('');
+    const [archiveFrom, setArchiveFrom] = useState('');
+    const [archiveTo, setArchiveTo]     = useState('');
+    const [archiveCount, setArchiveCount] = useState(null); // 건수 조회 결과
     const [runningAction, setRunningAction] = useState(null);
+    const [logs, setLogs]           = useState({});
 
-    const [cookieInfo, setCookieInfo] = useState(null);
-    const [fetchedAtMs, setFetchedAtMs] = useState(null);
-    const [accessDebugPayload, setAccessDebugPayload] = useState(null);
-    const [refreshDebugPayload, setRefreshDebugPayload] = useState(null);
-    const [actionLogs, setActionLogs] = useState({});
-
-    const [nowMs, setNowMs] = useState(() => Date.now());
-    const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < BREAKPOINT);
-
-    const patchLog = (key, log) => {
-        setActionLogs((prev) => ({ ...prev, [key]: log }));
-    };
-
-    const applyCookieSnapshotLog = (log) => {
-        if (log.ok && log.responseBody != null) {
-            setCookieInfo(log.responseBody);
-            setFetchedAtMs(Date.now());
-        }
-    };
-
-    useEffect(() => {
-        const timer = window.setInterval(() => {
-            setNowMs(Date.now());
-        }, 1000);
-        return () => window.clearInterval(timer);
-    }, []);
-
-    useEffect(() => {
-        const onResize = () => setIsNarrow(window.innerWidth < BREAKPOINT);
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
-    }, []);
-
-    const refreshRemainSeconds = (() => {
-        const ttl = cookieInfo?.refresh?.ttlSeconds;
-        if (ttl == null || fetchedAtMs == null) return null;
-        const elapsed = Math.max(0, Math.floor((nowMs - fetchedAtMs) / 1000));
-        return Math.max(0, ttl - elapsed);
-    })();
-
-    const handleCookieSnapshot = async () => {
-        if (runningAction) return;
-        setRunningAction('cookieSnapshot');
-        const log = await logApiCall(
-            'GET /api/admin/test/auth/debug/cookie-info',
-            () => fetchCookieDebug(),
-        );
-        patchLog('cookieSnapshot', log);
-        applyCookieSnapshotLog(log);
-        setRunningAction(null);
-    };
+    const busy = runningAction != null;
+    const patchLog = (key, log) => setLogs(prev => ({ ...prev, [key]: log }));
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        if (runningAction || !writeConfirmed) return;
-        const safeEmail = (email || '').trim();
-        if (!safeEmail) return;
-
+        if (busy || !email.trim()) return;
         setRunningAction('login');
-        setCookieInfo(null);
-        setFetchedAtMs(null);
-        setAccessDebugPayload(null);
-        setRefreshDebugPayload(null);
-
-        const log = await logApiCall(
-            `POST /api/auth/login (email: ${safeEmail})`,
-            () => login({ email: safeEmail, password }),
-        );
+        const log = await logApiCall('POST /api/auth/login', () => login({ email: email.trim(), password }));
         patchLog('login', log);
+        setRunningAction(null);
+    };
 
-        if (log.ok) {
-            const snap = await logApiCall(
-                'GET /api/admin/test/auth/debug/cookie-info',
-                () => fetchCookieDebug(),
+    const handleCookieSnapshot = async () => {
+        if (busy) return;
+        setRunningAction('cookieSnapshot');
+        const log = await logApiCall('GET /api/admin/test/auth/debug/cookie-info', fetchCookieDebug);
+        patchLog('cookieSnapshot', log);
+        setRunningAction(null);
+    };
+
+    // datetime-local 값을 Unix ms로 변환
+    const toMs = (datetimeLocal) => new Date(datetimeLocal).getTime();
+
+    const handleArchiveCount = async () => {
+        if (busy || !archiveFrom || !archiveTo) return;
+        setArchiveCount(null);
+        setRunningAction('archiveCount');
+        const log = await logApiCall('POST /api/admin/archive/count', () => fetchArchiveCount(toMs(archiveFrom), toMs(archiveTo)));
+        patchLog('archive', { ...log, _isCount: true }); // 건수 조회임을 구분
+        if (log.ok && log.responseBody?.count != null) {
+            setArchiveCount(log.responseBody.count);
+        }
+        setRunningAction(null);
+    };
+
+    const handleArchiveRun = async () => {
+        if (busy || archiveCount == null) return;
+        setRunningAction('archiveRun');
+        const log = await logApiCall('POST /api/admin/archive/run', () => runArchive(toMs(archiveFrom), toMs(archiveTo)));
+        patchLog('archive', log);
+        setArchiveCount(null); // 실행 후 건수 초기화
+        setRunningAction(null);
+    };
+
+    const renderForm = () => {
+        if (selected === 'login') {
+            return (
+                <>
+                    <div style={labelStyle}>로그인 테스트</div>
+                    <form onSubmit={handleLogin} style={{ display: 'grid', gap: '10px' }}>
+                        <input style={inputStyle} type="email" placeholder="email"
+                               value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" />
+                        <input style={inputStyle} type="password" placeholder="password"
+                               value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+                        <button style={primaryBtnStyle} type="submit" disabled={busy || !email.trim()}>
+                            {runningAction === 'login' ? '요청 중…' : 'Login'}
+                        </button>
+                    </form>
+                </>
             );
-            patchLog('cookieSnapshot', snap);
-            applyCookieSnapshotLog(snap);
         }
-
-        setRunningAction(null);
-    };
-
-    const handleRefreshAccessToken = async () => {
-        if (runningAction) return;
-        setRunningAction('refreshAccess');
-        const log = await logApiCall(
-            'POST /api/auth/refresh',
-            () => refreshAccessToken(),
-        );
-        patchLog('refreshAccess', log);
-        if (log.ok) {
-            const snap = await logApiCall(
-                'GET /api/admin/test/auth/debug/cookie-info',
-                () => fetchCookieDebug(),
+        if (selected === 'cookieSnapshot') {
+            return (
+                <>
+                    <div style={labelStyle}>현재 쿠키 상태 조회</div>
+                    <button style={primaryBtnStyle} onClick={handleCookieSnapshot} disabled={busy}>
+                        {runningAction === 'cookieSnapshot' ? '조회 중…' : 'Cookie Snapshot'}
+                    </button>
+                </>
             );
-            patchLog('cookieSnapshot', snap);
-            applyCookieSnapshotLog(snap);
         }
-        setRunningAction(null);
-    };
-
-    const handleLogout = async () => {
-        if (runningAction) return;
-        setRunningAction('logout');
-        const log = await logApiCall(
-            'POST /api/auth/logout',
-            () => logout(),
-        );
-        patchLog('logout', log);
-        setCookieInfo(null);
-        setFetchedAtMs(null);
-        setAccessDebugPayload(null);
-        setRefreshDebugPayload(null);
-        setRunningAction(null);
-    };
-
-    const handleInvalidateRefreshRedis = async () => {
-        if (runningAction) return;
-        setRunningAction('invalidateRefreshRedis');
-        const log = await logApiCall(
-            'POST /api/admin/test/auth/invalidate-refresh-redis',
-            () => invalidateRefreshRedisOnly(),
-        );
-        patchLog('invalidateRefreshRedis', log);
-        setRunningAction(null);
-    };
-
-    const handleDebugAccessToken = async () => {
-        if (runningAction) return;
-        const token = (manualAccessToken || '').trim();
-        if (!token) {
-            patchLog('debugAccessToken', {
-                ok: false,
-                startedAt: new Date().toISOString(),
-                durationMs: 0,
-                statusCode: null,
-                responseBody: null,
-                errorMessage: 'accessToken 입력이 비어 있습니다.',
-                requestSummary: 'POST /api/admin/test/auth/debug/access-token',
-            });
-            return;
-        }
-        setRunningAction('debugAccessToken');
-        const log = await logApiCall(
-            'POST /api/admin/test/auth/debug/access-token',
-            () => debugAccessToken(token),
-        );
-        patchLog('debugAccessToken', log);
-        if (log.ok && log.responseBody != null) {
-            setAccessDebugPayload(log.responseBody);
-        }
-        setRunningAction(null);
-    };
-
-    const handleDebugRefreshToken = async () => {
-        if (runningAction) return;
-        const token = (manualRefreshToken || '').trim();
-        if (!token) {
-            patchLog('debugRefreshToken', {
-                ok: false,
-                startedAt: new Date().toISOString(),
-                durationMs: 0,
-                statusCode: null,
-                responseBody: null,
-                errorMessage: 'refreshToken 입력이 비어 있습니다.',
-                requestSummary: 'POST /api/admin/test/auth/debug/refresh-token',
-            });
-            return;
-        }
-        setRunningAction('debugRefreshToken');
-        const log = await logApiCall(
-            'POST /api/admin/test/auth/debug/refresh-token',
-            () => debugRefreshToken(token),
-        );
-        patchLog('debugRefreshToken', log);
-        if (log.ok && log.responseBody != null) {
-            setRefreshDebugPayload(log.responseBody);
-        }
-        setRunningAction(null);
-    };
-
-    const handleDebugAccessFromCookie = async () => {
-        if (runningAction) return;
-        setRunningAction('debugAccessFromCookie');
-        const log = await logApiCall(
-            'POST /api/admin/test/auth/debug/access-token-from-cookie',
-            () => debugAccessTokenFromCookie(),
-        );
-        patchLog('debugAccessFromCookie', log);
-        if (log.ok && log.responseBody != null) {
-            setAccessDebugPayload(log.responseBody);
-        }
-        setRunningAction(null);
-    };
-
-    const handleDebugRefreshFromCookie = async () => {
-        if (runningAction) return;
-        setRunningAction('debugRefreshFromCookie');
-        const log = await logApiCall(
-            'POST /api/admin/test/auth/debug/refresh-token-from-cookie',
-            () => debugRefreshTokenFromCookie(),
-        );
-        patchLog('debugRefreshFromCookie', log);
-        if (log.ok && log.responseBody != null) {
-            setRefreshDebugPayload(log.responseBody);
-        }
-        setRunningAction(null);
-    };
-
-    const handleRunFullAuthCheck = async () => {
-        if (runningAction) return;
-        if (!writeConfirmed) return;
-        const safeEmail = (email || '').trim();
-        if (!safeEmail) return;
-
-        setRunningAction('fullCheck');
-        const steps = [];
-        const startedAtIso = new Date().toISOString();
-        const t0 = performance.now();
-
-        const lLogin = await logApiCall(
-            `POST /api/auth/login (email: ${safeEmail})`,
-            () => login({ email: safeEmail, password }),
-        );
-        steps.push(stepFromLog('login', lLogin));
-
-        if (!lLogin.ok) {
-            const totalMs = Math.round(performance.now() - t0);
-            patchLog(
-                'fullCheck',
-                buildSequenceLog(
-                    'Run Full Auth Check',
-                    startedAtIso,
-                    totalMs,
-                    steps,
-                    false,
-                    lLogin.errorMessage,
-                ),
+        if (selected === 'archive') {
+            const rangeReady = archiveFrom && archiveTo && archiveFrom < archiveTo;
+            return (
+                <>
+                    <div style={labelStyle}>S3 아카이빙 테스트</div>
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--monitor-text-secondary)' }}>시작 (from)</div>
+                        <input style={inputStyle} type="datetime-local"
+                               value={archiveFrom} onChange={e => { setArchiveFrom(e.target.value); setArchiveCount(null); }} />
+                    </div>
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--monitor-text-secondary)' }}>종료 (to, exclusive)</div>
+                        <input style={inputStyle} type="datetime-local"
+                               value={archiveTo} onChange={e => { setArchiveTo(e.target.value); setArchiveCount(null); }} />
+                    </div>
+                    <button style={primaryBtnStyle} onClick={handleArchiveCount} disabled={busy || !rangeReady}>
+                        {runningAction === 'archiveCount' ? '조회 중…' : '건수 조회'}
+                    </button>
+                    {archiveCount != null && (
+                        <div style={{ fontSize: '13px', color: 'var(--monitor-text-primary)' }}>
+                            대상: <strong>{archiveCount.toLocaleString()}건</strong>
+                        </div>
+                    )}
+                    <button
+                        style={{ ...primaryBtnStyle, opacity: archiveCount == null || archiveCount === 0 ? 0.4 : 1 }}
+                        onClick={handleArchiveRun}
+                        disabled={busy || archiveCount == null || archiveCount === 0}
+                    >
+                        {runningAction === 'archiveRun' ? '실행 중…' : '실행'}
+                    </button>
+                </>
             );
-            setRunningAction(null);
-            return;
         }
-
-        const lSnap1 = await logApiCall(
-            'GET /api/admin/test/auth/debug/cookie-info',
-            () => fetchCookieDebug(),
-        );
-        steps.push(stepFromLog('cookie_snapshot_1', lSnap1));
-        if (lSnap1.ok && lSnap1.responseBody) {
-            setCookieInfo(lSnap1.responseBody);
-            setFetchedAtMs(Date.now());
-        }
-
-        const lAcc = await logApiCall(
-            'POST /api/admin/test/auth/debug/access-token-from-cookie',
-            () => debugAccessTokenFromCookie(),
-        );
-        steps.push(stepFromLog('debug_access_from_cookie', lAcc));
-        if (lAcc.ok && lAcc.responseBody) {
-            setAccessDebugPayload(lAcc.responseBody);
-        }
-
-        const lRef = await logApiCall(
-            'POST /api/admin/test/auth/debug/refresh-token-from-cookie',
-            () => debugRefreshTokenFromCookie(),
-        );
-        steps.push(stepFromLog('debug_refresh_from_cookie', lRef));
-        if (lRef.ok && lRef.responseBody) {
-            setRefreshDebugPayload(lRef.responseBody);
-        }
-
-        const lRefresh = await logApiCall(
-            'POST /api/auth/refresh',
-            () => refreshAccessToken(),
-        );
-        steps.push(stepFromLog('refresh_access', lRefresh));
-
-        const lSnap2 = await logApiCall(
-            'GET /api/admin/test/auth/debug/cookie-info',
-            () => fetchCookieDebug(),
-        );
-        steps.push(stepFromLog('cookie_snapshot_2', lSnap2));
-        if (lSnap2.ok && lSnap2.responseBody) {
-            setCookieInfo(lSnap2.responseBody);
-            setFetchedAtMs(Date.now());
-        }
-
-        const totalMs = Math.round(performance.now() - t0);
-        const allOk = steps.every((s) => s.ok);
-        const firstFail = steps.find((s) => !s.ok);
-        patchLog(
-            'fullCheck',
-            buildSequenceLog(
-                'Run Full Auth Check',
-                startedAtIso,
-                totalMs,
-                steps,
-                allOk,
-                firstFail?.errorMessage,
-            ),
-        );
-        setRunningAction(null);
+        return null;
     };
-
-    const handleRunNegativeChecks = async () => {
-        if (runningAction) return;
-        setRunningAction('negativeChecks');
-        const steps = [];
-        const startedAtIso = new Date().toISOString();
-        const t0 = performance.now();
-
-        const lWrong = await logApiCall(
-            'POST /api/auth/login (wrong credentials)',
-            () => login({ email: 'wrong-auth-test@invalid.local', password: 'wrong-password-!@#' }),
-        );
-        steps.push(stepFromLog('wrong_login', lWrong));
-
-        const lOmit = await logApiCall(
-            'POST /api/auth/refresh (credentials: omit)',
-            () => refreshAccessTokenOmitCredentials(),
-        );
-        steps.push(stepFromLog('refresh_without_cookie', lOmit));
-
-        const lBadAccess = await logApiCall(
-            'POST /api/admin/test/auth/debug/access-token (malformed)',
-            () => debugAccessToken('not.a.valid.jwt'),
-        );
-        steps.push(stepFromLog('debug_access_malformed', lBadAccess));
-
-        const lBadRefresh = await logApiCall(
-            'POST /api/admin/test/auth/debug/refresh-token (malformed)',
-            () => debugRefreshToken('___malformed_refresh___'),
-        );
-        steps.push(stepFromLog('debug_refresh_malformed', lBadRefresh));
-
-        const totalMs = Math.round(performance.now() - t0);
-        const expectedFailLogin = !lWrong.ok;
-        const expectedFailRefresh = !lOmit.ok;
-        const suiteLogicalOk = expectedFailLogin && expectedFailRefresh && lBadAccess.ok && lBadRefresh.ok;
-        patchLog('negativeChecks', {
-            ok: suiteLogicalOk,
-            startedAt: startedAtIso,
-            durationMs: totalMs,
-            statusCode: null,
-            requestSummary: 'Run Negative Checks',
-            errorMessage: suiteLogicalOk
-                ? null
-                : '기대와 다른 결과(잘못된 로그인·쿠키 없는 refresh는 실패해야 함)',
-            responseBody: { steps },
-        });
-        setRunningAction(null);
-    };
-
-    const handleRegressionSupportSse = async () => {
-        if (runningAction) return;
-        setRunningAction('regressionSupportSse');
-        const raw = await logApiCall(
-            'GET /api/support/reply/sse?guestToken=invalid',
-            () => fetchSupportSseBadGuestToken(),
-        );
-        patchLog(
-            'regressionSupportSse',
-            enrichRegressionLog(
-                raw,
-                '비회귀 통과: AUTH_LOGIN_FAILED 미포함 (잘못된 guestToken은 종종 HTTP 500·미처리 예외)',
-            ),
-        );
-        setRunningAction(null);
-    };
-
-    const handleRegressionBinanceDate = async () => {
-        if (runningAction) return;
-        setRunningAction('regressionBinanceDate');
-        const raw = await logApiCall(
-            'GET /api/binance/trades?from=2024/01/15',
-            () => fetchBinanceTradesBadDate(),
-        );
-        patchLog(
-            'regressionBinanceDate',
-            enrichRegressionLog(
-                raw,
-                '비회귀 통과: AUTH_LOGIN_FAILED 미포함 (잘못된 날짜는 HTTP 400 + error 기대)',
-            ),
-        );
-        setRunningAction(null);
-    };
-
-    const regressionHint = useMemo(() => {
-        const parts = [
-            '비회귀 판정: 응답 본문이 로그인 실패 JSON(errorCode=AUTH_LOGIN_FAILED)이 아니면 통과입니다.',
-            '· Support SSE: 500이어도 정상일 수 있음(구 IllegalArgumentException이 auth 핸들러에 안 걸린 경우).',
-            '· Binance: 400 + error 필드면 도메인 검증 응답으로 정상입니다.',
-        ];
-        return parts.join('\n');
-    }, []);
 
     return (
-        <div style={pageRootStyle}>
-            <div>
-                <div style={pageTitleStyle}>Auth Test</div>
-                <div style={pageDescriptionStyle}>
-                    httpOnly 쿠키 기반. 실행 / 응답 분석 / 메트릭을 한 화면에서 확인합니다.
-                </div>
+        <div style={containerStyle}>
+            {/* 1열: 기능 목록 */}
+            <div style={colStyle}>
+                {FEATURES.map(f => (
+                    <button key={f.key} style={featureBtnStyle(selected === f.key)}
+                            onClick={() => setSelected(f.key)}>
+                        {f.label}
+                    </button>
+                ))}
             </div>
 
-            <div style={getGridStyle(isNarrow)}>
-                <AuthTestActionsColumn
-                    email={email}
-                    password={password}
-                    manualAccessToken={manualAccessToken}
-                    manualRefreshToken={manualRefreshToken}
-                    writeConfirmed={writeConfirmed}
-                    runningAction={runningAction}
-                    onEmailChange={setEmail}
-                    onPasswordChange={setPassword}
-                    onManualAccessTokenChange={setManualAccessToken}
-                    onManualRefreshTokenChange={setManualRefreshToken}
-                    onWriteConfirmedChange={setWriteConfirmed}
-                    onLogin={handleLogin}
-                    onCookieSnapshot={handleCookieSnapshot}
-                    onRefreshAccess={handleRefreshAccessToken}
-                    onLogout={handleLogout}
-                    onInvalidateRefreshRedis={handleInvalidateRefreshRedis}
-                    onDebugAccessToken={handleDebugAccessToken}
-                    onDebugRefreshToken={handleDebugRefreshToken}
-                    onDebugAccessFromCookie={handleDebugAccessFromCookie}
-                    onDebugRefreshFromCookie={handleDebugRefreshFromCookie}
-                    onRunFullAuthCheck={handleRunFullAuthCheck}
-                    onRunNegativeChecks={handleRunNegativeChecks}
-                    onRegressionSupportSse={handleRegressionSupportSse}
-                    onRegressionBinanceDate={handleRegressionBinanceDate}
-                />
-                <AuthTestAnalysisColumn
-                    cookieInfo={cookieInfo}
-                    refreshRemainSeconds={refreshRemainSeconds}
-                    accessDebugPayload={accessDebugPayload}
-                    refreshDebugPayload={refreshDebugPayload}
-                    regressionHint={regressionHint}
-                />
-                <AuthTestMetricsColumn actionLogs={actionLogs} />
+            {/* 2열: 입력 폼 */}
+            <div style={colStyle}>
+                {renderForm()}
+            </div>
+
+            {/* 3열: 결과 */}
+            <div style={colStyle}>
+                {logs[selected] ? <ResultPanel result={logs[selected]} featureKey={selected} /> : (
+                    <div style={{ color: 'var(--monitor-text-secondary)', fontSize: '13px' }}>결과가 여기에 표시됩니다.</div>
+                )}
             </div>
         </div>
     );

@@ -55,7 +55,6 @@ public class JwtTokenProvider {
         builder.expiration(accessTokenExpirationDate);
         builder.signWith(key);
 
-        log.warn("[Auth] access token created userId={} permissionCount={}", account.getId(), permissionCodes.size());
         return builder.compact();
     }
 
@@ -69,7 +68,6 @@ public class JwtTokenProvider {
         builder.issuedAt(now);
         builder.expiration(refreshTokenExpirationDate);
         builder.signWith(key);
-        log.warn("[Auth] refresh token created userId={}", userId);
         return builder.compact();
     }
 

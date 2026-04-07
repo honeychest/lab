@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OiBackfillService {
 
+    @Value("${binance.oi-backfill.enabled:true}")
+    private boolean enabled;
     private static final String LOCK_KEY    = "oi:backfill:lock";
     private static final String OI_HIST_URL = "https://fapi.binance.com/futures/data/openInterestHist";
     private static final String KLINES_URL  = "https://fapi.binance.com/fapi/v1/klines";
@@ -48,6 +51,7 @@ public class OiBackfillService {
 
     @PostConstruct
     public void init() {
+        if (!enabled) return;
         CompletableFuture.runAsync(() -> {
             try { Thread.sleep(10_000); } catch (InterruptedException ignored) {}
             runBackfill();

@@ -145,7 +145,7 @@ export default function MonitorPage() {
         : (containers.length === 0 ? '컨테이너 없음' : (anyContainerBad ? '⚠ 이상' : '● 전체 정상'));
 
     return (
-        <Layout footerCenter={['WebSocket', 'Redis', 'Actuator', 'Nginx', 'React']} enableSupport={false}>
+        <Layout footerCenter={['WebSocket', 'Redis', 'Actuator', 'Micrometer', 'RSS']} enableSupport={false}>
             <div className={styles.page}>
                 {!hasSnapshot && (
                     <div className={styles.waitOverlay} aria-live="polite">

@@ -49,6 +49,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'software.amazon.awssdk:s3:2.41.18' // AWS S3 사용
     implementation 'com.github.docker-java:docker-java:3.4.1'
     implementation 'com.github.docker-java:docker-java-transport-zerodep:3.4.1'
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
