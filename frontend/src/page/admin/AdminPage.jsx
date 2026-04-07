@@ -143,7 +143,7 @@ export default function AdminPage() {
                 }
                 setCanAccess(false);
             });
-    }, [navigate]);
+    }, [navigate, location.pathname]);
 
     useEffect(() => {
         setFlagsLoading(true);
@@ -391,6 +391,20 @@ export default function AdminPage() {
             <div className={styles.page}>
                 <div className={styles.grid}>
                     <section className={styles.main}>
+
+                        <div className={styles.card}>
+                            <div className={styles.titleRow}>
+                                <div className={styles.title}>수동 검증</div>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={() => navigate('/admin/test')}
+                                >
+                                    Admin Test 열기
+                                </button>
+                            </div>
+                            <p className={styles.desc}>인증·디버그 등 운영자 전용 확인 UI (`/admin/test`).</p>
+                        </div>
 
                         <div className={styles.card}>
                             <div className={styles.titleRow}>
