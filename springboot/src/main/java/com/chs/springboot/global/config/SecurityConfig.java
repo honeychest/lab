@@ -28,19 +28,17 @@ package com.chs.springboot.global.config;
 
 import com.chs.springboot.global.auth.jwt.JwtAuthenticationFilter;
 import com.chs.springboot.global.auth.jwt.JwtTokenProvider;
+import com.chs.springboot.global.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.resource.ResourceResolver;
 
 import java.util.Arrays;
 import java.util.List;
@@ -59,13 +57,15 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
     JwtTokenProvider jwtTokenProvider;
+    AuthService authService;
 
     // cors.allowed-origins 프로퍼티가 없으면 빈 리스트 → CORS 비활성화 (prod)
     @Value("${cors.allowed-origins:}")
     private String allowedOriginsRaw;
 
-    public SecurityConfig(JwtTokenProvider jwtTokenProvider) {
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider, AuthService authService) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.authService = authService;
     }
     /**
      * filterChain: Spring Security 필터 체인 설정 빈.
@@ -101,7 +101,7 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider, authService);
         http
             // CSRF 보호 비활성화 (REST API + WebSocket 사용 시 필요)
             // CSRF는 사용자가 로그인된 상태를 악용해서, 악성 사이트가 몰래 서버에 요청을 보내는 공격
@@ -139,17 +139,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        // 인코더 생성 -> 알고리즘을 SHA256 계열로 지정 -> 반환
-        return new Pbkdf2PasswordEncoder(
-                "", // 추가 secret(perpper) 없음
-                16, // salt 길이
-                610000, // 반복횟수 SWASP 권고 60만회 이상.
-                Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256 // 해시 알고리즘
-        );
-
     }
 }

@@ -7,6 +7,7 @@ import com.chs.springboot.global.auth.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +35,50 @@ public class AuthController {
             response.addCookie(refreshCookie);
         }
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Void> refresh(@CookieValue(name = "refreshToken", required = false) String refreshToken,
+                                        HttpServletResponse response) {
+        if (refreshToken == null) {
+            return ResponseEntity.status(401).build();
+        }
+        String newAccessToken = authService.refreshAccessToken(refreshToken);
+        Cookie accessCookie = new Cookie("accessToken", newAccessToken);
+        accessCookie.setHttpOnly(true);
+        accessCookie.setPath("/");
+        response.addCookie(accessCookie);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        authService.invalidateRefreshTokenIfPresent(refreshToken);
+        addExpiredCookie(response, "accessToken");
+        addExpiredCookie(response, "refreshToken");
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * refresh 쿠키 값에 해당하는 Redis 항목만 삭제한다. 쿠키는 브라우저에 남는다(무효화 후 동작 확인용).
+     */
+    @PostMapping("/invalidate-refresh")
+    public ResponseEntity<Void> invalidateRefresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken
+    ) {
+        authService.invalidateRefreshTokenIfPresent(refreshToken);
+        return ResponseEntity.ok().build();
+    }
+
+    private static void addExpiredCookie(HttpServletResponse response, String name) {
+        Cookie cookie = new Cookie(name, "");
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
     }
 
 }

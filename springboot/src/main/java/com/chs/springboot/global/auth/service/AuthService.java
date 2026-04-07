@@ -8,13 +8,16 @@ import com.chs.springboot.global.auth.dto.CookieDebugResponse;
 import com.chs.springboot.global.auth.dto.RefreshTokenDebugResponse;
 import com.chs.springboot.global.auth.entity.UserAccount;
 import com.chs.springboot.global.auth.entity.UserAccountPermission;
+import com.chs.springboot.global.auth.exception.AuthException;
 import com.chs.springboot.global.auth.jwt.JwtTokenProvider;
 import com.chs.springboot.global.auth.repository.UserAccountPermissionRepository;
 import com.chs.springboot.global.auth.repository.UserAccountRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,13 +59,17 @@ public class AuthService {
                       - null/조건 검사는 if 문으로 명시
                       - 람다, 체이닝, 스트림, 삼항 연산자 사용 금지
                       - [람다 없이] [체이닝 없이] [단계형 변수로] [if 문 우선] 이런걸 요청하면 저렇게 풀어준다고함 */
-                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(() -> new AuthException("이메일 또는 비밀번호가 올바르지 않습니다.", "AUTH_LOGIN_FAILED"));
         log.warn("[Auth] account lookup success userId={} enabled={}", account.getId(), account.getEnabled());
         if(!account.getEnabled()){
-            throw new IllegalArgumentException("비활성화 된 계정입니다. 관리자에게 문의해주세요.");
+            throw new AuthException(
+                    "비활성화 된 계정입니다. 관리자에게 문의해주세요.",
+                    "AUTH_ACCOUNT_DISABLED",
+                    HttpStatus.FORBIDDEN
+            );
         }
         if(!passwordEncoder.matches(password, account.getPasswordHash())){
-            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
+            throw new AuthException("이메일 또는 비밀번호가 올바르지 않습니다.", "AUTH_LOGIN_FAILED");
         }
         log.warn("[Auth] password verified userId={}", account.getId());
         List<UserAccountPermission> userAccountPermissions = userAccountPermissionRepository.findByUserAccount(account);
@@ -91,7 +98,7 @@ public class AuthService {
 
     public void setRedisRefreshToken(String userId, AuthTokenPair authTokenPair){
         String refreshToken = authTokenPair.getRefreshToken();
-        String redisKey = "refresh:"+refreshToken;
+        String redisKey = "auth:refresh:"+refreshToken;
         // 여기서 사용된 REDIS 의 set은 "key", "value", "유지시간(초)"
         stringRedisTemplate.opsForValue().set(
                 redisKey,
@@ -103,12 +110,53 @@ public class AuthService {
     }
 
     public RefreshTokenDebugResponse getRefreshTokenDebug(String refreshToken) {
-        String redisKey = "refresh:" + refreshToken;
+        String redisKey = "auth:refresh:" + refreshToken;
         String userId = stringRedisTemplate.opsForValue().get(redisKey);
         Long ttlSeconds = stringRedisTemplate.getExpire(redisKey, TimeUnit.SECONDS);
         boolean exists = userId != null;
         log.warn("[Auth] refresh token debug exists={} ttlSeconds={}", exists, ttlSeconds);
         return new RefreshTokenDebugResponse(redisKey, userId, ttlSeconds, exists);
+    }
+
+    // accessToken 재발급
+    @Transactional(readOnly = true)
+    public String refreshAccessToken(String refreshToken) {
+        log.warn("[Auth] refreshAccessToken start tokenLength={}", refreshToken != null ? refreshToken.length() : 0);
+        boolean valid = jwtTokenProvider.validateToken(refreshToken);
+        log.warn("[Auth] refreshAccessToken validateToken={}", valid);
+        if (!valid) {
+            throw new AuthException("유효하지 않은 refresh token 입니다.", "AUTH_REFRESH_INVALID");
+        }
+
+        String redisKey = "auth:refresh:" + refreshToken;
+        String userIdStr = stringRedisTemplate.opsForValue().get(redisKey);
+        log.warn("[Auth] refreshAccessToken redis lookup key=auth:refresh:***{} found={}", refreshToken.substring(Math.max(0, refreshToken.length()-8)), userIdStr != null);
+        if (userIdStr == null) {
+            throw new AuthException("만료되었거나 존재하지 않는 refresh token 입니다.", "AUTH_REFRESH_NOT_FOUND");
+        }
+
+        Long userId = Long.valueOf(userIdStr);
+        UserAccount account = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new AuthException("사용자를 찾을 수 없습니다.", "AUTH_USER_NOT_FOUND"));
+
+        if (!account.getEnabled()) {
+            throw new AuthException(
+                    "비활성화 된 계정입니다. 관리자에게 문의해주세요.",
+                    "AUTH_ACCOUNT_DISABLED",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
+        List<UserAccountPermission> userAccountPermissions = userAccountPermissionRepository.findByUserAccount(account);
+        List<String> permissionCodes = new ArrayList<>();
+        for (UserAccountPermission userAccountPermission : userAccountPermissions) {
+            permissionCodes.add(userAccountPermission.getUserPermission().getCode());
+        }
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(account, permissionCodes);
+        String newAccessToken = jwtTokenProvider.createAccessToken(authenticatedUser);
+        log.warn("[Auth] access token refreshed userId={}", userId);
+        return newAccessToken;
     }
 
     public AccessTokenDebugResponse getAccessTokenDebug(String accessToken) {
@@ -144,6 +192,16 @@ public class AuthService {
 
         log.warn("[Auth] cookie debug access.valid={} refresh.stored={}", accessInfo.isValid(), refreshInfo.isStored());
         return new CookieDebugResponse(accessInfo, refreshInfo);
+    }
+
+    /** Redis에 저장된 refresh 토큰 매핑만 삭제한다. httpOnly 쿠키는 그대로 둔다(테스트·진단용). */
+    public void invalidateRefreshTokenIfPresent(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+        String redisKey = "auth:refresh:" + refreshToken;
+        Boolean deleted = stringRedisTemplate.delete(redisKey);
+        log.warn("[Auth] refresh redis invalidate key={} deleted={}", redisKey, deleted);
     }
 
 }
