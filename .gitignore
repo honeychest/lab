@@ -15,7 +15,11 @@ geminirules.md
 /.claude/roles
 # 로컬 전용 테스트 파일 (저장소에 없어도 두는 ignore 는 정상)
 springboot/src/test/java/com/chs/springboot/unitTest.java
-.idea/
+.idea/*
+!.idea/vcs.xml
+!.idea/modules.xml
+!.idea/compiler.xml
+!.idea/misc.xml
 .cursor/
 .cursorignore*
 .history/
