@@ -124,10 +124,12 @@ public class SecurityConfig {
     }
     // CORS 관련 허용해주려고 했는데 서버는 nginx 가
     // nginx가 프론트(https://devcontext.duckdns.org)와 /api 백엔드를 같은 도메인으로 묶어주기 때문에 same-origin
-    // 그래서 로컬테스트용으로 만듦
+    // prod: cors.allowed-origins 미설정 → 등록 없음 → CORS 필터 통과
+    // local: cors.allowed-origins 설정 시 해당 origin만 허용
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         // cors.allowed-origins 가 비어있으면 아무 origin도 허용 안 함 (prod)
         if (!allowedOriginsRaw.isBlank()) {
             List<String> origins = Arrays.asList(allowedOriginsRaw.split(","));
@@ -135,9 +137,8 @@ public class SecurityConfig {
             config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
             config.setAllowedHeaders(List.of("*"));
             config.setAllowCredentials(true); // withCredentials: true 와 쌍으로 필요
+            source.registerCorsConfiguration("/**", config);
         }
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }
