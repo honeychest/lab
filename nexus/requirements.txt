@@ -11,3 +11,5 @@ pydantic-settings
 google-genai
 yt-dlp
 groq
+redis[asyncio]
+apscheduler

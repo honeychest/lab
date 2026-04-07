@@ -1,0 +1,85 @@
+import json
+import logging
+import random
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+
+from handlers.text_handler import (
+    KEY_QUIZ_COUNT,
+    KEY_QUIZ_PAUSE,
+    KEY_QUIZ_SESSION,
+    KEY_QUIZ_STATE,
+    DAILY_QUIZ_LIMIT,
+    _k,
+    _seconds_until_midnight,
+    redis,
+)
+from services import ai_service, notion_service
+
+logger = logging.getLogger(__name__)
+
+
+async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/quiz 명령어 — 카운트 초기화 후 즉시 첫 문제 출제."""
+    chat_id = update.effective_chat.id
+    ttl = _seconds_until_midnight()
+
+    # 기존 퀴즈 세션/일시정지 초기화
+    await redis.delete(_k(KEY_QUIZ_PAUSE, chat_id))
+
+    # 오늘 퀴즈 카운트 초기화 (20개)
+    await redis.set(_k(KEY_QUIZ_COUNT, chat_id), DAILY_QUIZ_LIMIT, ex=ttl)
+
+    # 전체 단어 조회 (자동출제 대상 제외, 다음리뷰일 오름차순)
+    all_words = await notion_service.get_all_words()
+    if not all_words:
+        await update.message.reply_text("단어장이 비어있어요! 단어를 추가해봐요 😊")
+        return
+
+    # 상위 100개 내에서 셔플 (오래된 단어 위주이면서 매번 순서 다르게)
+    pool = all_words[:100]
+    random.shuffle(pool)
+
+    # 유효한 첫 번째 단어 찾기 (비어있는 페이지 건너뜀)
+    parsed = None
+    for candidate in pool:
+        parsed = notion_service.parse_word_page(candidate)
+        if parsed:
+            break
+
+    if not parsed:
+        await update.message.reply_text("유효한 단어가 없어요. 단어를 추가해봐요 😊")
+        return
+
+    word       = parsed["word"]       # 정답 단어
+    meaning_ko = parsed["meaning_ko"] # 한국어 뜻
+    stage      = parsed["stage"]      # 현재 단계
+    page_id    = parsed["page_id"]    # Notion page_id
+
+    loading = await update.message.reply_text("다음 문제 출제 중... ⏳")
+    question = await ai_service.generate_quiz(word, meaning_ko, stage)
+    await loading.delete()
+
+    # 퀴즈 세션 저장
+    await redis.set(
+        _k(KEY_QUIZ_SESSION, chat_id),
+        json.dumps({"word": word, "meaning_ko": meaning_ko, "stage": stage, "page_id": page_id, "question": question, "mode": "quiz"}),
+        ex=ttl,
+    )
+    await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
+
+    # 첫 문제 출제
+    buttons = [
+        [
+            InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
+            InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
+            InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
+        ],
+    ]
+    body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
+    await update.message.reply_text(
+        f"[🔄] {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{body}",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+    logger.info(f"/quiz 시작 — chat_id: {chat_id}, 단어: {word}, 단계: {stage}")
