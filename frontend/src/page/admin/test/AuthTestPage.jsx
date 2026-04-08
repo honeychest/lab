@@ -176,7 +176,7 @@ export default function AuthTestPage() {
     const [archiveFrom, setArchiveFrom] = useState('');
     const [archiveTo, setArchiveTo]     = useState('');
     const [archiveCount, setArchiveCount] = useState(null); // 건수 조회 결과
-    const [scanFiles, setScanFiles]     = useState(null);  // scan-preview 결과
+    const [_scanFiles, setScanFiles]     = useState(null);  // scan-preview 결과
     const [runningAction, setRunningAction] = useState(null);
     const [logs, setLogs]           = useState({});
 
