@@ -13,6 +13,7 @@ build/
 .settings
 .springBeans
 .sts4-cache
+
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
@@ -37,3 +38,6 @@ out/
 .vscode/
 # 보안 및 환경 변수 설정 파일 추가
 .env
+
+# settings.json 자꾸떠서 추가
+.claude/

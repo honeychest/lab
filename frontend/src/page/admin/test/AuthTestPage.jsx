@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { login, fetchCookieDebug } from '@/api/adminTest/auth.js';
-import { fetchArchiveCount, runArchive } from '@/api/adminTest/archive.js';
+import { fetchArchiveCount, runArchive, runArchiveUpload, fetchScanPreview, runScan } from '@/api/adminTest/archive.js';
 import { logApiCall } from './shared/logApiCall.js';
 import ApiCallLogPanel from './shared/ApiCallLogPanel.jsx';
 
 const FEATURES = [
-    { key: 'login', label: '로그인' },
+    { key: 'login',        label: '로그인' },
     { key: 'cookieSnapshot', label: 'Cookie Snapshot' },
-    { key: 'archive', label: 'S3 아카이빙' },
+    { key: 'archive',     label: 'S3 아카이빙' },
+    { key: 'archiveScan', label: 'S3 스캔' },
 ];
 
 const containerStyle = {
@@ -128,6 +129,43 @@ function ResultPanel({ result, featureKey }) {
         }
     }
 
+    if (featureKey === 'archiveScan') {
+        const body = result.responseBody;
+        if (!result.ok) {
+            return (
+                <div style={{ fontSize: '13px', color: 'var(--monitor-severity-critical)' }}>
+                    오류: {result.errorMessage ?? '알 수 없는 오류'}
+                </div>
+            );
+        }
+        // DB 초기화 스캔 결과
+        if (body?.inserted != null) {
+            return (
+                <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--monitor-primary)' }}>스캔 완료</div>
+                    <div>삽입: <strong>{body.inserted}건</strong></div>
+                    <div>스킵: <strong>{body.skipped}건</strong></div>
+                </div>
+            );
+        }
+        // 미리보기 결과
+        if (Array.isArray(body)) {
+            return (
+                <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--monitor-primary)' }}>S3 파일 {body.length}개</div>
+                    {body.map(f => (
+                        <div key={f.s3Key} style={{ borderTop: '1px solid var(--monitor-border)', paddingTop: '6px', display: 'grid', gap: '2px' }}>
+                            <div style={{ color: 'var(--monitor-text-secondary)', wordBreak: 'break-all' }}>{f.s3Key}</div>
+                            <div>범위: {f.rangeStart?.substring(0, 19)} ~ {f.rangeEnd?.substring(0, 19)}</div>
+                            <div>크기: {f.fileSizeBytes != null ? `${(f.fileSizeBytes / 1024).toFixed(1)} KB` : '-'}</div>
+                            <div>complete: <strong style={{ color: f.complete === 'Y' ? 'var(--monitor-primary)' : f.complete === 'N' ? 'var(--monitor-severity-warning)' : 'var(--monitor-text-secondary)' }}>{f.complete ?? '미등록'}</strong></div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+    }
+
     return <ApiCallLogPanel result={result} title="결과" />;
 }
 
@@ -138,6 +176,7 @@ export default function AuthTestPage() {
     const [archiveFrom, setArchiveFrom] = useState('');
     const [archiveTo, setArchiveTo]     = useState('');
     const [archiveCount, setArchiveCount] = useState(null); // 건수 조회 결과
+    const [scanFiles, setScanFiles]     = useState(null);  // scan-preview 결과
     const [runningAction, setRunningAction] = useState(null);
     const [logs, setLogs]           = useState({});
 
@@ -181,7 +220,36 @@ export default function AuthTestPage() {
         setRunningAction('archiveRun');
         const log = await logApiCall('POST /api/admin/archive/run', () => runArchive(toMs(archiveFrom), toMs(archiveTo)));
         patchLog('archive', log);
-        setArchiveCount(null); // 실행 후 건수 초기화
+        setArchiveCount(null);
+        setRunningAction(null);
+    };
+
+    const handleArchiveUpload = async () => {
+        if (busy || archiveCount == null) return;
+        setRunningAction('archiveUpload');
+        const log = await logApiCall('POST /api/admin/archive/upload', () => runArchiveUpload(toMs(archiveFrom), toMs(archiveTo)));
+        patchLog('archive', log);
+        setArchiveCount(null);
+        setRunningAction(null);
+    };
+
+    const handleScanPreview = async () => {
+        if (busy) return;
+        setScanFiles(null);
+        setRunningAction('scanPreview');
+        const log = await logApiCall('GET /api/admin/archive/scan-preview', fetchScanPreview);
+        patchLog('archiveScan', log);
+        if (log.ok && Array.isArray(log.responseBody)) {
+            setScanFiles(log.responseBody);
+        }
+        setRunningAction(null);
+    };
+
+    const handleScanRun = async () => {
+        if (busy) return;
+        setRunningAction('scanRun');
+        const log = await logApiCall('POST /api/admin/archive/scan', runScan);
+        patchLog('archiveScan', log);
         setRunningAction(null);
     };
 
@@ -240,7 +308,31 @@ export default function AuthTestPage() {
                         onClick={handleArchiveRun}
                         disabled={busy || archiveCount == null || archiveCount === 0}
                     >
-                        {runningAction === 'archiveRun' ? '실행 중…' : '실행'}
+                        {runningAction === 'archiveRun' ? '실행 중…' : '실행 (업로드+삭제)'}
+                    </button>
+                    <button
+                        style={{ ...primaryBtnStyle, opacity: archiveCount == null || archiveCount === 0 ? 0.4 : 1 }}
+                        onClick={handleArchiveUpload}
+                        disabled={busy || archiveCount == null || archiveCount === 0}
+                    >
+                        {runningAction === 'archiveUpload' ? '실행 중…' : '업로드만 (삭제 없음)'}
+                    </button>
+                </>
+            );
+        }
+        if (selected === 'archiveScan') {
+            return (
+                <>
+                    <div style={labelStyle}>S3 스캔 테스트</div>
+                    <button style={primaryBtnStyle} onClick={handleScanPreview} disabled={busy}>
+                        {runningAction === 'scanPreview' ? '조회 중…' : 'S3 파일 미리보기'}
+                    </button>
+                    <button
+                        style={{ ...primaryBtnStyle, background: 'var(--monitor-severity-warning)', opacity: 0.9 }}
+                        onClick={handleScanRun}
+                        disabled={busy}
+                    >
+                        {runningAction === 'scanRun' ? '스캔 중…' : 'DB 초기화 스캔 (1회용)'}
                     </button>
                 </>
             );

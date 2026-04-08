@@ -12,6 +12,8 @@ public record MetricSnapshot(
         Long diskFreeBytes,
         Long rawAggTradeRows,
         Long rawAggTradeBytes,
+        Long rawAggTradeS3Rows,
+        Long rawAggTradeS3Bytes,
         Long redisQueue,
         List<RedisKv> redisKeys,
         Integer wsConnections,

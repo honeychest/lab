@@ -111,6 +111,8 @@ export default function MonitorPage() {
     const business = useMemo(() => ({
         rawAggTradeRows: snapshot?.rawAggTradeRows ?? null,
         rawAggTradeBytes: snapshot?.rawAggTradeBytes ?? null,
+        rawAggTradeS3Rows: snapshot?.rawAggTradeS3Rows ?? null,
+        rawAggTradeS3Bytes: snapshot?.rawAggTradeS3Bytes ?? null,
         redisQueue: snapshot?.redisQueue ?? null,
         redisKeys: snapshot?.redisKeys ?? [],
         wsConnections: snapshot?.wsConnections ?? null,
@@ -186,7 +188,7 @@ export default function MonitorPage() {
                             <div className={styles.tableMeta}>
                                 <span className={styles.tableMetaLabel}>RawAggTrade</span>
                                 <span className={styles.tableMetaValue}>
-                                    ROWS(스냅샷) {fmtCount(business.rawAggTradeRows)} · SIZE {fmtBytes(business.rawAggTradeBytes)}
+                                    ROWS(스냅샷) {fmtCount(business.rawAggTradeRows)} · SIZE {fmtBytes(business.rawAggTradeBytes)} · S3이관 {fmtCount(business.rawAggTradeS3Rows)} · {fmtGb(business.rawAggTradeS3Bytes)}
                                 </span>
                             </div>
                         )}

@@ -1,10 +1,15 @@
-// [AGENT] 역할: raw_agg_trade 데이터를 CSV로 변환 → S3 업로드 → DB 삭제 | 연관파일: RawAggTradeRepository.java, S3Config.java, RawAggTradeArchiveScheduler.java
+// [AGENT] 역할: raw_agg_trade 데이터를 CSV로 변환 → S3 업로드 → DB 삭제 | 연관파일: RawAggTradeRepository.java, S3ArchiveLogRepository.java, S3Config.java, RawAggTradeArchiveScheduler.java
 // S3 key: raw_agg_trade/{startMs}_{endMs}.csv (고정키 → 재시작 시 덮어쓰기로 안전)
 // 배치 삭제 중 CPU > DELETE_CPU_MAX_PERCENT(90%) 초과 시 중단, 다음 스케줄 주기에 이어서 실행
+// uploadAndLog: S3 업로드 + archive_log INSERT(complete='N') — 삭제 없음
+// deleteAndComplete: DB 삭제 + archive_log UPDATE(complete='Y')
+// archive: uploadAndLog + deleteAndComplete 순서대로 호출 (스케줄러용)
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.model.RawAggTrade;
+import com.chs.springboot.domain.binance.model.S3ArchiveLog;
 import com.chs.springboot.domain.binance.repository.RawAggTradeRepository;
+import com.chs.springboot.domain.binance.repository.S3ArchiveLogRepository;
 import com.chs.springboot.global.monitor.service.MetricCollectorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,9 +26,11 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -32,57 +39,61 @@ public class S3ArchiveService {
     private static final int PAGE_SIZE = 5_000;
     private static final int DELETE_BATCH_SIZE = 5_000;
     private static final int DELETE_INTERVAL_MS = 50;
-    private static final double DELETE_CPU_MAX_PERCENT = 90.0; // 배치 삭제 중 CPU 재체크 임계값
-    private static final int DELETE_CPU_WAIT_MS = 10_000;      // CPU 초과 시 대기 시간 (10초)
-    private static final DateTimeFormatter KEY_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").withZone(ZoneOffset.UTC);
+    private static final double DELETE_CPU_MAX_PERCENT = 90.0;
+    private static final int DELETE_CPU_WAIT_MS = 10_000;
+    private static final DateTimeFormatter KEY_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").withZone(ZoneOffset.UTC);
 
     private final S3Client s3Client;
     private final RawAggTradeRepository rawAggTradeRepository;
+    private final S3ArchiveLogRepository s3ArchiveLogRepository;
     private final MetricCollectorService metricCollectorService;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
-    public S3ArchiveService(S3Client s3Client, RawAggTradeRepository rawAggTradeRepository,
+    public S3ArchiveService(S3Client s3Client,
+                            RawAggTradeRepository rawAggTradeRepository,
+                            S3ArchiveLogRepository s3ArchiveLogRepository,
                             MetricCollectorService metricCollectorService) {
         this.s3Client = s3Client;
         this.rawAggTradeRepository = rawAggTradeRepository;
+        this.s3ArchiveLogRepository = s3ArchiveLogRepository;
         this.metricCollectorService = metricCollectorService;
     }
 
     /**
-     * 지정 범위의 raw_agg_trade 데이터를 S3에 업로드하고 DB에서 삭제한다.
-     * 스케줄러/수동 실행 모두 이 메서드를 통해 동일한 로직으로 처리한다.
+     * S3 업로드 + archive_log INSERT (complete='N').
+     * 삭제는 하지 않는다. deleteAndComplete() 를 별도 호출해야 함.
      *
-     * S3 key가 startMs/endMs 기반으로 고정되므로 중간 재시작 시 덮어쓰기로 안전.
+     * S3 key가 이미 존재하면 업로드는 스킵하고 archive_log만 INSERT(없을 때만).
      *
-     * @param startMs 시작 Unix ms (inclusive)
-     * @param endMs   종료 Unix ms (exclusive)
+     * @param startMs     시작 Unix ms (inclusive)
+     * @param endMs       종료 Unix ms (exclusive)
+     * @param triggerType 실행 유형 (SCHEDULER / MANUAL / SCANNER)
      * @return 처리 결과
      */
-    public ArchiveResult archive(long startMs, long endMs) {
+    public UploadResult uploadAndLog(long startMs, long endMs, String triggerType) {
         String rangeLabel = KEY_FORMATTER.format(Instant.ofEpochMilli(startMs))
                 + "_" + KEY_FORMATTER.format(Instant.ofEpochMilli(endMs));
         String s3Key = "raw_agg_trade/" + rangeLabel + ".csv";
         File tempFile = null;
-        long totalStart = System.currentTimeMillis();
 
         try {
             // 1. 건수 조회
-            long countStart = System.currentTimeMillis();
             long totalCount = rawAggTradeRepository.countByTradedAtRange(startMs, endMs);
-            long countElapsedMs = System.currentTimeMillis() - countStart;
-
             if (totalCount == 0) {
                 log.warn("[Archive] 대상 데이터 없음 — 스킵: range={}", rangeLabel);
-                return ArchiveResult.skipped(rangeLabel);
+                return UploadResult.skipped(rangeLabel);
             }
 
-            // 2. S3 key 존재 확인 — 이미 업로드된 경우 CSV 생성/업로드 스킵 (재시작 복구용)
-            long uploadElapsedMs = 0;
+            // 2. S3 업로드
             long fileSize = 0;
+            long uploadElapsedMs = 0;
             if (s3KeyExists(s3Key)) {
-                log.warn("[Archive] S3 key 이미 존재 — 업로드 스킵, 삭제만 진행: key={}", s3Key);
+                log.warn("[Archive] S3 key 이미 존재 — 업로드 스킵: key={}", s3Key);
+                // HeadObject로 기존 파일 크기 조회
+                fileSize = getS3FileSize(s3Key);
             } else {
                 long uploadStart = System.currentTimeMillis();
                 tempFile = writeToCsvTempFile(startMs, endMs, rangeLabel);
@@ -93,29 +104,37 @@ public class S3ArchiveService {
                         .key(s3Key)
                         .storageClass(StorageClass.STANDARD)
                         .build();
-
                 s3Client.putObject(putRequest, RequestBody.fromFile(tempFile));
                 uploadElapsedMs = System.currentTimeMillis() - uploadStart;
-                log.warn("[Archive] S3 업로드 완료: key={} size={}bytes elapsed={}ms", s3Key, fileSize, uploadElapsedMs);
+                log.warn("[Archive] S3 업로드 완료: key={} size={}bytes elapsed={}ms",
+                        s3Key, fileSize, uploadElapsedMs);
             }
 
-            // 3. DB 삭제
-            long deleteStart = System.currentTimeMillis();
-            int totalDeleted = deleteInBatches(startMs, endMs, rangeLabel);
-            long deleteElapsedMs = System.currentTimeMillis() - deleteStart;
+            // 3. archive_log INSERT (없을 때만 — s3Key 중복 방지)
+            if (!s3ArchiveLogRepository.existsByS3Key(s3Key)) {
+                LocalDateTime rangeStartDt = LocalDateTime.ofInstant(Instant.ofEpochMilli(startMs), ZoneOffset.UTC);
+                LocalDateTime rangeEndDt   = LocalDateTime.ofInstant(Instant.ofEpochMilli(endMs),   ZoneOffset.UTC);
 
-            long totalElapsedMs = System.currentTimeMillis() - totalStart;
-            long perRecordMs = totalCount > 0 ? totalElapsedMs / totalCount : 0;
+                S3ArchiveLog archiveLog = new S3ArchiveLog();
+                archiveLog.setTableName("raw_agg_trade");
+                archiveLog.setS3Key(s3Key);
+                archiveLog.setRangeLabel(rangeLabel);
+                archiveLog.setRangeStart(rangeStartDt);
+                archiveLog.setRangeEnd(rangeEndDt);
+                archiveLog.setRowCount(totalCount);
+                archiveLog.setFileSizeBytes(fileSize);
+                archiveLog.setTriggerType(triggerType);
+                archiveLog.setComplete("N");
+                archiveLog.setUploadedAt(LocalDateTime.now(ZoneOffset.UTC));
+                s3ArchiveLogRepository.save(archiveLog);
+                log.warn("[Archive] archive_log INSERT: key={} rowCount={}", s3Key, totalCount);
+            }
 
-            log.warn("[Archive] 완료: range={} count={} total={}ms upload={}ms delete={}ms perRecord={}ms",
-                    rangeLabel, totalDeleted, totalElapsedMs, uploadElapsedMs, deleteElapsedMs, perRecordMs);
-
-            return ArchiveResult.success(rangeLabel, s3Key, totalCount, totalDeleted, fileSize,
-                    countElapsedMs, uploadElapsedMs, deleteElapsedMs, totalElapsedMs, perRecordMs);
+            return UploadResult.success(rangeLabel, s3Key, totalCount, fileSize, uploadElapsedMs);
 
         } catch (Exception e) {
-            log.error("[Archive] 실패: range={} error={}", rangeLabel, e.getMessage());
-            return ArchiveResult.failure(rangeLabel, e.getMessage());
+            log.error("[Archive] 업로드 실패: range={} error={}", rangeLabel, e.getMessage());
+            return UploadResult.failure(rangeLabel, e.getMessage());
 
         } finally {
             if (tempFile != null && tempFile.exists()) {
@@ -124,12 +143,85 @@ public class S3ArchiveService {
         }
     }
 
+    /**
+     * DB 삭제 + archive_log UPDATE complete='Y'.
+     * uploadAndLog() 가 완료된 이후에 호출한다.
+     *
+     * @param startMs 시작 Unix ms (inclusive)
+     * @param endMs   종료 Unix ms (exclusive)
+     * @param s3Key   archive_log 조회용 S3 key
+     * @return 삭제된 행 수
+     */
+    public int deleteAndComplete(long startMs, long endMs, String s3Key) {
+        String rangeLabel = s3Key.replace("raw_agg_trade/", "").replace(".csv", "");
+
+        // DB 삭제
+        int totalDeleted = deleteInBatches(startMs, endMs, rangeLabel);
+
+        // archive_log UPDATE complete='Y'
+        Optional<S3ArchiveLog> logOpt = s3ArchiveLogRepository.findByS3Key(s3Key);
+        if (logOpt.isPresent()) {
+            S3ArchiveLog archiveLog = logOpt.get();
+            archiveLog.setComplete("Y");
+            s3ArchiveLogRepository.save(archiveLog);
+            log.warn("[Archive] archive_log complete='Y' 업데이트: key={}", s3Key);
+        } else {
+            log.warn("[Archive] archive_log 레코드 없음 — complete 업데이트 스킵: key={}", s3Key);
+        }
+
+        return totalDeleted;
+    }
+
+    /**
+     * 업로드 + 삭제 전체 실행. 스케줄러 및 수동 실행(전체) 용도.
+     *
+     * @param startMs     시작 Unix ms (inclusive)
+     * @param endMs       종료 Unix ms (exclusive)
+     * @param triggerType 실행 유형 (SCHEDULER / MANUAL)
+     * @return 처리 결과
+     */
+    public ArchiveResult archive(long startMs, long endMs, String triggerType) {
+        long totalStart = System.currentTimeMillis();
+
+        UploadResult uploadResult = uploadAndLog(startMs, endMs, triggerType);
+
+        if (!uploadResult.success() || uploadResult.skipped()) {
+            return ArchiveResult.fromUploadResult(uploadResult);
+        }
+
+        long deleteStart = System.currentTimeMillis();
+        int totalDeleted = deleteAndComplete(startMs, endMs, uploadResult.s3Key());
+        long deleteElapsedMs = System.currentTimeMillis() - deleteStart;
+
+        long totalElapsedMs = System.currentTimeMillis() - totalStart;
+        long perRecordMs = uploadResult.totalCount() > 0 ? totalElapsedMs / uploadResult.totalCount() : 0;
+
+        log.warn("[Archive] 완료: range={} count={} total={}ms upload={}ms delete={}ms perRecord={}ms",
+                uploadResult.rangeLabel(), totalDeleted, totalElapsedMs,
+                uploadResult.uploadElapsedMs(), deleteElapsedMs, perRecordMs);
+
+        return ArchiveResult.success(uploadResult.rangeLabel(), uploadResult.s3Key(),
+                uploadResult.totalCount(), totalDeleted, uploadResult.fileSizeBytes(),
+                uploadResult.uploadElapsedMs(), deleteElapsedMs, totalElapsedMs, perRecordMs);
+    }
+
+    // ---- private ----
+
     private boolean s3KeyExists(String s3Key) {
         try {
             s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(s3Key).build());
             return true;
         } catch (NoSuchKeyException e) {
             return false;
+        }
+    }
+
+    private long getS3FileSize(String s3Key) {
+        try {
+            return s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(s3Key).build())
+                    .contentLength();
+        } catch (Exception e) {
+            return 0;
         }
     }
 
@@ -143,7 +235,8 @@ public class S3ArchiveService {
             writer.newLine();
 
             while (true) {
-                List<RawAggTrade> page = rawAggTradeRepository.findByTradedAtRangeAfterIdPaged(startMs, endMs, lastId, PAGE_SIZE);
+                List<RawAggTrade> page = rawAggTradeRepository.findByTradedAtRangeAfterIdPaged(
+                        startMs, endMs, lastId, PAGE_SIZE);
                 if (page.isEmpty()) {
                     break;
                 }
@@ -172,7 +265,6 @@ public class S3ArchiveService {
         int totalDeleted = 0;
 
         while (true) {
-            // 배치마다 CPU 재체크 — 90% 초과 시 10초 대기 후 재시도 (서버 종료 시 InterruptedException으로 탈출)
             double cpu = metricCollectorService.getLastCpu();
             if (cpu >= 0 && cpu >= DELETE_CPU_MAX_PERCENT) {
                 log.warn("[Archive] CPU={}% 초과 — {}ms 대기 후 재시도: range={} deletedSoFar={}",
@@ -221,37 +313,57 @@ public class S3ArchiveService {
         );
     }
 
-    /**
-     * 아카이빙 결과 반환 객체 — 단계별 소요시간 포함
-     */
+    // ---- Result records ----
+
+    public record UploadResult(
+            String rangeLabel,
+            String s3Key,
+            long totalCount,
+            long fileSizeBytes,
+            long uploadElapsedMs,
+            boolean success,
+            boolean skipped,
+            String errorMessage
+    ) {
+        static UploadResult success(String rangeLabel, String s3Key, long totalCount,
+                                    long fileSizeBytes, long uploadElapsedMs) {
+            return new UploadResult(rangeLabel, s3Key, totalCount, fileSizeBytes,
+                    uploadElapsedMs, true, false, null);
+        }
+
+        static UploadResult skipped(String rangeLabel) {
+            return new UploadResult(rangeLabel, null, 0, 0, 0, true, true, null);
+        }
+
+        static UploadResult failure(String rangeLabel, String errorMessage) {
+            return new UploadResult(rangeLabel, null, 0, 0, 0, false, false, errorMessage);
+        }
+    }
+
     public record ArchiveResult(
             String rangeLabel,
             String s3Key,
-            long totalCount,        // 대상 건수
-            int deletedCount,       // 실제 삭제 건수
-            long fileSizeBytes,     // S3 업로드 파일 크기
-            long countElapsedMs,    // 건수 조회 소요시간
-            long uploadElapsedMs,   // S3 업로드 소요시간
-            long deleteElapsedMs,   // DB 삭제 소요시간
-            long totalElapsedMs,    // 전체 소요시간
-            long perRecordMs,       // 건당 평균 소요시간
+            long totalCount,
+            int deletedCount,
+            long fileSizeBytes,
+            long uploadElapsedMs,
+            long deleteElapsedMs,
+            long totalElapsedMs,
+            long perRecordMs,
             boolean success,
             boolean skipped,
             String errorMessage
     ) {
         static ArchiveResult success(String rangeLabel, String s3Key, long totalCount, int deletedCount,
-                                     long fileSizeBytes, long countElapsedMs, long uploadElapsedMs,
-                                     long deleteElapsedMs, long totalElapsedMs, long perRecordMs) {
+                                     long fileSizeBytes, long uploadElapsedMs, long deleteElapsedMs,
+                                     long totalElapsedMs, long perRecordMs) {
             return new ArchiveResult(rangeLabel, s3Key, totalCount, deletedCount, fileSizeBytes,
-                    countElapsedMs, uploadElapsedMs, deleteElapsedMs, totalElapsedMs, perRecordMs, true, false, null);
+                    uploadElapsedMs, deleteElapsedMs, totalElapsedMs, perRecordMs, true, false, null);
         }
 
-        static ArchiveResult skipped(String rangeLabel) {
-            return new ArchiveResult(rangeLabel, null, 0, 0, 0, 0, 0, 0, 0, 0, true, true, null);
-        }
-
-        static ArchiveResult failure(String rangeLabel, String errorMessage) {
-            return new ArchiveResult(rangeLabel, null, 0, 0, 0, 0, 0, 0, 0, 0, false, false, errorMessage);
+        static ArchiveResult fromUploadResult(UploadResult u) {
+            return new ArchiveResult(u.rangeLabel(), u.s3Key(), u.totalCount(), 0, u.fileSizeBytes(),
+                    u.uploadElapsedMs(), 0, 0, 0, u.success(), u.skipped(), u.errorMessage());
         }
     }
 }

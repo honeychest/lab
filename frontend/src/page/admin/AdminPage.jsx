@@ -101,6 +101,7 @@ export default function AdminPage() {
     const [deletingFlat, setDeletingFlat] = useState(null); // '1s'|'1m'|'5m'
     const [deleteMessage, setDeleteMessage] = useState(null);
 
+
     const handleDeleteFlat = async (tableKey) => {
         setDeletingFlat(tableKey);
         setDeleteMessage(null);

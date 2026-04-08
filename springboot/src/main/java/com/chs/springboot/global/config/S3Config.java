@@ -1,4 +1,4 @@
-// [AGENT] 역할: AWS S3Client 빈 설정 | 연관파일: S3ArchiveService.java | 주의: .env의 AWS_* 값이 DotenvConfig에 의해 먼저 로드되어야 함
+// [AGENT] 역할: AWS S3Client 빈 설정 | 연관파일: S3ArchiveService.java, ArchiveScanService.java | 주의: .env의 AWS_* 값이 DotenvConfig에 의해 먼저 로드되어야 함
 package com.chs.springboot.global.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -29,4 +29,5 @@ public class S3Config {
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .build();
     }
+
 }

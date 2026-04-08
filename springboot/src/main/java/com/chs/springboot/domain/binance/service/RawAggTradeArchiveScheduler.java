@@ -68,6 +68,6 @@ public class RawAggTradeArchiveScheduler {
         long endMs = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
 
         log.warn("[Archive] 시작: date={} cpu={}%", date, String.format("%.1f", cpu));
-        s3ArchiveService.archive(startMs, endMs);
+        s3ArchiveService.archive(startMs, endMs, "SCHEDULER");
     }
 }

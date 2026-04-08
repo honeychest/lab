@@ -1,6 +1,7 @@
 // [AGENT] 5초 주기 메트릭 수집 + /ws/monitor 브로드캐스트 + AlertService 평가
 package com.chs.springboot.global.monitor.service;
 
+import com.chs.springboot.domain.binance.repository.S3ArchiveLogRepository;
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
 import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
@@ -56,6 +57,7 @@ public class MetricCollectorService {
     private final AppConfigService appConfigService;
     private final ObjectMapper objectMapper;
     private final LeaderElectionService leaderElectionService;
+    private final S3ArchiveLogRepository s3ArchiveLogRepository;
 
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     @Resource(name = "batchDataSource")
@@ -95,6 +97,8 @@ public class MetricCollectorService {
 
         Long rawAggTradeRows = safe(this::collectRawAggTradeRowsEstimate);
         Long rawAggTradeBytes = safe(this::collectRawAggTradeBytesEstimate);
+        Long rawAggTradeS3Rows = safe(this::collectRawAggTradeS3Rows);
+        Long rawAggTradeS3Bytes = safe(this::collectRawAggTradeS3Bytes);
 
         Long redisQueue = safe(() -> redisTemplate.opsForList().size("aggtrade:queue"));
         List<MetricSnapshot.RedisKv> redisKeys = safe(this::collectFixedRedisKv);
@@ -118,6 +122,8 @@ public class MetricCollectorService {
                 diskFreeBytes,
                 rawAggTradeRows,
                 rawAggTradeBytes,
+                rawAggTradeS3Rows,
+                rawAggTradeS3Bytes,
                 redisQueue,
                 redisKeys,
                 wsConnections,
@@ -187,6 +193,31 @@ public class MetricCollectorService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private Long collectRawAggTradeS3Rows() {
+        // complete='Y' 인 레코드만 합산
+        List<S3ArchiveLogRepository.TableRowCountProjection> projections =
+                s3ArchiveLogRepository.sumRowCountByTableName();
+        long total = 0L;
+        for (S3ArchiveLogRepository.TableRowCountProjection p : projections) {
+            if ("raw_agg_trade".equals(p.getTableName()) && p.getTotal() != null) {
+                total += p.getTotal();
+            }
+        }
+        return total;
+    }
+
+    private Long collectRawAggTradeS3Bytes() {
+        List<S3ArchiveLogRepository.TableRowCountProjection> projections =
+                s3ArchiveLogRepository.sumFileSizeByTableName();
+        long total = 0L;
+        for (S3ArchiveLogRepository.TableRowCountProjection p : projections) {
+            if ("raw_agg_trade".equals(p.getTableName()) && p.getTotal() != null) {
+                total += p.getTotal();
+            }
+        }
+        return total;
     }
 
     private Long collectRawAggTradeBytesEstimate() {
