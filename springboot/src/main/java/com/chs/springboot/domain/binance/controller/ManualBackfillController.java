@@ -41,15 +41,17 @@ public class ManualBackfillController {
         }
     }
 
-    /** flat 행 삭제 — tableKey: 1s / 1m / 5m */
+    /** flat 행 삭제 — tableKey: 1s / 1m / 5m, fromMs/toMs: 품질 조회 시 사용한 범위 */
     @DeleteMapping("/flat")
     public ResponseEntity<?> deleteFlat(
             @RequestParam String symbol,
             @RequestParam(defaultValue = "FUTURES") String marketType,
-            @RequestParam String tableKey) {
+            @RequestParam String tableKey,
+            @RequestParam(required = false) Long fromMs,
+            @RequestParam(required = false) Long toMs) {
         try {
-            int deleted = service.deleteFlatData(symbol, marketType, tableKey);
-            return ResponseEntity.ok(Map.of("deleted", deleted));
+            Map<String, Object> result = service.deleteFlatData(symbol, marketType, tableKey, fromMs, toMs);
+            return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -83,6 +83,7 @@ export default function AdminPage() {
     const [healthData,   setHealthData]   = useState(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError,   setHealthError]   = useState(null);
+    const [healthRange,   setHealthRange]   = useState(null); // { fromMs, toMs } — 삭제 시 동일 범위 전달용
 
     // ── 내 IP ────────────────────────────────────────────────────────────────
     const [myIp, setMyIp] = useState(null);
@@ -98,13 +99,22 @@ export default function AdminPage() {
     const [allowedError, setAllowedError] = useState(null);
 
     const [deletingFlat, setDeletingFlat] = useState(null); // '1s'|'1m'|'5m'
+    const [deleteMessage, setDeleteMessage] = useState(null);
 
     const handleDeleteFlat = async (tableKey) => {
         setDeletingFlat(tableKey);
+        setDeleteMessage(null);
         try {
-            await apiClient.delete('/api/admin/backfill/flat', {
-                params: { symbol: healthSymbol, marketType: healthMarket, tableKey },
+            const r = await apiClient.delete('/api/admin/backfill/flat', {
+                params: {
+                    symbol: healthSymbol,
+                    marketType: healthMarket,
+                    tableKey,
+                    fromMs: healthRange?.fromMs,
+                    toMs:   healthRange?.toMs,
+                },
             });
+            setDeleteMessage(r.data?.message ?? '완료');
             await handleHealthCheck();
         } catch (e) {
             setHealthError(e.response?.data?.error ?? `${tableKey} 초기화 실패`);
@@ -117,9 +127,11 @@ export default function AdminPage() {
         setHealthLoading(true);
         setHealthError(null);
         setHealthData(null);
+        setDeleteMessage(null);
         try {
             const toMs   = Date.now();
             const fromMs = toMs - healthHours * 60 * 60 * 1000;
+            setHealthRange({ fromMs, toMs });
             const r = await apiClient.get('/api/admin/backfill/health', {
                 params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
             });
@@ -431,6 +443,7 @@ export default function AdminPage() {
                                 </button>
                             </div>
                             {healthError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{healthError}</div>}
+                            {deleteMessage && <div className={styles.desc} style={{ color: 'var(--monitor-text-secondary)' }}>{deleteMessage}</div>}
                             {healthData && (() => {
                                 const d = healthData.mismatch1s ?? {};
                                 const cnt = Number(d.flat_count ?? 0);

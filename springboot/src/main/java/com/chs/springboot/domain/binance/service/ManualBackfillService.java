@@ -430,18 +430,35 @@ public class ManualBackfillService {
 
     // ─── Delete Flat ─────────────────────────────────────────────────────────
 
-    public int deleteFlatData(String symbol, String marketType, String tableKey) {
+    public Map<String, Object> deleteFlatData(String symbol, String marketType, String tableKey, Long fromMs, Long toMs) {
         String table = switch (tableKey) {
             case "1s" -> "agg_trade_1s";
             case "1m" -> "agg_trade_1m";
             case "5m" -> "agg_trade_5m";
             default   -> throw new IllegalArgumentException("지원하지 않는 테이블: " + tableKey);
         };
-        return batchJdbcTemplate.update("""
-            DELETE FROM %s
-            WHERE symbol = ? AND market_type = ?
-              AND trade_count = 0
-            """.formatted(table), symbol, marketType);
+
+        String rangeClause = (fromMs != null && toMs != null)
+                ? "AND candle_time_ms >= ? AND candle_time_ms < ?"
+                : "";
+
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(symbol);
+        params.add(marketType);
+        if (fromMs != null && toMs != null) {
+            params.add(fromMs);
+            params.add(toMs);
+        }
+
+        int deleted = batchJdbcTemplate.update("""
+                DELETE FROM %s
+                WHERE symbol = ? AND market_type = ?
+                  AND trade_count = 0
+                  %s
+                """.formatted(table, rangeClause), params.toArray());
+
+        String message = deleted == 0 ? "이미 교정됨" : deleted + "건 삭제";
+        return Map.of("deleted", deleted, "message", message);
     }
 
     // ─── Data Health ─────────────────────────────────────────────────────────
