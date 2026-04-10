@@ -10,6 +10,7 @@ import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.model.S3ArchiveLog;
 import com.chs.springboot.domain.binance.repository.RawAggTradeRepository;
 import com.chs.springboot.domain.binance.repository.S3ArchiveLogRepository;
+import com.chs.springboot.global.chs;
 import com.chs.springboot.global.monitor.service.MetricCollectorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -125,7 +127,8 @@ public class S3ArchiveService {
                 archiveLog.setFileSizeBytes(fileSize);
                 archiveLog.setTriggerType(triggerType);
                 archiveLog.setComplete("N");
-                archiveLog.setUploadedAt(LocalDateTime.now(ZoneOffset.UTC));
+                chs.dlog("uploadedAt 저장 - ChronoUnit.SECONDS 로 truncate 하여 초 단위로 저장");
+                archiveLog.setUploadedAt(LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS));
                 s3ArchiveLogRepository.save(archiveLog);
                 log.warn("[Archive] archive_log INSERT: key={} rowCount={}", s3Key, totalCount);
             }

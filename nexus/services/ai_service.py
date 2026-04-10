@@ -1,11 +1,13 @@
 import logging
 import re
 from google.genai import types
+from chs import dlog
 from config import settings
 
 logger = logging.getLogger(__name__)
 
 GENAI_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
+QUIZ_MODELS  = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
 
 
 async def summarize_youtube(url: str) -> dict:
@@ -56,15 +58,22 @@ async def _call_gemini(prompt: str, models: list) -> dict:
         automatic_function_calling=gtypes.AutomaticFunctionCallingConfig(disable=True)
     )
     for model in models:
+        import asyncio
         t = time.time()
         try:
-            response = await client.aio.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=afc_disabled,
+            dlog("8초 타임아웃 적용 — 초과 시 다음 모델 폴백")
+            response = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=afc_disabled,
+                ),
+                timeout=8.0,
             )
             logger.info(f"[llm] 사용 모델: {model} ({time.time() - t:.2f}s)")
             return _parse_response(response.text)
+        except asyncio.TimeoutError:
+            logger.warning(f"[llm] 모델 {model} 타임아웃 ({time.time() - t:.2f}s) — 다음 모델 시도")
         except Exception as e:
             logger.warning(f"[llm] 모델 {model} 실패 ({time.time() - t:.2f}s): {e}")
     raise Exception("모든 모델 실패")
@@ -88,7 +97,8 @@ async def explain_word(text: str) -> dict:
 예문: (가장 대표적인 용법의 영어 예문 1줄)
 
 입력: {text}"""
-    result = await _call_with_models(prompt, GENAI_MODELS)
+    dlog("QUIZ_MODELS 사용")
+    result = await _call_with_models(prompt, QUIZ_MODELS)
     return _parse_explain_response(result["summary"])
 
 
@@ -129,6 +139,7 @@ Format: Use _______ for the blank.
 Word: {word}"""
 
     else:
+        dlog("stage3 프롬프트 — 한국어 음역 사용 금지 조건 추가")
         prompt = f"""너는 영어 단어 학습 퀴즈 출제자야. 학습자는 "{word}"라는 단어를 모르는 상태로 문제를 풀어.
 아래 단어를 영어 작문에 정확한 품사로 써야만 자연스러운 한국어 상황 문장을 만들어줘.
 
@@ -138,6 +149,7 @@ Word: {word}"""
 - 25자 이내 짧은 대화체.
 - 빈칸·괄호·밑줄 사용 금지.
 - 마크다운 금지.
+- "{word}"의 한국어 음역 사용 금지.
 
 반드시 아래 형식으로만 출력해. 다른 말 일절 금지.
 상황: (완성된 한국어 문장)
@@ -145,17 +157,33 @@ Word: {word}"""
 단어: {word} / 뜻: {meaning_ko}"""
 
     last = ""
+    current_prompt = prompt
     for attempt in range(3):
-        result = await _call_with_models(prompt, GENAI_MODELS)
+        dlog("QUIZ_MODELS 사용")
+        result = await _call_with_models(current_prompt, QUIZ_MODELS)
+        dlog("재시도 시 실패 원인 포함한 수정 프롬프트 전송")
         raw = result["summary"].strip()
-        if stage == 3:
+        dlog("상황 파싱 stage >= 3 — 3단계 이상 모두 적용")
+        if stage >= 3:
             m = re.search(r'상황[:：]\s*(.+)', raw)
             last = m.group(1).strip() if m else raw
         else:
             last = raw
-        if stage != 3 or not _has_invalid_content(last, word):
+        dlog("검수 조건 stage < 3 — 3단계 이상 모두 검수 적용")
+        if stage < 3 or not _has_invalid_content(last, word):
             return last
         logger.warning(f"[generate_quiz] 재시도 {attempt + 1}/3 — 검수 실패: {last!r}")
+        dlog("검수 실패 원인 분석 — 단어 포함 여부 / 빈칸 포함 여부 확인")
+        reasons = []
+        if word.lower() in last.lower():
+            reasons.append(f"단어 '{word}'가 그대로 포함됨")
+        if any(p in last for p in ("()", "( )", "___", "______")):
+            reasons.append("빈칸(___) 또는 괄호가 포함됨")
+        if any(c in last for c in ("*", "#", "`")):
+            reasons.append("마크다운 기호가 포함됨")
+        feedback = " / ".join(reasons) if reasons else "형식 오류"
+        dlog("실패 응답과 원인을 포함한 수정 프롬프트 구성")
+        current_prompt = f"{prompt}\n\n[이전 응답 오류] 이전 응답: \"{last}\" → 문제: {feedback}. 위 규칙을 다시 확인하고 올바른 형식으로만 출력해."
 
     # TODO: [generate_quiz] 3회 재시도 실패 — 프롬프트 또는 모델 개선 필요
     # 원인: AI가 단어를 외래어로 인식하거나 형식 지시를 반복 무시함
@@ -168,17 +196,33 @@ Word: {word}"""
     return cleaned
 
 
-async def grade_writing(word: str, answer: str) -> dict:
+async def get_word_definition(word: str) -> str:
+    dlog(f"get_word_definition({word}) 호출 — 힌트용 영어 정의 1줄 생성")
+    dlog("프롬프트 구성 — 단어의 영어 정의를 간결한 1줄로 요청")
+    prompt = f"Give a dictionary definition of '{word}' in 10 words or fewer. Do not use the word '{word}' or any of its forms. Only the definition, no extra text."
+    dlog("_call_with_models() 호출")
+    dlog("QUIZ_MODELS 사용")
+    result = await _call_with_models(prompt, QUIZ_MODELS)
+    dlog("응답 텍스트 그대로 반환 — quiz:hint에서 힌트 메시지에 포함")
+    return result["summary"].strip()
+
+
+async def grade_writing(word: str, meaning_ko: str, answer: str) -> dict:
     """작문 채점. {"used_correctly": bool, "context_ok": bool, "grammar_errors": [...], "collocation_errors": [...]} 반환."""
+    dlog("meaning_ko 기준으로 사용법 판단 — 뜻에 맞는 품사/전치사 등 포함 여부 확인")
+    dlog("단어 사용법 오류(품사/전치사 등)는 사용여부=no, 나머지 문법 오류는 오류 항목으로 구분")
     prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
-사용여부: (yes/no) — "{word}"를 올바른 맥락으로 사용했는지
+사용여부: (yes/no) — "{word}"를 주어진 뜻({meaning_ko})에 맞게 올바른 품사와 용법으로 사용했는지. 뜻과 다른 의미로 쓰거나 필수 전치사·형태가 틀리면 no.
 맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
-오류: (오류 목록, 없으면 "없음". 형식: "[유형] 오류내용 → 수정내용" 한 줄씩.
-  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동명사 / 동사원형 / 시제 / 어순 / 철자 / 연어)
+오류: (오류 목록, 없으면 "없음". 형식: "[유형] 오류내용 → 수정내용" 한 줄씩. 반드시 대괄호 사용.
+  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동명사 / 동사원형 / 시제 / 어순 / 철자 / 연어
+  예시: [시제] He was underwent change → He underwent change)
 
 단어: {word}
+뜻: {meaning_ko}
 작문: {answer}"""
-    result = await _call_with_models(prompt, GENAI_MODELS)
+    dlog("QUIZ_MODELS 사용")
+    result = await _call_with_models(prompt, QUIZ_MODELS)
     return _parse_grade_response(result["summary"])
 
 def _parse_explain_response(text: str) -> dict:

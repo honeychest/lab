@@ -7,6 +7,7 @@ import redis.asyncio as aioredis
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from chs import dlog
 from config import settings
 from services import ai_service, notion_service, grammar_service
 
@@ -35,6 +36,12 @@ DAILY_QUIZ_LIMIT = 20  # 하루 퀴즈 최대 출제 수
 def _k(key: str, chat_id: int) -> str:
     """키 템플릿에 chat_id 삽입."""
     return key.format(chat_id=chat_id)
+
+
+def _stage_icon(stage: int) -> str:
+    dlog("단계에 따라 퀴즈 아이콘 결정 — 3단계 이상 작문, 미만 퀴즈")
+    dlog("반환값 — 퀴즈 문제 헤더에 표시")
+    return '✏️ 작문' if stage >= 3 else '🧩'
 
 
 def _seconds_until_midnight() -> int:
@@ -185,18 +192,22 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
 
     ttl      = _seconds_until_midnight()
     session  = json.loads(raw)
-    word     = session["word"]       # 정답 단어
-    stage    = session["stage"]      # 현재 단계 (1/2/3)
-    page_id  = session["page_id"]    # Notion page_id (단계 업데이트용)
+    word       = session["word"]       # 정답 단어
+    meaning_ko = session["meaning_ko"] # 한국어 뜻 — grade_writing 채점 기준
+    stage      = session["stage"]      # 현재 단계 (1/2/3)
+    page_id    = session["page_id"]    # Notion page_id (단계 업데이트용)
+    dlog("mode 세션에서 추출 — quiz 모드 정답 시 단계 상승 방지")
+    mode = session.get("mode", "auto")
 
-    if stage == 3:
-        # 3단계: 작문 채점
+    dlog("작문 채점 분기 stage >= 3 — 3단계 이상 모두 적용")
+    if stage >= 3:
+        # 3단계 이상: 작문 채점
         # 1차 — 단어 포함 여부 코드로 확인 (AI 오판 방지)
         word_used = word.lower() in text.lower()
 
         if not word_used:
             # 단어 미사용 — AI로 맥락 확인
-            result = await ai_service.grade_writing(word, text)
+            result = await ai_service.grade_writing(word, meaning_ko, text)
             if result["context_ok"]:
                 # 의미는 맞지만 단어 미사용 → 다시 도전 (단계 유지)
                 await update.message.reply_text(f"⚠️ 의미는 맞지만 '{word}'를 직접 사용해야 해요. 다시 도전!")
@@ -206,7 +217,7 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
                 reply = f"❌ 오답. '{word}'를 사용한 문장을 만들어보세요. 1단계로 돌아갑니다."
         else:
             # 단어 사용함 — AI로 올바른 사용 여부 + 문법 오류 분석
-            result = await ai_service.grade_writing(word, text)
+            result = await ai_service.grade_writing(word, meaning_ko, text)
             correct = result["used_correctly"]
             if correct:
                 reply = "✅ 정답! 올바르게 사용했어요."
@@ -255,8 +266,10 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
         else:
             await update.message.reply_text(f"❌ 오답. 정답은 '{word}'예요. 1단계로 돌아갑니다.")
 
-    # 단계 업데이트
-    await notion_service.update_word_stage(page_id, correct)
+    # 단계 업데이트 — quiz 모드 정답 시 단계 상승 방지, 실패는 항상 업데이트
+    dlog("quiz 모드 정답 시 단계 업데이트 생략 — 실패는 항상 업데이트")
+    if not (mode == "quiz" and correct):
+        await notion_service.update_word_stage(page_id, correct)
 
     # 다음 문제 출제 (방금 푼 단어 제외)
     await _send_next_quiz(update, chat_id, exclude_page_id=page_id)
@@ -280,7 +293,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         if remaining <= 0:
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
             await redis.delete(_k(KEY_QUIZ_SESSION, chat_id))
-            await update.message.reply_text("🎉 오늘 퀴즈 완료! 수고했어요 💪")
+            await update.effective_message.reply_text("🎉 오늘 퀴즈 완료! 수고했어요 💪")
             return
 
     # mode에 따라 단어 조회
@@ -291,7 +304,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             words = [w for w in words if w["id"] != exclude_page_id]
         if not words:
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
-            await update.message.reply_text("단어장이 비어있어요!")
+            await update.effective_message.reply_text("단어장이 비어있어요!")
             return
         pool = words[:100]
         random.shuffle(pool)
@@ -301,7 +314,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         words = await notion_service.get_words_due()
         if not words:
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
-            await update.message.reply_text("오늘 복습할 단어가 없어요!")
+            await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
             return
         page = words[0]
 
@@ -316,7 +329,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     page_id    = parsed["page_id"]    # Notion page_id
 
     # 로딩 메시지 — AI 호출 전 표시
-    loading = await update.message.reply_text("다음 문제 출제 중... ⏳")
+    loading = await update.effective_message.reply_text("다음 문제 출제 중... ⏳")
     question = await ai_service.generate_quiz(word, meaning_ko, stage)
     await loading.delete()
 
@@ -339,15 +352,16 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
 
     buttons = [
         [
-            InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
-            InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
-            InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
+            InlineKeyboardButton("힌트", callback_data="quiz:hint"),
+            InlineKeyboardButton("질문", callback_data="quiz:word_query"),
+            InlineKeyboardButton("실패", callback_data="quiz:fail"),
+            InlineKeyboardButton("중지", callback_data="quiz:pause"),
         ],
     ]
     # 1단계는 한글 뜻을 문제 위에 함께 표시
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
-    await update.message.reply_text(
-        f"{progress} {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{body}",
+    await update.effective_message.reply_text(
+        f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
 
@@ -439,7 +453,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         word = session["word"]  # 정답 단어
         hint = word[0] + "_" * (len(word) - 1)
         await query.answer()
-        await query.message.reply_text(f"💡 힌트: {hint}")
+        dlog("ai_service.get_word_definition(word) 호출해 영어 정의 생성")
+        definition = await ai_service.get_word_definition(word)
+        dlog("힌트 메시지에 글자힌트 + 영어 정의 함께 출력")
+        await query.message.reply_text(f"💡 힌트: {hint}\n{definition}")
 
     elif data == "quiz:word_query":
         # 퀴즈 중 단어 질문 — 상태를 word로 변경
@@ -469,7 +486,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             ],
         ]
         await query.edit_message_text(
-            f"↩ 퀴즈로 돌아왔어요!\n{'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{question}",
+            f"↩ 퀴즈로 돌아왔어요!\n{_stage_icon(stage)} {stage}단계\n{question}",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
 
@@ -499,9 +516,25 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             ],
         ]
         await query.edit_message_text(
-            f"▶ 이어서 풀어봐요!\n{'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{question}",
+            f"▶ 이어서 풀어봐요!\n{_stage_icon(stage)} {stage}단계\n{question}",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
+
+    elif data == "quiz:fail":
+        # 실패 처리 — 정답 공개 후 1단계 리셋 + 다음 문제
+        raw = await redis.get(_k(KEY_QUIZ_SESSION, chat_id))
+        if not raw:
+            await query.answer("진행 중인 퀴즈가 없어요.", show_alert=True)
+            return
+        session = json.loads(raw)
+        word    = session["word"]     # 정답 단어
+        page_id = session["page_id"]  # Notion page_id
+        await query.answer()
+        dlog("원본 문제 메시지 버튼 제거")
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(f"❌ 실패. 정답은 '{word}'예요. 1단계로 돌아갑니다.")
+        await notion_service.update_word_stage(page_id, correct=False)
+        await _send_next_quiz(update, chat_id, exclude_page_id=page_id)
 
     elif data == "quiz:end":
         # 오늘 퀴즈 종료
@@ -540,7 +573,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 colloc_saved += 1
 
         await redis.delete(_k(KEY_GRAMMAR_PENDING, chat_id))
-        msg = f"📝 문법 오류 {grammar_saved}개 등록됐어요. 내일부터 퀴즈에 나올게요!"
+        msg = f"📝 문법 오류 {grammar_saved}개 등록됐어요. 내일부터 퀴즈에 나올거에요!"
         if colloc_saved:
             msg += f"\n✅ 연어 {colloc_saved}개 단어장에도 등록됐어요!"
         await query.edit_message_text(msg)

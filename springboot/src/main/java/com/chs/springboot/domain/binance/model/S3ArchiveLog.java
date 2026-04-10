@@ -39,11 +39,11 @@ public class S3ArchiveLog {
     private String rangeLabel;
 
     @Comment("아카이빙 범위 시작 (UTC)")
-    @Column(name = "range_start", nullable = false)
+    @Column(name = "range_start", nullable = false, columnDefinition = "datetime")
     private LocalDateTime rangeStart;
 
     @Comment("아카이빙 범위 종료 (UTC)")
-    @Column(name = "range_end", nullable = false)
+    @Column(name = "range_end", nullable = false, columnDefinition = "datetime")
     private LocalDateTime rangeEnd;
 
     @Comment("아카이빙 행 수")
@@ -63,6 +63,6 @@ public class S3ArchiveLog {
     private String complete;
 
     @Comment("S3 업로드 완료 시각")
-    @Column(name = "uploaded_at", nullable = false)
+    @Column(name = "uploaded_at", nullable = false, columnDefinition = "datetime")
     private LocalDateTime uploadedAt;
 }

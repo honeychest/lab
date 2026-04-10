@@ -5,6 +5,7 @@ import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from chs import dlog
 from handlers.text_handler import (
     KEY_QUIZ_COUNT,
     KEY_QUIZ_PAUSE,
@@ -13,6 +14,7 @@ from handlers.text_handler import (
     DAILY_QUIZ_LIMIT,
     _k,
     _seconds_until_midnight,
+    _stage_icon,
     redis,
 )
 from services import ai_service, notion_service
@@ -72,14 +74,15 @@ async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 첫 문제 출제
     buttons = [
         [
-            InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
-            InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
-            InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
+            InlineKeyboardButton("힌트", callback_data="quiz:hint"),
+            InlineKeyboardButton("질문", callback_data="quiz:word_query"),
+            InlineKeyboardButton("실패", callback_data="quiz:fail"),
+            InlineKeyboardButton("중지", callback_data="quiz:pause"),
         ],
     ]
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await update.message.reply_text(
-        f"[🔄] {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{body}",
+        f"[🔄] {_stage_icon(stage)} {stage}단계\n{body}",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
     logger.info(f"/quiz 시작 — chat_id: {chat_id}, 단어: {word}, 단계: {stage}")

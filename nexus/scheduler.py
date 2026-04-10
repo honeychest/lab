@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
+from chs import dlog
 from config import settings
 from handlers.text_handler import (
     KEY_QUIZ_COUNT,
@@ -17,6 +18,7 @@ from handlers.text_handler import (
     DAILY_QUIZ_LIMIT,
     _k,
     _seconds_until_midnight,
+    _stage_icon,
 )
 from services import ai_service, notion_service
 
@@ -86,7 +88,7 @@ async def _send_quiz_question(bot: Bot, chat_id: int, greeting: str) -> None:
     total_done = DAILY_QUIZ_LIMIT - remaining
     await bot.send_message(
         chat_id=chat_id,
-        text=f"{greeting}\n[{total_done}/{DAILY_QUIZ_LIMIT}] {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{question}",
+        text=f"{greeting}\n[{total_done}/{DAILY_QUIZ_LIMIT}] {_stage_icon(stage)} {stage}단계\n{question}",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
 

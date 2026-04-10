@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     REDIS_URL: str = "redis://localhost:6379"
     TELEGRAM_CHAT_ID: int  # 퀴즈 알림을 받을 텔레그램 chat_id
+    DLOG_ENABLED: bool = False  # DRAFT 로그 활성화 (로컬 개발용)
 
     class Config:
         env_file = ".env"
