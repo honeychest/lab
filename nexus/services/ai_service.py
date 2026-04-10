@@ -48,18 +48,25 @@ async def _call_with_models(prompt: str, models: list) -> dict:
 
 
 async def _call_gemini(prompt: str, models: list) -> dict:
+    import time
     from google import genai
+    from google.genai import types as gtypes
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    afc_disabled = gtypes.GenerateContentConfig(
+        automatic_function_calling=gtypes.AutomaticFunctionCallingConfig(disable=True)
+    )
     for model in models:
+        t = time.time()
         try:
             response = await client.aio.models.generate_content(
                 model=model,
-                contents=prompt
+                contents=prompt,
+                config=afc_disabled,
             )
-            logger.info(f"[llm] 사용 모델: {model}")
+            logger.info(f"[llm] 사용 모델: {model} ({time.time() - t:.2f}s)")
             return _parse_response(response.text)
         except Exception as e:
-            logger.warning(f"모델 {model} 실패: {e}")
+            logger.warning(f"[llm] 모델 {model} 실패 ({time.time() - t:.2f}s): {e}")
     raise Exception("모든 모델 실패")
 
 
@@ -76,7 +83,7 @@ async def _call_claude(prompt: str) -> dict:
 async def explain_word(text: str) -> dict:
     """단어/문장 설명. {"word": ..., "meaning_ko": ..., "example": ...} 반환."""
     prompt = f"""아래 단어나 문장을 설명해줘. 반드시 아래 형식으로만 답해. 다른 말 붙이지 마.
-단어: (핵심 단어 또는 표현)
+단어: (핵심 단어 또는 표현. make/take/have/do/pay/give 같은 light verb와 고정적으로 결합하는 명사라면 대표 동사구로 변환. 예: effort → make an effort, poll → take a poll, attention → pay attention to. 일반 동사·형용사·범용 명사는 원어 그대로.)
 뜻: (품사별로 주요 의미 모두 나열. 어려운 개념은 비유나 쉬운 말로 풀어서. 형식: (품사) 의미 / (품사) 의미. 한국어, 한 줄)
 예문: (가장 대표적인 용법의 영어 예문 1줄)
 

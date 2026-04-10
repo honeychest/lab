@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from datetime import datetime, timedelta
 
 import redis.asyncio as aioredis
@@ -68,16 +69,41 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # ─── 단어 질문 처리 ───────────────────────────────────────────────────────────
 async def _handle_word_query(update: Update, chat_id: int, text: str) -> None:
     """단어/문장 설명 후 등록 버튼 표시."""
+    loading = await update.message.reply_text("분석 중... ⏳")
+
+    t0 = time.time()
     info = await ai_service.explain_word(text)
+    t1 = time.time()
+    logger.info(f"[word_query] explain_word 소요: {t1 - t0:.2f}s — 입력: {text!r}, 결과: {info.get('word')!r}")
+
     word = info["word"]
+    transformed = word.lower() != text.lower()
 
-    # Notion에서 기존 등록 여부 확인
-    existing_page_id = await notion_service.exists_word(word)
+    # 원어로 contains 검색 — 관련 기존 항목 전체 조회
+    raw_conflicts = await notion_service.search_words_containing(text)
+    t2 = time.time()
+    logger.info(f"[word_query] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(raw_conflicts)}개")
 
-    # 대기 중인 단어 정보 Redis에 저장 (버튼 콜백에서 사용)
+    await loading.delete()
+    conflict_pages = []
+    for page in raw_conflicts:
+        parsed = notion_service.parse_word_page(page)
+        if parsed:
+            conflict_pages.append({
+                "page_id": parsed["page_id"],
+                "word": parsed["word"],
+                "stage": parsed["stage"],
+            })
+
+    # 대기 중인 단어 정보 Redis에 저장
     await redis.set(
         _k(KEY_WORD_PENDING, chat_id),
-        json.dumps({**info, "existing_page_id": existing_page_id}),
+        json.dumps({
+            **info,
+            "original_word": text,
+            "existing_page_id": None,
+            "conflict_pages": conflict_pages,
+        }),
     )
 
     # 답변 메시지 구성
@@ -87,21 +113,66 @@ async def _handle_word_query(update: Update, chat_id: int, text: str) -> None:
         f"📌 \"{info['example']}\""
     )
 
-    # 등록 여부에 따라 버튼 구성
-    if existing_page_id:
-        # 이미 등록된 단어 — 재등록(1단계 초기화) 또는 취소
+    if conflict_pages:
+        # 충돌 항목 있음 — 설명 먼저 출력 후 첫 항목 삭제 여부 질문
+        await update.message.reply_text(msg)
+        first = conflict_pages[0]
         buttons = [[
-            InlineKeyboardButton("🔄 재등록 (1단계 초기화)", callback_data="word:reregister"),
-            InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+            InlineKeyboardButton("🗑 삭제", callback_data="word:conflict_delete"),
+            InlineKeyboardButton("🔒 유지", callback_data="word:conflict_keep"),
         ]]
+        await update.message.reply_text(
+            f"기존에 '{first['word']}' ({first['stage']}단계)이 있어요. 삭제할까요?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
     else:
-        # 미등록 단어 — 등록 또는 취소
-        buttons = [[
-            InlineKeyboardButton("✅ 등록", callback_data="word:register"),
-            InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
-        ]]
+        # 충돌 없음 — 설명 + 등록 버튼 한 메시지
+        if transformed:
+            buttons = [[
+                InlineKeyboardButton("✅ 추천형태로 등록", callback_data="word:register"),
+                InlineKeyboardButton("📝 원어로 등록", callback_data="word:register_original"),
+                InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+            ]]
+        else:
+            buttons = [[
+                InlineKeyboardButton("✅ 등록", callback_data="word:register"),
+                InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+            ]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(buttons))
 
-    await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(buttons))
+
+async def _show_next_conflict_or_register(query, pending: dict) -> None:
+    """다음 충돌 항목 질문 또는 등록 버튼 표시."""
+    conflict_pages = pending.get("conflict_pages", [])
+
+    if conflict_pages:
+        next_item = conflict_pages[0]
+        buttons = [[
+            InlineKeyboardButton("🗑 삭제", callback_data="word:conflict_delete"),
+            InlineKeyboardButton("🔒 유지", callback_data="word:conflict_keep"),
+        ]]
+        await query.message.reply_text(
+            f"기존에 '{next_item['word']}' ({next_item['stage']}단계)이 있어요. 삭제할까요?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        word = pending["word"]
+        transformed = word.lower() != pending.get("original_word", word).lower()
+        if transformed:
+            buttons = [[
+                InlineKeyboardButton("✅ 추천형태로 등록", callback_data="word:register"),
+                InlineKeyboardButton("📝 원어로 등록", callback_data="word:register_original"),
+                InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+            ]]
+        else:
+            buttons = [[
+                InlineKeyboardButton("✅ 등록", callback_data="word:register"),
+                InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+            ]]
+        await query.message.reply_text(
+            f"처리 완료! '{word}'를 등록할까요?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
 
 
 # ─── 퀴즈 답변 채점 ───────────────────────────────────────────────────────────
@@ -289,8 +360,37 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat_id = query.message.chat_id
     data    = query.data  # 버튼 콜백 데이터
 
-    if data == "word:register":
-        # 단어 신규 등록 — 원본 메시지 버튼만 제거, 결과는 새 메시지로
+    if data == "word:conflict_delete":
+        raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        pending = json.loads(raw)
+        conflict_pages = pending.get("conflict_pages", [])
+        current = conflict_pages.pop(0)
+        pending["conflict_pages"] = conflict_pages
+        await redis.set(_k(KEY_WORD_PENDING, chat_id), json.dumps(pending))
+        await notion_service.delete_page(current["page_id"])
+        await query.edit_message_text(f"🗑 '{current['word']}' ({current['stage']}단계) 삭제됐어요.")
+        await _show_next_conflict_or_register(query, pending)
+
+    elif data == "word:conflict_keep":
+        raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        pending = json.loads(raw)
+        conflict_pages = pending.get("conflict_pages", [])
+        current = conflict_pages.pop(0)
+        pending["conflict_pages"] = conflict_pages
+        await redis.set(_k(KEY_WORD_PENDING, chat_id), json.dumps(pending))
+        await query.edit_message_text(f"🔒 '{current['word']}' ({current['stage']}단계) 유지했어요.")
+        await _show_next_conflict_or_register(query, pending)
+
+    elif data == "word:register":
+        # 단어 신규 등록
         raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
         if not raw:
             await query.edit_message_reply_markup(reply_markup=None)
@@ -300,6 +400,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await notion_service.add_word(info["word"], info["meaning_ko"])
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(f"✅ '{info['word']}' 저장됐어요. 내일 첫 퀴즈 나올게요!")
+
+    elif data == "word:register_original":
+        # 원어 그대로 등록
+        raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        info = json.loads(raw)
+        original_word = info.get("original_word", info["word"])
+        await notion_service.add_word(original_word, info["meaning_ko"])
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(f"✅ '{original_word}' 저장됐어요. 내일 첫 퀴즈 나올게요!")
 
     elif data == "word:reregister":
         # 기존 단어 재등록 (1단계 초기화) — 원본 메시지 버튼만 제거
@@ -314,8 +427,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.message.reply_text(f"🔄 '{info['word']}' 1단계로 초기화됐어요!")
 
     elif data == "word:cancel":
-        # 등록 취소 — 버튼만 제거
-        await query.edit_message_reply_markup(reply_markup=None)
+        await query.edit_message_text("취소됐어요.")
 
     elif data == "quiz:hint":
         # 퀴즈 힌트 — 첫 글자 + 나머지 언더바

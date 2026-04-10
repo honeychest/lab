@@ -97,7 +97,9 @@ async def exists_word(word: str) -> str | None:
         return None
 
 
-STAGE_DAYS = {1: 1, 2: 3, 3: 7}
+STAGE_DAYS = {1: 1, 2: 3, 3: 7, 4: 30}  # 5단계는 랜덤(60~120일), 6단계 = 졸업
+MAX_ACTIVE_STAGE = 5
+GRADUATED_STAGE  = 6
 
 
 async def add_word(word: str, meaning: str) -> str:
@@ -128,24 +130,43 @@ async def get_all_words() -> list:
     return response.get("results", [])
 
 
+async def search_words_containing(keyword: str) -> list:
+    """단어 필드에 keyword가 포함된 항목 목록 반환."""
+    response = await client.data_sources.query(
+        data_source_id=settings.NOTION_WORD_DATABASE_ID,
+        filter={"property": "단어", "title": {"contains": keyword}},
+    )
+    return response.get("results", [])
+
+
 async def get_words_due() -> list:
-    """오늘 리뷰할 단어 목록 반환."""
+    """오늘 리뷰할 단어 목록 반환. 졸업(6단계) 단어 제외."""
     today = datetime.now(timezone.utc).date().isoformat()
     response = await client.data_sources.query(
         data_source_id=settings.NOTION_WORD_DATABASE_ID,
         filter={"property": "다음리뷰일", "date": {"on_or_before": today}},
     )
-    return response.get("results", [])
+    results = response.get("results", [])
+    return [p for p in results if p.get("properties", {}).get("단계", {}).get("number", 0) < GRADUATED_STAGE]
 
 
 async def update_word_stage(page_id: str, correct: bool) -> None:
     """퀴즈 결과에 따라 단계와 다음리뷰일 업데이트."""
+    import random
+
     page = await client.pages.retrieve(page_id=page_id)
     current_stage = page["properties"]["단계"]["number"]
 
-    next_stage = min(current_stage + 1, 3) if correct else 1
-    days = STAGE_DAYS[next_stage]
-    next_review = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    if correct and current_stage >= MAX_ACTIVE_STAGE:
+        next_stage = GRADUATED_STAGE
+        next_review = (datetime.now(timezone.utc) + timedelta(days=9999)).isoformat()
+    elif correct:
+        next_stage = current_stage + 1
+        days = random.randint(60, 120) if next_stage == MAX_ACTIVE_STAGE else STAGE_DAYS[next_stage]
+        next_review = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    else:
+        next_stage = 1
+        next_review = (datetime.now(timezone.utc) + timedelta(days=STAGE_DAYS[1])).isoformat()
 
     await client.pages.update(
         page_id=page_id,

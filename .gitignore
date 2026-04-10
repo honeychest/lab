@@ -10,7 +10,6 @@ geminirules.md
 /.claude/settings.local.json
 /.claude/agents/
 /.vscode/settings.json
-/honeychest-home-main.txt
 /.claudeignore
 /.claude/roles
 # 로컬 전용 테스트 파일 (저장소에 없어도 두는 ignore 는 정상)

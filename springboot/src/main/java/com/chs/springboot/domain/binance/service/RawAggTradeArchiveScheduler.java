@@ -22,6 +22,9 @@ public class RawAggTradeArchiveScheduler {
     private final S3ArchiveService s3ArchiveService;
     private final MetricCollectorService metricCollectorService;
 
+    @Value("${spring.task.scheduling.enabled:true}")
+    private boolean schedulingEnabled;
+
     @Value("${archive.retention-days:15}")
     private int retentionDays;
 
@@ -45,6 +48,8 @@ public class RawAggTradeArchiveScheduler {
      */
     @Scheduled(fixedDelay = 600_000L, initialDelay = 60_000L)
     public void run() {
+        if (!schedulingEnabled) return;
+
         double cpu = metricCollectorService.getLastCpu();
         if (cpu >= 0 && cpu >= cpuMaxPercent) {
             log.warn("[Archive] CPU={}% 초과 — 스킵 (임계값={}%)", String.format("%.1f", cpu), cpuMaxPercent);

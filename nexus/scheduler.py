@@ -80,11 +80,13 @@ async def _send_quiz_question(bot: Bot, chat_id: int, greeting: str) -> None:
             InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
         ],
     ]
-    count = await redis.get(_k(KEY_QUIZ_COUNT, chat_id))
-    remaining = int(count) if count else DAILY_QUIZ_LIMIT
+    count_key = _k(KEY_QUIZ_COUNT, chat_id)
+    remaining = await redis.decr(count_key)
+    await redis.expire(count_key, ttl)
+    total_done = DAILY_QUIZ_LIMIT - remaining
     await bot.send_message(
         chat_id=chat_id,
-        text=f"{greeting}\n[{DAILY_QUIZ_LIMIT - remaining + 1}/{DAILY_QUIZ_LIMIT}] {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{question}",
+        text=f"{greeting}\n[{total_done}/{DAILY_QUIZ_LIMIT}] {'✏️ 작문' if stage == 3 else '🧩'} {stage}단계\n{question}",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
 
