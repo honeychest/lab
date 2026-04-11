@@ -38,6 +38,17 @@ def _k(key: str, chat_id: int) -> str:
     return key.format(chat_id=chat_id)
 
 
+def _quiz_buttons() -> InlineKeyboardMarkup:
+    dlog("퀴즈 버튼 생성 — 힌트/질문/실패/중지 4개 통일")
+    dlog("반환값 — _send_next_quiz, quiz:back, quiz:resume에서 사용")
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("힌트", callback_data="quiz:hint"),
+        InlineKeyboardButton("질문", callback_data="quiz:word_query"),
+        InlineKeyboardButton("실패", callback_data="quiz:fail"),
+        InlineKeyboardButton("중지", callback_data="quiz:pause"),
+    ]])
+
+
 def _stage_icon(stage: int) -> str:
     dlog("단계에 따라 퀴즈 아이콘 결정 — 3단계 이상 작문, 미만 퀴즈")
     dlog("반환값 — 퀴즈 문제 헤더에 표시")
@@ -76,6 +87,25 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # ─── 단어 질문 처리 ───────────────────────────────────────────────────────────
 async def _handle_word_query(update: Update, chat_id: int, text: str) -> None:
     """단어/문장 설명 후 등록 버튼 표시."""
+    dlog("짧은 입력 여부 체크 — 3글자 이하면 올바른 단어 확인 질문")
+    if len(text) <= 3:
+        dlog("원문 입력을 KEY_WORD_PENDING에 short_word_confirm 필드로 임시 저장")
+        await redis.set(
+            _k(KEY_WORD_PENDING, chat_id),
+            json.dumps({"short_word_confirm": text}),
+        )
+        dlog("올바른 단어인가요? 메시지 전송")
+        dlog("✅ 맞아요(word:short_confirm) / ✖ 아니에요(word:cancel) 버튼 표시")
+        buttons = [[
+            InlineKeyboardButton("✅ 맞아요", callback_data="word:short_confirm"),
+            InlineKeyboardButton("✖ 아니에요", callback_data="word:cancel"),
+        ]]
+        await update.message.reply_text(
+            f"'{text}' — 올바른 단어인가요?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        return
+
     loading = await update.message.reply_text("분석 중... ⏳")
 
     t0 = time.time()
@@ -124,9 +154,11 @@ async def _handle_word_query(update: Update, chat_id: int, text: str) -> None:
         # 충돌 항목 있음 — 설명 먼저 출력 후 첫 항목 삭제 여부 질문
         await update.message.reply_text(msg)
         first = conflict_pages[0]
+        dlog("작업중단 버튼 추가")
         buttons = [[
             InlineKeyboardButton("🗑 삭제", callback_data="word:conflict_delete"),
             InlineKeyboardButton("🔒 유지", callback_data="word:conflict_keep"),
+            InlineKeyboardButton("⏹ 작업중단", callback_data="word:conflict_stop"),
         ]]
         await update.message.reply_text(
             f"기존에 '{first['word']}' ({first['stage']}단계)이 있어요. 삭제할까요?",
@@ -154,9 +186,11 @@ async def _show_next_conflict_or_register(query, pending: dict) -> None:
 
     if conflict_pages:
         next_item = conflict_pages[0]
+        dlog("작업중단 버튼 추가")
         buttons = [[
             InlineKeyboardButton("🗑 삭제", callback_data="word:conflict_delete"),
             InlineKeyboardButton("🔒 유지", callback_data="word:conflict_keep"),
+            InlineKeyboardButton("⏹ 작업중단", callback_data="word:conflict_stop"),
         ]]
         await query.message.reply_text(
             f"기존에 '{next_item['word']}' ({next_item['stage']}단계)이 있어요. 삭제할까요?",
@@ -350,6 +384,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     else:
         progress = "[🔄]"
 
+    dlog("기존 버튼 배열 직접 정의 — 삭제예정")
     buttons = [
         [
             InlineKeyboardButton("힌트", callback_data="quiz:hint"),
@@ -358,6 +393,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             InlineKeyboardButton("중지", callback_data="quiz:pause"),
         ],
     ]
+    dlog("변경 _quiz_buttons() 호출")
     # 1단계는 한글 뜻을 문제 위에 함께 표시
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await update.effective_message.reply_text(
@@ -440,6 +476,109 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(f"🔄 '{info['word']}' 1단계로 초기화됐어요!")
 
+    elif data == "word:short_confirm":
+        dlog("short_confirm 콜백 — 짧은 단어 등록 확인됨")
+        dlog("KEY_WORD_PENDING에서 short_word_confirm(원문) 로드")
+        raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
+        if not raw:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        pending_data = json.loads(raw)
+        text = pending_data.get("short_word_confirm", "")
+        dlog("원문 없으면 만료 메시지 후 return")
+        if not text:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        await query.edit_message_reply_markup(reply_markup=None)
+        dlog("loading 메시지 전송")
+        loading = await query.message.reply_text("분석 중... ⏳")
+        dlog("ai_service.explain_word(text) 호출")
+        t0 = time.time()
+        info = await ai_service.explain_word(text)
+        t1 = time.time()
+        logger.info(f"[short_confirm] explain_word 소요: {t1 - t0:.2f}s — 입력: {text!r}, 결과: {info.get('word')!r}")
+        word = info["word"]
+        transformed = word.lower() != text.lower()
+        dlog("search_words_containing(text) 호출")
+        raw_conflicts = await notion_service.search_words_containing(text)
+        t2 = time.time()
+        logger.info(f"[short_confirm] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(raw_conflicts)}개")
+        dlog("loading 삭제")
+        await loading.delete()
+        dlog("conflict_pages 구성")
+        conflict_pages = []
+        for page in raw_conflicts:
+            parsed = notion_service.parse_word_page(page)
+            if parsed:
+                conflict_pages.append({
+                    "page_id": parsed["page_id"],
+                    "word": parsed["word"],
+                    "stage": parsed["stage"],
+                })
+        dlog("pending Redis 저장 — short_word_confirm 필드 제거 후 기존 pending 구조로")
+        await redis.set(
+            _k(KEY_WORD_PENDING, chat_id),
+            json.dumps({
+                **info,
+                "original_word": text,
+                "existing_page_id": None,
+                "conflict_pages": conflict_pages,
+            }),
+        )
+        dlog("설명 메시지 구성")
+        msg = (
+            f"{word}\n"
+            f"뜻: {info['meaning_ko']}\n\n"
+            f"📌 \"{info['example']}\""
+        )
+        dlog("conflict 있으면 첫 항목 질문, 없으면 등록 버튼 표시")
+        if conflict_pages:
+            await query.message.reply_text(msg)
+            first = conflict_pages[0]
+            buttons = [[
+                InlineKeyboardButton("🗑 삭제", callback_data="word:conflict_delete"),
+                InlineKeyboardButton("🔒 유지", callback_data="word:conflict_keep"),
+                InlineKeyboardButton("⏹ 작업중단", callback_data="word:conflict_stop"),
+            ]]
+            await query.message.reply_text(
+                f"기존에 '{first['word']}' ({first['stage']}단계)이 있어요. 삭제할까요?",
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+        else:
+            if transformed:
+                buttons = [[
+                    InlineKeyboardButton("✅ 추천형태로 등록", callback_data="word:register"),
+                    InlineKeyboardButton("📝 원어로 등록", callback_data="word:register_original"),
+                    InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+                ]]
+            else:
+                buttons = [[
+                    InlineKeyboardButton("✅ 등록", callback_data="word:register"),
+                    InlineKeyboardButton("✖ 취소", callback_data="word:cancel"),
+                ]]
+            await query.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(buttons))
+
+    elif data == "word:conflict_stop":
+        dlog("conflict_stop 콜백 — 작업중단 요청")
+        dlog("KEY_WORD_PENDING에서 pending 로드")
+        raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
+        if not raw:
+            dlog("pending 없으면 만료 메시지 후 return")
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
+            return
+        pending = json.loads(raw)
+        dlog("pending의 conflict_pages 전체 비우기")
+        pending["conflict_pages"] = []
+        dlog("비워진 pending Redis 저장")
+        await redis.set(_k(KEY_WORD_PENDING, chat_id), json.dumps(pending))
+        dlog("기존 메시지 버튼 제거")
+        await query.edit_message_reply_markup(reply_markup=None)
+        dlog("_show_next_conflict_or_register 호출 — 등록 버튼으로 이동")
+        await _show_next_conflict_or_register(query, pending)
+
     elif data == "word:cancel":
         await query.edit_message_text("취소됐어요.")
 
@@ -478,6 +617,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         stage    = session["stage"]     # 현재 단계
         question = session["question"]  # 저장된 문제 텍스트
         await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz")
+        dlog("기존 힌트/단어질문/중지 3개 버튼 — 삭제예정")
         buttons = [
             [
                 InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
@@ -485,6 +625,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
             ],
         ]
+        dlog("변경 _quiz_buttons() 호출")
         await query.edit_message_text(
             f"↩ 퀴즈로 돌아왔어요!\n{_stage_icon(stage)} {stage}단계\n{question}",
             reply_markup=InlineKeyboardMarkup(buttons),
@@ -508,6 +649,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         session  = json.loads(raw)
         stage    = session["stage"]    # 현재 단계
         question = session["question"] # 저장된 문제 텍스트
+        dlog("기존 힌트/단어질문/중지 3개 버튼 — 삭제예정")
         buttons = [
             [
                 InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
@@ -515,6 +657,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
             ],
         ]
+        dlog("변경 _quiz_buttons() 호출")
         await query.edit_message_text(
             f"▶ 이어서 풀어봐요!\n{_stage_icon(stage)} {stage}단계\n{question}",
             reply_markup=InlineKeyboardMarkup(buttons),
