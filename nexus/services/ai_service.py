@@ -10,6 +10,67 @@ GENAI_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemin
 QUIZ_MODELS  = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
 
 
+async def summarize_url(url: str) -> dict:
+    """웹 URL을 Gemini url_context 툴로 직접 브라우징해 요약."""
+    dlog("_build_url_prompt() 호출 — url 포함한 Gem 스타일 프롬프트 구성")
+    prompt = _build_url_prompt(url)
+    dlog("_call_gemini_url() 호출 — GENAI_MODELS 폴백 순서로 시도")
+    result = await _call_gemini_url(prompt, GENAI_MODELS)
+    dlog("파싱된 결과 dict 반환")
+    return result
+
+
+async def _call_gemini_url(prompt: str, models: list) -> dict:
+    import asyncio
+    import time
+    from google import genai
+    from google.genai import types as gtypes
+    dlog("genai 클라이언트 생성")
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    dlog("url_context 툴 포함 GenerateContentConfig 구성")
+    dlog("automatic_function_calling disable 설정")
+    config = gtypes.GenerateContentConfig(
+        tools=[gtypes.Tool(url_context=gtypes.UrlContext())],
+        automatic_function_calling=gtypes.AutomaticFunctionCallingConfig(disable=True),
+    )
+    dlog("models 순서대로 폴백 — 30초 타임아웃 적용 (웹 브라우징 소요 시간 고려)")
+    for model in models:
+        t = time.time()
+        try:
+            response = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=config,
+                ),
+                timeout=30.0,
+            )
+            logger.info(f"[url] 사용 모델: {model} ({time.time() - t:.2f}s)")
+            dlog("성공한 모델 응답 _parse_response() 후 반환")
+            return _parse_response(response.text)
+        except asyncio.TimeoutError:
+            logger.warning(f"[url] 모델 {model} 타임아웃 ({time.time() - t:.2f}s) — 다음 모델 시도")
+        except Exception as e:
+            logger.warning(f"[url] 모델 {model} 실패 ({time.time() - t:.2f}s): {e}")
+    dlog("모든 모델 실패 시 Exception 발생")
+    raise Exception("모든 url 모델 실패")
+
+
+def _build_url_prompt(url: str) -> str:
+    dlog("Gem 스타일 지시문 반환 — 영어면 한글 요약 / 설치·설정·사용법·단축키 / 문서 사이트면 docs·API 탐색 포함")
+    return f"""보내준 링크를 분석해서 다음 작업을 진행해줘.
+
+영어로 된 내용인 경우에는 한글로 요약 정리를 해줘.
+
+해당 내용이 무언가를 설명해주는 내용이라면 기능에 대한 자세한 설명과 사용하기 위한 설치법, 설정법, 사용법, 작성법, 단축키 등을 텍스트로 정리해줘.
+
+해당 내용이 사이트라면 docs, api 등의 다른 카테고리까지 확인해서 설치법, 사용법 등에 대한 내용을 더 자세히 확인해줘.
+
+응답 첫 줄을 반드시 "제목: (한 줄 핵심 주제)" 형식으로 시작해줘.
+
+링크: {url}"""
+
+
 async def summarize_youtube(url: str) -> dict:
     """YouTube/Shorts URL을 Gemini에 직접 전달해 요약. AWS YouTube 차단 우회."""
     from google import genai
@@ -30,11 +91,6 @@ async def summarize_youtube(url: str) -> dict:
             logger.warning(f"youtube 모델 {model} 실패: {e}")
     raise Exception("모든 youtube 모델 실패")
 
-
-async def summarize(text: str, source_url: str) -> dict:
-    """일반 텍스트 요약. llm_models 사용."""
-    prompt = _build_prompt(text, source_url)
-    return await _call_with_models(prompt, GENAI_MODELS)
 
 
 async def summarize_github(repo_info: dict) -> dict:
@@ -279,15 +335,6 @@ def _build_youtube_prompt() -> str:
   - 주요내용 내용 분량에 맞게 bullet 3~20개
   - 한 줄 결론"""
 
-
-def _build_prompt(text: str, source_url: str) -> str:
-    return f"""아래 내용을 한국어로 요약하고 다음 양식으로 답해줘. 마크다운 굵게(**) 사용 금지. 쇼츠는 레시피는 중요하게 기록하고 나머진 그냥 3줄요약이면 돼.
-요약 양식:
-제목: (한 줄 핵심 주제)
-  - 주요내용 내용 분량에 맞게 bullet 3~20개
-  - 한 줄 결론
-내용:
-{text}"""
 
 
 def _build_github_prompt(repo_info: dict) -> str:

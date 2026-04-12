@@ -384,7 +384,6 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     else:
         progress = "[🔄]"
 
-    dlog("기존 버튼 배열 직접 정의 — 삭제예정")
     buttons = [
         [
             InlineKeyboardButton("힌트", callback_data="quiz:hint"),
@@ -617,7 +616,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         stage    = session["stage"]     # 현재 단계
         question = session["question"]  # 저장된 문제 텍스트
         await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz")
-        dlog("기존 힌트/단어질문/중지 3개 버튼 — 삭제예정")
         buttons = [
             [
                 InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
@@ -649,7 +647,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         session  = json.loads(raw)
         stage    = session["stage"]    # 현재 단계
         question = session["question"] # 저장된 문제 텍스트
-        dlog("기존 힌트/단어질문/중지 3개 버튼 — 삭제예정")
         buttons = [
             [
                 InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),

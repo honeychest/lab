@@ -1,12 +1,12 @@
 import logging
 import requests
+from chs import dlog
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.github_service import get_repo_info
-from services.ai_service import summarize, summarize_github, summarize_youtube
+from services.ai_service import summarize_github, summarize_youtube, summarize_url
 from services.notion_service import save, exists, delete_page
 from handlers.url_handler import _get_platform
-from services.webpage_service import get_content
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,9 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"✔ 갱신 완료\n\n{result['summary'][:_TELEGRAM_MAX]}")
     else: # 일반 web 처리
         try:
-            text = await get_content(url)
-            result = await summarize(text, url)
+            dlog("web 플랫폼 summarize_url() 호출")
+            dlog("url 직접 Gemini에 전달 — url_context 브라우징")
+            result = await summarize_url(url)
         except Exception:
             await query.edit_message_text("❌ 처리 중 오류가 발생했습니다.")
             return

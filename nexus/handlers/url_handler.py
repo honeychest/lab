@@ -1,11 +1,11 @@
 import logging
 import requests
 import uuid
+from chs import dlog
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from services.webpage_service import get_content
 from services.github_service import get_repo_info
-from services.ai_service import summarize, summarize_github, summarize_youtube
+from services.ai_service import summarize_github, summarize_youtube, summarize_url
 from services.notion_service import save, exists
 logger = logging.getLogger(__name__)
 
@@ -95,8 +95,9 @@ async def _handle_generic(update: Update, url: str, platform: str):
         if platform in ("youtube", "shorts"):
             result = await summarize_youtube(url)
         else:
-            text = await get_content(url)
-            result = await summarize(text, url)
+            dlog("web 플랫폼 summarize_url() 호출")
+            dlog("url 직접 Gemini에 전달 — url_context 브라우징")
+            result = await summarize_url(url)
     except Exception as e:
         await _log_failure(url, str(e))
         raise
