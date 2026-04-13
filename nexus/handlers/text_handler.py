@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 from chs import dlog
 from config import settings
 from services import ai_service, notion_service, grammar_service
+from handlers.law_handler import handle_law_query, KEY_LAW_STATE
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """텍스트 메시지 수신 시 상태에 따라 분기."""
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
+
+    dlog("law 상태 먼저 확인 — 한국어 법령명 입력 허용 위해 ASCII 체크 전 분기")
+    dlog("KEY_LAW_STATE Redis 조회")
+    law_state = await redis.get(_k(KEY_LAW_STATE, chat_id))
+    dlog("law 상태이면 handle_law_query() 호출 후 return")
+    if law_state == "law":
+        await handle_law_query(update, chat_id, text)
+        return
+
     # 입력값 검증 — 영문자가 없으면 단어 질문으로 처리 불가
     if not any(c.isascii() and c.isalpha() for c in text):
         await update.message.reply_text("영단어나 영문 문장을 입력해주세요.")

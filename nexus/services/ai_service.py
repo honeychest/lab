@@ -158,6 +158,23 @@ async def explain_word(text: str) -> dict:
     return _parse_explain_response(result["summary"])
 
 
+async def answer_law_query(law_result: str, query: str) -> dict:
+    """MCP 체인 결과가 텔레그램 한도 초과 시 요약. {"title": ..., "summary": ...} 반환."""
+    dlog("프롬프트 구성 — MCP 체인 결과를 컨텍스트로, 질문 기반 요약 요청")
+    prompt = f"""아래는 법제처 법령 종합 조사 결과입니다.
+
+{law_result[:30000]}
+
+---
+위 내용을 바탕으로 다음 질문에 한국어로 명확하고 이해하기 쉽게 답해줘.
+조문을 인용할 때는 조문 번호를 함께 표시해줘.
+관련 판례가 있다면 판결 요지도 함께 언급해줘.
+
+질문: {query}"""
+
+    return await _call_with_models(prompt, GENAI_MODELS)
+
+
 def _has_invalid_content(text: str, word: str) -> bool:
     """생성된 퀴즈 문제에 단어, 마크다운, 빈칸 패턴이 포함되어 있으면 True."""
     if word.lower() in text.lower():

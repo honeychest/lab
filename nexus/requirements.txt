@@ -13,3 +13,4 @@ yt-dlp
 groq
 redis[asyncio]
 apscheduler
+mcp

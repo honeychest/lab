@@ -19,6 +19,8 @@ def main():
   from handlers.refresh_handler import handle_refresh
   from handlers.text_handler import handle_text, handle_callback
   from handlers.quiz_handler import handle_quiz_command
+  from handlers.law_handler import handle_law
+  from handlers.exit_handler import handle_exit
   from scheduler import setup_scheduler
 
   logger.info("Nexus 봇 시작 중...")
@@ -31,6 +33,10 @@ def main():
 
   # /quiz 명령어 → 즉시 퀴즈 시작 (카운트 초기화 포함)
   application.add_handler(CommandHandler("quiz", handle_quiz_command))
+  # /law 명령어 → 법령 검색 모드 진입 또는 즉시 검색
+  application.add_handler(CommandHandler("law", handle_law))
+  # /exit 명령어 → 현재 모드(quiz/law) 종료 → 일반 모드 복귀
+  application.add_handler(CommandHandler("exit", handle_exit))
   # URL 포함 메시지 → url_handler (필터 우선순위: URL이 있으면 여기서 처리)
   application.add_handler(MessageHandler(filters.TEXT & filters.Entity("url"), handle_url))
   # 일반 텍스트 메시지 → text_handler (단어질문 / 퀴즈 답변)
