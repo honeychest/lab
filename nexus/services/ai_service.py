@@ -186,8 +186,30 @@ def _has_invalid_content(text: str, word: str) -> bool:
     return False
 
 
-def _force_clean(text: str, word: str) -> str:
+def _has_invalid_content_stage2(text: str, word: str) -> bool:
+    dlog("stage2 검수 — word가 text에 포함되어 있으면 True 반환")
+    if word.lower() in text.lower():
+        return True
+    dlog("stage2 검수 — _______ 빈칸이 없으면 True 반환")
+    if "_______" not in text:
+        return True
+    dlog("stage2 검수 — 마크다운 기호 포함 시 True 반환")
+    if any(c in text for c in ("*", "#", "`")):
+        return True
+    dlog("bool 반환 — generate_quiz() stage2 분기에서 재시도 여부 판단에 사용")
+    return False
+
+
+def _force_clean(text: str, word: str, stage: int = 3) -> str:
     """3회 실패 fallback — 프로그램 수준에서 문제 있는 요소 강제 제거."""
+    dlog("_force_clean() — stage 파라미터 추가")
+    dlog("stage 2 마크다운 제거 후 빈칸 없으면 word를 _______ 로 치환 후 반환")
+    if stage == 2:
+        result = re.sub(r'[*#`]', "", text)
+        if "_______" not in result:
+            result = re.sub(re.escape(word), "_______", result, count=1, flags=re.IGNORECASE)
+        return result.strip()
+    dlog("stage 2 외: 기존 로직 실행 후 반환")
     # 단어 치환 (외래어 등 AI가 포함하는 케이스)
     result = re.sub(re.escape(word), "___", text, flags=re.IGNORECASE)
     # 마크다운 기호 제거
@@ -243,15 +265,25 @@ Word: {word}"""
             last = m.group(1).strip() if m else raw
         else:
             last = raw
-        dlog("검수 조건 stage < 3 — 3단계 이상 모두 검수 적용")
-        if stage < 3 or not _has_invalid_content(last, word):
+        dlog("검수 조건 — stage별 분기")
+        dlog("stage 1: word 포함 여부만 검수, 통과 시 반환")
+        if stage == 1 and word.lower() not in last.lower():
+            return last
+        dlog("stage 2: _has_invalid_content_stage2() 검수, 통과 시 반환")
+        if stage == 2 and not _has_invalid_content_stage2(last, word):
+            return last
+        dlog("stage 3+: 기존 _has_invalid_content() 검수, 통과 시 반환")
+        if stage >= 3 and not _has_invalid_content(last, word):
             return last
         logger.warning(f"[generate_quiz] 재시도 {attempt + 1}/3 — 검수 실패: {last!r}")
         dlog("검수 실패 원인 분석 — 단어 포함 여부 / 빈칸 포함 여부 확인")
+        dlog("검수 실패 원인 분석 — stage 2는 빈칸 없음을 별도 실패 사유로 추가")
         reasons = []
         if word.lower() in last.lower():
             reasons.append(f"단어 '{word}'가 그대로 포함됨")
-        if any(p in last for p in ("()", "( )", "___", "______")):
+        if stage == 2 and "_______" not in last:
+            reasons.append("빈칸(_______)이 없음")
+        if stage != 2 and any(p in last for p in ("()", "( )", "___", "______")):
             reasons.append("빈칸(___) 또는 괄호가 포함됨")
         if any(c in last for c in ("*", "#", "`")):
             reasons.append("마크다운 기호가 포함됨")
@@ -262,12 +294,24 @@ Word: {word}"""
     # TODO: [generate_quiz] 3회 재시도 실패 — 프롬프트 또는 모델 개선 필요
     # 원인: AI가 단어를 외래어로 인식하거나 형식 지시를 반복 무시함
     # 임시처리: 단어/마크다운/빈칸 강제 치환 후 반환
-    cleaned = _force_clean(last, word)
+    dlog("_force_clean(last, word, stage) — stage 전달")
+    cleaned = _force_clean(last, word, stage)
     logger.warning(
         f"[generate_quiz] 3회 실패 — 강제 치환 적용. 단어: {word!r}, 원본: {last!r}, 결과: {cleaned!r}. "
         f"근본 해결 필요: 프롬프트 개선 또는 더 강한 모델 사용 권장."
     )
     return cleaned
+
+
+async def generate_quiz_with_hint(word: str, meaning_ko: str, stage: int) -> tuple:
+    import asyncio
+    dlog("asyncio.gather로 generate_quiz()와 get_word_definition() 동시 실행")
+    question, definition = await asyncio.gather(
+        generate_quiz(word, meaning_ko, stage),
+        get_word_definition(word),
+    )
+    dlog("(question, definition) 튜플 반환 — _prefetch_next_question에서 사용")
+    return question, definition
 
 
 async def get_word_definition(word: str) -> str:
@@ -281,17 +325,17 @@ async def get_word_definition(word: str) -> str:
     return result["summary"].strip()
 
 
-async def grade_writing(word: str, meaning_ko: str, answer: str) -> dict:
+async def grade_writing(word: str, meaning_ko: str, question: str, answer: str) -> dict:
     """작문 채점. {"used_correctly": bool, "context_ok": bool, "grammar_errors": [...], "collocation_errors": [...]} 반환."""
-    dlog("meaning_ko 기준으로 사용법 판단 — 뜻에 맞는 품사/전치사 등 포함 여부 확인")
-    dlog("단어 사용법 오류(품사/전치사 등)는 사용여부=no, 나머지 문법 오류는 오류 항목으로 구분")
+    dlog("question(한국어 문장) 기준 채점 — 단어 포함 + 의미 전달이면 yes, 문법오류는 오류항목으로만")
     prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
-사용여부: (yes/no) — "{word}"를 주어진 뜻({meaning_ko})에 맞게 올바른 품사와 용법으로 사용했는지. 뜻과 다른 의미로 쓰거나 필수 전치사·형태가 틀리면 no.
+사용여부: (yes/no) — "{word}"를 포함해서 아래 한국어 문장의 의미를 영어로 전달했는지. 시제·관사·단복수 같은 문법 오류가 있어도 의미가 전달되면 yes.
 맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
 오류: (오류 목록, 없으면 "없음". 형식: "[유형] 오류내용 → 수정내용" 한 줄씩. 반드시 대괄호 사용.
   유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동명사 / 동사원형 / 시제 / 어순 / 철자 / 연어
   예시: [시제] He was underwent change → He underwent change)
 
+한국어 문장: {question}
 단어: {word}
 뜻: {meaning_ko}
 작문: {answer}"""

@@ -30,6 +30,8 @@ KEY_WORD_PENDING = "nexus:word:pending:{chat_id}"
 KEY_QUIZ_PAUSE   = "nexus:quiz:pause:{chat_id}"
 # 문법 오류 등록 대기 중인 오류 목록 (버튼 콜백에서 사용)
 KEY_GRAMMAR_PENDING = "nexus:grammar:pending:{chat_id}"
+# 다음 문제 선제 생성 데이터 (word/meaning_ko/stage/page_id/question/definition)
+KEY_QUIZ_PREFETCH = "nexus:quiz:prefetch:{chat_id}"
 
 DAILY_QUIZ_LIMIT = 20  # 하루 퀴즈 최대 출제 수
 
@@ -237,9 +239,11 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
     ttl      = _seconds_until_midnight()
     session  = json.loads(raw)
     word       = session["word"]       # 정답 단어
-    meaning_ko = session["meaning_ko"] # 한국어 뜻 — grade_writing 채점 기준
+    meaning_ko = session["meaning_ko"] # 한국어 뜻
     stage      = session["stage"]      # 현재 단계 (1/2/3)
     page_id    = session["page_id"]    # Notion page_id (단계 업데이트용)
+    dlog("question 추출 — grade_writing 채점 기준 한국어 문장으로 전달")
+    question   = session.get("question", "")
     dlog("mode 세션에서 추출 — quiz 모드 정답 시 단계 상승 방지")
     mode = session.get("mode", "auto")
 
@@ -251,7 +255,8 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
 
         if not word_used:
             # 단어 미사용 — AI로 맥락 확인
-            result = await ai_service.grade_writing(word, meaning_ko, text)
+            dlog("grade_writing(word, meaning_ko, question, text) — 한국어 문장 전달")
+            result = await ai_service.grade_writing(word, meaning_ko, question, text)
             if result["context_ok"]:
                 # 의미는 맞지만 단어 미사용 → 다시 도전 (단계 유지)
                 await update.message.reply_text(f"⚠️ 의미는 맞지만 '{word}'를 직접 사용해야 해요. 다시 도전!")
@@ -261,7 +266,8 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
                 reply = f"❌ 오답. '{word}'를 사용한 문장을 만들어보세요. 1단계로 돌아갑니다."
         else:
             # 단어 사용함 — AI로 올바른 사용 여부 + 문법 오류 분석
-            result = await ai_service.grade_writing(word, meaning_ko, text)
+            dlog("grade_writing(word, meaning_ko, question, text) — 한국어 문장 전달")
+            result = await ai_service.grade_writing(word, meaning_ko, question, text)
             correct = result["used_correctly"]
             if correct:
                 reply = "✅ 정답! 올바르게 사용했어요."
@@ -293,13 +299,18 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
             )
 
             # 버튼 구성 — 문법/연어 각각 있을 때만 버튼 표시
-            btn_row = []
-            if grammar_errors:
-                btn_row.append(InlineKeyboardButton("📝 문법 오류 등록", callback_data="grammar:register"))
+            keyboard = []
+            dlog("오류별 개별 등록 버튼 — grammar:register:{index}")
+            dlog("각 오류마다 한 행: [📝 [유형] 등록] 버튼")
+            for i, err in enumerate(grammar_errors):
+                keyboard.append([InlineKeyboardButton(f"📝 [{err['type']}] 등록", callback_data=f"grammar:register:{i}")])
+            dlog("연어/넘어가기 버튼은 마지막 행")
+            last_row = []
             if collocation_errors:
-                btn_row.append(InlineKeyboardButton("✅ 단어장 등록", callback_data="grammar:register_collocation"))
-            btn_row.append(InlineKeyboardButton("넘어가기", callback_data="grammar:skip"))
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup([btn_row]))
+                last_row.append(InlineKeyboardButton("✅ 단어장 등록", callback_data="grammar:register_collocation"))
+            last_row.append(InlineKeyboardButton("넘어가기", callback_data="grammar:skip"))
+            keyboard.append(last_row)
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
         else:
             await update.message.reply_text(reply)
     else:
@@ -317,6 +328,52 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
 
     # 다음 문제 출제 (방금 푼 단어 제외)
     await _send_next_quiz(update, chat_id, exclude_page_id=page_id)
+
+
+# ─── 다음 문제 선제 생성 ─────────────────────────────────────────────────────
+async def _prefetch_next_question(chat_id: int, mode: str, exclude_page_id: str | None) -> None:
+    import random as _random
+    try:
+        ttl = _seconds_until_midnight()
+        dlog("다음 문제 선제 생성 — mode, exclude_page_id 기반으로 다음 단어 선택")
+        if mode == "quiz":
+            dlog("mode quiz: get_all_words() 상위 100개 셔플, exclude_page_id 제외")
+            words = await notion_service.get_all_words()
+            if exclude_page_id:
+                words = [w for w in words if w["id"] != exclude_page_id]
+            if not words:
+                return
+            pool = words[:100]
+            _random.shuffle(pool)
+            page = pool[0]
+        else:
+            dlog("mode auto: get_words_due() 첫 번째 단어")
+            words = await notion_service.get_words_due()
+            if not words:
+                return
+            page = words[0]
+
+        dlog("parse_word_page() 실패 시 조용히 종료 — fallback은 _send_next_quiz가 처리")
+        parsed = notion_service.parse_word_page(page)
+        if not parsed:
+            return
+
+        word       = parsed["word"]
+        meaning_ko = parsed["meaning_ko"]
+        stage      = parsed["stage"]
+        page_id    = parsed["page_id"]
+
+        dlog("generate_quiz_with_hint() 호출 — question, definition 동시 생성")
+        question, definition = await ai_service.generate_quiz_with_hint(word, meaning_ko, stage)
+
+        dlog("Redis KEY_QUIZ_PREFETCH 키에 저장 (TTL 자정)")
+        await redis.set(
+            _k(KEY_QUIZ_PREFETCH, chat_id),
+            json.dumps({"word": word, "meaning_ko": meaning_ko, "stage": stage, "page_id": page_id, "question": question, "definition": definition, "mode": mode}),
+            ex=ttl,
+        )
+    except Exception as e:
+        logger.warning(f"[prefetch] 실패 — chat_id: {chat_id}, 오류: {e}")
 
 
 # ─── 다음 퀴즈 문제 출제 ─────────────────────────────────────────────────────
@@ -340,6 +397,33 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             await update.effective_message.reply_text("🎉 오늘 퀴즈 완료! 수고했어요 💪")
             return
 
+    import asyncio as _asyncio
+    dlog("prefetch 키 확인 — 있으면 즉시 사용, 없으면 일반 생성으로 진행")
+    prefetch_raw = await redis.getdel(_k(KEY_QUIZ_PREFETCH, chat_id))
+    if prefetch_raw:
+        dlog("prefetch 파싱 → 세션 저장 → 즉시 출제 → 다음 prefetch trigger 후 return")
+        pf         = json.loads(prefetch_raw)
+        p_word       = pf["word"]
+        p_meaning_ko = pf["meaning_ko"]
+        p_stage      = pf["stage"]
+        p_page_id    = pf["page_id"]
+        p_question   = pf["question"]
+        p_definition = pf.get("definition", "")
+        await redis.set(
+            _k(KEY_QUIZ_SESSION, chat_id),
+            json.dumps({"word": p_word, "meaning_ko": p_meaning_ko, "stage": p_stage, "page_id": p_page_id, "question": p_question, "definition": p_definition, "mode": mode}),
+            ex=ttl,
+        )
+        await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
+        p_progress = f"[{DAILY_QUIZ_LIMIT - remaining}/{DAILY_QUIZ_LIMIT}]" if mode == "auto" else "[🔄]"
+        p_body = f"{p_meaning_ko}\n\n{p_question}" if p_stage == 1 else p_question
+        await update.effective_message.reply_text(
+            f"{p_progress} {_stage_icon(p_stage)} {p_stage}단계\n{p_body}",
+            reply_markup=_quiz_buttons(),
+        )
+        _asyncio.create_task(_prefetch_next_question(chat_id, mode, p_page_id))
+        return
+    dlog("prefetch 없으면 아래 일반 흐름으로 진행")
     # mode에 따라 단어 조회
     if mode == "quiz":
         # /quiz — 전체 단어, 상위 100개 셔플, 방금 푼 단어 제외
@@ -377,7 +461,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     question = await ai_service.generate_quiz(word, meaning_ko, stage)
     await loading.delete()
 
-    # 퀴즈 세션 저장 (mode 유지)
+    # 퀴즈 세션 저장 (mode 유지, 일반 생성은 definition 없음)
     await redis.set(
         _k(KEY_QUIZ_SESSION, chat_id),
         json.dumps({"word": word, "meaning_ko": meaning_ko, "stage": stage, "page_id": page_id, "question": question, "mode": mode}),
@@ -409,6 +493,8 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
+    dlog("문제 표시 후 다음 문제 prefetch 백그라운드 trigger — asyncio.create_task")
+    _asyncio.create_task(_prefetch_next_question(chat_id, mode, page_id))
 
 
 # ─── 버튼 콜백 처리 ───────────────────────────────────────────────────────────
@@ -598,13 +684,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("진행 중인 퀴즈가 없어요.", show_alert=True)
             return
         session = json.loads(raw)
-        word = session["word"]  # 정답 단어
+        word       = session["word"]        # 정답 단어
+        meaning_ko = session["meaning_ko"]  # 한국어 뜻
         hint = word[0] + "_" * (len(word) - 1)
         await query.answer()
-        dlog("ai_service.get_word_definition(word) 호출해 영어 정의 생성")
-        definition = await ai_service.get_word_definition(word)
-        dlog("힌트 메시지에 글자힌트 + 영어 정의 함께 출력")
-        await query.message.reply_text(f"💡 힌트: {hint}\n{definition}")
+        dlog("session에서 definition 읽기 — prefetch로 미리 생성된 경우 즉시 사용")
+        definition = session.get("definition")
+        dlog("definition 없으면 AI 호출 fallback — 첫 문제 또는 캐시 미스")
+        if not definition:
+            definition = await ai_service.get_word_definition(word)
+        dlog("힌트 메시지에 글자힌트 + 한글뜻 + 영어 정의 함께 출력")
+        await query.message.reply_text(f"💡 힌트: {hint}\n{meaning_ko}\n{definition}")
 
     elif data == "quiz:word_query":
         # 퀴즈 중 단어 질문 — 상태를 word로 변경
@@ -626,17 +716,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         stage    = session["stage"]     # 현재 단계
         question = session["question"]  # 저장된 문제 텍스트
         await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz")
-        buttons = [
-            [
-                InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
-                InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
-                InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
-            ],
-        ]
-        dlog("변경 _quiz_buttons() 호출")
+        dlog("_quiz_buttons() 호출")
         await query.edit_message_text(
             f"↩ 퀴즈로 돌아왔어요!\n{_stage_icon(stage)} {stage}단계\n{question}",
-            reply_markup=InlineKeyboardMarkup(buttons),
+            reply_markup=_quiz_buttons(),
         )
 
     elif data == "quiz:pause":
@@ -657,17 +740,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         session  = json.loads(raw)
         stage    = session["stage"]    # 현재 단계
         question = session["question"] # 저장된 문제 텍스트
-        buttons = [
-            [
-                InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
-                InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
-                InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
-            ],
-        ]
-        dlog("변경 _quiz_buttons() 호출")
+        dlog("_quiz_buttons() 호출")
         await query.edit_message_text(
             f"▶ 이어서 풀어봐요!\n{_stage_icon(stage)} {stage}단계\n{question}",
-            reply_markup=InlineKeyboardMarkup(buttons),
+            reply_markup=_quiz_buttons(),
         )
 
     elif data == "quiz:fail":
@@ -693,40 +769,45 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await redis.delete(_k(KEY_QUIZ_PAUSE, chat_id))
         await query.edit_message_text("오늘은 여기까지! 내일 또 봐요 💪")
 
-    elif data == "grammar:register":
-        # 문법 오류 grammar DB 저장 + 연어 있으면 단어장에도 함께 등록
+    elif data.startswith("grammar:register:"):
+        dlog("grammar:register:{index} 핸들러 — 인덱스 파싱")
+        idx = int(data.split(":")[-1])
         raw = await redis.get(_k(KEY_GRAMMAR_PENDING, chat_id))
         if not raw:
-            await query.edit_message_text("⏰ 등록 정보가 만료됐어요.")
+            await query.answer("⏰ 등록 정보가 만료됐어요.", show_alert=True)
             return
-        await query.edit_message_text("⏳ 등록 중...")
-        info = json.loads(raw)
+        dlog("pending에서 해당 index 오류 추출 후 save_grammar_error() 호출")
+        info              = json.loads(raw)
         grammar_errors     = info.get("grammar_errors", [])
         collocation_errors = info.get("collocation_errors", [])
-
-        grammar_saved = 0
-        for err in grammar_errors:
-            await grammar_service.save_grammar_error(
-                error_type=err["type"],
-                expression=info["expression"],
-                wrong_sentence=info["wrong_sentence"],
-                error_detail=err["detail"],
-            )
-            grammar_saved += 1
-
-        colloc_saved = 0
-        for expression in collocation_errors:
-            existing = await notion_service.exists_word(expression)
-            if not existing:
-                word_info = await ai_service.explain_word(expression)
-                await notion_service.add_word(word_info["word"] or expression, word_info["meaning_ko"])
-                colloc_saved += 1
-
-        await redis.delete(_k(KEY_GRAMMAR_PENDING, chat_id))
-        msg = f"📝 문법 오류 {grammar_saved}개 등록됐어요. 내일부터 퀴즈에 나올거에요!"
-        if colloc_saved:
-            msg += f"\n✅ 연어 {colloc_saved}개 단어장에도 등록됐어요!"
-        await query.edit_message_text(msg)
+        if idx >= len(grammar_errors):
+            await query.answer("이미 등록됐거나 오류를 찾을 수 없어요.", show_alert=True)
+            return
+        err = grammar_errors[idx]
+        await grammar_service.save_grammar_error(
+            error_type=err["type"],
+            expression=info["expression"],
+            wrong_sentence=info["wrong_sentence"],
+            error_detail=err["detail"],
+        )
+        dlog("pending에서 해당 오류 제거 후 Redis 업데이트")
+        grammar_errors.pop(idx)
+        info["grammar_errors"] = grammar_errors
+        if grammar_errors or collocation_errors:
+            await redis.set(_k(KEY_GRAMMAR_PENDING, chat_id), json.dumps(info), ex=_seconds_until_midnight())
+        else:
+            await redis.delete(_k(KEY_GRAMMAR_PENDING, chat_id))
+        dlog("남은 오류로 keyboard 재구성 후 메시지 edit — 등록된 버튼 제거")
+        keyboard = []
+        for i, e in enumerate(grammar_errors):
+            keyboard.append([InlineKeyboardButton(f"📝 [{e['type']}] 등록", callback_data=f"grammar:register:{i}")])
+        last_row = []
+        if collocation_errors:
+            last_row.append(InlineKeyboardButton("✅ 단어장 등록", callback_data="grammar:register_collocation"))
+        last_row.append(InlineKeyboardButton("넘어가기", callback_data="grammar:skip"))
+        keyboard.append(last_row)
+        await query.answer("📝 등록됐어요!")
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data == "grammar:register_collocation":
         # 연어만 있을 때 단독 단어장 등록

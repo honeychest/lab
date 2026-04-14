@@ -19,6 +19,8 @@ from handlers.text_handler import (
     _k,
     _seconds_until_midnight,
     _stage_icon,
+    _quiz_buttons,
+    _prefetch_next_question,
 )
 from services import ai_service, notion_service
 
@@ -75,13 +77,6 @@ async def _send_quiz_question(bot: Bot, chat_id: int, greeting: str) -> None:
     )
     await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
 
-    buttons = [
-        [
-            InlineKeyboardButton("💡 힌트", callback_data="quiz:hint"),
-            InlineKeyboardButton("🔤 단어 질문", callback_data="quiz:word_query"),
-            InlineKeyboardButton("⏸ 중지", callback_data="quiz:pause"),
-        ],
-    ]
     count_key = _k(KEY_QUIZ_COUNT, chat_id)
     remaining = await redis.decr(count_key)
     await redis.expire(count_key, ttl)
@@ -89,8 +84,11 @@ async def _send_quiz_question(bot: Bot, chat_id: int, greeting: str) -> None:
     await bot.send_message(
         chat_id=chat_id,
         text=f"{greeting}\n[{total_done}/{DAILY_QUIZ_LIMIT}] {_stage_icon(stage)} {stage}단계\n{question}",
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=_quiz_buttons(),
     )
+    dlog("문제 표시 후 다음 문제 prefetch 백그라운드 trigger — asyncio.create_task")
+    import asyncio
+    asyncio.create_task(_prefetch_next_question(chat_id, "auto", page_id))
 
 
 # ─── AM 9:00 퀴즈 시작 ────────────────────────────────────────────────────────

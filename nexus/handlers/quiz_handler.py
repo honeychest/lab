@@ -9,10 +9,12 @@ from chs import dlog
 from handlers.text_handler import (
     KEY_QUIZ_COUNT,
     KEY_QUIZ_PAUSE,
+    KEY_QUIZ_PREFETCH,
     KEY_QUIZ_SESSION,
     KEY_QUIZ_STATE,
     DAILY_QUIZ_LIMIT,
     _k,
+    _prefetch_next_question,
     _seconds_until_midnight,
     _stage_icon,
     redis,
@@ -27,8 +29,10 @@ async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     ttl = _seconds_until_midnight()
 
-    # 기존 퀴즈 세션/일시정지 초기화
+    # 기존 퀴즈 세션/일시정지/prefetch 초기화
     await redis.delete(_k(KEY_QUIZ_PAUSE, chat_id))
+    dlog("/quiz 시작 시 prefetch 키 삭제 — mode 전환 대응")
+    await redis.delete(_k(KEY_QUIZ_PREFETCH, chat_id))
 
     # 오늘 퀴즈 카운트 초기화 (20개)
     await redis.set(_k(KEY_QUIZ_COUNT, chat_id), DAILY_QUIZ_LIMIT, ex=ttl)
@@ -63,7 +67,7 @@ async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     question = await ai_service.generate_quiz(word, meaning_ko, stage)
     await loading.delete()
 
-    # 퀴즈 세션 저장
+    # 퀴즈 세션 저장 (첫 문제는 definition 없음)
     await redis.set(
         _k(KEY_QUIZ_SESSION, chat_id),
         json.dumps({"word": word, "meaning_ko": meaning_ko, "stage": stage, "page_id": page_id, "question": question, "mode": "quiz"}),
@@ -86,3 +90,6 @@ async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup=InlineKeyboardMarkup(buttons),
     )
     logger.info(f"/quiz 시작 — chat_id: {chat_id}, 단어: {word}, 단계: {stage}")
+    dlog("첫 문제 표시 후 다음 문제 prefetch 백그라운드 trigger — asyncio.create_task")
+    import asyncio
+    asyncio.create_task(_prefetch_next_question(chat_id, "quiz", page_id))
