@@ -328,12 +328,22 @@ async def get_word_definition(word: str) -> str:
 async def grade_writing(word: str, meaning_ko: str, question: str, answer: str) -> dict:
     """작문 채점. {"used_correctly": bool, "context_ok": bool, "grammar_errors": [...], "collocation_errors": [...]} 반환."""
     dlog("question(한국어 문장) 기준 채점 — 단어 포함 + 의미 전달이면 yes, 문법오류는 오류항목으로만")
+    dlog("grade_writing 프롬프트")
+    dlog("오류 기준 — 명백한 문법 규칙 위반만, 스타일 제안·다른 단어 선택은 오류 아님 명시")
+    dlog("유형 정비 — 동명사 제거 / 접속사 추가 / 불완전문장(주어·목적어·필수보어 누락) 명시")
+    dlog("연어 기준 — {word} 포함 관용적 단어 조합만, 문장 교정·문장 보완은 연어 아님 명시")
+    dlog("오류 최대 3개 제한 명시")
+    dlog("대안표현 항목 추가 — 오류 없을 때만 비슷한 표현 1~2개, 오류 있으면 없음")
     prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
 사용여부: (yes/no) — "{word}"를 포함해서 아래 한국어 문장의 의미를 영어로 전달했는지. 시제·관사·단복수 같은 문법 오류가 있어도 의미가 전달되면 yes.
 맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
-오류: (오류 목록, 없으면 "없음". 형식: "[유형] 오류내용 → 수정내용" 한 줄씩. 반드시 대괄호 사용.
-  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동명사 / 동사원형 / 시제 / 어순 / 철자 / 연어
+오류: (명백한 문법 규칙 위반만. 더 자연스러운 표현이나 다른 단어 선택은 오류가 아님. 없으면 "없음". 최대 3개.
+  형식: "[유형] 오류내용 → 수정내용" 한 줄씩. 반드시 대괄호 사용.
+  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동사원형 / 시제 / 어순 / 철자 / 접속사 / 연어
+  주어·목적어·필수 보어 누락도 오류로 신고.
+  연어는 "{word}"가 포함된 관용적 단어 조합만. 문장 교정이나 문장 보완은 연어에 포함하지 않음.
   예시: [시제] He was underwent change → He underwent change)
+대안표현: (오류 없을 때만. 작문과 비슷한 의미의 다른 표현 1~2개를 "/" 로 구분. 오류 있으면 "없음".)
 
 한국어 문장: {question}
 단어: {word}
@@ -359,7 +369,7 @@ COLLOCATION_TYPE = "연어"
 def _parse_grade_response(text: str) -> dict:
     used = re.search(r'사용여부:\s*(yes|no)', text, re.IGNORECASE)
     context = re.search(r'맥락:\s*(yes|no)', text, re.IGNORECASE)
-    errors_raw = re.search(r'오류:\s*([\s\S]*)', text)
+    errors_raw = re.search(r'오류:\s*([\s\S]*?)(?=\n대안표현:|$)', text)
     grammar_errors = []   # [{"type": "관사", "detail": "habit → a habit"}, ...]
     collocation_errors = []  # ["making an effort", ...]  (수정된 표현만 추출)
     if errors_raw:
@@ -382,11 +392,20 @@ def _parse_grade_response(text: str) -> dict:
                 else:
                     # 유형 태그 없는 경우 grammar로 처리
                     grammar_errors.append({"type": "기타", "detail": line})
+    dlog("대안표현 필드 파싱 — '대안표현:' 항목 추출, 없으면 빈 리스트")
+    alternatives_raw = re.search(r'대안표현:\s*(.*)', text)
+    dlog("'/' 구분자로 개별 표현 분리")
+    alternatives = []
+    if alternatives_raw:
+        raw_alt = alternatives_raw.group(1).strip()
+        if raw_alt and raw_alt != "없음":
+            alternatives = [a.strip() for a in raw_alt.split("/") if a.strip()]
     return {
         "used_correctly": used.group(1).lower() == "yes" if used else False,
         "context_ok": context.group(1).lower() == "yes" if context else False,
         "grammar_errors": grammar_errors,
         "collocation_errors": collocation_errors,
+        "alternatives": alternatives,
     }
 
 

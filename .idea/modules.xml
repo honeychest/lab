@@ -4,7 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/frontend/frontend.iml" filepath="$PROJECT_DIR$/frontend/frontend.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/home.iml" filepath="$PROJECT_DIR$/.idea/home.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/springboot.iml" filepath="$PROJECT_DIR$/.idea/modules/springboot.iml" />
+      <module fileurl="file://$PROJECT_DIR$/nexus/nexus.iml" filepath="$PROJECT_DIR$/nexus/nexus.iml" />
     </modules>
   </component>
 </project>

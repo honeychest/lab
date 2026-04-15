@@ -228,6 +228,26 @@ async def _show_next_conflict_or_register(query, pending: dict) -> None:
         )
 
 
+# ─── Levenshtein distance 계산 ────────────────────────────────────────────────
+def _levenshtein(s1: str, s2: str) -> int:
+    dlog("Levenshtein distance 계산 — s1, s2 소문자 정규화")
+    s1, s2 = s1.lower(), s2.lower()
+    dlog("dp 테이블 (len(s1)+1) x (len(s2)+1) 초기화")
+    dp = [[0] * (len(s2) + 1) for _ in range(len(s1) + 1)]
+    dlog("첫 행/열: 삽입/삭제 비용으로 채우기")
+    for i in range(len(s1) + 1):
+        dp[i][0] = i
+    for j in range(len(s2) + 1):
+        dp[0][j] = j
+    dlog("dp[i][j] = min(삽입, 삭제, 교체) 로 채우기")
+    for i in range(1, len(s1) + 1):
+        for j in range(1, len(s2) + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+    dlog("dp[len(s1)][len(s2)] 반환 — _handle_quiz_answer에서 오타 판단에 사용")
+    return dp[len(s1)][len(s2)]
+
+
 # ─── 퀴즈 답변 채점 ───────────────────────────────────────────────────────────
 async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
     """퀴즈 답변 채점 후 결과 전송 및 다음 문제 출제."""
@@ -271,6 +291,11 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
             correct = result["used_correctly"]
             if correct:
                 reply = "✅ 정답! 올바르게 사용했어요."
+                dlog("대안표현 result에서 추출")
+                alternatives = result.get("alternatives", [])
+                dlog("대안표현 있으면 reply에 '\\n\\n💡 비슷한 표현: ...' 추가")
+                if alternatives:
+                    reply += "\n\n💡 비슷한 표현: " + " / ".join(alternatives)
             else:
                 reply = f"❌ 오답. '{word}'를 올바른 맥락으로 사용해야 해요. 1단계로 돌아갑니다."
 
@@ -319,6 +344,20 @@ async def _handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
         if correct:
             await update.message.reply_text("✅ 정답!")
         else:
+            dlog("Levenshtein distance로 오타/완전오답 구분")
+            distance = _levenshtein(text, word)
+            dlog("세션에서 retry_count 추출 (없으면 0)")
+            retry_count = session.get("retry_count", 0)
+            dlog("distance ≤ 2 이고 retry_count == 0 이면 오타 판단 분기")
+            if distance <= 2 and retry_count == 0:
+                dlog("세션 retry_count=1 로 업데이트 후 Redis 저장")
+                session["retry_count"] = 1
+                await redis.set(_k(KEY_QUIZ_SESSION, chat_id), json.dumps(session), ex=ttl)
+                dlog("오타 안내 메시지 전송 후 return — update_word_stage, _send_next_quiz 건너뜀")
+                await update.message.reply_text("오타인 것 같아요! 다시 한번! 🔄")
+                return
+            dlog("그 외(distance > 2 또는 retry_count >= 1) 오답 처리")
+            dlog("오답 메시지 전송 — 1단계로 돌아갑니다.")
             await update.message.reply_text(f"❌ 오답. 정답은 '{word}'예요. 1단계로 돌아갑니다.")
 
     # 단계 업데이트 — quiz 모드 정답 시 단계 상승 방지, 실패는 항상 업데이트
@@ -351,6 +390,13 @@ async def _prefetch_next_question(chat_id: int, mode: str, exclude_page_id: str 
             words = await notion_service.get_words_due()
             if not words:
                 return
+            dlog("exclude_page_id 존재하면 해당 page_id를 words에서 제외")
+            if exclude_page_id:
+                words = [w for w in words if w["id"] != exclude_page_id]
+            dlog("필터 후 words 비어있으면 return")
+            if not words:
+                return
+            dlog("words[0] 첫 번째 단어를 page에 할당")
             page = words[0]
 
         dlog("parse_word_page() 실패 시 조용히 종료 — fallback은 _send_next_quiz가 처리")
@@ -444,6 +490,15 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
             await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
             return
+        dlog("exclude_page_id 존재하면 해당 page_id를 words에서 제외")
+        if exclude_page_id:
+            words = [w for w in words if w["id"] != exclude_page_id]
+        dlog("필터 후 words 비어있으면 상태 삭제 및 완료 메시지 후 return")
+        if not words:
+            await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
+            await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
+            return
+        dlog("words[0] 첫 번째 단어를 page에 할당")
         page = words[0]
 
     parsed = notion_service.parse_word_page(page)
@@ -544,7 +599,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         info = json.loads(raw)
         await notion_service.add_word(info["word"], info["meaning_ko"])
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.message.reply_text(f"✅ '{info['word']}' 저장됐어요. 내일 첫 퀴즈 나올게요!")
+        await query.message.reply_text(f"✅ '{info['word']}' 저장됐어요. 내일 첫 퀴즈 나올거에요!")
 
     elif data == "word:register_original":
         # 원어 그대로 등록
@@ -557,7 +612,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         original_word = info.get("original_word", info["word"])
         await notion_service.add_word(original_word, info["meaning_ko"])
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.message.reply_text(f"✅ '{original_word}' 저장됐어요. 내일 첫 퀴즈 나올게요!")
+        await query.message.reply_text(f"✅ '{original_word}' 저장됐어요. 내일 첫 퀴즈 나올거에요!")
 
     elif data == "word:reregister":
         # 기존 단어 재등록 (1단계 초기화) — 원본 메시지 버튼만 제거
