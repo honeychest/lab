@@ -4,30 +4,65 @@
   "graph": {
     "hyperedges": [
       {
-        "id": "ai_llm_clients",
-        "label": "AI/LLM Client Libraries",
+        "id": "quiz_delivery_pipeline",
+        "label": "Quiz Delivery Pipeline (scheduler + handler + AI + Redis)",
         "nodes": [
-          "requirements_anthropic",
-          "requirements_google_genai",
-          "requirements_groq"
-        ],
-        "relation": "implement",
-        "confidence": "INFERRED",
-        "confidence_score": 0.85,
-        "source_file": "nexus/requirements.txt"
-      },
-      {
-        "id": "fastapi_web_server_stack",
-        "label": "FastAPI Web Server Stack",
-        "nodes": [
-          "requirements_fastapi",
-          "requirements_uvicorn",
-          "requirements_pydantic_settings"
+          "scheduler_send_quiz_question",
+          "scheduler_start_daily_quiz",
+          "scheduler_resume_daily_quiz",
+          "text_handler_send_next_quiz",
+          "ai_service_generate_quiz",
+          "text_handler_redis_keys"
         ],
         "relation": "implement",
         "confidence": "INFERRED",
         "confidence_score": 0.9,
-        "source_file": "nexus/requirements.txt"
+        "source_file": "scheduler.py"
+      },
+      {
+        "id": "prefetch_background_system",
+        "label": "Background Prefetch System",
+        "nodes": [
+          "text_handler_prefetch_next_question",
+          "ai_service_generate_quiz_with_hint",
+          "ai_service_generate_quiz",
+          "ai_service_get_word_definition",
+          "concept_prefetch_pattern"
+        ],
+        "relation": "implement",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "handlers/text_handler.py"
+      },
+      {
+        "id": "quiz_grading_pipeline",
+        "label": "Quiz Answer Grading Pipeline (stage 1/2 vs 3+)",
+        "nodes": [
+          "text_handler_handle_quiz_answer",
+          "text_handler_levenshtein",
+          "ai_service_grade_writing",
+          "ai_service_parse_grade_response",
+          "concept_quiz_stage_system"
+        ],
+        "relation": "implement",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "handlers/text_handler.py"
+      },
+      {
+        "id": "ai_provider_abstraction",
+        "label": "AI Provider Abstraction (Gemini primary, Claude fallback)",
+        "nodes": [
+          "ai_service_call_with_models",
+          "ai_service_call_gemini",
+          "ai_service_call_claude",
+          "req_google_genai",
+          "req_anthropic"
+        ],
+        "relation": "implement",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "services/ai_service.py"
       }
     ]
   },
@@ -38,7 +73,7 @@
       "source_file": "nexus\\chs.py",
       "source_location": "L1",
       "id": "nexus_chs_py",
-      "community": 19
+      "community": 20
     },
     {
       "label": "dlog()",
@@ -46,7 +81,7 @@
       "source_file": "nexus\\chs.py",
       "source_location": "L15",
       "id": "chs_dlog",
-      "community": 19
+      "community": 20
     },
     {
       "label": "DRAFT \ub85c\uadf8 \ub798\ud37c - \uc0ac\uc804\ucf54\ub529 \ub2e8\uacc4\uc5d0\uc11c \ube44\uc988\ub2c8\uc2a4 \ub85c\uc9c1 \ud750\ub984\uc744 \ud55c\uae00\ub85c \uae30\ub85d - \uad6c\ud604 \uc644\ub8cc \ud6c4\uc5d0\ub3c4 \ucf54\ub4dc\uc5d0 \uc720\uc9c0 (\uc8fc\uc11d \uc5ed\ud560 \uacb8\uc6a9)  \ud65c\uc131\ud654: .",
@@ -54,7 +89,7 @@
       "source_file": "nexus\\chs.py",
       "source_location": "L1",
       "id": "chs_rationale_1",
-      "community": 19
+      "community": 20
     },
     {
       "label": "config.py",
@@ -62,7 +97,7 @@
       "source_file": "nexus\\config.py",
       "source_location": "L1",
       "id": "nexus_config_py",
-      "community": 17
+      "community": 18
     },
     {
       "label": "Settings",
@@ -70,7 +105,7 @@
       "source_file": "nexus\\config.py",
       "source_location": "L4",
       "id": "config_settings",
-      "community": 17
+      "community": 18
     },
     {
       "label": "BaseSettings",
@@ -78,15 +113,15 @@
       "source_file": "",
       "source_location": "",
       "id": "basesettings",
-      "community": 17
+      "community": 18
     },
     {
       "label": "Config",
       "file_type": "code",
       "source_file": "nexus\\config.py",
-      "source_location": "L19",
+      "source_location": "L20",
       "id": "config_config",
-      "community": 17
+      "community": 18
     },
     {
       "label": "main.py",
@@ -110,7 +145,7 @@
       "source_file": "nexus\\run_tests.py",
       "source_location": "L1",
       "id": "nexus_run_tests_py",
-      "community": 18
+      "community": 19
     },
     {
       "label": "_extract_short_error()",
@@ -118,7 +153,7 @@
       "source_file": "nexus\\run_tests.py",
       "source_location": "L15",
       "id": "run_tests_extract_short_error",
-      "community": 18
+      "community": 19
     },
     {
       "label": "\uc804\uccb4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc2a4\ud06c\ub9bd\ud2b8 \u2014 nexus/ \ub514\ub809\ud1a0\ub9ac\uc5d0\uc11c \uc2e4\ud589: python run_tests.py",
@@ -126,7 +161,7 @@
       "source_file": "nexus\\run_tests.py",
       "source_location": "L1",
       "id": "run_tests_rationale_1",
-      "community": 18
+      "community": 19
     },
     {
       "label": "traceback \uc5d0\uc11c \ub9c8\uc9c0\ub9c9 2\uc904(\uc6d0\uc778 \uc904 + \uc608\uc678 \uba54\uc2dc\uc9c0)\ub9cc \ucd94\ucd9c.",
@@ -134,119 +169,175 @@
       "source_file": "nexus\\run_tests.py",
       "source_location": "L16",
       "id": "run_tests_rationale_16",
-      "community": 18
+      "community": 19
     },
     {
       "label": "scheduler.py",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
+      "source_file": "scheduler.py",
       "source_location": "L1",
-      "id": "nexus_scheduler_py",
+      "id": "scheduler_py",
       "community": 7
     },
     {
       "label": "_send_quiz_question()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L45",
+      "source_file": "scheduler.py",
+      "source_location": "L47",
       "id": "scheduler_send_quiz_question",
-      "community": 7
+      "community": 1
     },
     {
       "label": "start_daily_quiz()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L97",
+      "source_file": "scheduler.py",
+      "source_location": "L95",
       "id": "scheduler_start_daily_quiz",
       "community": 7
     },
     {
       "label": "resume_daily_quiz()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L105",
+      "source_file": "scheduler.py",
+      "source_location": "L103",
       "id": "scheduler_resume_daily_quiz",
-      "community": 7
+      "community": 1
     },
     {
       "label": "_send_resume_prompt()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L115",
+      "source_file": "scheduler.py",
+      "source_location": "L113",
       "id": "scheduler_send_resume_prompt",
       "community": 7
     },
     {
       "label": "schedule_quiz_resume()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L132",
+      "source_file": "scheduler.py",
+      "source_location": "L130",
       "id": "scheduler_schedule_quiz_resume",
       "community": 7
     },
     {
       "label": "setup_scheduler()",
       "file_type": "code",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L146",
+      "source_file": "scheduler.py",
+      "source_location": "L144",
       "id": "scheduler_setup_scheduler",
       "community": 7
     },
     {
       "label": "due \ub2e8\uc5b4 \uc870\ud68c \ud6c4 \ud034\uc988 \ubb38\uc81c \ucd9c\uc81c. \uacf5\ud1b5 \ub85c\uc9c1.",
       "file_type": "rationale",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L46",
-      "id": "scheduler_rationale_46",
-      "community": 7
+      "source_file": "scheduler.py",
+      "source_location": "L48",
+      "id": "scheduler_rationale_48",
+      "community": 1
     },
     {
       "label": "\ub0a8\uc740 \ud034\uc988 \uc788\uc73c\uba74 \uc774\uc5b4\uc11c \ucd9c\uc81c. \uc644\ub8cc \uc2dc \uc2a4\ud0b5.",
       "file_type": "rationale",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L106",
-      "id": "scheduler_rationale_106",
-      "community": 7
+      "source_file": "scheduler.py",
+      "source_location": "L104",
+      "id": "scheduler_rationale_104",
+      "community": 1
     },
     {
       "label": "\uc77c\uc2dc\uc815\uc9c0 10\ubd84 \ud6c4 \u2014 \ud034\uc988 \uc7ac\uac1c \uc5ec\ubd80 \ud655\uc778 \uba54\uc2dc\uc9c0 \uc804\uc1a1.",
       "file_type": "rationale",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L116",
-      "id": "scheduler_rationale_116",
+      "source_file": "scheduler.py",
+      "source_location": "L114",
+      "id": "scheduler_rationale_114",
       "community": 7
     },
     {
       "label": "\uc77c\uc2dc\uc815\uc9c0 \uc2dc \ud638\ucd9c \u2014 10\ubd84 \ud6c4 \uc7ac\uac1c \uc54c\ub9bc \ub2e8\ubc1c job \ub4f1\ub85d.",
       "file_type": "rationale",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L133",
-      "id": "scheduler_rationale_133",
+      "source_file": "scheduler.py",
+      "source_location": "L131",
+      "id": "scheduler_rationale_131",
       "community": 7
+    },
+    {
+      "label": "exit_handler.py",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\exit_handler.py",
+      "source_location": "L1",
+      "id": "nexus_handlers_exit_handler_py",
+      "community": 22
+    },
+    {
+      "label": "handle_exit()",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\exit_handler.py",
+      "source_location": "L13",
+      "id": "exit_handler_handle_exit",
+      "community": 22
+    },
+    {
+      "label": "law_handler.py",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L1",
+      "id": "nexus_handlers_law_handler_py",
+      "community": 16
+    },
+    {
+      "label": "_k()",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L20",
+      "id": "law_handler_k",
+      "community": 16
+    },
+    {
+      "label": "handle_law()",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L24",
+      "id": "law_handler_handle_law",
+      "community": 16
+    },
+    {
+      "label": "handle_law_query()",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L37",
+      "id": "law_handler_handle_law_query",
+      "community": 16
+    },
+    {
+      "label": "_search_and_reply()",
+      "file_type": "code",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L42",
+      "id": "law_handler_search_and_reply",
+      "community": 16
     },
     {
       "label": "quiz_handler.py",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\quiz_handler.py",
+      "source_file": "handlers\\quiz_handler.py",
       "source_location": "L1",
-      "id": "nexus_handlers_quiz_handler_py",
-      "community": 20
+      "id": "handlers_quiz_handler_py",
+      "community": 1
     },
     {
       "label": "handle_quiz_command()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\quiz_handler.py",
-      "source_location": "L25",
+      "source_file": "handlers\\quiz_handler.py",
+      "source_location": "L27",
       "id": "quiz_handler_handle_quiz_command",
-      "community": 20
+      "community": 1
     },
     {
       "label": "/quiz \uba85\ub839\uc5b4 \u2014 \uce74\uc6b4\ud2b8 \ucd08\uae30\ud654 \ud6c4 \uc989\uc2dc \uccab \ubb38\uc81c \ucd9c\uc81c.",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\quiz_handler.py",
-      "source_location": "L26",
-      "id": "quiz_handler_rationale_26",
-      "community": 20
+      "source_file": "handlers\\quiz_handler.py",
+      "source_location": "L28",
+      "id": "quiz_handler_rationale_28",
+      "community": 1
     },
     {
       "label": "refresh_handler.py",
@@ -254,7 +345,7 @@
       "source_file": "nexus\\handlers\\refresh_handler.py",
       "source_location": "L1",
       "id": "nexus_handlers_refresh_handler_py",
-      "community": 22
+      "community": 23
     },
     {
       "label": "handle_refresh()",
@@ -262,135 +353,151 @@
       "source_file": "nexus\\handlers\\refresh_handler.py",
       "source_location": "L16",
       "id": "refresh_handler_handle_refresh",
-      "community": 22
+      "community": 23
     },
     {
       "label": "text_handler.py",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
+      "source_file": "handlers\\text_handler.py",
       "source_location": "L1",
-      "id": "nexus_handlers_text_handler_py",
-      "community": 3
+      "id": "handlers_text_handler_py",
+      "community": 1
     },
     {
       "label": "_k()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L36",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L39",
       "id": "text_handler_k",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_quiz_buttons()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L41",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L44",
       "id": "text_handler_quiz_buttons",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_stage_icon()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L52",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L55",
       "id": "text_handler_stage_icon",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_seconds_until_midnight()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L58",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L61",
       "id": "text_handler_seconds_until_midnight",
-      "community": 3
+      "community": 1
     },
     {
       "label": "handle_text()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L66",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L69",
       "id": "text_handler_handle_text",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_handle_word_query()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L88",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L100",
       "id": "text_handler_handle_word_query",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_show_next_conflict_or_register()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L183",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L195",
       "id": "text_handler_show_next_conflict_or_register",
-      "community": 3
+      "community": 1
+    },
+    {
+      "label": "_levenshtein()",
+      "file_type": "code",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L232",
+      "id": "text_handler_levenshtein",
+      "community": 1
     },
     {
       "label": "_handle_quiz_answer()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L220",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L252",
       "id": "text_handler_handle_quiz_answer",
-      "community": 3
+      "community": 1
+    },
+    {
+      "label": "_prefetch_next_question()",
+      "file_type": "code",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L373",
+      "id": "text_handler_prefetch_next_question",
+      "community": 1
     },
     {
       "label": "_send_next_quiz()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L313",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L426",
       "id": "text_handler_send_next_quiz",
-      "community": 3
+      "community": 1
     },
     {
       "label": "handle_callback()",
       "file_type": "code",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L405",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L556",
       "id": "text_handler_handle_callback",
-      "community": 3
+      "community": 1
     },
     {
       "label": "\uc9c0\uae08\ubd80\ud130 \uc624\ub298 \uc790\uc815\uae4c\uc9c0 \ub0a8\uc740 \ucd08 (\ud034\uc988 \uc138\uc158 TTL\uc6a9).",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L59",
-      "id": "text_handler_rationale_59",
-      "community": 3
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L62",
+      "id": "text_handler_rationale_62",
+      "community": 1
     },
     {
       "label": "\ud14d\uc2a4\ud2b8 \uba54\uc2dc\uc9c0 \uc218\uc2e0 \uc2dc \uc0c1\ud0dc\uc5d0 \ub530\ub77c \ubd84\uae30.",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L67",
-      "id": "text_handler_rationale_67",
-      "community": 3
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L70",
+      "id": "text_handler_rationale_70",
+      "community": 1
     },
     {
       "label": "\ub2e4\uc74c \ucda9\ub3cc \ud56d\ubaa9 \uc9c8\ubb38 \ub610\ub294 \ub4f1\ub85d \ubc84\ud2bc \ud45c\uc2dc.",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L184",
-      "id": "text_handler_rationale_184",
-      "community": 3
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L196",
+      "id": "text_handler_rationale_196",
+      "community": 1
     },
     {
       "label": "\ud034\uc988 \ub2f5\ubcc0 \ucc44\uc810 \ud6c4 \uacb0\uacfc \uc804\uc1a1 \ubc0f \ub2e4\uc74c \ubb38\uc81c \ucd9c\uc81c.",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L221",
-      "id": "text_handler_rationale_221",
-      "community": 3
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L253",
+      "id": "text_handler_rationale_253",
+      "community": 1
     },
     {
       "label": "\ub2e4\uc74c \ubb38\uc81c \ucd9c\uc81c. \uc138\uc158\uc758 mode\uc5d0 \ub530\ub77c \uc790\ub3d9\ucd9c\uc81c/\uc804\uccb4\ud034\uc988 \uad6c\ubd84.",
       "file_type": "rationale",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L314",
-      "id": "text_handler_rationale_314",
-      "community": 3
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L427",
+      "id": "text_handler_rationale_427",
+      "community": 1
     },
     {
       "label": "url_handler.py",
@@ -398,7 +505,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L1",
       "id": "nexus_handlers_url_handler_py",
-      "community": 16
+      "community": 15
     },
     {
       "label": "_get_platform()",
@@ -406,7 +513,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L21",
       "id": "url_handler_get_platform",
-      "community": 16
+      "community": 15
     },
     {
       "label": "handle_url()",
@@ -414,7 +521,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L28",
       "id": "url_handler_handle_url",
-      "community": 16
+      "community": 15
     },
     {
       "label": "_handle_github()",
@@ -422,7 +529,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L68",
       "id": "url_handler_handle_github",
-      "community": 16
+      "community": 15
     },
     {
       "label": "_handle_generic()",
@@ -430,7 +537,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L93",
       "id": "url_handler_handle_generic",
-      "community": 16
+      "community": 15
     },
     {
       "label": "_log_failure()",
@@ -438,7 +545,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L109",
       "id": "url_handler_log_failure",
-      "community": 16
+      "community": 15
     },
     {
       "label": "\ucc98\ub9ac \uc2e4\ud328 \uc2dc Notion\uc5d0 \uc624\ub958 \ub85c\uadf8 \uc800\uc7a5.",
@@ -446,7 +553,7 @@
       "source_file": "nexus\\handlers\\url_handler.py",
       "source_location": "L110",
       "id": "url_handler_rationale_110",
-      "community": 16
+      "community": 15
     },
     {
       "label": "__init__.py",
@@ -454,20 +561,20 @@
       "source_file": "nexus\\handlers\\__init__.py",
       "source_location": "L1",
       "id": "nexus_handlers_init_py",
-      "community": 24
+      "community": 25
     },
     {
       "label": "ai_service.py",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L1",
-      "id": "nexus_services_ai_service_py",
+      "id": "services_ai_service_py",
       "community": 0
     },
     {
       "label": "summarize_url()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L13",
       "id": "ai_service_summarize_url",
       "community": 0
@@ -475,7 +582,7 @@
     {
       "label": "_call_gemini_url()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L23",
       "id": "ai_service_call_gemini_url",
       "community": 0
@@ -483,7 +590,7 @@
     {
       "label": "_build_url_prompt()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L59",
       "id": "ai_service_build_url_prompt",
       "community": 0
@@ -491,7 +598,7 @@
     {
       "label": "summarize_youtube()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L74",
       "id": "ai_service_summarize_youtube",
       "community": 0
@@ -499,7 +606,7 @@
     {
       "label": "summarize_github()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L96",
       "id": "ai_service_summarize_github",
       "community": 0
@@ -507,7 +614,7 @@
     {
       "label": "_call_with_models()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L102",
       "id": "ai_service_call_with_models",
       "community": 0
@@ -515,7 +622,7 @@
     {
       "label": "_call_gemini()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L108",
       "id": "ai_service_call_gemini",
       "community": 0
@@ -523,7 +630,7 @@
     {
       "label": "_call_claude()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L138",
       "id": "ai_service_call_claude",
       "community": 0
@@ -531,95 +638,119 @@
     {
       "label": "explain_word()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L148",
       "id": "ai_service_explain_word",
       "community": 0
     },
     {
+      "label": "answer_law_query()",
+      "file_type": "code",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L161",
+      "id": "ai_service_answer_law_query",
+      "community": 0
+    },
+    {
       "label": "_has_invalid_content()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L161",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L178",
       "id": "ai_service_has_invalid_content",
+      "community": 0
+    },
+    {
+      "label": "_has_invalid_content_stage2()",
+      "file_type": "code",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L189",
+      "id": "ai_service_has_invalid_content_stage2",
       "community": 0
     },
     {
       "label": "_force_clean()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L172",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L203",
       "id": "ai_service_force_clean",
       "community": 0
     },
     {
       "label": "generate_quiz()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L183",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L222",
       "id": "ai_service_generate_quiz",
+      "community": 0
+    },
+    {
+      "label": "generate_quiz_with_hint()",
+      "file_type": "code",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L306",
+      "id": "ai_service_generate_quiz_with_hint",
       "community": 0
     },
     {
       "label": "get_word_definition()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L256",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L317",
       "id": "ai_service_get_word_definition",
       "community": 0
     },
     {
       "label": "grade_writing()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L267",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L328",
       "id": "ai_service_grade_writing",
       "community": 0
     },
     {
       "label": "_parse_explain_response()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L285",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L356",
       "id": "ai_service_parse_explain_response",
       "community": 0
     },
     {
       "label": "_parse_grade_response()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L298",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L369",
       "id": "ai_service_parse_grade_response",
       "community": 0
     },
     {
       "label": "_build_youtube_prompt()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L332",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L412",
       "id": "ai_service_build_youtube_prompt",
       "community": 0
     },
     {
       "label": "_build_github_prompt()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L341",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L421",
       "id": "ai_service_build_github_prompt",
       "community": 0
     },
     {
       "label": "_parse_response()",
       "file_type": "code",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L366",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L446",
       "id": "ai_service_parse_response",
       "community": 0
     },
     {
       "label": "\uc6f9 URL\uc744 Gemini url_context \ud234\ub85c \uc9c1\uc811 \ube0c\ub77c\uc6b0\uc9d5\ud574 \uc694\uc57d.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L14",
       "id": "ai_service_rationale_14",
       "community": 0
@@ -627,7 +758,7 @@
     {
       "label": "YouTube/Shorts URL\uc744 Gemini\uc5d0 \uc9c1\uc811 \uc804\ub2ec\ud574 \uc694\uc57d. AWS YouTube \ucc28\ub2e8 \uc6b0\ud68c.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L75",
       "id": "ai_service_rationale_75",
       "community": 0
@@ -635,7 +766,7 @@
     {
       "label": "GitHub \ub808\ud3ec \uc804\uc6a9 \uc694\uc57d. \uc2e4\ud589\ubc29\ubc95\uc744 \ucd5c\uc6b0\uc120\uc73c\ub85c \uac15\uc870.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L97",
       "id": "ai_service_rationale_97",
       "community": 0
@@ -643,41 +774,49 @@
     {
       "label": "\ub2e8\uc5b4/\ubb38\uc7a5 \uc124\uba85. {\"word\": ..., \"meaning_ko\": ..., \"example\": ...} \ubc18\ud658.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L149",
       "id": "ai_service_rationale_149",
       "community": 0
     },
     {
-      "label": "\uc0dd\uc131\ub41c \ud034\uc988 \ubb38\uc81c\uc5d0 \ub2e8\uc5b4, \ub9c8\ud06c\ub2e4\uc6b4, \ube48\uce78 \ud328\ud134\uc774 \ud3ec\ud568\ub418\uc5b4 \uc788\uc73c\uba74 True.",
+      "label": "MCP \uccb4\uc778 \uacb0\uacfc\uac00 \ud154\ub808\uadf8\ub7a8 \ud55c\ub3c4 \ucd08\uacfc \uc2dc \uc694\uc57d. {\"title\": ..., \"summary\": ...} \ubc18\ud658.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L162",
       "id": "ai_service_rationale_162",
       "community": 0
     },
     {
+      "label": "\uc0dd\uc131\ub41c \ud034\uc988 \ubb38\uc81c\uc5d0 \ub2e8\uc5b4, \ub9c8\ud06c\ub2e4\uc6b4, \ube48\uce78 \ud328\ud134\uc774 \ud3ec\ud568\ub418\uc5b4 \uc788\uc73c\uba74 True.",
+      "file_type": "rationale",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L179",
+      "id": "ai_service_rationale_179",
+      "community": 0
+    },
+    {
       "label": "3\ud68c \uc2e4\ud328 fallback \u2014 \ud504\ub85c\uadf8\ub7a8 \uc218\uc900\uc5d0\uc11c \ubb38\uc81c \uc788\ub294 \uc694\uc18c \uac15\uc81c \uc81c\uac70.",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L173",
-      "id": "ai_service_rationale_173",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L204",
+      "id": "ai_service_rationale_204",
       "community": 0
     },
     {
       "label": "\uc791\ubb38 \ucc44\uc810. {\"used_correctly\": bool, \"context_ok\": bool, \"grammar_errors\": [...], \"co",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L268",
-      "id": "ai_service_rationale_268",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L329",
+      "id": "ai_service_rationale_329",
       "community": 0
     },
     {
       "label": "# TODO: [generate_quiz] 3\ud68c \uc7ac\uc2dc\ub3c4 \uc2e4\ud328 \u2014 \ud504\ub86c\ud504\ud2b8 \ub610\ub294 \ubaa8\ub378 \uac1c\uc120 \ud544\uc694",
       "file_type": "rationale",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L245",
-      "id": "ai_service_rationale_245",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L294",
+      "id": "ai_service_rationale_294",
       "community": 0
     },
     {
@@ -686,7 +825,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L1",
       "id": "nexus_services_github_service_py",
-      "community": 14
+      "community": 13
     },
     {
       "label": "_parse_github_url()",
@@ -694,7 +833,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L15",
       "id": "github_service_parse_github_url",
-      "community": 14
+      "community": 13
     },
     {
       "label": "_build_headers()",
@@ -702,7 +841,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L31",
       "id": "github_service_build_headers",
-      "community": 14
+      "community": 13
     },
     {
       "label": "get_repo_info()",
@@ -710,7 +849,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L38",
       "id": "github_service_get_repo_info",
-      "community": 14
+      "community": 13
     },
     {
       "label": "_parse_rate_limit()",
@@ -718,7 +857,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L106",
       "id": "github_service_parse_rate_limit",
-      "community": 14
+      "community": 13
     },
     {
       "label": "\ub2e4\uc591\ud55c GitHub URL \ud615\ud0dc\uc5d0\uc11c (owner, repo) \ucd94\ucd9c.     \uc608) https://github.com/user/repo/tree/",
@@ -726,7 +865,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L16",
       "id": "github_service_rationale_16",
-      "community": 14
+      "community": 13
     },
     {
       "label": "GitHub API\ub85c \ub808\ud3ec \uba54\ud0c0\ub370\uc774\ud130 + README \ubcd1\ub82c \uc870\ud68c.      URL \u2192 parse \u2192 (GET /repos/{owner}/{r",
@@ -734,7 +873,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L39",
       "id": "github_service_rationale_39",
-      "community": 14
+      "community": 13
     },
     {
       "label": "X-RateLimit-Reset \ud5e4\ub354\uc5d0\uc11c \ub0a8\uc740 \ucd08 \uacc4\uc0b0. \uc5c6\uc73c\uba74 3600 \ubc18\ud658.",
@@ -742,7 +881,7 @@
       "source_file": "nexus\\services\\github_service.py",
       "source_location": "L107",
       "id": "github_service_rationale_107",
-      "community": 14
+      "community": 13
     },
     {
       "label": "grammar_service.py",
@@ -750,7 +889,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L1",
       "id": "nexus_services_grammar_service_py",
-      "community": 10
+      "community": 9
     },
     {
       "label": "save_grammar_error()",
@@ -758,7 +897,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L12",
       "id": "grammar_service_save_grammar_error",
-      "community": 10
+      "community": 9
     },
     {
       "label": "get_grammar_due()",
@@ -766,7 +905,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L33",
       "id": "grammar_service_get_grammar_due",
-      "community": 10
+      "community": 9
     },
     {
       "label": "parse_grammar_page()",
@@ -774,7 +913,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L43",
       "id": "grammar_service_parse_grammar_page",
-      "community": 10
+      "community": 9
     },
     {
       "label": "update_grammar_stage()",
@@ -782,7 +921,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L62",
       "id": "grammar_service_update_grammar_stage",
-      "community": 10
+      "community": 9
     },
     {
       "label": "\ubb38\ubc95 \uc624\ub958\ub97c Notion grammar DB\uc5d0 \uc800\uc7a5\ud558\uace0 page_id \ubc18\ud658.",
@@ -790,7 +929,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L13",
       "id": "grammar_service_rationale_13",
-      "community": 10
+      "community": 9
     },
     {
       "label": "\uc624\ub298 \ub9ac\ubdf0\ud560 grammar \ud56d\ubaa9 \ubc18\ud658.",
@@ -798,7 +937,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L34",
       "id": "grammar_service_rationale_34",
-      "community": 10
+      "community": 9
     },
     {
       "label": "Notion grammar \ud398\uc774\uc9c0\uc5d0\uc11c \uc18d\uc131 \ucd94\ucd9c.",
@@ -806,7 +945,7 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L44",
       "id": "grammar_service_rationale_44",
-      "community": 10
+      "community": 9
     },
     {
       "label": "\ud034\uc988 \uacb0\uacfc\uc5d0 \ub530\ub77c \ub2e8\uacc4\uc640 \ub2e4\uc74c\ub9ac\ubdf0\uc77c \uc5c5\ub370\uc774\ud2b8.",
@@ -814,7 +953,47 @@
       "source_file": "nexus\\services\\grammar_service.py",
       "source_location": "L63",
       "id": "grammar_service_rationale_63",
-      "community": 10
+      "community": 9
+    },
+    {
+      "label": "law_service.py",
+      "file_type": "code",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L1",
+      "id": "nexus_services_law_service_py",
+      "community": 17
+    },
+    {
+      "label": "_mcp_session()",
+      "file_type": "code",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L16",
+      "id": "law_service_mcp_session",
+      "community": 17
+    },
+    {
+      "label": "_call_tool()",
+      "file_type": "code",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L35",
+      "id": "law_service_call_tool",
+      "community": 17
+    },
+    {
+      "label": "research_law()",
+      "file_type": "code",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L46",
+      "id": "law_service_research_law",
+      "community": 17
+    },
+    {
+      "label": "MCP chain_full_research\ub85c \ubc95\ub839 \uc885\ud569 \uc870\uc0ac. \uacb0\uacfc \ubb38\uc790\uc5f4 \ubc18\ud658.",
+      "file_type": "rationale",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L47",
+      "id": "law_service_rationale_47",
+      "community": 17
     },
     {
       "label": "notion_service.py",
@@ -822,7 +1001,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L1",
       "id": "nexus_services_notion_service_py",
-      "community": 2
+      "community": 3
     },
     {
       "label": "parse_word_page()",
@@ -830,7 +1009,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L10",
       "id": "notion_service_parse_word_page",
-      "community": 2
+      "community": 3
     },
     {
       "label": "exists()",
@@ -838,7 +1017,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L26",
       "id": "notion_service_exists",
-      "community": 2
+      "community": 3
     },
     {
       "label": "delete_page()",
@@ -846,7 +1025,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L42",
       "id": "notion_service_delete_page",
-      "community": 2
+      "community": 3
     },
     {
       "label": "save()",
@@ -854,7 +1033,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L51",
       "id": "notion_service_save",
-      "community": 2
+      "community": 3
     },
     {
       "label": "exists_word()",
@@ -862,7 +1041,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L84",
       "id": "notion_service_exists_word",
-      "community": 2
+      "community": 3
     },
     {
       "label": "add_word()",
@@ -870,7 +1049,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L105",
       "id": "notion_service_add_word",
-      "community": 2
+      "community": 3
     },
     {
       "label": "get_all_words()",
@@ -878,7 +1057,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L124",
       "id": "notion_service_get_all_words",
-      "community": 2
+      "community": 3
     },
     {
       "label": "search_words_containing()",
@@ -886,7 +1065,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L133",
       "id": "notion_service_search_words_containing",
-      "community": 2
+      "community": 3
     },
     {
       "label": "get_words_due()",
@@ -894,7 +1073,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L142",
       "id": "notion_service_get_words_due",
-      "community": 2
+      "community": 3
     },
     {
       "label": "update_word_stage()",
@@ -902,7 +1081,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L153",
       "id": "notion_service_update_word_stage",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Notion \ub2e8\uc5b4 \ud398\uc774\uc9c0\uc5d0\uc11c \uc18d\uc131 \ucd94\ucd9c. \ub2e8\uc5b4/\uc758\ubbf8 \ube44\uc5b4\uc788\uc73c\uba74 None \ubc18\ud658.",
@@ -910,7 +1089,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L11",
       "id": "notion_service_rationale_11",
-      "community": 2
+      "community": 3
     },
     {
       "label": "URL\uc774 Notion DB\uc5d0 \uc774\ubbf8 \uc800\uc7a5\ub418\uc5b4 \uc788\uc73c\uba74 page_id \ubc18\ud658, \uc5c6\uc73c\uba74 None.",
@@ -918,7 +1097,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L27",
       "id": "notion_service_rationale_27",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Notion \ud398\uc774\uc9c0\ub97c \uc0ad\uc81c(archived \ucc98\ub9ac).",
@@ -926,7 +1105,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L43",
       "id": "notion_service_rationale_43",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\ub2e8\uc5b4\uac00 \uc601\ub2e8\uc5b4 DB\uc5d0 \uc774\ubbf8 \uc788\uc73c\uba74 page_id \ubc18\ud658, \uc5c6\uc73c\uba74 None.",
@@ -934,7 +1113,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L85",
       "id": "notion_service_rationale_85",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\uc601\ub2e8\uc5b4\ub97c Notion DB\uc5d0 \uc800\uc7a5\ud558\uace0 page_id \ubc18\ud658.",
@@ -942,7 +1121,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L106",
       "id": "notion_service_rationale_106",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\ub2e8\uc5b4\uc7a5 \uc804\uccb4 \uc870\ud68c \u2014 /quiz \uc804\uc6a9. \ub2e4\uc74c\ub9ac\ubdf0\uc77c \uc624\ub984\ucc28\uc21c (\uc624\ub798\ub41c \ub2e8\uc5b4 \uc6b0\uc120).",
@@ -950,7 +1129,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L125",
       "id": "notion_service_rationale_125",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\ub2e8\uc5b4 \ud544\ub4dc\uc5d0 keyword\uac00 \ud3ec\ud568\ub41c \ud56d\ubaa9 \ubaa9\ub85d \ubc18\ud658.",
@@ -958,7 +1137,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L134",
       "id": "notion_service_rationale_134",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\uc624\ub298 \ub9ac\ubdf0\ud560 \ub2e8\uc5b4 \ubaa9\ub85d \ubc18\ud658. \uc878\uc5c5(6\ub2e8\uacc4) \ub2e8\uc5b4 \uc81c\uc678.",
@@ -966,7 +1145,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L143",
       "id": "notion_service_rationale_143",
-      "community": 2
+      "community": 3
     },
     {
       "label": "\ud034\uc988 \uacb0\uacfc\uc5d0 \ub530\ub77c \ub2e8\uacc4\uc640 \ub2e4\uc74c\ub9ac\ubdf0\uc77c \uc5c5\ub370\uc774\ud2b8.",
@@ -974,7 +1153,7 @@
       "source_file": "nexus\\services\\notion_service.py",
       "source_location": "L154",
       "id": "notion_service_rationale_154",
-      "community": 2
+      "community": 3
     },
     {
       "label": "webpage_service.py",
@@ -982,7 +1161,7 @@
       "source_file": "nexus\\services\\webpage_service.py",
       "source_location": "L1",
       "id": "nexus_services_webpage_service_py",
-      "community": 23
+      "community": 24
     },
     {
       "label": "get_content()",
@@ -990,7 +1169,7 @@
       "source_file": "nexus\\services\\webpage_service.py",
       "source_location": "L6",
       "id": "webpage_service_get_content",
-      "community": 23
+      "community": 24
     },
     {
       "label": "youtube_service.py",
@@ -998,7 +1177,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L1",
       "id": "nexus_services_youtube_service_py",
-      "community": 6
+      "community": 5
     },
     {
       "label": "TranscriptUnavailable",
@@ -1006,7 +1185,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L10",
       "id": "youtube_service_transcriptunavailable",
-      "community": 6
+      "community": 5
     },
     {
       "label": "Exception",
@@ -1014,7 +1193,7 @@
       "source_file": "",
       "source_location": "",
       "id": "exception",
-      "community": 6
+      "community": 5
     },
     {
       "label": "TranscriptBlocked",
@@ -1022,7 +1201,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L14",
       "id": "youtube_service_transcriptblocked",
-      "community": 6
+      "community": 5
     },
     {
       "label": "_extract_video_id()",
@@ -1030,7 +1209,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L18",
       "id": "youtube_service_extract_video_id",
-      "community": 6
+      "community": 5
     },
     {
       "label": "get_transcript()",
@@ -1038,7 +1217,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L28",
       "id": "youtube_service_get_transcript",
-      "community": 6
+      "community": 5
     },
     {
       "label": "_get_transcript_native()",
@@ -1046,7 +1225,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L37",
       "id": "youtube_service_get_transcript_native",
-      "community": 6
+      "community": 5
     },
     {
       "label": "_get_transcript_whisper()",
@@ -1054,7 +1233,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L60",
       "id": "youtube_service_get_transcript_whisper",
-      "community": 6
+      "community": 5
     },
     {
       "label": "\uc790\ub9c9 \uc5c6\uc74c \u2014 \uc601\uc0c1 \uc790\uccb4\uc5d0 \uc790\ub9c9\uc774 \uc5c6\ub294 \uacbd\uc6b0.",
@@ -1062,7 +1241,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L11",
       "id": "youtube_service_rationale_11",
-      "community": 6
+      "community": 5
     },
     {
       "label": "\ub124\ud2b8\uc6cc\ud06c \ucc28\ub2e8 \u2014 \ud604\uc7ac \uc2e4\ud589 \ud658\uacbd(AWS \ub4f1)\uc5d0\uc11c YouTube \uc811\uadfc\uc774 \ub9c9\ud78c \uacbd\uc6b0.",
@@ -1070,7 +1249,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L15",
       "id": "youtube_service_rationale_15",
-      "community": 6
+      "community": 5
     },
     {
       "label": "youtube_transcript_api \uc6b0\uc120 \u2192 \ucc28\ub2e8/\uc790\ub9c9\uc5c6\uc74c \uc2dc yt-dlp + Whisper \ud3f4\ubc31.",
@@ -1078,7 +1257,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L29",
       "id": "youtube_service_rationale_29",
-      "community": 6
+      "community": 5
     },
     {
       "label": "youtube_transcript_api\ub85c \uc790\ub9c9 \uac00\uc838\uc624\uae30.",
@@ -1086,7 +1265,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L38",
       "id": "youtube_service_rationale_38",
-      "community": 6
+      "community": 5
     },
     {
       "label": "yt-dlp\ub85c \uc624\ub514\uc624 \ub2e4\uc6b4\ub85c\ub4dc \ud6c4 Groq Whisper\ub85c \uc804\uc0ac.",
@@ -1094,7 +1273,7 @@
       "source_file": "nexus\\services\\youtube_service.py",
       "source_location": "L61",
       "id": "youtube_service_rationale_61",
-      "community": 6
+      "community": 5
     },
     {
       "label": "__init__.py",
@@ -1102,7 +1281,7 @@
       "source_file": "nexus\\services\\__init__.py",
       "source_location": "L1",
       "id": "nexus_services_init_py",
-      "community": 25
+      "community": 26
     },
     {
       "label": "debug_model_availability.py",
@@ -1110,7 +1289,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L1",
       "id": "nexus_tests_debug_model_availability_py",
-      "community": 11
+      "community": 10
     },
     {
       "label": "call_model()",
@@ -1118,7 +1297,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L46",
       "id": "debug_model_availability_call_model",
-      "community": 11
+      "community": 10
     },
     {
       "label": "print_result()",
@@ -1126,7 +1305,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L70",
       "id": "debug_model_availability_print_result",
-      "community": 11
+      "community": 10
     },
     {
       "label": "section()",
@@ -1134,7 +1313,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L79",
       "id": "debug_model_availability_section",
-      "community": 11
+      "community": 10
     },
     {
       "label": "list_models()",
@@ -1142,7 +1321,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L87",
       "id": "debug_model_availability_list_models",
-      "community": 11
+      "community": 10
     },
     {
       "label": "run_url_context()",
@@ -1150,7 +1329,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L97",
       "id": "debug_model_availability_run_url_context",
-      "community": 11
+      "community": 10
     },
     {
       "label": "run_quiz()",
@@ -1158,7 +1337,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L105",
       "id": "debug_model_availability_run_quiz",
-      "community": 11
+      "community": 10
     },
     {
       "label": "main()",
@@ -1166,7 +1345,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L151",
       "id": "debug_model_availability_main",
-      "community": 11
+      "community": 10
     },
     {
       "label": "\ubaa8\ub378 \uac00\uc6a9\uc131 \ubc0f \ud488\uc9c8 \ud14c\uc2a4\ud2b8. url_context \ube0c\ub77c\uc6b0\uc9d5 + quiz \ud568\uc218(explain_word, generate_quiz stage 1/",
@@ -1174,7 +1353,7 @@
       "source_file": "nexus\\tests\\debug_model_availability.py",
       "source_location": "L1",
       "id": "debug_model_availability_rationale_1",
-      "community": 11
+      "community": 10
     },
     {
       "label": "debug_words_due.py",
@@ -1182,7 +1361,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L1",
       "id": "nexus_tests_debug_words_due_py",
-      "community": 12
+      "community": 11
     },
     {
       "label": "fetch_with_filter()",
@@ -1190,7 +1369,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L21",
       "id": "debug_words_due_fetch_with_filter",
-      "community": 12
+      "community": 11
     },
     {
       "label": "fetch_all_sorted()",
@@ -1198,7 +1377,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L30",
       "id": "debug_words_due_fetch_all_sorted",
-      "community": 12
+      "community": 11
     },
     {
       "label": "parse()",
@@ -1206,7 +1385,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L39",
       "id": "debug_words_due_parse",
-      "community": 12
+      "community": 11
     },
     {
       "label": "print_results()",
@@ -1214,7 +1393,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L55",
       "id": "debug_words_due_print_results",
-      "community": 12
+      "community": 11
     },
     {
       "label": "main()",
@@ -1222,7 +1401,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L69",
       "id": "debug_words_due_main",
-      "community": 12
+      "community": 11
     },
     {
       "label": "\uc2e4\uc81c Notion DB \uc870\ud68c \ub514\ubc84\uadf8 \uc2a4\ud06c\ub9bd\ud2b8. \ub0a0\uc9dc\ub97c \uc785\ub825\ubc1b\uc544 get_words_due() \uacb0\uacfc\ub97c \ucd9c\ub825\ud569\ub2c8\ub2e4.  \uc2e4\ud589 \ubc29\ubc95 (nexus/ \ub514\ub809\ud1a0",
@@ -1230,7 +1409,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L1",
       "id": "debug_words_due_rationale_1",
-      "community": 12
+      "community": 11
     },
     {
       "label": "data_sources.query + on_or_before \ud544\ud130 (\ud604\uc7ac get_words_due \ubc29\uc2dd).",
@@ -1238,7 +1417,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L22",
       "id": "debug_words_due_rationale_22",
-      "community": 12
+      "community": 11
     },
     {
       "label": "data_sources.query + \ud544\ud130 \uc5c6\uc774 \ub0a0\uc9dc \uc624\ub984\ucc28\uc21c (\ud604\uc7ac get_all_words \ubc29\uc2dd).",
@@ -1246,7 +1425,7 @@
       "source_file": "nexus\\tests\\debug_words_due.py",
       "source_location": "L31",
       "id": "debug_words_due_rationale_31",
-      "community": 12
+      "community": 11
     },
     {
       "label": "test_ai_service.py",
@@ -1254,7 +1433,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L1",
       "id": "nexus_tests_test_ai_service_py",
-      "community": 13
+      "community": 12
     },
     {
       "label": "TestParseResponse",
@@ -1262,7 +1441,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L31",
       "id": "test_ai_service_testparseresponse",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_standard_title()",
@@ -1270,7 +1449,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L33",
       "id": "test_ai_service_testparseresponse_test_standard_title",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_title_with_bold_asterisk()",
@@ -1278,7 +1457,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L40",
       "id": "test_ai_service_testparseresponse_test_title_with_bold_asterisk",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_title_with_single_asterisk()",
@@ -1286,7 +1465,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L46",
       "id": "test_ai_service_testparseresponse_test_title_with_single_asterisk",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_no_title()",
@@ -1294,7 +1473,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L52",
       "id": "test_ai_service_testparseresponse_test_no_title",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_title_with_leading_whitespace()",
@@ -1302,7 +1481,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L58",
       "id": "test_ai_service_testparseresponse_test_title_with_leading_whitespace",
-      "community": 13
+      "community": 12
     },
     {
       "label": ".test_summary_is_full_text()",
@@ -1310,7 +1489,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L64",
       "id": "test_ai_service_testparseresponse_test_summary_is_full_text",
-      "community": 13
+      "community": 12
     },
     {
       "label": "ai_service._parse_response \ub2e8\uc704 \ud14c\uc2a4\ud2b8 \u2014 \uc678\ubd80 API \ud638\ucd9c \uc5c6\uc74c.",
@@ -1318,7 +1497,7 @@
       "source_file": "nexus\\tests\\test_ai_service.py",
       "source_location": "L1",
       "id": "test_ai_service_rationale_1",
-      "community": 13
+      "community": 12
     },
     {
       "label": "test_github_service.py",
@@ -1454,7 +1633,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L1",
       "id": "nexus_tests_test_notion_service_py",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestExists",
@@ -1462,7 +1641,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L28",
       "id": "test_notion_service_testexists",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_url_exists_returns_page_id()",
@@ -1470,7 +1649,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L30",
       "id": "test_notion_service_testexists_test_url_exists_returns_page_id",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_url_not_exists_returns_none()",
@@ -1478,7 +1657,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L40",
       "id": "test_notion_service_testexists_test_url_not_exists_returns_none",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_api_error_returns_none()",
@@ -1486,7 +1665,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L49",
       "id": "test_notion_service_testexists_test_api_error_returns_none",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestSave",
@@ -1494,7 +1673,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L57",
       "id": "test_notion_service_testsave",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_save_returns_page_id()",
@@ -1502,7 +1681,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L59",
       "id": "test_notion_service_testsave_test_save_returns_page_id",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_save_calls_with_correct_url()",
@@ -1510,7 +1689,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L67",
       "id": "test_notion_service_testsave_test_save_calls_with_correct_url",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_save_calls_with_correct_platform()",
@@ -1518,7 +1697,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L78",
       "id": "test_notion_service_testsave_test_save_calls_with_correct_platform",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestDeletePage",
@@ -1526,7 +1705,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L89",
       "id": "test_notion_service_testdeletepage",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_delete_calls_update_with_archived()",
@@ -1534,7 +1713,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L91",
       "id": "test_notion_service_testdeletepage_test_delete_calls_update_with_archived",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_delete_api_error_does_not_raise()",
@@ -1542,7 +1721,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L102",
       "id": "test_notion_service_testdeletepage_test_delete_api_error_does_not_raise",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestExistsWord",
@@ -1550,7 +1729,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L112",
       "id": "test_notion_service_testexistsword",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_word_exists_returns_page_id()",
@@ -1558,7 +1737,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L114",
       "id": "test_notion_service_testexistsword_test_word_exists_returns_page_id",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_word_not_exists_returns_none()",
@@ -1566,7 +1745,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L124",
       "id": "test_notion_service_testexistsword_test_word_not_exists_returns_none",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestAddWord",
@@ -1574,7 +1753,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L134",
       "id": "test_notion_service_testaddword",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_add_word_returns_page_id()",
@@ -1582,7 +1761,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L136",
       "id": "test_notion_service_testaddword_test_add_word_returns_page_id",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_add_word_saves_correct_properties()",
@@ -1590,7 +1769,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L144",
       "id": "test_notion_service_testaddword_test_add_word_saves_correct_properties",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestGetWordsDue",
@@ -1598,7 +1777,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L159",
       "id": "test_notion_service_testgetwordsdue",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_returns_due_words()",
@@ -1606,7 +1785,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L161",
       "id": "test_notion_service_testgetwordsdue_test_returns_due_words",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_returns_empty_when_no_due()",
@@ -1614,7 +1793,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L171",
       "id": "test_notion_service_testgetwordsdue_test_returns_empty_when_no_due",
-      "community": 1
+      "community": 2
     },
     {
       "label": "TestUpdateWordStage",
@@ -1622,7 +1801,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L181",
       "id": "test_notion_service_testupdatewordstage",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_correct_answer_advances_stage()",
@@ -1630,7 +1809,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L183",
       "id": "test_notion_service_testupdatewordstage_test_correct_answer_advances_stage",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_wrong_answer_resets_to_stage1()",
@@ -1638,7 +1817,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L197",
       "id": "test_notion_service_testupdatewordstage_test_wrong_answer_resets_to_stage1",
-      "community": 1
+      "community": 2
     },
     {
       "label": ".test_stage3_correct_stays_at_3()",
@@ -1646,7 +1825,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L211",
       "id": "test_notion_service_testupdatewordstage_test_stage3_correct_stays_at_3",
-      "community": 1
+      "community": 2
     },
     {
       "label": "notion_service \ub2e8\uc704 \ud14c\uc2a4\ud2b8 \u2014 Notion API mock \uc0ac\uc6a9.",
@@ -1654,7 +1833,7 @@
       "source_file": "nexus\\tests\\test_notion_service.py",
       "source_location": "L1",
       "id": "test_notion_service_rationale_1",
-      "community": 1
+      "community": 2
     },
     {
       "label": "test_url_handler.py",
@@ -1662,7 +1841,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L1",
       "id": "nexus_tests_test_url_handler_py",
-      "community": 9
+      "community": 8
     },
     {
       "label": "TestGetPlatform",
@@ -1670,7 +1849,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L30",
       "id": "test_url_handler_testgetplatform",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_github_url()",
@@ -1678,7 +1857,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L32",
       "id": "test_url_handler_testgetplatform_test_github_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_youtube_watch_url()",
@@ -1686,7 +1865,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L37",
       "id": "test_url_handler_testgetplatform_test_youtube_watch_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_youtu_be_short_url()",
@@ -1694,7 +1873,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L42",
       "id": "test_url_handler_testgetplatform_test_youtu_be_short_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_youtube_shorts_url()",
@@ -1702,7 +1881,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L47",
       "id": "test_url_handler_testgetplatform_test_youtube_shorts_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_general_web_url()",
@@ -1710,7 +1889,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L52",
       "id": "test_url_handler_testgetplatform_test_general_web_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_blog_url()",
@@ -1718,7 +1897,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L57",
       "id": "test_url_handler_testgetplatform_test_blog_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": ".test_github_issue_url()",
@@ -1726,7 +1905,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L62",
       "id": "test_url_handler_testgetplatform_test_github_issue_url",
-      "community": 9
+      "community": 8
     },
     {
       "label": "url_handler._get_platform \ub2e8\uc704 \ud14c\uc2a4\ud2b8 \u2014 \uc678\ubd80 \uc758\uc874 \uc5c6\uc74c.",
@@ -1734,7 +1913,7 @@
       "source_file": "nexus\\tests\\test_url_handler.py",
       "source_location": "L1",
       "id": "test_url_handler_rationale_1",
-      "community": 9
+      "community": 8
     },
     {
       "label": "test_webpage_service.py",
@@ -1742,7 +1921,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L1",
       "id": "nexus_tests_test_webpage_service_py",
-      "community": 15
+      "community": 14
     },
     {
       "label": "_make_response()",
@@ -1750,7 +1929,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L18",
       "id": "test_webpage_service_make_response",
-      "community": 15
+      "community": 14
     },
     {
       "label": "TestGetContent",
@@ -1758,7 +1937,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L26",
       "id": "test_webpage_service_testgetcontent",
-      "community": 15
+      "community": 14
     },
     {
       "label": "test_basic_text_extraction()",
@@ -1766,7 +1945,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L29",
       "id": "test_webpage_service_test_basic_text_extraction",
-      "community": 15
+      "community": 14
     },
     {
       "label": "test_script_style_removed()",
@@ -1774,7 +1953,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L40",
       "id": "test_webpage_service_test_script_style_removed",
-      "community": 15
+      "community": 14
     },
     {
       "label": "test_nav_footer_removed()",
@@ -1782,7 +1961,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L59",
       "id": "test_webpage_service_test_nav_footer_removed",
-      "community": 15
+      "community": 14
     },
     {
       "label": "test_long_text_truncated()",
@@ -1790,7 +1969,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L80",
       "id": "test_webpage_service_test_long_text_truncated",
-      "community": 15
+      "community": 14
     },
     {
       "label": "webpage_service.get_content \ub2e8\uc704 \ud14c\uc2a4\ud2b8 \u2014 requests mock \uc0ac\uc6a9.",
@@ -1798,7 +1977,7 @@
       "source_file": "nexus\\tests\\test_webpage_service.py",
       "source_location": "L1",
       "id": "test_webpage_service_rationale_1",
-      "community": 15
+      "community": 14
     },
     {
       "label": "test_youtube_service.py",
@@ -1806,7 +1985,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L1",
       "id": "nexus_tests_test_youtube_service_py",
-      "community": 8
+      "community": 6
     },
     {
       "label": "TestExtractVideoId",
@@ -1814,7 +1993,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L26",
       "id": "test_youtube_service_testextractvideoid",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_watch_url()",
@@ -1822,7 +2001,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L28",
       "id": "test_youtube_service_testextractvideoid_test_watch_url",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_watch_url_with_extra_params()",
@@ -1830,7 +2009,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L33",
       "id": "test_youtube_service_testextractvideoid_test_watch_url_with_extra_params",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_youtu_be_url()",
@@ -1838,7 +2017,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L38",
       "id": "test_youtube_service_testextractvideoid_test_youtu_be_url",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_youtu_be_with_query()",
@@ -1846,7 +2025,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L43",
       "id": "test_youtube_service_testextractvideoid_test_youtu_be_with_query",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_shorts_url()",
@@ -1854,7 +2033,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L48",
       "id": "test_youtube_service_testextractvideoid_test_shorts_url",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_shorts_with_query()",
@@ -1862,7 +2041,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L53",
       "id": "test_youtube_service_testextractvideoid_test_shorts_with_query",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_invalid_url_raises()",
@@ -1870,7 +2049,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L58",
       "id": "test_youtube_service_testextractvideoid_test_invalid_url_raises",
-      "community": 8
+      "community": 6
     },
     {
       "label": ".test_empty_url_raises()",
@@ -1878,7 +2057,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L63",
       "id": "test_youtube_service_testextractvideoid_test_empty_url_raises",
-      "community": 8
+      "community": 6
     },
     {
       "label": "youtube_service._extract_video_id \ub2e8\uc704 \ud14c\uc2a4\ud2b8 \u2014 \uc678\ubd80 \ud638\ucd9c \uc5c6\uc74c.",
@@ -1886,7 +2065,7 @@
       "source_file": "nexus\\tests\\test_youtube_service.py",
       "source_location": "L1",
       "id": "test_youtube_service_rationale_1",
-      "community": 8
+      "community": 6
     },
     {
       "label": "__init__.py",
@@ -1894,199 +2073,187 @@
       "source_file": "nexus\\tests\\__init__.py",
       "source_location": "L1",
       "id": "nexus_tests_init_py",
-      "community": 26
+      "community": 27
     },
     {
-      "label": "python-telegram-bot 21.5",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_python_telegram_bot",
-      "community": 5
-    },
-    {
-      "label": "anthropic",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 2",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_anthropic",
-      "community": 5
-    },
-    {
-      "label": "notion-client >=3.0.0",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 3",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_notion_client",
-      "community": 5
-    },
-    {
-      "label": "youtube-transcript-api",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 4",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_youtube_transcript_api",
-      "community": 5
-    },
-    {
-      "label": "beautifulsoup4",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 5",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_beautifulsoup4",
-      "community": 5
-    },
-    {
-      "label": "requests",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 6",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_requests",
-      "community": 5
-    },
-    {
-      "label": "python-dotenv",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 7",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_python_dotenv",
-      "community": 5
-    },
-    {
-      "label": "fastapi",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 8",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_fastapi",
-      "community": 5
-    },
-    {
-      "label": "uvicorn",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 9",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_uvicorn",
-      "community": 5
-    },
-    {
-      "label": "pydantic-settings",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 10",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_pydantic_settings",
-      "community": 5
-    },
-    {
-      "label": "google-genai",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 11",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_google_genai",
-      "community": 5
-    },
-    {
-      "label": "yt-dlp",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 12",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_yt_dlp",
-      "community": 5
-    },
-    {
-      "label": "groq",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 13",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_groq",
-      "community": 5
-    },
-    {
-      "label": "redis[asyncio]",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 14",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_redis_asyncio",
-      "community": 5
-    },
-    {
-      "label": "APScheduler",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 15",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "requirements_apscheduler",
-      "community": 5
-    },
-    {
-      "label": "Nexus Project",
-      "file_type": "document",
-      "source_file": "nexus/requirements.txt",
+      "label": "QUIZ_SCHEDULES (9/15/22\uc2dc KST)",
+      "file_type": "code",
+      "source_file": "scheduler.py",
       "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "requirements_nexus_project",
-      "community": 5
+      "id": "scheduler_quiz_schedules",
+      "community": 7
+    },
+    {
+      "label": "Redis Key Constants (quiz session/state/count/pause/prefetch/grammar/word)",
+      "file_type": "code",
+      "source_file": "handlers/text_handler.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "text_handler_redis_keys",
+      "community": 1
+    },
+    {
+      "label": "DAILY_QUIZ_LIMIT=20",
+      "file_type": "code",
+      "source_file": "handlers/text_handler.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "text_handler_daily_quiz_limit",
+      "community": 7
+    },
+    {
+      "label": "GENAI_MODELS / QUIZ_MODELS (Gemini model list)",
+      "file_type": "code",
+      "source_file": "services/ai_service.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ai_service_genai_models",
+      "community": 0
+    },
+    {
+      "label": "Quiz Stage System (1=hint desc, 2=fill-blank, 3+=writing)",
+      "file_type": "code",
+      "source_file": "services/ai_service.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "concept_quiz_stage_system",
+      "community": 0
+    },
+    {
+      "label": "Background Prefetch Pattern (asyncio.create_task)",
+      "file_type": "code",
+      "source_file": "handlers/text_handler.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "concept_prefetch_pattern",
+      "community": 1
+    },
+    {
+      "label": "Gemini Model Fallback Chain (timeout-based)",
+      "file_type": "code",
+      "source_file": "services/ai_service.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "concept_model_fallback",
+      "community": 0
+    },
+    {
+      "label": "Quiz Mode (auto vs /quiz command)",
+      "file_type": "code",
+      "source_file": "handlers/text_handler.py",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "concept_quiz_mode",
+      "community": 1
+    },
+    {
+      "label": "google-genai (Gemini SDK)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_google_genai",
+      "community": 0
+    },
+    {
+      "label": "anthropic (Claude SDK)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_anthropic",
+      "community": 0
+    },
+    {
+      "label": "apscheduler",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_apscheduler",
+      "community": 7
+    },
+    {
+      "label": "redis[asyncio]",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_redis",
+      "community": 1
+    },
+    {
+      "label": "python-telegram-bot==21.5",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_python_telegram_bot",
+      "community": 1
+    },
+    {
+      "label": "notion-client>=3.0.0",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_notion_client",
+      "community": 1
+    },
+    {
+      "label": "mcp",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "req_mcp",
+      "community": 0
     }
   ],
   "links": [
@@ -2130,7 +2297,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "nexus\\config.py",
-      "source_location": "L19",
+      "source_location": "L20",
       "weight": 1.0,
       "_src": "nexus_config_py",
       "_tgt": "config_config",
@@ -2201,170 +2368,506 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L45",
+      "source_file": "scheduler.py",
+      "source_location": "L47",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_send_quiz_question",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_send_quiz_question",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L97",
+      "source_file": "scheduler.py",
+      "source_location": "L95",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_start_daily_quiz",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_start_daily_quiz",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L105",
+      "source_file": "scheduler.py",
+      "source_location": "L103",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_resume_daily_quiz",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_resume_daily_quiz",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L115",
+      "source_file": "scheduler.py",
+      "source_location": "L113",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_send_resume_prompt",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_send_resume_prompt",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L132",
+      "source_file": "scheduler.py",
+      "source_location": "L130",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_schedule_quiz_resume",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_schedule_quiz_resume",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L146",
+      "source_file": "scheduler.py",
+      "source_location": "L144",
       "weight": 1.0,
-      "_src": "nexus_scheduler_py",
+      "_src": "scheduler_py",
       "_tgt": "scheduler_setup_scheduler",
-      "source": "nexus_scheduler_py",
+      "source": "scheduler_py",
       "target": "scheduler_setup_scheduler",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L101",
+      "source_file": "scheduler.py",
+      "source_location": "line 99",
       "weight": 1.0,
       "_src": "scheduler_start_daily_quiz",
       "_tgt": "scheduler_send_quiz_question",
+      "confidence_score": 1.0,
       "source": "scheduler_send_quiz_question",
-      "target": "scheduler_start_daily_quiz",
+      "target": "scheduler_start_daily_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "scheduler.py",
+      "source_location": "line 109",
+      "weight": 1.0,
+      "_src": "scheduler_resume_daily_quiz",
+      "_tgt": "scheduler_send_quiz_question",
+      "confidence_score": 1.0,
+      "source": "scheduler_send_quiz_question",
+      "target": "scheduler_resume_daily_quiz"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scheduler.py",
+      "source_location": "L48",
+      "weight": 1.0,
+      "_src": "scheduler_rationale_48",
+      "_tgt": "scheduler_send_quiz_question",
+      "source": "scheduler_send_quiz_question",
+      "target": "scheduler_rationale_48",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L111",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 71",
       "weight": 1.0,
-      "_src": "scheduler_resume_daily_quiz",
-      "_tgt": "scheduler_send_quiz_question",
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "ai_service_generate_quiz",
       "source": "scheduler_send_quiz_question",
-      "target": "scheduler_resume_daily_quiz",
-      "confidence_score": 1.0
+      "target": "ai_service_generate_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 49",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "text_handler_seconds_until_midnight",
+      "source": "scheduler_send_quiz_question",
+      "target": "text_handler_seconds_until_midnight"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 88",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "text_handler_quiz_buttons",
+      "source": "scheduler_send_quiz_question",
+      "target": "text_handler_quiz_buttons"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 87",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "text_handler_stage_icon",
+      "source": "scheduler_send_quiz_question",
+      "target": "text_handler_stage_icon"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 91",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "text_handler_prefetch_next_question",
+      "source": "scheduler_send_quiz_question",
+      "target": "text_handler_prefetch_next_question"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "lines 73-82",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "text_handler_redis_keys",
+      "source": "scheduler_send_quiz_question",
+      "target": "text_handler_redis_keys"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 91",
+      "weight": 1.0,
+      "_src": "scheduler_send_quiz_question",
+      "_tgt": "concept_prefetch_pattern",
+      "source": "scheduler_send_quiz_question",
+      "target": "concept_prefetch_pattern"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 98",
+      "weight": 1.0,
+      "_src": "scheduler_start_daily_quiz",
+      "_tgt": "text_handler_daily_quiz_limit",
+      "source": "scheduler_start_daily_quiz",
+      "target": "text_handler_daily_quiz_limit"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 150",
+      "weight": 1.0,
+      "_src": "scheduler_setup_scheduler",
+      "_tgt": "scheduler_start_daily_quiz",
+      "source": "scheduler_start_daily_quiz",
+      "target": "scheduler_setup_scheduler"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L46",
+      "source_file": "scheduler.py",
+      "source_location": "L104",
       "weight": 1.0,
-      "_src": "scheduler_rationale_46",
-      "_tgt": "scheduler_send_quiz_question",
-      "source": "scheduler_send_quiz_question",
-      "target": "scheduler_rationale_46",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L106",
-      "weight": 1.0,
-      "_src": "scheduler_rationale_106",
+      "_src": "scheduler_rationale_104",
       "_tgt": "scheduler_resume_daily_quiz",
       "source": "scheduler_resume_daily_quiz",
-      "target": "scheduler_rationale_106",
+      "target": "scheduler_rationale_104",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 150",
+      "weight": 1.0,
+      "_src": "scheduler_setup_scheduler",
+      "_tgt": "scheduler_resume_daily_quiz",
+      "source": "scheduler_resume_daily_quiz",
+      "target": "scheduler_setup_scheduler"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 105",
+      "weight": 1.0,
+      "_src": "scheduler_resume_daily_quiz",
+      "_tgt": "text_handler_redis_keys",
+      "source": "scheduler_resume_daily_quiz",
+      "target": "text_handler_redis_keys"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L116",
+      "source_file": "scheduler.py",
+      "source_location": "L114",
       "weight": 1.0,
-      "_src": "scheduler_rationale_116",
+      "_src": "scheduler_rationale_114",
       "_tgt": "scheduler_send_resume_prompt",
       "source": "scheduler_send_resume_prompt",
-      "target": "scheduler_rationale_116",
+      "target": "scheduler_rationale_114",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 133",
+      "weight": 1.0,
+      "_src": "scheduler_schedule_quiz_resume",
+      "_tgt": "scheduler_send_resume_prompt",
+      "source": "scheduler_send_resume_prompt",
+      "target": "scheduler_schedule_quiz_resume"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\scheduler.py",
-      "source_location": "L133",
+      "source_file": "scheduler.py",
+      "source_location": "L131",
       "weight": 1.0,
-      "_src": "scheduler_rationale_133",
+      "_src": "scheduler_rationale_131",
       "_tgt": "scheduler_schedule_quiz_resume",
       "source": "scheduler_schedule_quiz_resume",
-      "target": "scheduler_rationale_133",
+      "target": "scheduler_rationale_131",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 149",
+      "weight": 1.0,
+      "_src": "scheduler_setup_scheduler",
+      "_tgt": "scheduler_quiz_schedules",
+      "source": "scheduler_setup_scheduler",
+      "target": "scheduler_quiz_schedules"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scheduler.py",
+      "source_location": "line 33",
+      "weight": 1.0,
+      "_src": "scheduler_setup_scheduler",
+      "_tgt": "req_apscheduler",
+      "source": "scheduler_setup_scheduler",
+      "target": "req_apscheduler"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\exit_handler.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_src": "nexus_handlers_exit_handler_py",
+      "_tgt": "exit_handler_handle_exit",
+      "source": "nexus_handlers_exit_handler_py",
+      "target": "exit_handler_handle_exit",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\quiz_handler.py",
-      "source_location": "L25",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L20",
       "weight": 1.0,
-      "_src": "nexus_handlers_quiz_handler_py",
+      "_src": "nexus_handlers_law_handler_py",
+      "_tgt": "law_handler_k",
+      "source": "nexus_handlers_law_handler_py",
+      "target": "law_handler_k",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "nexus_handlers_law_handler_py",
+      "_tgt": "law_handler_handle_law",
+      "source": "nexus_handlers_law_handler_py",
+      "target": "law_handler_handle_law",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "_src": "nexus_handlers_law_handler_py",
+      "_tgt": "law_handler_handle_law_query",
+      "source": "nexus_handlers_law_handler_py",
+      "target": "law_handler_handle_law_query",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_src": "nexus_handlers_law_handler_py",
+      "_tgt": "law_handler_search_and_reply",
+      "source": "nexus_handlers_law_handler_py",
+      "target": "law_handler_search_and_reply",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "_src": "law_handler_handle_law",
+      "_tgt": "law_handler_k",
+      "source": "law_handler_k",
+      "target": "law_handler_handle_law",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_src": "law_handler_handle_law",
+      "_tgt": "law_handler_search_and_reply",
+      "source": "law_handler_handle_law",
+      "target": "law_handler_search_and_reply",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\handlers\\law_handler.py",
+      "source_location": "L39",
+      "weight": 1.0,
+      "_src": "law_handler_handle_law_query",
+      "_tgt": "law_handler_search_and_reply",
+      "source": "law_handler_handle_law_query",
+      "target": "law_handler_search_and_reply",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\quiz_handler.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_src": "handlers_quiz_handler_py",
       "_tgt": "quiz_handler_handle_quiz_command",
-      "source": "nexus_handlers_quiz_handler_py",
+      "source": "handlers_quiz_handler_py",
       "target": "quiz_handler_handle_quiz_command",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\quiz_handler.py",
-      "source_location": "L26",
+      "source_file": "handlers\\quiz_handler.py",
+      "source_location": "L28",
       "weight": 1.0,
-      "_src": "quiz_handler_rationale_26",
+      "_src": "quiz_handler_rationale_28",
       "_tgt": "quiz_handler_handle_quiz_command",
       "source": "quiz_handler_handle_quiz_command",
-      "target": "quiz_handler_rationale_26",
+      "target": "quiz_handler_rationale_28",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "line 67",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "ai_service_generate_quiz",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "ai_service_generate_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "line 95",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "text_handler_prefetch_next_question",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "text_handler_prefetch_next_question"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "lines 33-76",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "text_handler_redis_keys",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "text_handler_redis_keys"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "line 89",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "text_handler_stage_icon",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "text_handler_stage_icon"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "line 31",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "text_handler_seconds_until_midnight",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "text_handler_seconds_until_midnight"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/quiz_handler.py",
+      "source_location": "line 95",
+      "weight": 1.0,
+      "_src": "quiz_handler_handle_quiz_command",
+      "_tgt": "concept_prefetch_pattern",
+      "source": "quiz_handler_handle_quiz_command",
+      "target": "concept_prefetch_pattern"
     },
     {
       "relation": "contains",
@@ -2381,127 +2884,151 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L36",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L39",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_k",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_k",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L41",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L44",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_quiz_buttons",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_quiz_buttons",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L52",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L55",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_stage_icon",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_stage_icon",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L58",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L61",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_seconds_until_midnight",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_seconds_until_midnight",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L66",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L69",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_handle_text",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_handle_text",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L88",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L100",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_handle_word_query",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_handle_word_query",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L183",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L195",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_show_next_conflict_or_register",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_show_next_conflict_or_register",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L220",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L232",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
+      "_tgt": "text_handler_levenshtein",
+      "source": "handlers_text_handler_py",
+      "target": "text_handler_levenshtein",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L252",
+      "weight": 1.0,
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_handle_quiz_answer",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_handle_quiz_answer",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L313",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L373",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
+      "_tgt": "text_handler_prefetch_next_question",
+      "source": "handlers_text_handler_py",
+      "target": "text_handler_prefetch_next_question",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L426",
+      "weight": 1.0,
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_send_next_quiz",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_send_next_quiz",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L405",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L556",
       "weight": 1.0,
-      "_src": "nexus_handlers_text_handler_py",
+      "_src": "handlers_text_handler_py",
       "_tgt": "text_handler_handle_callback",
-      "source": "nexus_handlers_text_handler_py",
+      "source": "handlers_text_handler_py",
       "target": "text_handler_handle_callback",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
+      "source_file": "handlers\\text_handler.py",
       "source_location": "L76",
       "weight": 1.0,
       "_src": "text_handler_handle_text",
@@ -2513,8 +3040,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L94",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L106",
       "weight": 1.0,
       "_src": "text_handler_handle_word_query",
       "_tgt": "text_handler_k",
@@ -2525,8 +3052,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L222",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L254",
       "weight": 1.0,
       "_src": "text_handler_handle_quiz_answer",
       "_tgt": "text_handler_k",
@@ -2537,8 +3064,20 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L319",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L417",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "text_handler_k",
+      "source": "text_handler_k",
+      "target": "text_handler_prefetch_next_question",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L432",
       "weight": 1.0,
       "_src": "text_handler_send_next_quiz",
       "_tgt": "text_handler_k",
@@ -2549,8 +3088,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L413",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L564",
       "weight": 1.0,
       "_src": "text_handler_handle_callback",
       "_tgt": "text_handler_k",
@@ -2561,20 +3100,44 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L399",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 544",
       "weight": 1.0,
       "_src": "text_handler_send_next_quiz",
-      "_tgt": "text_handler_stage_icon",
-      "source": "text_handler_stage_icon",
-      "target": "text_handler_send_next_quiz",
+      "_tgt": "text_handler_quiz_buttons",
+      "confidence_score": 1.0,
+      "source": "text_handler_quiz_buttons",
+      "target": "text_handler_send_next_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L777",
+      "weight": 1.0,
+      "_src": "text_handler_handle_callback",
+      "_tgt": "text_handler_quiz_buttons",
+      "source": "text_handler_quiz_buttons",
+      "target": "text_handler_handle_callback",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L628",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 547",
+      "weight": 1.0,
+      "_src": "text_handler_send_next_quiz",
+      "_tgt": "text_handler_stage_icon",
+      "confidence_score": 1.0,
+      "source": "text_handler_stage_icon",
+      "target": "text_handler_send_next_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L776",
       "weight": 1.0,
       "_src": "text_handler_handle_callback",
       "_tgt": "text_handler_stage_icon",
@@ -2585,8 +3148,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L227",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L259",
       "weight": 1.0,
       "_src": "text_handler_handle_quiz_answer",
       "_tgt": "text_handler_seconds_until_midnight",
@@ -2597,68 +3160,128 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L316",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L376",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "text_handler_seconds_until_midnight",
+      "source": "text_handler_seconds_until_midnight",
+      "target": "text_handler_prefetch_next_question",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L429",
       "weight": 1.0,
       "_src": "text_handler_send_next_quiz",
       "_tgt": "text_handler_seconds_until_midnight",
       "source": "text_handler_seconds_until_midnight",
       "target": "text_handler_send_next_quiz",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L852",
+      "weight": 1.0,
+      "_src": "text_handler_handle_callback",
+      "_tgt": "text_handler_seconds_until_midnight",
+      "source": "text_handler_seconds_until_midnight",
+      "target": "text_handler_handle_callback",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L59",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L62",
       "weight": 1.0,
-      "_src": "text_handler_rationale_59",
+      "_src": "text_handler_rationale_62",
       "_tgt": "text_handler_seconds_until_midnight",
       "source": "text_handler_seconds_until_midnight",
-      "target": "text_handler_rationale_59",
+      "target": "text_handler_rationale_62",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L81",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 92",
       "weight": 1.0,
       "_src": "text_handler_handle_text",
       "_tgt": "text_handler_handle_quiz_answer",
+      "confidence_score": 1.0,
       "source": "text_handler_handle_text",
-      "target": "text_handler_handle_quiz_answer",
-      "confidence_score": 1.0
+      "target": "text_handler_handle_quiz_answer"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L84",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 95",
       "weight": 1.0,
       "_src": "text_handler_handle_text",
       "_tgt": "text_handler_handle_word_query",
+      "confidence_score": 1.0,
       "source": "text_handler_handle_text",
-      "target": "text_handler_handle_word_query",
-      "confidence_score": 1.0
+      "target": "text_handler_handle_word_query"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L67",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L70",
       "weight": 1.0,
-      "_src": "text_handler_rationale_67",
+      "_src": "text_handler_rationale_70",
       "_tgt": "text_handler_handle_text",
       "source": "text_handler_handle_text",
-      "target": "text_handler_rationale_67",
+      "target": "text_handler_rationale_70",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 6",
+      "weight": 1.0,
+      "_src": "text_handler_handle_text",
+      "_tgt": "req_python_telegram_bot",
+      "source": "text_handler_handle_text",
+      "target": "req_python_telegram_bot"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L425",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 123",
+      "weight": 1.0,
+      "_src": "text_handler_handle_word_query",
+      "_tgt": "ai_service_explain_word",
+      "source": "text_handler_handle_word_query",
+      "target": "ai_service_explain_word"
+    },
+    {
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 131",
+      "weight": 0.85,
+      "_src": "text_handler_handle_word_query",
+      "_tgt": "req_notion_client",
+      "source": "text_handler_handle_word_query",
+      "target": "req_notion_client"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L576",
       "weight": 1.0,
       "_src": "text_handler_handle_callback",
       "_tgt": "text_handler_show_next_conflict_or_register",
@@ -2669,44 +3292,140 @@
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L184",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L196",
       "weight": 1.0,
-      "_src": "text_handler_rationale_184",
+      "_src": "text_handler_rationale_196",
       "_tgt": "text_handler_show_next_conflict_or_register",
       "source": "text_handler_show_next_conflict_or_register",
-      "target": "text_handler_rationale_184",
+      "target": "text_handler_rationale_196",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 347-358",
+      "weight": 0.9,
+      "_src": "text_handler_levenshtein",
+      "_tgt": "text_handler_handle_quiz_answer",
+      "confidence_score": 0.9,
+      "source": "text_handler_levenshtein",
+      "target": "text_handler_handle_quiz_answer"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L309",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 369",
       "weight": 1.0,
       "_src": "text_handler_handle_quiz_answer",
       "_tgt": "text_handler_send_next_quiz",
+      "confidence_score": 1.0,
       "source": "text_handler_handle_quiz_answer",
-      "target": "text_handler_send_next_quiz",
-      "confidence_score": 1.0
+      "target": "text_handler_send_next_quiz"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L221",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L253",
       "weight": 1.0,
-      "_src": "text_handler_rationale_221",
+      "_src": "text_handler_rationale_253",
       "_tgt": "text_handler_handle_quiz_answer",
       "source": "text_handler_handle_quiz_answer",
-      "target": "text_handler_rationale_221",
+      "target": "text_handler_rationale_253",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L677",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 279,290",
+      "weight": 1.0,
+      "_src": "text_handler_handle_quiz_answer",
+      "_tgt": "ai_service_grade_writing",
+      "source": "text_handler_handle_quiz_answer",
+      "target": "ai_service_grade_writing"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 254-324",
+      "weight": 1.0,
+      "_src": "text_handler_handle_quiz_answer",
+      "_tgt": "text_handler_redis_keys",
+      "source": "text_handler_handle_quiz_answer",
+      "target": "text_handler_redis_keys"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 470",
+      "weight": 1.0,
+      "_src": "text_handler_send_next_quiz",
+      "_tgt": "text_handler_prefetch_next_question",
+      "confidence_score": 1.0,
+      "source": "text_handler_prefetch_next_question",
+      "target": "text_handler_send_next_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 413",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "ai_service_generate_quiz_with_hint",
+      "source": "text_handler_prefetch_next_question",
+      "target": "ai_service_generate_quiz_with_hint"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 417",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "text_handler_redis_keys",
+      "source": "text_handler_prefetch_next_question",
+      "target": "text_handler_redis_keys"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 373-422",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "concept_prefetch_pattern",
+      "source": "text_handler_prefetch_next_question",
+      "target": "concept_prefetch_pattern"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 378-400",
+      "weight": 1.0,
+      "_src": "text_handler_prefetch_next_question",
+      "_tgt": "concept_quiz_mode",
+      "source": "text_handler_prefetch_next_question",
+      "target": "concept_quiz_mode"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L818",
       "weight": 1.0,
       "_src": "text_handler_handle_callback",
       "_tgt": "text_handler_send_next_quiz",
@@ -2717,14 +3436,50 @@
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\handlers\\text_handler.py",
-      "source_location": "L314",
+      "source_file": "handlers\\text_handler.py",
+      "source_location": "L427",
       "weight": 1.0,
-      "_src": "text_handler_rationale_314",
+      "_src": "text_handler_rationale_427",
       "_tgt": "text_handler_send_next_quiz",
       "source": "text_handler_send_next_quiz",
-      "target": "text_handler_rationale_314",
+      "target": "text_handler_rationale_427",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 516",
+      "weight": 1.0,
+      "_src": "text_handler_send_next_quiz",
+      "_tgt": "ai_service_generate_quiz",
+      "source": "text_handler_send_next_quiz",
+      "target": "ai_service_generate_quiz"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 474-503",
+      "weight": 1.0,
+      "_src": "text_handler_send_next_quiz",
+      "_tgt": "concept_quiz_mode",
+      "source": "text_handler_send_next_quiz",
+      "target": "concept_quiz_mode"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py",
+      "source_location": "lines 432-463",
+      "weight": 1.0,
+      "_src": "text_handler_send_next_quiz",
+      "_tgt": "text_handler_redis_keys",
+      "source": "text_handler_send_next_quiz",
+      "target": "text_handler_redis_keys"
     },
     {
       "relation": "contains",
@@ -2873,247 +3628,283 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L13",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_summarize_url",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_summarize_url",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L23",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_call_gemini_url",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_call_gemini_url",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L59",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_build_url_prompt",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_build_url_prompt",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L74",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_summarize_youtube",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_summarize_youtube",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L96",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_summarize_github",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_summarize_github",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L102",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_call_with_models",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_call_with_models",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L108",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_call_gemini",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_call_gemini",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L138",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_call_claude",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_call_claude",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L148",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_explain_word",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_explain_word",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L161",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
+      "_tgt": "ai_service_answer_law_query",
+      "source": "services_ai_service_py",
+      "target": "ai_service_answer_law_query",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L178",
+      "weight": 1.0,
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_has_invalid_content",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_has_invalid_content",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L172",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L189",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
+      "_tgt": "ai_service_has_invalid_content_stage2",
+      "source": "services_ai_service_py",
+      "target": "ai_service_has_invalid_content_stage2",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L203",
+      "weight": 1.0,
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_force_clean",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_force_clean",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L183",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L222",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_generate_quiz",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_generate_quiz",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L256",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L306",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
+      "_tgt": "ai_service_generate_quiz_with_hint",
+      "source": "services_ai_service_py",
+      "target": "ai_service_generate_quiz_with_hint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L317",
+      "weight": 1.0,
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_get_word_definition",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_get_word_definition",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L267",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L328",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_grade_writing",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_grade_writing",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L285",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L356",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_parse_explain_response",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_parse_explain_response",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L298",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L369",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_parse_grade_response",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_parse_grade_response",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L332",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L412",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_build_youtube_prompt",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_build_youtube_prompt",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L341",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L421",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_build_github_prompt",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_build_github_prompt",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L366",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L446",
       "weight": 1.0,
-      "_src": "nexus_services_ai_service_py",
+      "_src": "services_ai_service_py",
       "_tgt": "ai_service_parse_response",
-      "source": "nexus_services_ai_service_py",
+      "source": "services_ai_service_py",
       "target": "ai_service_parse_response",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L245",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L294",
       "weight": 1.0,
-      "_src": "ai_service_rationale_245",
-      "_tgt": "nexus_services_ai_service_py",
-      "source": "nexus_services_ai_service_py",
-      "target": "ai_service_rationale_245",
+      "_src": "ai_service_rationale_294",
+      "_tgt": "services_ai_service_py",
+      "source": "services_ai_service_py",
+      "target": "ai_service_rationale_294",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L16",
       "weight": 1.0,
       "_src": "ai_service_summarize_url",
@@ -3125,19 +3916,19 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L18",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 18",
       "weight": 1.0,
       "_src": "ai_service_summarize_url",
       "_tgt": "ai_service_call_gemini_url",
+      "confidence_score": 1.0,
       "source": "ai_service_summarize_url",
-      "target": "ai_service_call_gemini_url",
-      "confidence_score": 1.0
+      "target": "ai_service_call_gemini_url"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L14",
       "weight": 1.0,
       "_src": "ai_service_rationale_14",
@@ -3149,19 +3940,43 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L50",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 50",
       "weight": 1.0,
       "_src": "ai_service_call_gemini_url",
       "_tgt": "ai_service_parse_response",
+      "confidence_score": 1.0,
       "source": "ai_service_call_gemini_url",
-      "target": "ai_service_parse_response",
-      "confidence_score": 1.0
+      "target": "ai_service_parse_response"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "lines 37-56",
+      "weight": 1.0,
+      "_src": "ai_service_call_gemini_url",
+      "_tgt": "concept_model_fallback",
+      "source": "ai_service_call_gemini_url",
+      "target": "concept_model_fallback"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "line 37",
+      "weight": 1.0,
+      "_src": "ai_service_call_gemini_url",
+      "_tgt": "ai_service_genai_models",
+      "source": "ai_service_call_gemini_url",
+      "target": "ai_service_genai_models"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L78",
       "weight": 1.0,
       "_src": "ai_service_summarize_youtube",
@@ -3173,7 +3988,7 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L89",
       "weight": 1.0,
       "_src": "ai_service_summarize_youtube",
@@ -3185,7 +4000,7 @@
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L75",
       "weight": 1.0,
       "_src": "ai_service_rationale_75",
@@ -3197,7 +4012,7 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L98",
       "weight": 1.0,
       "_src": "ai_service_summarize_github",
@@ -3209,19 +4024,19 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L99",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 99",
       "weight": 1.0,
       "_src": "ai_service_summarize_github",
       "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
       "source": "ai_service_summarize_github",
-      "target": "ai_service_call_with_models",
-      "confidence_score": 1.0
+      "target": "ai_service_call_with_models"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L97",
       "weight": 1.0,
       "_src": "ai_service_rationale_97",
@@ -3233,115 +4048,187 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L104",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 104",
       "weight": 1.0,
       "_src": "ai_service_call_with_models",
       "_tgt": "ai_service_call_gemini",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_call_gemini",
-      "confidence_score": 1.0
+      "target": "ai_service_call_gemini"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L105",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 105",
       "weight": 1.0,
       "_src": "ai_service_call_with_models",
       "_tgt": "ai_service_call_claude",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_call_claude",
-      "confidence_score": 1.0
+      "target": "ai_service_call_claude"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L157",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 157",
       "weight": 1.0,
       "_src": "ai_service_explain_word",
       "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_explain_word",
-      "confidence_score": 1.0
+      "target": "ai_service_explain_word"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L220",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 175",
+      "weight": 1.0,
+      "_src": "ai_service_answer_law_query",
+      "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
+      "source": "ai_service_call_with_models",
+      "target": "ai_service_answer_law_query"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 259",
       "weight": 1.0,
       "_src": "ai_service_generate_quiz",
       "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_generate_quiz",
-      "confidence_score": 1.0
+      "target": "ai_service_generate_quiz"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L262",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 323",
       "weight": 1.0,
       "_src": "ai_service_get_word_definition",
       "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_get_word_definition",
-      "confidence_score": 1.0
+      "target": "ai_service_get_word_definition"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L282",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 353",
       "weight": 1.0,
       "_src": "ai_service_grade_writing",
       "_tgt": "ai_service_call_with_models",
+      "confidence_score": 1.0,
       "source": "ai_service_call_with_models",
-      "target": "ai_service_grade_writing",
-      "confidence_score": 1.0
+      "target": "ai_service_grade_writing"
+    },
+    {
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "services/ai_service.py",
+      "source_location": "lines 102-105",
+      "weight": 0.9,
+      "_src": "ai_service_call_with_models",
+      "_tgt": "concept_model_fallback",
+      "source": "ai_service_call_with_models",
+      "target": "concept_model_fallback"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L130",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 130",
       "weight": 1.0,
       "_src": "ai_service_call_gemini",
       "_tgt": "ai_service_parse_response",
+      "confidence_score": 1.0,
       "source": "ai_service_call_gemini",
-      "target": "ai_service_parse_response",
-      "confidence_score": 1.0
+      "target": "ai_service_parse_response"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "lines 116-135",
+      "weight": 1.0,
+      "_src": "ai_service_call_gemini",
+      "_tgt": "concept_model_fallback",
+      "source": "ai_service_call_gemini",
+      "target": "concept_model_fallback"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "line 116",
+      "weight": 1.0,
+      "_src": "ai_service_call_gemini",
+      "_tgt": "ai_service_genai_models",
+      "source": "ai_service_call_gemini",
+      "target": "ai_service_genai_models"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "line 112",
+      "weight": 1.0,
+      "_src": "ai_service_call_gemini",
+      "_tgt": "req_google_genai",
+      "source": "ai_service_call_gemini",
+      "target": "req_google_genai"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L146",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 146",
       "weight": 1.0,
       "_src": "ai_service_call_claude",
       "_tgt": "ai_service_parse_response",
+      "confidence_score": 1.0,
       "source": "ai_service_call_claude",
-      "target": "ai_service_parse_response",
-      "confidence_score": 1.0
+      "target": "ai_service_parse_response"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "line 139",
+      "weight": 1.0,
+      "_src": "ai_service_call_claude",
+      "_tgt": "req_anthropic",
+      "source": "ai_service_call_claude",
+      "target": "req_anthropic"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L158",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 158",
       "weight": 1.0,
       "_src": "ai_service_explain_word",
       "_tgt": "ai_service_parse_explain_response",
+      "confidence_score": 1.0,
       "source": "ai_service_explain_word",
-      "target": "ai_service_parse_explain_response",
-      "confidence_score": 1.0
+      "target": "ai_service_parse_explain_response"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L149",
       "weight": 1.0,
       "_src": "ai_service_rationale_149",
@@ -3351,75 +4238,171 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L230",
-      "weight": 1.0,
-      "_src": "ai_service_generate_quiz",
-      "_tgt": "ai_service_has_invalid_content",
-      "source": "ai_service_has_invalid_content",
-      "target": "ai_service_generate_quiz",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
+      "source_file": "services\\ai_service.py",
       "source_location": "L162",
       "weight": 1.0,
       "_src": "ai_service_rationale_162",
-      "_tgt": "ai_service_has_invalid_content",
-      "source": "ai_service_has_invalid_content",
+      "_tgt": "ai_service_answer_law_query",
+      "source": "ai_service_answer_law_query",
       "target": "ai_service_rationale_162",
       "confidence_score": 1.0
     },
     {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "weight": 0.7,
+      "_src": "req_mcp",
+      "_tgt": "ai_service_answer_law_query",
+      "source": "ai_service_answer_law_query",
+      "target": "req_mcp"
+    },
+    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L248",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 276",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz",
+      "_tgt": "ai_service_has_invalid_content",
+      "confidence_score": 1.0,
+      "source": "ai_service_has_invalid_content",
+      "target": "ai_service_generate_quiz"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L179",
+      "weight": 1.0,
+      "_src": "ai_service_rationale_179",
+      "_tgt": "ai_service_has_invalid_content",
+      "source": "ai_service_has_invalid_content",
+      "target": "ai_service_rationale_179",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 273",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz",
+      "_tgt": "ai_service_has_invalid_content_stage2",
+      "confidence_score": 1.0,
+      "source": "ai_service_has_invalid_content_stage2",
+      "target": "ai_service_generate_quiz"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 298",
       "weight": 1.0,
       "_src": "ai_service_generate_quiz",
       "_tgt": "ai_service_force_clean",
+      "confidence_score": 1.0,
       "source": "ai_service_force_clean",
-      "target": "ai_service_generate_quiz",
-      "confidence_score": 1.0
+      "target": "ai_service_generate_quiz"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L173",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L204",
       "weight": 1.0,
-      "_src": "ai_service_rationale_173",
+      "_src": "ai_service_rationale_204",
       "_tgt": "ai_service_force_clean",
       "source": "ai_service_force_clean",
-      "target": "ai_service_rationale_173",
+      "target": "ai_service_rationale_204",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "services/ai_service.py",
+      "source_location": "lines 203-219",
+      "weight": 0.85,
+      "_src": "ai_service_force_clean",
+      "_tgt": "concept_quiz_stage_system",
+      "source": "ai_service_force_clean",
+      "target": "concept_quiz_stage_system"
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L283",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 309",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz_with_hint",
+      "_tgt": "ai_service_generate_quiz",
+      "confidence_score": 1.0,
+      "source": "ai_service_generate_quiz",
+      "target": "ai_service_generate_quiz_with_hint"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "lines 224-303",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz",
+      "_tgt": "concept_quiz_stage_system",
+      "source": "ai_service_generate_quiz",
+      "target": "concept_quiz_stage_system"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py",
+      "source_location": "line 258",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz",
+      "_tgt": "ai_service_genai_models",
+      "source": "ai_service_generate_quiz",
+      "target": "ai_service_genai_models"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 310",
+      "weight": 1.0,
+      "_src": "ai_service_generate_quiz_with_hint",
+      "_tgt": "ai_service_get_word_definition",
+      "confidence_score": 1.0,
+      "source": "ai_service_generate_quiz_with_hint",
+      "target": "ai_service_get_word_definition"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "services/ai_service.py",
+      "source_location": "line 354",
       "weight": 1.0,
       "_src": "ai_service_grade_writing",
       "_tgt": "ai_service_parse_grade_response",
+      "confidence_score": 1.0,
       "source": "ai_service_grade_writing",
-      "target": "ai_service_parse_grade_response",
-      "confidence_score": 1.0
+      "target": "ai_service_parse_grade_response"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "nexus\\services\\ai_service.py",
-      "source_location": "L268",
+      "source_file": "services\\ai_service.py",
+      "source_location": "L329",
       "weight": 1.0,
-      "_src": "ai_service_rationale_268",
+      "_src": "ai_service_rationale_329",
       "_tgt": "ai_service_grade_writing",
       "source": "ai_service_grade_writing",
-      "target": "ai_service_rationale_268",
+      "target": "ai_service_rationale_329",
       "confidence_score": 1.0
     },
     {
@@ -3636,6 +4619,78 @@
       "_tgt": "grammar_service_update_grammar_stage",
       "source": "grammar_service_update_grammar_stage",
       "target": "grammar_service_rationale_63",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_src": "nexus_services_law_service_py",
+      "_tgt": "law_service_mcp_session",
+      "source": "nexus_services_law_service_py",
+      "target": "law_service_mcp_session",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_src": "nexus_services_law_service_py",
+      "_tgt": "law_service_call_tool",
+      "source": "nexus_services_law_service_py",
+      "target": "law_service_call_tool",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_src": "nexus_services_law_service_py",
+      "_tgt": "law_service_research_law",
+      "source": "nexus_services_law_service_py",
+      "target": "law_service_research_law",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_src": "law_service_research_law",
+      "_tgt": "law_service_mcp_session",
+      "source": "law_service_mcp_session",
+      "target": "law_service_research_law",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L51",
+      "weight": 1.0,
+      "_src": "law_service_research_law",
+      "_tgt": "law_service_call_tool",
+      "source": "law_service_call_tool",
+      "target": "law_service_research_law",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "nexus\\services\\law_service.py",
+      "source_location": "L47",
+      "weight": 1.0,
+      "_src": "law_service_rationale_47",
+      "_tgt": "law_service_research_law",
+      "source": "law_service_research_law",
+      "target": "law_service_rationale_47",
       "confidence_score": 1.0
     },
     {
@@ -5454,269 +6509,88 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 1",
+      "source_file": "handlers/text_handler.py",
+      "source_location": "line 17",
       "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_python_telegram_bot",
-      "source": "requirements_python_telegram_bot",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 2",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_anthropic",
-      "source": "requirements_anthropic",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "nexus/requirements.txt",
-      "source_location": null,
-      "weight": 0.75,
-      "_src": "requirements_anthropic",
-      "_tgt": "requirements_groq",
-      "source": "requirements_anthropic",
-      "target": "requirements_groq"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "nexus/requirements.txt",
-      "source_location": null,
-      "weight": 0.75,
-      "_src": "requirements_anthropic",
-      "_tgt": "requirements_google_genai",
-      "source": "requirements_anthropic",
-      "target": "requirements_google_genai"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 3",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_notion_client",
-      "source": "requirements_notion_client",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 4",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_youtube_transcript_api",
-      "source": "requirements_youtube_transcript_api",
-      "target": "requirements_nexus_project"
+      "_src": "text_handler_redis_keys",
+      "_tgt": "req_redis",
+      "source": "text_handler_redis_keys",
+      "target": "req_redis"
     },
     {
       "relation": "conceptually_related_to",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
-      "source_file": "nexus/requirements.txt",
+      "source_file": "handlers/text_handler.py",
       "source_location": null,
       "weight": 0.8,
-      "_src": "requirements_youtube_transcript_api",
-      "_tgt": "requirements_yt_dlp",
-      "source": "requirements_youtube_transcript_api",
-      "target": "requirements_yt_dlp"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 5",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_beautifulsoup4",
-      "source": "requirements_beautifulsoup4",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 6",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_requests",
-      "source": "requirements_requests",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 7",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_python_dotenv",
-      "source": "requirements_python_dotenv",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 8",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_fastapi",
-      "source": "requirements_fastapi",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.9,
-      "source_file": "nexus/requirements.txt",
-      "source_location": null,
-      "weight": 0.9,
-      "_src": "requirements_fastapi",
-      "_tgt": "requirements_uvicorn",
-      "source": "requirements_fastapi",
-      "target": "requirements_uvicorn"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "nexus/requirements.txt",
-      "source_location": null,
-      "weight": 0.85,
-      "_src": "requirements_fastapi",
-      "_tgt": "requirements_pydantic_settings",
-      "source": "requirements_fastapi",
-      "target": "requirements_pydantic_settings"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 9",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_uvicorn",
-      "source": "requirements_uvicorn",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 10",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_pydantic_settings",
-      "source": "requirements_pydantic_settings",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 11",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_google_genai",
-      "source": "requirements_google_genai",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 12",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_yt_dlp",
-      "source": "requirements_yt_dlp",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 13",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_groq",
-      "source": "requirements_groq",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 14",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_redis_asyncio",
-      "source": "requirements_redis_asyncio",
-      "target": "requirements_nexus_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "nexus/requirements.txt",
-      "source_location": "line 15",
-      "weight": 1.0,
-      "_src": "requirements_nexus_project",
-      "_tgt": "requirements_apscheduler",
-      "source": "requirements_apscheduler",
-      "target": "requirements_nexus_project"
+      "_src": "concept_quiz_mode",
+      "_tgt": "concept_quiz_stage_system",
+      "source": "concept_quiz_stage_system",
+      "target": "concept_quiz_mode"
     }
   ],
   "hyperedges": [
     {
-      "id": "ai_llm_clients",
-      "label": "AI/LLM Client Libraries",
+      "id": "quiz_delivery_pipeline",
+      "label": "Quiz Delivery Pipeline (scheduler + handler + AI + Redis)",
       "nodes": [
-        "requirements_anthropic",
-        "requirements_google_genai",
-        "requirements_groq"
-      ],
-      "relation": "implement",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "nexus/requirements.txt"
-    },
-    {
-      "id": "fastapi_web_server_stack",
-      "label": "FastAPI Web Server Stack",
-      "nodes": [
-        "requirements_fastapi",
-        "requirements_uvicorn",
-        "requirements_pydantic_settings"
+        "scheduler_send_quiz_question",
+        "scheduler_start_daily_quiz",
+        "scheduler_resume_daily_quiz",
+        "text_handler_send_next_quiz",
+        "ai_service_generate_quiz",
+        "text_handler_redis_keys"
       ],
       "relation": "implement",
       "confidence": "INFERRED",
       "confidence_score": 0.9,
-      "source_file": "nexus/requirements.txt"
+      "source_file": "scheduler.py"
+    },
+    {
+      "id": "prefetch_background_system",
+      "label": "Background Prefetch System",
+      "nodes": [
+        "text_handler_prefetch_next_question",
+        "ai_service_generate_quiz_with_hint",
+        "ai_service_generate_quiz",
+        "ai_service_get_word_definition",
+        "concept_prefetch_pattern"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py"
+    },
+    {
+      "id": "quiz_grading_pipeline",
+      "label": "Quiz Answer Grading Pipeline (stage 1/2 vs 3+)",
+      "nodes": [
+        "text_handler_handle_quiz_answer",
+        "text_handler_levenshtein",
+        "ai_service_grade_writing",
+        "ai_service_parse_grade_response",
+        "concept_quiz_stage_system"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "handlers/text_handler.py"
+    },
+    {
+      "id": "ai_provider_abstraction",
+      "label": "AI Provider Abstraction (Gemini primary, Claude fallback)",
+      "nodes": [
+        "ai_service_call_with_models",
+        "ai_service_call_gemini",
+        "ai_service_call_claude",
+        "req_google_genai",
+        "req_anthropic"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "services/ai_service.py"
     }
   ]
 }
