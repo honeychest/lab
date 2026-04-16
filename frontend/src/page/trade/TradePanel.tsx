@@ -99,7 +99,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
         if (!value || value <= 0 || !Number.isInteger(value) || value > 10_000_000) return;
         setThresholdLoading(true);
         try {
-            const res = await axios.post(`/api/binance/trades/threshold?value=${value}`);
+            const res = await apiClient.post(`/api/binance/trades/threshold?value=${value}`);
             onThresholdChange(res.data.value);
             setThresholdInput('');
         } finally {
@@ -127,7 +127,7 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await axios.get<PageResult>(`/api/binance/trades?${params}`);
+            const res = await apiClient.get<PageResult>(`/api/binance/trades?${params}`);
             setResult(res.data);
             setCurrentPage(page);
         } catch {
@@ -150,46 +150,43 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
 
     return (
         <div className="flex flex-col h-full bg-[var(--dark-card-bg)] text-[var(--dark-text-primary)] overflow-hidden">
-            {/* threshold (허용 IP에서만 변경 UI 표시) */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--dark-border)]">
-                <span className="text-xs text-[var(--dark-text-secondary)] shrink-0">임계값</span>
-                <span className="text-xs text-[var(--dark-text-neutral)] font-mono shrink-0">
-                    {threshold != null ? `${Number(threshold).toLocaleString()} USD` : '...'}
-                </span>
-                {canEditThreshold && (
-                    <>
-                        <Input
-                            type="number"
-                            placeholder="변경값 입력"
-                            min="1"
-                            max="10000000"
-                            step="1"
-                            value={thresholdInput}
-                            onChange={e => setThresholdInput(e.target.value)}
-                            onKeyDown={e => {
-                                if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
-                                if (e.key === 'Enter') handleThresholdApply();
-                            }}
-                            className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-7 text-xs flex-1"
-                        />
-                        <Button
-                            onClick={handleThresholdApply}
-                            disabled={thresholdLoading}
-                            className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
-                        >
-                            적용
-                        </Button>
-                    </>
-                )}
-                {onClose && (
+            {canEditThreshold && (
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--dark-border)]">
+                    <span className="text-xs text-[var(--dark-text-secondary)] shrink-0">임계값</span>
+                    <span className="text-xs text-[var(--dark-text-neutral)] font-mono shrink-0">
+                        {threshold != null ? `${Number(threshold).toLocaleString()} USD` : '...'}
+                    </span>
+                    <Input
+                        type="number"
+                        placeholder="변경값 입력"
+                        min="1"
+                        max="10000000"
+                        step="1"
+                        value={thresholdInput}
+                        onChange={e => setThresholdInput(e.target.value)}
+                        onKeyDown={e => {
+                            if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
+                            if (e.key === 'Enter') handleThresholdApply();
+                        }}
+                        className="bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-primary)] h-7 text-xs flex-1"
+                    />
                     <Button
-                        onClick={onClose}
+                        onClick={handleThresholdApply}
+                        disabled={thresholdLoading}
                         className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
                     >
-                        닫기
+                        적용
                     </Button>
-                )}
-            </div>
+                    {onClose && (
+                        <Button
+                            onClick={onClose}
+                            className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
+                        >
+                            닫기
+                        </Button>
+                    )}
+                </div>
+            )}
 
             {/* 필터 영역 */}
             <div className="flex flex-col gap-3 p-4 border-b border-[var(--dark-border)]">

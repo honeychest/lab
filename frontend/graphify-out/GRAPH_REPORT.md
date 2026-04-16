@@ -1,4 +1,4 @@
-# Graph Report - .  (2026-04-13)
+# Graph Report - frontend.  (2026-04-13)
 
 ## Corpus Check
 - 126 files · ~73,305 words

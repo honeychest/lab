@@ -30,6 +30,7 @@ import styles from './TradePage.module.css';
 import { formatWithComma } from '@/shared/lib/utils.js';
 import '@/styles/themes/theme-dark.css';
 import { usePageTheme } from '@/app/context/useTheme.js';
+import { useAdminAccess } from '@/shared/lib/useAdminAccess.js';
 
 // ── 포맷 유틸 ──────────────────────────────────────────────────
 const formatThreshold = (v) => {
@@ -92,6 +93,7 @@ function TradePage() {
     // threshold (canEdit: 허용 IP에서만 true)
     const [threshold, setThreshold] = useState(null);
     const [canEditThreshold, setCanEditThreshold] = useState(false);
+    const { hasAdminAccess } = useAdminAccess();
     useEffect(() => {
         apiClient.get('/api/binance/trades/threshold').then(r => {
             setThreshold(r.data.value);
@@ -510,7 +512,7 @@ function TradePage() {
                         <SheetTitle className="text-[var(--dark-text-primary)] text-sm">체결 조회</SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-hidden h-[calc(100%-56px)]">
-                        <TradePanel threshold={threshold} canEditThreshold={canEditThreshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
+                        <TradePanel threshold={threshold} canEditThreshold={canEditThreshold && hasAdminAccess} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
                     </div>
                 </SheetContent>
             </Sheet>

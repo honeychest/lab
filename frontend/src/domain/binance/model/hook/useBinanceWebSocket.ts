@@ -205,6 +205,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
     //   true  → 의도적으로 닫은 것이므로 자동 재연결 하지 않음
     //   false → 네트워크 문제 등으로 끊긴 것이므로 자동 재연결 시도
     const isManualClose = useRef<boolean>(false);
+    const effectSeqRef = useRef<number>(0);
 
     // ── connect 함수 ────────────────────────────────────────────────
     /**
@@ -219,7 +220,8 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
      *   2. WebSocket이 비정상 종료된 후 3초 뒤 자동 재연결 시
      *   3. 탭을 다시 활성화(visibility = visible)했을 때
      */
-    const connect = () => {
+    const connect = (effectSeq = effectSeqRef.current) => {
+        if (effectSeq !== effectSeqRef.current) return;
         // ── 중복 연결 방지 ──────────────────────────────────────────
         //
         // WebSocket readyState 값 (브라우저 표준):
@@ -262,7 +264,6 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
         // Hairpin NAT 문제 없이 동작함.
         const host = window.location.host;
         const url = `${protocol}//${host}/ws/binance-price?symbol=${selectedSymbol}`;
-        console.log('[useBinanceWebSocket] 연결 시도 URL:', url); // debug
         const ws = new WebSocket(url);
 
         // ── 이벤트 핸들러 등록 ──────────────────────────────────────
@@ -275,6 +276,10 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          * 이 시점부터 메시지를 수신할 수 있음.
          */
         ws.onopen = () => {
+            if (effectSeq !== effectSeqRef.current) {
+                ws.close();
+                return;
+            }
             if (isManualClose.current) {
                 ws.close();
                 return;
@@ -297,8 +302,11 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          *            앱이 죽지 않도록 방어.
          */
         ws.onmessage = (e: MessageEvent) => {
+            if (effectSeq !== effectSeqRef.current) return;
             try {
-                setTicker(JSON.parse(e.data) as BinanceTicker);
+                const next = JSON.parse(e.data) as BinanceTicker;
+                if (!next?.s || next.s !== selectedSymbol) return;
+                setTicker(next);
             } catch {
                 // 파싱 실패 시 무시 (불완전한 데이터는 버림)
             }
@@ -316,9 +324,10 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          *   단 이 경우는 1회성 타이머 (setInterval 대신 setTimeout 재귀 방식).
          */
         ws.onclose = () => {
+            if (effectSeq !== effectSeqRef.current) return;
             setStatus('disconnected');
             if (!isManualClose.current) {
-                reconnectTimerRef.current = setTimeout(connect, 3000);
+                reconnectTimerRef.current = setTimeout(() => connect(effectSeq), 3000);
             }
         };
 
@@ -359,6 +368,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
      *   → 반드시 useEffect 시작 시 isManualClose.current = false 로 초기화.
      */
     useEffect(() => {
+        const effectSeq = ++effectSeqRef.current;
         // 심볼 변경 시 이전 코인 데이터 즉시 초기화 → BinanceTicker가 스켈레톤 표시
         // 초기 마운트 시에는 이미 null이므로 시각적 변화 없음
         setTicker(null);
@@ -367,7 +377,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
         isManualClose.current = false;
 
         // 컴포넌트 마운트 시 WebSocket 연결 시작
-        connect();
+        connect(effectSeq);
 
         // ── Page Visibility API ──────────────────────────────────────
         /**
@@ -387,6 +397,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          *   $(document).on('visibilitychange', fn) 과 동일한 코드.
          */
         const handleVisibilityChange = () => {
+            if (effectSeq !== effectSeqRef.current) return;
             if (document.hidden) {
                 // 탭 비활성화 → 의도적으로 WebSocket 종료 (자동 재연결 방지)
                 isManualClose.current = true;
@@ -398,7 +409,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
             } else {
                 // 탭 활성화 → 수동 종료 플래그 해제 후 재연결
                 isManualClose.current = false;
-                connect();
+                connect(effectSeq);
             }
         };
 
@@ -425,6 +436,9 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
          *   - 페이지 이동 후에도 WebSocket 재연결이 계속 시도됨
          */
         return () => {
+            if (effectSeqRef.current === effectSeq) {
+                effectSeqRef.current += 1;
+            }
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             isManualClose.current = true;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);

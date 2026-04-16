@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom';
 import styled from 'styled-components';
 import { sendTelegramInquiry, getGuestToken } from '../api/contactApi.js';
 import { useThemeContext } from '@/app/context/useTheme.js';
+import { useAdminAccess } from '@/shared/lib/useAdminAccess.js';
 
 const MAX_LENGTH   = 300;
 const TARGET_BYTES = 8 * 1024 * 1024;
@@ -89,6 +90,7 @@ const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries 
 
     const [checkStep, setCheckStep]     = useState(0);
     const [activeSteps, setActiveSteps] = useState([]);
+    const { hasAdminAccess } = useAdminAccess(isOpen);
 
     const remaining   = MAX_LENGTH - text.length;
     const isOverLimit = remaining < 0;
@@ -278,7 +280,7 @@ const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries 
                 )}
 
                 {/* ── 테마 셀렉터 (다크 테마 페이지에서만 표시) ── */}
-                {themeKey && !isChecking && (
+                {themeKey && hasAdminAccess && !isChecking && (
                     <ThemeBar>
                         <ThemeLabel>테마</ThemeLabel>
                         <ThemeSelect
