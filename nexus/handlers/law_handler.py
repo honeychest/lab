@@ -1,24 +1,17 @@
 import logging
 
-import redis.asyncio as aioredis
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from chs import dlog
-from config import settings
+from redis_client import redis, _k, KEY_LAW_STATE  # 변경 redis_client 공통 모듈로 통합
 from services import law_service, ai_service
 
 logger = logging.getLogger(__name__)
 
-redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-
-KEY_LAW_STATE = "nexus:law:state:{chat_id}"
+dlog("redis / _k / KEY_LAW_STATE 모두 redis_client에서 import")
 
 _TELEGRAM_MAX = 4000
-
-
-def _k(key: str, chat_id: int) -> str:
-    return key.format(chat_id=chat_id)
 
 
 async def handle_law(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

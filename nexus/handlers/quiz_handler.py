@@ -6,22 +6,78 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from chs import dlog
-from handlers.text_handler import (
-    KEY_QUIZ_COUNT,
-    KEY_QUIZ_PAUSE,
-    KEY_QUIZ_PREFETCH,
-    KEY_QUIZ_SESSION,
-    KEY_QUIZ_STATE,
-    DAILY_QUIZ_LIMIT,
-    _k,
-    _prefetch_next_question,
-    _seconds_until_midnight,
-    _stage_icon,
-    redis,
+from redis_client import (  # 변경 redis_client 공통 모듈에서 import
+    redis, _k, _seconds_until_midnight, DAILY_QUIZ_LIMIT,
+    KEY_QUIZ_COUNT, KEY_QUIZ_PAUSE, KEY_QUIZ_PREFETCH,
+    KEY_QUIZ_SESSION, KEY_QUIZ_STATE,
 )
+from handlers.text_handler import _prefetch_next_question, _stage_icon, _quiz_buttons  # 퀴즈 로직은 text_handler 유지
+dlog("redis_client 공통 모듈 + text_handler 퀴즈 로직 분리 import")
 from services import ai_service, notion_service
 
 logger = logging.getLogger(__name__)
+
+
+async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """스케줄 메시지 [시작] 버튼 콜백."""
+    import asyncio
+
+    query = update.callback_query
+    await query.answer()
+
+    chat_id = query.message.chat_id
+    count_key = _k(KEY_QUIZ_COUNT, chat_id)
+    count_str = await redis.get(count_key)
+
+    if not count_str or int(count_str) <= 0:
+        await query.answer("오늘 퀴즈를 모두 완료했어요 ✔", show_alert=True)
+        return
+
+    ttl = _seconds_until_midnight()
+
+    due_words = await notion_service.get_words_due()
+    if not due_words:
+        await query.message.reply_text("오늘 복습할 단어가 없어요")
+        return
+
+    parsed = None
+    for candidate in due_words:
+        parsed = notion_service.parse_word_page(candidate)
+        if parsed:
+            break
+
+    if not parsed:
+        await query.message.reply_text("오늘 복습할 단어가 없어요")
+        return
+
+    word = parsed["word"]
+    meaning_ko = parsed["meaning_ko"]
+    stage = parsed["stage"]
+    page_id = parsed["page_id"]
+
+    loading = await query.message.reply_text("다음 문제 출제 중... ⏳")
+    question = await ai_service.generate_quiz(word, meaning_ko, stage)
+    await loading.delete()
+
+    await redis.set(
+        _k(KEY_QUIZ_SESSION, chat_id),
+        json.dumps({"word": word, "meaning_ko": meaning_ko, "stage": stage, "page_id": page_id, "question": question, "mode": "auto"}),
+        ex=ttl,
+    )
+    await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
+
+    remaining = await redis.decr(count_key)
+    await redis.expire(count_key, ttl)
+
+    progress = f"[{DAILY_QUIZ_LIMIT - remaining}/{DAILY_QUIZ_LIMIT}]"
+    body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
+    await query.message.reply_text(
+        f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",
+        reply_markup=_quiz_buttons()
+    )
+    logger.info(f"스케줄 퀴즈 시작 — chat_id: {chat_id}, 단어: {word}, 단계: {stage}")
+
+    asyncio.create_task(_prefetch_next_question(chat_id, "auto", page_id))
 
 
 async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

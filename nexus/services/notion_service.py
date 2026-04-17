@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone, timedelta
 from notion_client import AsyncClient
+from chs import dlog
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -148,6 +149,107 @@ async def get_words_due() -> list:
     )
     results = response.get("results", [])
     return [p for p in results if p.get("properties", {}).get("단계", {}).get("number", 0) < GRADUATED_STAGE]
+
+
+async def add_inbox(text: str, kind: str, date: str | None) -> str:
+    """Notion Inbox DB에 항목 저장 — 할일 또는 아이디어."""
+    props = {
+        "내용": {"title": [{"text": {"content": text}}]},
+        "종류": {"select": {"name": kind}},
+        "상태": {"select": {"name": "대기"}},
+    }
+    if date:
+        props["날짜"] = {"date": {"start": date}}
+
+    response = await client.pages.create(
+        parent={"type": "data_source_id", "data_source_id": settings.NOTION_INBOX_DATABASE_ID},
+        properties=props
+    )
+    page_id = response["id"]
+    logger.info(f"Inbox 항목 저장 완료 - kind: {kind}, page_id: {page_id}")
+    return page_id
+
+
+async def get_todos_by_date(date_iso: str) -> list:
+    """특정 날짜의 할일 조회 (상태='대기')."""
+    try:
+        response = await client.data_sources.query(
+            data_source_id=settings.NOTION_INBOX_DATABASE_ID,
+            filter={
+                "and": [
+                    {"property": "종류", "select": {"equals": "할일"}},
+                    {"property": "상태", "select": {"equals": "대기"}},
+                    {"property": "날짜", "date": {"equals": date_iso}},
+                ]
+            }
+        )
+        results = response.get("results", [])
+        todos = []
+        for page in results:
+            text = page.get("properties", {}).get("내용", {}).get("title", [])
+            if text:
+                todos.append({
+                    "page_id": page["id"],
+                    "text": text[0]["text"]["content"]
+                })
+        return todos
+    except Exception as e:
+        logger.warning(f"Notion 할일 조회 실패: {e}")
+        return []
+
+
+async def get_todos_done_today() -> list:
+    """오늘 완료된 항목 조회 (KST 기준)."""
+    try:
+        today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).date().isoformat()
+        response = await client.data_sources.query(
+            data_source_id=settings.NOTION_INBOX_DATABASE_ID,
+            filter={
+                "and": [
+                    {"property": "상태", "select": {"equals": "완료"}},
+                    {"property": "날짜", "date": {"equals": today}},
+                ]
+            }
+        )
+        results = response.get("results", [])
+        todos = []
+        for page in results:
+            text = page.get("properties", {}).get("내용", {}).get("title", [])
+            if text:
+                todos.append({
+                    "page_id": page["id"],
+                    "text": text[0]["text"]["content"]
+                })
+        return todos
+    except Exception as e:
+        logger.warning(f"Notion 완료 항목 조회 실패: {e}")
+        return []
+
+
+async def update_inbox_status(page_id: str, status: str) -> None:
+    """Inbox 항목 상태 업데이트."""
+    try:
+        await client.pages.update(
+            page_id=page_id,
+            properties={"상태": {"select": {"name": status}}}
+        )
+        logger.info(f"Inbox 상태 업데이트 - page_id: {page_id}, status: {status}")
+    except Exception as e:
+        logger.warning(f"Notion 상태 업데이트 실패: {e}")
+        raise
+
+
+async def update_inbox_date(page_id: str, new_date_iso: str) -> None:
+    """Inbox 항목 날짜 업데이트."""
+    try:
+        await client.pages.update(
+            page_id=page_id,
+            properties={"날짜": {"date": {"start": new_date_iso}}}
+        )
+        logger.info(f"Inbox 날짜 업데이트 - page_id: {page_id}, date: {new_date_iso}")
+    except Exception as e:
+        logger.warning(f"Notion 날짜 업데이트 실패: {e}")
+        raise
 
 
 async def update_word_stage(page_id: str, correct: bool) -> None:

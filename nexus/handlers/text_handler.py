@@ -3,42 +3,23 @@ import logging
 import time
 from datetime import datetime, timedelta
 
-import redis.asyncio as aioredis
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from chs import dlog
-from config import settings
+from redis_client import (  # 변경 redis_client 공통 모듈에서 import
+    redis, _k, _seconds_until_midnight, DAILY_QUIZ_LIMIT,
+    KEY_QUIZ_SESSION, KEY_QUIZ_STATE, KEY_QUIZ_COUNT,
+    KEY_WORD_PENDING, KEY_QUIZ_PAUSE, KEY_GRAMMAR_PENDING,
+    KEY_QUIZ_PREFETCH, KEY_INBOX_PENDING, KEY_LAW_STATE,
+)
 from services import ai_service, notion_service, grammar_service
-from handlers.law_handler import handle_law_query, KEY_LAW_STATE
+from handlers.law_handler import handle_law_query
+from handlers.url_handler import handle_url
+
+dlog("redis_client 공통 모듈에서 일괄 import")
 
 logger = logging.getLogger(__name__)
-
-# Redis 클라이언트 (모듈 로드 시 1회 생성)
-redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-
-# ─── Redis 키 상수 ────────────────────────────────────────────────────────────
-# 현재 출제된 퀴즈 문제 정보 (단어/정답/단계/page_id/문제 텍스트)
-KEY_QUIZ_SESSION = "nexus:quiz:session:{chat_id}"
-# 현재 사용자 상태 — "quiz" (퀴즈 진행중) / "word" (단어질문 처리중)
-KEY_QUIZ_STATE   = "nexus:quiz:state:{chat_id}"
-# 오늘 남은 퀴즈 문제 수 (하루 20개 한도)
-KEY_QUIZ_COUNT   = "nexus:quiz:count:{chat_id}"
-# 설명 후 [등록] 버튼 대기 중인 단어 정보 (새 입력 시 덮어쓰기)
-KEY_WORD_PENDING = "nexus:word:pending:{chat_id}"
-# 퀴즈 일시정지 플래그 — 존재하면 일시정지 상태 (TTL 없음, 명시적 삭제)
-KEY_QUIZ_PAUSE   = "nexus:quiz:pause:{chat_id}"
-# 문법 오류 등록 대기 중인 오류 목록 (버튼 콜백에서 사용)
-KEY_GRAMMAR_PENDING = "nexus:grammar:pending:{chat_id}"
-# 다음 문제 선제 생성 데이터 (word/meaning_ko/stage/page_id/question/definition)
-KEY_QUIZ_PREFETCH = "nexus:quiz:prefetch:{chat_id}"
-
-DAILY_QUIZ_LIMIT = 20  # 하루 퀴즈 최대 출제 수
-
-
-def _k(key: str, chat_id: int) -> str:
-    """키 템플릿에 chat_id 삽입."""
-    return key.format(chat_id=chat_id)
 
 
 def _quiz_buttons() -> InlineKeyboardMarkup:
@@ -58,42 +39,66 @@ def _stage_icon(stage: int) -> str:
     return '✏️ 작문' if stage >= 3 else '🧩'
 
 
-def _seconds_until_midnight() -> int:
-    """지금부터 오늘 자정까지 남은 초 (퀴즈 세션 TTL용)."""
-    now = datetime.now()
-    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return int((midnight - now).total_seconds())
+def _contains_hangul(text: str) -> bool:
+    """한글 음절(가-힣) 포함 여부 판정."""
+    return any('\uac00' <= c <= '\ud7af' for c in text)
 
 
-# ─── 메인 진입점 ──────────────────────────────────────────────────────────────
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """텍스트 메시지 수신 시 상태에 따라 분기."""
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
 
-    dlog("law 상태 먼저 확인 — 한국어 법령명 입력 허용 위해 ASCII 체크 전 분기")
-    dlog("KEY_LAW_STATE Redis 조회")
+    # 분기 1: law 상태 활성 확인
     law_state = await redis.get(_k(KEY_LAW_STATE, chat_id))
-    dlog("law 상태이면 handle_law_query() 호출 후 return")
     if law_state == "law":
         await handle_law_query(update, chat_id, text)
         return
 
-    # 입력값 검증 — 영문자가 없으면 단어 질문으로 처리 불가
-    if not any(c.isascii() and c.isalpha() for c in text):
-        await update.message.reply_text("영단어나 영문 문장을 입력해주세요.")
+    # 분기 2: http 문자열 포함 여부 확인
+    if "http" in text:
+        await handle_url(update, context)
         return
 
-    # 현재 상태 확인
-    state  = await redis.get(_k(KEY_QUIZ_STATE, chat_id))
-    paused = await redis.get(_k(KEY_QUIZ_PAUSE, chat_id))
+    # 분기 3: / 시작 방어
+    if text.startswith("/"):
+        logger.warning(f"분기 3 도달 불가 (filters.COMMAND가 차단해야 함) - chat_id: {chat_id}, text: {text}")
+        return
 
-    if state == "quiz" and not paused:
-        # 퀴즈 진행 중 → 퀴즈 답변으로 처리
+    # 분기 4: 퀴즈 상태 활성 && !pause
+    quiz_state = await redis.get(_k(KEY_QUIZ_STATE, chat_id))
+    quiz_pause = await redis.get(_k(KEY_QUIZ_PAUSE, chat_id))
+    if quiz_state == "quiz" and not quiz_pause:
         await _handle_quiz_answer(update, chat_id, text)
-    else:
-        # 일시정지 중이거나 퀴즈 없음 → 단어 질문으로 처리
+        return
+
+    # 분기 5: 한글 미포함 (순수 영문/숫자)
+    if not _contains_hangul(text):
         await _handle_word_query(update, chat_id, text)
+        return
+
+    # 분기 6: 한글 포함
+    if len(text) <= 3:
+        await redis.set(_k(KEY_INBOX_PENDING, chat_id), json.dumps({"short_confirm": text}), ex=600)
+        buttons = [[
+            InlineKeyboardButton("맞아요", callback_data="inbox:short_confirm"),
+            InlineKeyboardButton("아니에요", callback_data="inbox:short_cancel"),
+        ]]
+        await update.message.reply_text(
+            f"'{text}' — 올바르게 입력되었나요?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        await redis.set(_k(KEY_INBOX_PENDING, chat_id), json.dumps({"text": text}), ex=600)
+        buttons = [[
+            InlineKeyboardButton("할일", callback_data="inbox:kind:할일"),
+            InlineKeyboardButton("아이디어", callback_data="inbox:kind:아이디어"),
+            InlineKeyboardButton("취소", callback_data="inbox:kind:취소"),
+        ]]
+        await update.message.reply_text(
+            "종류를 선택해주세요",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
 
 
 # ─── 단어 질문 처리 ───────────────────────────────────────────────────────────
@@ -541,7 +546,7 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             InlineKeyboardButton("중지", callback_data="quiz:pause"),
         ],
     ]
-    dlog("변경 _quiz_buttons() 호출")
+    dlog("_quiz_buttons() 호출")
     # 1단계는 한글 뜻을 문제 위에 함께 표시
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await update.effective_message.reply_text(
@@ -559,6 +564,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
     chat_id = query.message.chat_id
     data    = query.data  # 버튼 콜백 데이터
+
+    dlog("quiz:start 분기 — 스케줄 메시지 [시작] 콜백 처리 (REQ-B01)")
+    if data == "quiz:start":
+        dlog("quiz_handler.handle_quiz_start_callback 위임 — mode=auto, get_words_due 기반")
+        from handlers.quiz_handler import handle_quiz_start_callback
+        await handle_quiz_start_callback(update, context)
+        return
 
     if data == "word:conflict_delete":
         raw = await redis.get(_k(KEY_WORD_PENDING, chat_id))
@@ -778,7 +790,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
 
     elif data == "quiz:pause":
-        # 퀴즈 일시정지 — pause 플래그 설정 후 scheduler에 10분 단발 job 등록
+        # 퀴즈 일시정지 — pause 플래그 설정
+        dlog("10분 재개 알림 제거 — 다음 스케줄에 자연 재노출 (REQ-B02)")
+        dlog("KEY_QUIZ_PAUSE 설정 후 '⏸ 퀴즈를 일시정지했어요. 다음 스케줄에 다시 알려드릴게요!' 안내")
         await redis.set(_k(KEY_QUIZ_PAUSE, chat_id), "1")
         await query.edit_message_text("⏸ 퀴즈를 일시정지했어요. 10분 후 다시 알려드릴게요!")
         # scheduler 단발 job 등록 (text_handler → scheduler 순환참조 방지용 지연 import)
