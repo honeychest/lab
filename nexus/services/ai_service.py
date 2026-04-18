@@ -20,6 +20,46 @@ async def summarize_url(url: str) -> dict:
     return result
 
 
+async def summarize_reddit(url: str) -> dict:
+    """Reddit URL을 .json 엔드포인트로 직접 가져와 Gemini로 요약."""
+    import httpx
+    from urllib.parse import urlparse, urlunparse
+    parsed = urlparse(url)
+    # old.reddit.com으로 전환 + 쿼리 파라미터 제거 후 경로에 .json 추가
+    clean_path = parsed.path.rstrip("/") + ".json"
+    json_url = urlunparse(parsed._replace(netloc="old.reddit.com", path=clean_path, query="", fragment=""))
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(json_url, headers=headers, follow_redirects=True, timeout=15.0)
+        resp.raise_for_status()
+        data = resp.json()
+
+    post = data[0]["data"]["children"][0]["data"]
+    title = post.get("title", "")
+    selftext = post.get("selftext", "")
+    comments_data = data[1]["data"]["children"]
+    top_comments = []
+    for c in comments_data[:10]:
+        if c.get("kind") == "t1":
+            body = c["data"].get("body", "")
+            if body and body != "[deleted]":
+                top_comments.append(body)
+
+    content = f"제목: {title}\n\n본문:\n{selftext}\n\n상위 댓글:\n" + "\n---\n".join(top_comments)
+    prompt = f"""아래 Reddit 게시글과 댓글을 한글로 요약해줘.
+
+핵심 내용, 주요 논점, 댓글의 반응을 정리해줘.
+
+응답 첫 줄을 반드시 "제목: (한 줄 핵심 주제)" 형식으로 시작해줘.
+
+{content[:6000]}"""
+
+    return await _call_with_models(prompt, GENAI_MODELS)
+
+
 async def _call_gemini_url(prompt: str, models: list) -> dict:
     import asyncio
     import time

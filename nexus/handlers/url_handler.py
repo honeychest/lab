@@ -5,7 +5,7 @@ from chs import dlog
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from services.github_service import get_repo_info
-from services.ai_service import summarize_github, summarize_youtube, summarize_url
+from services.ai_service import summarize_github, summarize_youtube, summarize_url, summarize_reddit
 from services.notion_service import save, exists
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ _PLATFORM_RULES = [
     (lambda url: "github.com/" in url,                          "github"),
     (lambda url: "youtube.com/shorts/" in url,                  "shorts"),
     (lambda url: "youtube.com/watch" in url or "youtu.be/" in url, "youtube"),
+    (lambda url: "reddit.com/" in url,                          "reddit"),
 ]
 
 
@@ -94,6 +95,8 @@ async def _handle_generic(update: Update, url: str, platform: str):
     try:
         if platform in ("youtube", "shorts"):
             result = await summarize_youtube(url)
+        elif platform == "reddit":
+            result = await summarize_reddit(url)
         else:
             dlog("web 플랫폼 summarize_url() 호출")
             dlog("url 직접 Gemini에 전달 — url_context 브라우징")
