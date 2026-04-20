@@ -33,6 +33,17 @@ def _quiz_buttons() -> InlineKeyboardMarkup:
     ]])
 
 
+def _quiz_pause_buttons() -> InlineKeyboardMarkup:
+    dlog("일시정지 상태 버튼 생성 — 힌트/질문/실패/재개 (중지 자리에 재개)")
+    dlog("반환값 — quiz:pause 핸들러에서 버튼 토글 시 사용")
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("힌트", callback_data="quiz:hint"),
+        InlineKeyboardButton("질문", callback_data="quiz:word_query"),
+        InlineKeyboardButton("실패", callback_data="quiz:fail"),
+        InlineKeyboardButton("재개", callback_data="quiz:resume"),
+    ]])
+
+
 def _stage_icon(stage: int) -> str:
     dlog("단계에 따라 퀴즈 아이콘 결정 — 3단계 이상 작문, 미만 퀴즈")
     dlog("반환값 — 퀴즈 문제 헤더에 표시")
@@ -791,29 +802,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     elif data == "quiz:pause":
         # 퀴즈 일시정지 — pause 플래그 설정
-        dlog("10분 재개 알림 제거 — 다음 스케줄에 자연 재노출 (REQ-B02)")
-        dlog("KEY_QUIZ_PAUSE 설정 후 '⏸ 퀴즈를 일시정지했어요. 다음 스케줄에 다시 알려드릴게요!' 안내")
+        dlog("KEY_QUIZ_PAUSE 설정")
         await redis.set(_k(KEY_QUIZ_PAUSE, chat_id), "1")
-        await query.edit_message_text("⏸ 퀴즈를 일시정지했어요. 10분 후 다시 알려드릴게요!")
-        # scheduler 단발 job 등록 (text_handler → scheduler 순환참조 방지용 지연 import)
-        from scheduler import schedule_quiz_resume
-        await schedule_quiz_resume(chat_id)
+        dlog("_quiz_pause_buttons() 호출 — 중지→재개 버튼 교체")
+        dlog("edit_message_reply_markup으로 버튼만 교체 — 문제 텍스트 유지")
+        await query.edit_message_reply_markup(reply_markup=_quiz_pause_buttons())
 
     elif data == "quiz:resume":
-        # 퀴즈 재개 — pause 플래그 삭제 후 현재 문제 다시 출제
+        # 퀴즈 재개 — pause 플래그 삭제 후 버튼 복원
+        dlog("KEY_QUIZ_PAUSE 삭제")
         await redis.delete(_k(KEY_QUIZ_PAUSE, chat_id))
+        dlog("세션 만료 여부 확인 — 만료 시 query.answer() 팝업 안내 후 return")
         raw = await redis.get(_k(KEY_QUIZ_SESSION, chat_id))
         if not raw:
-            await query.edit_message_text("퀴즈 세션이 만료됐어요. 내일 다시 시작해요!")
+            await query.answer("퀴즈 세션이 만료됐어요. 내일 다시 시작해요!", show_alert=True)
             return
-        session  = json.loads(raw)
-        stage    = session["stage"]    # 현재 단계
-        question = session["question"] # 저장된 문제 텍스트
-        dlog("_quiz_buttons() 호출")
-        await query.edit_message_text(
-            f"▶ 이어서 풀어봐요!\n{_stage_icon(stage)} {stage}단계\n{question}",
-            reply_markup=_quiz_buttons(),
-        )
+        dlog("_quiz_buttons() 호출 — 재개→중지 버튼 교체")
+        dlog("edit_message_reply_markup으로 버튼만 교체 — 문제 텍스트 유지")
+        await query.edit_message_reply_markup(reply_markup=_quiz_buttons())
 
     elif data == "quiz:fail":
         # 실패 처리 — 정답 공개 후 1단계 리셋 + 다음 문제

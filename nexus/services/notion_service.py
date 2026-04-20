@@ -198,6 +198,37 @@ async def get_todos_by_date(date_iso: str) -> list:
         return []
 
 
+async def get_todos_overdue(today_iso: str) -> list:
+    """오늘 이전 날짜의 미완료 할일 조회 (기한 초과)."""
+    try:
+        dlog("종류=할일 & 상태=대기 & 날짜 before today 필터로 Notion 조회")
+        response = await client.data_sources.query(
+            data_source_id=settings.NOTION_INBOX_DATABASE_ID,
+            filter={
+                "and": [
+                    {"property": "종류", "select": {"equals": "할일"}},
+                    {"property": "상태", "select": {"equals": "대기"}},
+                    {"property": "날짜", "date": {"before": today_iso}},
+                ]
+            }
+        )
+        results = response.get("results", [])
+        dlog("결과 순회 — page_id, 내용 text 추출")
+        todos = []
+        for page in results:
+            text = page.get("properties", {}).get("내용", {}).get("title", [])
+            if text:
+                todos.append({
+                    "page_id": page["id"],
+                    "text": text[0]["text"]["content"]
+                })
+        dlog("추출 결과 list 반환 — build_schedule_content에서 overdue 항목으로 사용")
+        return todos
+    except Exception as e:
+        logger.warning(f"Notion 기한 초과 할일 조회 실패: {e}")
+        return []
+
+
 async def get_todos_done_today() -> list:
     """오늘 완료된 항목 조회 (KST 기준)."""
     try:

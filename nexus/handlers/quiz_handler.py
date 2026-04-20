@@ -26,6 +26,8 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     await query.answer()
 
     chat_id = query.message.chat_id
+    dlog("잔존 일시정지 플래그 삭제 — 이전 세션 pause 상태가 남아있으면 분기 4 조건 실패 방지")
+    await redis.delete(_k(KEY_QUIZ_PAUSE, chat_id))
     count_key = _k(KEY_QUIZ_COUNT, chat_id)
     count_str = await redis.get(count_key)
 
