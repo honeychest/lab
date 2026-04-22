@@ -6,6 +6,7 @@ from uuid import uuid4
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from chs import dlog
 from redis_client import redis, _k, KEY_INBOX_PENDING, KEY_INBOX_CB
 from services import notion_service
 
@@ -215,7 +216,9 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
             try:
                 await notion_service.update_inbox_status(page_id, "완료")
-                await query.answer("✔ 완료 처리되었습니다")
+                dlog("edit_message_text 호출 — 버튼 제거 + 완료 텍스트로 교체")
+                dlog("query.message.text 앞에 ✔ 추가하여 완료 상태 시각화")
+                await query.edit_message_text("✔ " + query.message.text)
             except Exception as e:
                 logger.warning(f"Notion 업데이트 실패: {e}")
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)

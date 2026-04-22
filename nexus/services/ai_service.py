@@ -248,6 +248,12 @@ def _force_clean(text: str, word: str, stage: int = 3) -> str:
         result = re.sub(r'[*#`]', "", text)
         if "_______" not in result:
             result = re.sub(re.escape(word), "_______", result, count=1, flags=re.IGNORECASE)
+        dlog("_______가 있어도 word 잔존 시 제거")
+        dlog("_______를 공백으로 치환한 임시 text에서 word 포함 여부 확인")
+        text_without_blank = result.replace("_______", "")
+        dlog("word 잔존 시 re.sub으로 word 제거 후 strip")
+        if word.lower() in text_without_blank.lower():
+            result = re.sub(re.escape(word), "", result, flags=re.IGNORECASE).strip()
         return result.strip()
     dlog("stage 2 외: 기존 로직 실행 후 반환")
     # 단어 치환 (외래어 등 AI가 포함하는 케이스)
@@ -268,8 +274,9 @@ async def generate_quiz(word: str, meaning_ko: str, stage: int) -> str:
 뜻: {meaning_ko}"""
 
     elif stage == 2:
+        dlog("stage2 프롬프트 — 빈칸 외 문장에서 word 출현 금지 조건 추가")
         prompt = f"""Make an English fill-in-the-blank sentence. Follow all conditions strictly.
-Conditions: Only 1 blank. Only "{word}" fits naturally. Elementary school level. No markdown. Output the sentence only.
+Conditions: Only 1 blank. Only "{word}" fits naturally. Elementary school level. No markdown. Output the sentence only. Do NOT use the word "{word}" anywhere in the sentence except as the blank (_______).
 Format: Use _______ for the blank.
 Word: {word}"""
 

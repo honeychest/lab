@@ -503,6 +503,9 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         # auto — 오늘 리뷰할 단어
         words = await notion_service.get_words_due()
         if not words:
+            dlog("KEY_QUIZ_COUNT 0 설정 → KEY_QUIZ_STATE 삭제 → return")
+            dlog("다음 스케줄러에서 퀴즈 버튼 미노출 처리")
+            await redis.set(count_key, 0, ex=ttl)
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
             await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
             return
@@ -511,6 +514,9 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
             words = [w for w in words if w["id"] != exclude_page_id]
         dlog("필터 후 words 비어있으면 상태 삭제 및 완료 메시지 후 return")
         if not words:
+            dlog("KEY_QUIZ_COUNT 0 설정 → KEY_QUIZ_STATE 삭제 → return")
+            dlog("다음 스케줄러에서 퀴즈 버튼 미노출 처리")
+            await redis.set(count_key, 0, ex=ttl)
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
             await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
             return
@@ -549,21 +555,14 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     else:
         progress = "[🔄]"
 
-    buttons = [
-        [
-            InlineKeyboardButton("힌트", callback_data="quiz:hint"),
-            InlineKeyboardButton("질문", callback_data="quiz:word_query"),
-            InlineKeyboardButton("실패", callback_data="quiz:fail"),
-            InlineKeyboardButton("중지", callback_data="quiz:pause"),
-        ],
-    ]
     dlog("_quiz_buttons() 호출")
     # 1단계는 한글 뜻을 문제 위에 함께 표시
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await update.effective_message.reply_text(
         f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=_quiz_buttons(),
     )
+    dlog("reply_markup=_quiz_buttons() 직접 전달 — buttons 변수 제거")
     dlog("문제 표시 후 다음 문제 prefetch 백그라운드 trigger — asyncio.create_task")
     _asyncio.create_task(_prefetch_next_question(chat_id, mode, page_id))
 

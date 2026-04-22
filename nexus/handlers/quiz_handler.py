@@ -2,7 +2,7 @@ import json
 import logging
 import random
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from chs import dlog
@@ -39,6 +39,9 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
 
     due_words = await notion_service.get_words_due()
     if not due_words:
+        dlog("KEY_QUIZ_COUNT 0으로 설정 → 다음 스케줄러 퀴즈 버튼 미노출")
+        dlog("count_key에 0 설정 ttl 유지")
+        await redis.set(count_key, 0, ex=ttl)
         await query.message.reply_text("오늘 복습할 단어가 없어요")
         return
 
@@ -134,19 +137,12 @@ async def handle_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
 
     # 첫 문제 출제
-    buttons = [
-        [
-            InlineKeyboardButton("힌트", callback_data="quiz:hint"),
-            InlineKeyboardButton("질문", callback_data="quiz:word_query"),
-            InlineKeyboardButton("실패", callback_data="quiz:fail"),
-            InlineKeyboardButton("중지", callback_data="quiz:pause"),
-        ],
-    ]
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await update.message.reply_text(
         f"[🔄] {_stage_icon(stage)} {stage}단계\n{body}",
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=_quiz_buttons(),
     )
+    dlog("reply_markup=_quiz_buttons() 직접 전달 — buttons 변수 제거")
     logger.info(f"/quiz 시작 — chat_id: {chat_id}, 단어: {word}, 단계: {stage}")
     dlog("첫 문제 표시 후 다음 문제 prefetch 백그라운드 trigger — asyncio.create_task")
     import asyncio
