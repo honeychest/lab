@@ -46,6 +46,12 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
         })
     count_str = await redis.get(_k(KEY_QUIZ_COUNT, chat_id))
     quiz_count = int(count_str) if count_str else 0
+    dlog("quiz_count > 0이면 due words 존재 여부 추가 확인")
+    if quiz_count > 0:
+        due_words = await notion_service.get_words_due()
+        dlog("due words 없으면 quiz_count 0으로 보정 — 퀴즈 버튼 미노출")
+        if not due_words:
+            quiz_count = 0
 
     messages = []  # list of (text, markup)
 
