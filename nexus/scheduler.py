@@ -6,8 +6,8 @@ from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
 from chs import dlog
-from redis_client import redis, _k, _seconds_until_midnight, DAILY_QUIZ_LIMIT, KEY_QUIZ_COUNT, KEY_SCHEDULE_MSG_ID
-from services import todo_service
+from redis_client import redis, _k, _seconds_until_midnight, KEY_QUIZ_COUNT, KEY_SCHEDULE_MSG_ID
+from services import todo_service, notion_service
 
 logger = logging.getLogger(__name__)
 dlog("redis_client 공통 모듈 + todo_service import")
@@ -36,7 +36,10 @@ async def send_schedule_message(bot: Bot, chat_id: int, hour: int) -> None:
 
     # 09시 카운트 초기화
     if hour == 9:
-        await redis.set(_k(KEY_QUIZ_COUNT, chat_id), DAILY_QUIZ_LIMIT, ex=_seconds_until_midnight())
+        dlog("get_words_due() 호출하여 실제 due words 개수로 KEY_QUIZ_COUNT set")
+        due_words = await notion_service.get_words_due()
+        dlog("len(due_words)로 KEY_QUIZ_COUNT set — 0개면 0으로 set")
+        await redis.set(_k(KEY_QUIZ_COUNT, chat_id), len(due_words), ex=_seconds_until_midnight())
 
     # 본문·키보드 조립 (list of (text, markup))
     messages = await todo_service.build_schedule_content(chat_id, hour)

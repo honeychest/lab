@@ -73,8 +73,8 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
 
     remaining = await redis.decr(count_key)
     await redis.expire(count_key, ttl)
-
-    progress = f"[{DAILY_QUIZ_LIMIT - remaining}/{DAILY_QUIZ_LIMIT}]"
+    dlog("남은 퀴즈 개수 기준 progress 표시 — [남은 퀴즈 N개]")
+    progress = f"[남은 퀴즈 {remaining}개]"
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await query.message.reply_text(
         f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",

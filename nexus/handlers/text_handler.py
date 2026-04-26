@@ -763,7 +763,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         session = json.loads(raw)
         word       = session["word"]        # 정답 단어
         meaning_ko = session["meaning_ko"]  # 한국어 뜻
-        hint = word[0] + "_" * (len(word) - 1)
+        dlog("word.split() 단어별 첫글자+언더바 생성 — 공백 포함 다단어 지원")
+        dlog("각 단어 → 첫글자 + (len-1)개 언더바, 공백으로 join → carry out이면 c____ o__")
+        hint = " ".join(w[0] + "_" * (len(w) - 1) for w in word.split())
         await query.answer()
         dlog("session에서 definition 읽기 — prefetch로 미리 생성된 경우 즉시 사용")
         definition = session.get("definition")
