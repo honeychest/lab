@@ -1,4 +1,5 @@
 // [AGENT] T4-STEALTH: Signal Dashboard 핵심 비즈니스 로직 — init/history/patterns/params/divergence/candles API 데이터 조립
+// [AGENT] signal futures 캔들 조회를 최신 limit 기준에서 time range 기준으로 전환
 // 연관파일: SignalController.java, RawAggTradeRepository.java, OpenInterestRepository.java, ForceOrderRepository.java, AggTrade1mRepository.java, AggTrade5mRepository.java, SignalParamsRepository.java
 // 주요메서드: getInitData, getHistoryData, findPatterns, calcLargeTradeThreshold, calcMovingAverage, getParams, saveParams, getDivergence, getCandles(volume추가), getCandlesByDate, getCandleDates
 package com.chs.springboot.domain.binance.service;
@@ -386,16 +387,14 @@ public class SignalDataService {
         return result;
     }
 
-    public List<Map<String, Object>> getCandles(String symbol, String type, int limit) {
-        // type=1m → 1분봉 limit봉, type=5m → 5분봉 limit봉 (limit은 TIME_RANGES 기준 최대 displayCount)
-        // 가격(OHLC): FUTURES 기준 / delta: S+F 합산
+    public List<Map<String, Object>> getCandles(String symbol, String type, int limit, String range) {
+        long nowMs = System.currentTimeMillis();
+        long fromMs = resolveCandleFromMs(type, limit, range, nowMs);
         List<Map<String, Object>> rows = "1m".equals(type)
-            ? agg1mRepository.findTopNWithCombinedDelta(symbol, limit)
-            : agg5mRepository.findTopNWithCombinedDelta(symbol, limit);
+            ? agg1mRepository.findByTimeRangeWithCombinedDelta(symbol, fromMs, nowMs)
+            : agg5mRepository.findByTimeRangeWithCombinedDelta(symbol, fromMs, nowMs);
 
-        var sorted = new java.util.ArrayList<>(rows);
-        java.util.Collections.reverse(sorted);
-        return sorted.stream().map(r -> {
+        return rows.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
             m.put("time",   toBd(r.get("candle_time_ms")).longValue());
             m.put("open",   toBd(r.get("open_price")).doubleValue());
@@ -452,6 +451,14 @@ public class SignalDataService {
 
     public List<String> getCandleDates(String symbol) {
         return agg5mRepository.findDistinctKstDates(symbol);
+    }
+
+    private long resolveCandleFromMs(String type, int limit, String range, long nowMs) {
+        if (range != null && !range.isBlank()) {
+            return nowMs - parseRangeToMs(range);
+        }
+        long candleUnitMs = "1m".equals(type) ? 60_000L : 300_000L;
+        return nowMs - (limit * candleUnitMs);
     }
 
 

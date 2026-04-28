@@ -1,4 +1,4 @@
-// [AGENT] T4-STEALTH: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java, PatternMatchService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate, sumDivergenceBySymbolAndTimeRange, findBySymbolAndTimeRange, findDayCandlesBySymbol, findTopNWithCombinedDelta(volume추가), findByDateRange, findLastNBefore, findDistinctKstDates, findSimilarCandle, findDeltaByTimeRange
+// [AGENT] T4-STEALTH: AggTrade5m JPA Repository | 연관파일: AggTrade5m.java, AggTradeRollupService.java, SignalDataService.java, PatternMatchService.java | 주요메서드: sumEnergyBySymbolAndTimeRange, findBySymbolAndVolumeBetween, findBySymbolAndMarketTypeAndCandleTimeMsAfter, insertIgnoreDuplicate, sumDivergenceBySymbolAndTimeRange, findBySymbolAndTimeRange, findDayCandlesBySymbol, findTopNWithCombinedDelta(volume추가), findByTimeRangeWithCombinedDelta, findByDateRange, findLastNBefore, findDistinctKstDates, findSimilarCandle, findDeltaByTimeRange
 package com.chs.springboot.domain.binance.repository;
 
 import com.chs.springboot.domain.binance.model.AggTrade5m;
@@ -125,6 +125,25 @@ public interface AggTrade5mRepository extends JpaRepository<AggTrade5m, Long> {
     List<Map<String, Object>> findTopNWithCombinedDelta(
         @Param("symbol")     String symbol,
         @Param("limitCount") int limitCount);
+
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_5m f
+        JOIN agg_trade_5m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol
+          AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms >= :fromMs
+          AND f.candle_time_ms < :toMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Map<String, Object>> findByTimeRangeWithCombinedDelta(
+        @Param("symbol") String symbol,
+        @Param("fromMs") long fromMs,
+        @Param("toMs") long toMs);
 
     // getCandlesByDate 용 — 날짜 범위 day 봉 조회 (ASC, market_type=FUTURES 고정)
     @Query(value = """

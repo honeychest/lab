@@ -1,4 +1,5 @@
 // [AGENT] T4-VOLUME-FIX: findTopNWithCombinedDelta() total_volume 추가 — 1m 차트 부피 데이터 표시 수정
+// [AGENT] signal futures 캔들 시간범위 조회용 combined delta 메서드 추가
 // [AGENT] 역할: AggTrade1m JPA Repository | 연관파일: AggTrade1m.java, AggTradeRollupService.java, SignalDataService.java, MainCandleChart.jsx | 주요메서드: sumEnergyBySymbolAndTimeRange, findTopNWithCombinedDelta(volume포함), insertIgnoreDuplicate, findByDateRange, findLastNBefore, findSimilarCandle
 package com.chs.springboot.domain.binance.repository;
 
@@ -65,6 +66,25 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
     List<Map<String, Object>> findTopNWithCombinedDelta(
         @Param("symbol")     String symbol,
         @Param("limitCount") int limitCount);
+
+    @Query(value = """
+        SELECT f.candle_time_ms,
+               f.open_price, f.high_price, f.low_price, f.close_price,
+               f.total_volume,
+               COALESCE(SUM(a.delta), 0) AS delta
+        FROM agg_trade_1m f
+        JOIN agg_trade_1m a ON a.symbol = f.symbol AND a.candle_time_ms = f.candle_time_ms
+        WHERE f.symbol = :symbol
+          AND f.market_type = 'FUTURES'
+          AND f.candle_time_ms >= :fromMs
+          AND f.candle_time_ms < :toMs
+        GROUP BY f.candle_time_ms, f.open_price, f.high_price, f.low_price, f.close_price, f.total_volume
+        ORDER BY f.candle_time_ms ASC
+        """, nativeQuery = true)
+    List<Map<String, Object>> findByTimeRangeWithCombinedDelta(
+        @Param("symbol") String symbol,
+        @Param("fromMs") long fromMs,
+        @Param("toMs") long toMs);
 
     // delta API 용 — 시간 범위 내 FUTURES delta + FUTURES total_volume (오름차순)
     @Query(value = """
