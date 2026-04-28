@@ -20,8 +20,8 @@ public class AggTradeStreamService {
 
     private static final Logger log = LoggerFactory.getLogger(AggTradeStreamService.class);
 
-    private static final String SPOT_WS_BASE    = "wss://stream.binance.com:9443/ws/";
-    private static final String FUTURES_WS_BASE = "wss://fstream.binance.com/ws/";
+    private static final String SPOT_WS_BASE       = "wss://stream.binance.com:9443/ws/";
+    private static final String FUTURES_WS_BASE    = "wss://fstream.binance.com/market/ws/";
 
     private final AggTradeStorageService storageService;
     private final SignalSseService       signalSseService;
@@ -52,8 +52,9 @@ public class AggTradeStreamService {
 
     private BinanceWebSocketStream createStream(String symbolLower, String marketType) {
         String symbolUpper = symbolLower.toUpperCase();
+        String streamName = symbolLower + "@aggTrade";
         String base  = "SPOT".equals(marketType) ? SPOT_WS_BASE : FUTURES_WS_BASE;
-        String url   = base + symbolLower + "@aggTrade";
+        String url   = "SPOT".equals(marketType) ? base + streamName : base + streamName;
         String label = "AggTradeStream/" + symbolUpper + "/" + marketType;
 
         return new BinanceWebSocketStream(url, label,
@@ -62,20 +63,28 @@ public class AggTradeStreamService {
     }
 
     private void handleMessage(String json, String symbolUpper, String marketType) {
+        String payloadJson = json;
+        try {
+            var root = objectMapper.readTree(json);
+            if (root.has("data")) {
+                payloadJson = root.get("data").toString();
+            }
+        } catch (Exception ignore) {}
+
         // ENAUSDT FUTURES aggId 추적용 로그
         if ("ENAUSDT".equals(symbolUpper) && "FUTURES".equals(marketType)) {
             try {
-                var node   = objectMapper.readTree(json);
+                var node   = objectMapper.readTree(payloadJson);
                 long aggId = node.get("a").asLong();
                 log.debug("[AggTradeStreamDebug] RECV ENAUSDT FUTURES aggId={}", aggId);
             } catch (Exception ignore) {}
         }
 
-        storageService.enqueue(json, symbolUpper, marketType);
+        storageService.enqueue(payloadJson, symbolUpper, marketType);
 
         // Signal Dashboard SSE 브로드캐스트
         try {
-            var node = objectMapper.readTree(json);
+            var node = objectMapper.readTree(payloadJson);
             Map<String, Object> dto = new HashMap<>();
             dto.put("symbol",       symbolUpper);
             dto.put("marketType",   marketType);
@@ -86,7 +95,7 @@ public class AggTradeStreamService {
             signalSseService.broadcastAggTrade(dto);
         } catch (Exception ignore) {}
 
-        log.debug("[AggTradeStream] enqueue 성공 {} {} (jsonLength={})", symbolUpper, marketType, json.length());
+        log.debug("[AggTradeStream] enqueue 성공 {} {} (jsonLength={})", symbolUpper, marketType, payloadJson.length());
     }
 
     @PreDestroy

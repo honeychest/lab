@@ -30,6 +30,7 @@ public class BinanceWebSocketStream {
 
     private volatile boolean running = true;
     private volatile int generation = 0;
+    private volatile WebSocket webSocket;
 
     public BinanceWebSocketStream(String url, String logLabel, MessageListener listener,
                                    ScheduledExecutorService scheduler, long reconnectDelaySeconds) {
@@ -47,6 +48,14 @@ public class BinanceWebSocketStream {
 
     public void disconnect() {
         running = false;
+        WebSocket currentWebSocket = webSocket;
+        if (currentWebSocket != null) {
+            try {
+                currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown");
+            } catch (Exception e) {
+                log.warn("[{}] 웹소켓 종료 실패: {}", logLabel, e.getMessage());
+            }
+        }
     }
 
     private void openStream(int myGen) {
@@ -57,6 +66,14 @@ public class BinanceWebSocketStream {
                     .newWebSocketBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
                     .buildAsync(URI.create(url), new WebSocket.Listener() {
+                        @Override
+                        public void onOpen(WebSocket ws) {
+                            webSocket = ws;
+                            log.info("[{}] 연결 성공 (gen={})", logLabel, myGen);
+                            ws.request(1);
+                            WebSocket.Listener.super.onOpen(ws);
+                        }
+
                         private final StringBuilder buffer = new StringBuilder();
 
                         @Override
@@ -86,6 +103,14 @@ public class BinanceWebSocketStream {
                         public void onError(WebSocket ws, Throwable error) {
                             log.error("[{}] 오류 (gen={}): {}", logLabel, myGen, error.getMessage());
                             if (myGen == generation) scheduleReconnect();
+                        }
+                    })
+                    .whenComplete((ws, error) -> {
+                        if (error != null) {
+                            log.error("[{}] handshake 실패 (gen={}): {}", logLabel, myGen, error.getMessage());
+                            if (myGen == generation) {
+                                scheduleReconnect();
+                            }
                         }
                     });
         } catch (Exception e) {
