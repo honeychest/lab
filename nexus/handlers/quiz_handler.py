@@ -11,11 +11,19 @@ from redis_client import (  # 변경 redis_client 공통 모듈에서 import
     KEY_QUIZ_COUNT, KEY_QUIZ_PAUSE, KEY_QUIZ_PREFETCH,
     KEY_QUIZ_SESSION, KEY_QUIZ_STATE,
 )
-from handlers.text_handler import _prefetch_next_question, _stage_icon, _quiz_buttons  # 퀴즈 로직은 text_handler 유지
+from handlers.text_handler import (  # 퀴즈 로직은 text_handler 유지
+    _prefetch_next_question, _stage_icon, _quiz_buttons,
+    _consume_auto_quiz_count, _format_auto_quiz_progress,
+)
 dlog("redis_client 공통 모듈 + text_handler 퀴즈 로직 분리 import")
 from services import ai_service, notion_service
 
 logger = logging.getLogger(__name__)
+
+
+# [AGENT]
+# 스케줄 메시지 [시작] 콜백은 auto 퀴즈 첫 문제를 출제한다.
+# auto 카운트 차감과 표시 문구는 text_handler의 공통 helper를 사용한다.
 
 
 async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -60,6 +68,13 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     stage = parsed["stage"]
     page_id = parsed["page_id"]
 
+    dlog("_consume_auto_quiz_count(chat_id, ttl) 호출")
+    remaining = await _consume_auto_quiz_count(chat_id, ttl)
+    if remaining is None:
+        dlog("출제 불가이면 오늘 퀴즈 완료 alert 표시 후 return")
+        await query.answer("오늘 퀴즈를 모두 완료했어요 ✔", show_alert=True)
+        return
+
     loading = await query.message.reply_text("다음 문제 출제 중... ⏳")
     question = await ai_service.generate_quiz(word, meaning_ko, stage)
     await loading.delete()
@@ -71,10 +86,8 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     )
     await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
 
-    remaining = await redis.decr(count_key)
-    await redis.expire(count_key, ttl)
-    dlog("남은 퀴즈 개수 기준 progress 표시 — [남은 퀴즈 N개]")
-    progress = f"[남은 퀴즈 {remaining}개]"
+    dlog("_format_auto_quiz_progress(remaining) 호출")
+    progress = _format_auto_quiz_progress(remaining)
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await query.message.reply_text(
         f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",
