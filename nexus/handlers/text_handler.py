@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from chs import dlog
 from redis_client import (  # 변경 redis_client 공통 모듈에서 import
     redis, _k, _seconds_until_midnight,
-    KEY_QUIZ_SESSION, KEY_QUIZ_STATE, KEY_QUIZ_COUNT,
+    KEY_QUIZ_SESSION, KEY_QUIZ_STATE, KEY_QUIZ_COUNT, KEY_QUIZ_TOTAL,
     KEY_WORD_PENDING, KEY_QUIZ_PAUSE, KEY_GRAMMAR_PENDING,
     KEY_QUIZ_PREFETCH, KEY_INBOX_PENDING, KEY_LAW_STATE,
 )
@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 # [AGENT]
 # 자동 퀴즈(auto)는 KEY_QUIZ_COUNT를 아직 출제 예약 가능한 문제 수로 사용한다.
+# KEY_QUIZ_TOTAL은 하루 전체 출제 수로 유지한다.
 # 문제로 낼 단어가 확보된 뒤 _consume_auto_quiz_count()로 1 차감하고,
-# 표시 문구는 _format_auto_quiz_progress()의 [남은 퀴즈 N개] 형식으로 통일한다.
+# 표시 문구는 _format_auto_quiz_progress()의 [완료/전체] 형식으로 통일한다.
 
 
 def _quiz_buttons() -> InlineKeyboardMarkup:
@@ -59,22 +60,45 @@ def _stage_icon(stage: int) -> str:
 async def _consume_auto_quiz_count(chat_id: int, ttl: int):
     dlog("자동 퀴즈 현재 남은 수 조회")
     count_key = _k(KEY_QUIZ_COUNT, chat_id)
+    total_key = _k(KEY_QUIZ_TOTAL, chat_id)
+    dlog("KEY_QUIZ_TOTAL 조회 — 차감 전 전체 자동퀴즈 수 확인")
     count_str = await redis.get(count_key)
     dlog("남은 수가 없거나 0 이하이면 출제 불가로 판단")
     if not count_str or int(count_str) <= 0:
         dlog("자동 퀴즈 출제 불가 반환")
         return None
+    total_str = await redis.get(total_key)
+    if not total_str or int(total_str) <= 0:
+        dlog("전체 자동퀴즈 수가 없으면 차감 전 남은 수로 보정")
+        total = int(count_str)
+        await redis.set(total_key, total, ex=ttl)
+    else:
+        dlog("전체 자동퀴즈 수를 Redis 값으로 사용")
+        total = int(total_str)
     dlog("출제 가능하면 KEY_QUIZ_COUNT 1 차감")
     remaining = await redis.decr(count_key)
     dlog("차감 후 TTL을 자정까지 유지")
     await redis.expire(count_key, ttl)
-    dlog("차감 후 남은 수 반환 - _send_next_quiz와 handle_quiz_start_callback에서 완료판정과 progress 표시 기준으로 사용")
-    return remaining
+    dlog("KEY_QUIZ_TOTAL TTL도 자정까지 유지")
+    await redis.expire(total_key, ttl)
+    dlog("차감 후 remaining과 total을 함께 반환 — [완료/전체] 표시 기준")
+    return remaining, total
 
 
-def _format_auto_quiz_progress(remaining: int):
-    dlog("자동 퀴즈 progress 입력 remaining 확인")
-    dlog("remaining 값으로 [남은 퀴즈 N개] 문구 생성")
+def _format_auto_quiz_progress(remaining: int, total: int | None = None):
+    dlog("자동 퀴즈 progress 입력 remaining,total 확인")
+    if total and total > 0:
+        dlog("total - remaining 값으로 완료 수 계산")
+        completed = total - remaining
+        if completed < 0:
+            completed = 0
+        if completed > total:
+            completed = total
+        dlog("완료 수와 total로 [완료/전체] 문구 생성")
+        progress = f"[{completed}/{total}]"
+        dlog("progress 문자열 반환 - 자동 퀴즈 문제 헤더에 사용")
+        return progress
+    dlog("total이 없거나 0 이하이면 기존 remaining 표시로 fallback")
     progress = f"[남은 퀴즈 {remaining}개]"
     dlog("progress 문자열 반환 - 자동 퀴즈 문제 헤더에 사용")
     return progress
@@ -493,14 +517,15 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         p_definition = pf.get("definition", "")
         if mode == "auto":
             dlog("_consume_auto_quiz_count(chat_id, ttl) 호출")
-            remaining = await _consume_auto_quiz_count(chat_id, ttl)
-            if remaining is None:
+            progress_info = await _consume_auto_quiz_count(chat_id, ttl)
+            if progress_info is None:
                 dlog("출제 불가이면 KEY_QUIZ_STATE와 KEY_QUIZ_SESSION 삭제")
                 await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
                 await redis.delete(_k(KEY_QUIZ_SESSION, chat_id))
                 dlog("출제 불가이면 오늘 퀴즈 완료 메시지 전송 후 return")
                 await update.effective_message.reply_text("🎉 오늘 퀴즈 완료! 수고했어요 💪")
                 return
+            remaining, total = progress_info
         await redis.set(
             _k(KEY_QUIZ_SESSION, chat_id),
             json.dumps({"word": p_word, "meaning_ko": p_meaning_ko, "stage": p_stage, "page_id": p_page_id, "question": p_question, "definition": p_definition, "mode": mode}),
@@ -508,8 +533,8 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
         )
         await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
         if mode == "auto":
-            dlog("_format_auto_quiz_progress(remaining) 호출")
-            p_progress = _format_auto_quiz_progress(remaining)
+            dlog("_format_auto_quiz_progress(remaining, total) 호출")
+            p_progress = _format_auto_quiz_progress(remaining, total)
         else:
             p_progress = "[🔄]"
         p_body = f"{p_meaning_ko}\n\n{p_question}" if p_stage == 1 else p_question
@@ -568,14 +593,15 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     page_id    = parsed["page_id"]    # Notion page_id
     if mode == "auto":
         dlog("_consume_auto_quiz_count(chat_id, ttl) 호출")
-        remaining = await _consume_auto_quiz_count(chat_id, ttl)
-        if remaining is None:
+        progress_info = await _consume_auto_quiz_count(chat_id, ttl)
+        if progress_info is None:
             dlog("출제 불가이면 KEY_QUIZ_STATE와 KEY_QUIZ_SESSION 삭제")
             await redis.delete(_k(KEY_QUIZ_STATE, chat_id))
             await redis.delete(_k(KEY_QUIZ_SESSION, chat_id))
             dlog("출제 불가이면 오늘 퀴즈 완료 메시지 전송 후 return")
             await update.effective_message.reply_text("🎉 오늘 퀴즈 완료! 수고했어요 💪")
             return
+        remaining, total = progress_info
 
     # 로딩 메시지 — AI 호출 전 표시
     loading = await update.effective_message.reply_text("다음 문제 출제 중... ⏳")
@@ -591,10 +617,10 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
     await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
 
     # 문제 출제
-    # 진행 표시 — auto는 몇/20, quiz 모드는 🔄 무제한
+    # 진행 표시 — auto는 완료/전체, quiz 모드는 🔄 무제한
     if mode == "auto":
-        dlog("_format_auto_quiz_progress(remaining) 호출")
-        progress = _format_auto_quiz_progress(remaining)
+        dlog("_format_auto_quiz_progress(remaining, total) 호출")
+        progress = _format_auto_quiz_progress(remaining, total)
     else:
         progress = "[🔄]"
 

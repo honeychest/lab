@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # [AGENT]
 # 스케줄 메시지 [시작] 콜백은 auto 퀴즈 첫 문제를 출제한다.
-# auto 카운트 차감과 표시 문구는 text_handler의 공통 helper를 사용한다.
+# auto 카운트 차감과 [완료/전체] 표시 문구는 text_handler의 공통 helper를 사용한다.
 
 
 async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -69,11 +69,12 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     page_id = parsed["page_id"]
 
     dlog("_consume_auto_quiz_count(chat_id, ttl) 호출")
-    remaining = await _consume_auto_quiz_count(chat_id, ttl)
-    if remaining is None:
+    progress_info = await _consume_auto_quiz_count(chat_id, ttl)
+    if progress_info is None:
         dlog("출제 불가이면 오늘 퀴즈 완료 alert 표시 후 return")
         await query.answer("오늘 퀴즈를 모두 완료했어요 ✔", show_alert=True)
         return
+    remaining, total = progress_info
 
     loading = await query.message.reply_text("다음 문제 출제 중... ⏳")
     question = await ai_service.generate_quiz(word, meaning_ko, stage)
@@ -86,8 +87,8 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     )
     await redis.set(_k(KEY_QUIZ_STATE, chat_id), "quiz", ex=ttl)
 
-    dlog("_format_auto_quiz_progress(remaining) 호출")
-    progress = _format_auto_quiz_progress(remaining)
+    dlog("_format_auto_quiz_progress(remaining, total) 호출")
+    progress = _format_auto_quiz_progress(remaining, total)
     body = f"{meaning_ko}\n\n{question}" if stage == 1 else question
     await query.message.reply_text(
         f"{progress} {_stage_icon(stage)} {stage}단계\n{body}",

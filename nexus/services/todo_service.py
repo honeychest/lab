@@ -11,6 +11,11 @@ from services import notion_service
 logger = logging.getLogger(__name__)
 
 
+# [AGENT]
+# 09/15/22시 스케줄 본문을 만든다.
+# 15시는 자동퀴즈 카운트가 0이어도 "오늘 복습할 단어가 없어요" 메시지를 보낸다.
+
+
 async def build_schedule_content(chat_id: int, hour: int) -> list:
     """스케줄 메시지 본문·키보드 조립. list[tuple[str, markup|None]] 반환."""
     kst = timezone(timedelta(hours=9))
@@ -91,7 +96,9 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
 
     else:  # 09시 또는 15시
         has_todos = bool(pending_with_keys or today_done or tomorrow_todos)
-        if not has_todos and quiz_count == 0:
+        dlog("15시 quiz_count 0이면 복습할 단어 없음 메시지 추가")
+        dlog("09시는 기존처럼 내용 없으면 스킵 유지")
+        if not has_todos and quiz_count == 0 and hour != 15:
             return []
 
         # 미완료 할일 → 항목별 개별 메시지
@@ -117,5 +124,8 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
         if quiz_count > 0:
             quiz_markup = InlineKeyboardMarkup([[InlineKeyboardButton("시작", callback_data="quiz:start")]])
             messages.append((f"🔤 퀴즈 {quiz_count}개 남음", quiz_markup))
+        elif hour == 15:
+            dlog("15시 quiz_count 0이면 messages에 '오늘 복습할 단어가 없어요' 추가")
+            messages.append(("오늘 복습할 단어가 없어요", None))
 
     return messages
