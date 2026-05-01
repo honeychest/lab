@@ -111,3 +111,43 @@
   --dark-spinner-track: rgba(13, 148, 136, 0.15);
   --dark-spinner-fill:  #0D9488;
 }
+
+/* ── Harbor 테마 오버라이드 (deep navy + logistics accents) ── */
+.theme-harbor {
+  --dark-bg:          #0D1321;
+  --dark-card-bg:     #141B2D;
+  --dark-surface-bg:  rgba(5, 142, 217, 0.08);
+
+  --dark-text-primary:   #E8EDF7;
+  --dark-text-secondary: #94A3B8;
+  --dark-text-neutral:   #6B7A96;
+  --dark-text-muted:     rgba(232, 237, 247, 0.45);
+
+  --dark-border:        rgba(5, 142, 217, 0.22);
+  --dark-border-strong: rgba(5, 142, 217, 0.38);
+  --dark-border-subtle: rgba(255, 255, 255, 0.08);
+
+  --dark-accent:      #058ED9;
+  --dark-accent-gold: #FA9F42;
+
+  --dark-status-ok:    #26C485;
+  --dark-status-warn:  #FA9F42;
+  --dark-status-error: #EB5160;
+
+  --dark-error: #EB5160;
+
+  --dark-input-bg:     rgba(255, 255, 255, 0.05);
+  --dark-input-border: rgba(5, 142, 217, 0.25);
+  --dark-input-text:   #E8EDF7;
+
+  --dark-btn-primary:   #058ED9;
+  --dark-btn-secondary: rgba(255, 255, 255, 0.06);
+  --dark-btn-bg:        #182235;
+
+  --dark-overlay-bg:  rgba(13, 19, 33, 0.72);
+  --dark-modal-bg:    #141B2D;
+  --dark-toast-bg:    rgba(20, 27, 45, 0.96);
+
+  --dark-spinner-track: rgba(5, 142, 217, 0.15);
+  --dark-spinner-fill:  #058ED9;
+}

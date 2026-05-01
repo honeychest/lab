@@ -76,6 +76,7 @@ const THEME_OPTIONS = [
     { value: 'dark', label: '다크' },
     { value: 'black', label: '블랙' },
     { value: 'teal', label: 'Teal' },
+    { value: 'harbor', label: 'Harbor' },
 ];
 
 const TelegramPopup = ({ isOpen, onClose, guestToken: guestTokenProp, inquiries = [], onSent }) => {

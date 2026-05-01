@@ -64,3 +64,24 @@
   --black-short: #dc2626;
   --black-warn:  rgba(217, 119, 6, 0.9);
 }
+
+/* ── Harbor 테마 오버라이드 (deep navy + logistics accents) ── */
+.theme-harbor {
+  --black-bg:            #0D1321;
+  --black-panel-bg:      #141B2D;
+  --black-panel-alt-bg:  #182235;
+  --black-topbar-bg:     #10192B;
+  --black-surface-bg:    rgba(5, 142, 217, 0.08);
+
+  --black-text-primary:   #E8EDF7;
+  --black-text-secondary: #94A3B8;
+  --black-text-muted:     rgba(232, 237, 247, 0.45);
+
+  --black-border:        rgba(5, 142, 217, 0.22);
+  --black-border-strong: rgba(5, 142, 217, 0.38);
+  --black-border-subtle: rgba(255, 255, 255, 0.08);
+
+  --black-long:  #26C485;
+  --black-short: #EB5160;
+  --black-warn:  #FA9F42;
+}
