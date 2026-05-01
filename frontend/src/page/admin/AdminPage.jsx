@@ -1,10 +1,11 @@
-// [AGENT] 역할: 데이터 누락 구간 조회 + 수동 수집 + 방문자 이력 어드민 페이지 | 연관파일: DataGapAdminController.java, ManualBackfillController.java, MonitorApiController.java
+// [AGENT] 역할: 데이터 누락 구간 조회 + 수동 수집/보정 + 방문자 이력 어드민 페이지 | 연관파일: DataGapAdminController.java, ManualBackfillController.java, MonitorApiController.java
 // IP 인증: 마운트 시 /api/admin/data-gap/access 체크 → canAccess false면 접근 거부
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
-// 수동 수집: /api/admin/backfill/collect → Job 폴링
+// 수동 수집: /api/admin/backfill/collect → Job 폴링 | flat/outlier 보정: /api/admin/backfill/*-correction
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
+import chs from '@/global/chs';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './AdminPage.module.css';
 import '../../styles/themes/monitor-teal.css';
@@ -17,6 +18,11 @@ const CHECKS = [
 ];
 
 const HEALTH_HOURS_OPTIONS = [1, 2, 4, 12, 24, 48];
+const OUTLIER_RANGE_OPTIONS = [
+    { key: 'current', label: '선택 범위(최대 48시간)', useHealthHours: true },
+    { key: '48_96', label: '48~96시간 전', fromHours: 96, toHours: 48 },
+    { key: '96_120', label: '96~120시간 전', fromHours: 120, toHours: 96 },
+];
 const SYMBOLS   = ['BTCUSDT', 'ENAUSDT'];
 const MARKETS   = ['SPOT', 'FUTURES'];
 // FORCE_ORDER·OI는 marketType 불필요
@@ -84,6 +90,15 @@ export default function AdminPage() {
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError,   setHealthError]   = useState(null);
     const [healthRange,   setHealthRange]   = useState(null); // { fromMs, toMs } — 삭제 시 동일 범위 전달용
+    const [correctionHealth, setCorrectionHealth] = useState(null);
+    const [correctionResult, setCorrectionResult] = useState(null);
+    const [correctionLoading, setCorrectionLoading] = useState(false);
+    const [correctionError, setCorrectionError] = useState(null);
+    const [outlierHealth, setOutlierHealth] = useState(null);
+    const [outlierResult, setOutlierResult] = useState(null);
+    const [outlierLoading, setOutlierLoading] = useState(false);
+    const [outlierError, setOutlierError] = useState(null);
+    const [outlierRangeKey, setOutlierRangeKey] = useState('current');
 
     // ── 내 IP ────────────────────────────────────────────────────────────────
     const [myIp, setMyIp] = useState(null);
@@ -144,7 +159,131 @@ export default function AdminPage() {
         }
     };
 
+    const handleFlatCorrectionHealth = async () => {
+        chs.dlog(4, 'admin 보정 진단 시작');
+        chs.dlog(4, 'healthSymbol healthMarket healthRange 값 확인');
+        setCorrectionLoading(true);
+        setCorrectionError(null);
+        setCorrectionHealth(null);
+        const toMs = healthRange?.toMs ?? Date.now();
+        const fromMs = healthRange?.fromMs ?? toMs - healthHours * 60 * 60 * 1000;
+        setHealthRange({ fromMs, toMs });
+        chs.dlog(4, '보정 범위가 없으면 사용자가 from to 범위를 먼저 선택하도록 처리');
+        try {
+            chs.dlog(4, '/api/admin/backfill/flat-correction/health 호출');
+            const r = await apiClient.get('/api/admin/backfill/flat-correction/health', {
+                params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
+            });
+            chs.dlog(4, 'raw 1s 1m 5m 상태를 화면 상태값에 저장');
+            setCorrectionHealth(r.data);
+            chs.dlog(4, '보정 가능 여부와 위험 메시지를 admin 카드에 표시');
+        } catch (e) {
+            setCorrectionError(e.response?.data?.error ?? '보정 진단 실패');
+        } finally {
+            setCorrectionLoading(false);
+        }
+    };
+
+    const handleFlatCorrection = async () => {
+        chs.dlog(4, 'admin 보정 실행 시작');
+        chs.dlog(4, 'healthSymbol healthMarket healthRange 값 확인');
+        setCorrectionLoading(true);
+        setCorrectionError(null);
+        setCorrectionResult(null);
+        const toMs = healthRange?.toMs ?? Date.now();
+        const fromMs = healthRange?.fromMs ?? toMs - healthHours * 60 * 60 * 1000;
+        setHealthRange({ fromMs, toMs });
+        chs.dlog(4, 'FUTURES 장애 구간인지 확인');
+        try {
+            chs.dlog(4, '/api/admin/backfill/flat-correction 호출');
+            const r = await apiClient.post('/api/admin/backfill/flat-correction', {
+                symbol: healthSymbol,
+                marketType: healthMarket,
+                fromMs,
+                toMs,
+            });
+            chs.dlog(4, '1m kline 보정 결과를 화면 상태값에 저장');
+            chs.dlog(4, '5m 재생성 결과를 화면 상태값에 저장');
+            setCorrectionResult(r.data);
+            setCorrectionHealth(r.data?.health ?? null);
+            chs.dlog(4, '보정 후 health 조회를 다시 실행');
+            await handleHealthCheck();
+        } catch (e) {
+            setCorrectionError(e.response?.data?.error ?? '보정 실패');
+        } finally {
+            setCorrectionLoading(false);
+        }
+    };
+
+    const handleOutlierCorrectionHealth = async () => {
+        chs.dlog(4, 'admin outlier 보정 진단 시작');
+        chs.dlog(4, 'outlier 전용 시간 범위 확인');
+        setOutlierLoading(true);
+        setOutlierError(null);
+        setOutlierHealth(null);
+        const { fromMs, toMs } = getOutlierRange();
+        chs.dlog(4, 'outlier 진단은 선택한 48시간 이하 구간만 사용');
+        try {
+            chs.dlog(4, '/api/admin/backfill/outlier-correction/health 호출');
+            const r = await apiClient.get('/api/admin/backfill/outlier-correction/health', {
+                params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
+            });
+            chs.dlog(4, 'raw 기준 불일치 1m 후보를 화면 상태값에 저장');
+            setOutlierHealth(r.data);
+            chs.dlog(4, '영향받는 5m 목록과 보정 가능 여부를 admin 카드에 표시');
+        } catch (e) {
+            setOutlierError(e.response?.data?.error ?? 'outlier 진단 실패');
+        } finally {
+            setOutlierLoading(false);
+        }
+    };
+
+    const handleOutlierCorrection = async () => {
+        chs.dlog(4, 'admin outlier 보정 실행 시작');
+        chs.dlog(4, 'outlier 전용 시간 범위 확인');
+        setOutlierLoading(true);
+        setOutlierError(null);
+        setOutlierResult(null);
+        const { fromMs, toMs } = getOutlierRange();
+        chs.dlog(4, 'FUTURES와 raw 존재 구간인지 확인');
+        try {
+            chs.dlog(4, '/api/admin/backfill/outlier-correction 호출');
+            const r = await apiClient.post('/api/admin/backfill/outlier-correction', {
+                symbol: healthSymbol,
+                marketType: healthMarket,
+                fromMs,
+                toMs,
+            });
+            chs.dlog(4, 'raw 기준 1m 재생성 결과를 화면 상태값에 저장');
+            chs.dlog(4, '영향 5m 재생성 결과를 화면 상태값에 저장');
+            setOutlierResult(r.data);
+            setOutlierHealth(r.data?.health ?? null);
+            chs.dlog(4, '보정 후 outlier 진단과 flat health 조회를 다시 실행');
+            await handleHealthCheck();
+        } catch (e) {
+            setOutlierError(e.response?.data?.error ?? 'outlier 보정 실패');
+        } finally {
+            setOutlierLoading(false);
+        }
+    };
+
     const pollRef = useRef(null);
+
+    const getOutlierRange = () => {
+        chs.dlog(4, 'outlierRangeKey로 fromMs toMs 계산');
+        const option = OUTLIER_RANGE_OPTIONS.find((item) => item.key === outlierRangeKey)
+            ?? OUTLIER_RANGE_OPTIONS[0];
+        const now = Date.now();
+        if (option.useHealthHours) {
+            return {
+                fromMs: now - healthHours * 60 * 60 * 1000,
+                toMs: now,
+            };
+        }
+        const fromMs = now - option.fromHours * 60 * 60 * 1000;
+        const toMs = now - option.toHours * 60 * 60 * 1000;
+        return { fromMs, toMs };
+    };
 
     useEffect(() => {
         apiClient.get('/api/admin/data-gap/access')
@@ -355,6 +494,7 @@ export default function AdminPage() {
 
     const fmtNum  = n => n != null ? Number(n).toLocaleString() : '—';
     const fmtTime = ms => ms != null ? new Date(Number(ms)).toLocaleTimeString() : '—';
+    const fmtDateTime = ms => ms != null ? new Date(Number(ms)).toLocaleString() : '—';
 
     const statusColor = s => ({ RUNNING: '#60a5fa', DONE: '#4ade80', ERROR: '#ef4444' }[s] ?? '#94a3b8');
 
@@ -483,6 +623,162 @@ export default function AdminPage() {
                                     </div>
                                 );
                             })()}
+                            <div className={styles.actions}>
+                                <button
+                                    type="button"
+                                    className={styles.btn}
+                                    onClick={handleFlatCorrectionHealth}
+                                    disabled={correctionLoading}
+                                >
+                                    {correctionLoading ? '처리 중...' : '보정 진단'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={handleFlatCorrection}
+                                    disabled={correctionLoading || healthMarket !== 'FUTURES'}
+                                    style={{ opacity: correctionLoading || healthMarket !== 'FUTURES' ? 0.6 : 1 }}
+                                >
+                                    {correctionLoading ? '처리 중...' : 'FUTURES 보정 실행'}
+                                </button>
+                            </div>
+                            {correctionError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{correctionError}</div>}
+                            {correctionHealth && (() => {
+                                const raw = correctionHealth.rawAggTrade ?? {};
+                                const flat1s = correctionHealth.flat1s ?? {};
+                                const flat1m = correctionHealth.flat1m ?? {};
+                                const flat5m = correctionHealth.flat5m ?? {};
+                                chs.dlog(4, 'flat 대상 row 목록 표시');
+                                const rows2 = [
+                                    ['raw', raw.row_count, raw.min_ms, raw.max_ms],
+                                    ['1s flat', flat1s.flat_count, flat1s.min_ms, flat1s.max_ms],
+                                    ['1m flat', flat1m.flat_count, flat1m.min_ms, flat1m.max_ms],
+                                    ['5m flat', flat5m.flat_count, flat5m.min_ms, flat5m.max_ms],
+                                ];
+                                const flatRows = [
+                                    ['1s', correctionHealth.flat1sRows ?? []],
+                                    ['1m', correctionHealth.flat1mRows ?? []],
+                                    ['5m', correctionHealth.flat5mRows ?? []],
+                                ].flatMap(([label, rows3]) => rows3.map((row) => ({ ...row, label })));
+                                return (
+                                    <div className={styles.tableWrap}>
+                                        <table className={styles.table}>
+                                            <thead>
+                                                <tr>
+                                                    {['구분', '건수', '시작', '종료'].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {rows2.map(([label, count, minMs, maxMs]) => (
+                                                    <tr key={label}>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{label}</td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{fmtNum(count)}</td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(minMs)}</td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(maxMs)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <div className={styles.desc}>{correctionHealth.message}</div>
+                                        {flatRows.length > 0 && (
+                                            <table className={styles.table}>
+                                                <thead>
+                                                    <tr>
+                                                        {['구분', '시간', 'OHLC', '거래수'].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {flatRows.slice(0, 20).map((row, idx) => (
+                                                        <tr key={`${row.label}-${row.candle_time_ms}-${idx}`}>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{row.label}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(row.candle_time_ms)}</td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>
+                                                                {row.open_price}/{row.high_price}/{row.low_price}/{row.close_price}
+                                                            </td>
+                                                            <td className={`${styles.td} ${styles.mono}`}>{fmtNum(row.trade_count)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                            {correctionResult && (
+                                <div className={styles.desc} style={{ color: 'var(--monitor-gauge-ok)' }}>
+                                    보정 완료 · 1m 삭제 {fmtNum(correctionResult.oneMinute?.deletedFlat)} / 생성 {fmtNum(correctionResult.oneMinute?.inserted)}
+                                    {' · '}5m flat 삭제 {fmtNum(correctionResult.fiveMinute?.deletedFlat)} / 영향 재생성 {fmtNum(correctionResult.fiveMinute?.insertedImpacted)}
+                                    {' · '}영향 5m {fmtNum(correctionResult.fiveMinute?.impacted5mCount)}건
+                                </div>
+                            )}
+                            <div className={styles.actions}>
+                                <select
+                                    className={styles.select}
+                                    value={outlierRangeKey}
+                                    onChange={e => setOutlierRangeKey(e.target.value)}
+                                    disabled={outlierLoading}
+                                >
+                                    {OUTLIER_RANGE_OPTIONS.map((option) => (
+                                        <option key={option.key} value={option.key}>{option.label}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    className={styles.btn}
+                                    onClick={handleOutlierCorrectionHealth}
+                                    disabled={outlierLoading}
+                                >
+                                    {outlierLoading ? '처리 중...' : 'Outlier 진단'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={handleOutlierCorrection}
+                                    disabled={outlierLoading || healthMarket !== 'FUTURES'}
+                                    style={{ opacity: outlierLoading || healthMarket !== 'FUTURES' ? 0.6 : 1 }}
+                                >
+                                    {outlierLoading ? '처리 중...' : 'Outlier 보정 실행'}
+                                </button>
+                            </div>
+                            {outlierError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{outlierError}</div>}
+                            {outlierHealth && (
+                                <div className={styles.tableWrap}>
+                                    <div className={styles.desc}>
+                                        raw 불일치 1m {fmtNum(outlierHealth.outlier1mCount)}건 · 영향 5m {fmtNum(outlierHealth.impacted5mCount)}건
+                                    </div>
+                                    {Array.isArray(outlierHealth.rows) && outlierHealth.rows.length > 0 && (
+                                        <table className={styles.table}>
+                                            <thead>
+                                                <tr>
+                                                    {['시간', 'agg OHLC', 'raw OHLC', 'agg/raw 거래수'].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {outlierHealth.rows.slice(0, 20).map((row, idx) => (
+                                                    <tr key={`${row.candle_time_ms}-${idx}`}>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(row.candle_time_ms)}</td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>
+                                                            {row.open_price}/{row.high_price}/{row.low_price}/{row.close_price}
+                                                        </td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>
+                                                            {row.raw_open}/{row.raw_high}/{row.raw_low}/{row.raw_close}
+                                                        </td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>
+                                                            {fmtNum(row.trade_count)}/{fmtNum(row.raw_trade_count)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+                            {outlierResult && (
+                                <div className={styles.desc} style={{ color: 'var(--monitor-gauge-ok)' }}>
+                                    Outlier 보정 완료 · 1m 삭제 {fmtNum(outlierResult.oneMinute?.deleted)} / 생성 {fmtNum(outlierResult.oneMinute?.inserted)}
+                                    {' · '}5m 삭제 {fmtNum(outlierResult.fiveMinute?.deleted)} / 생성 {fmtNum(outlierResult.fiveMinute?.inserted)}
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles.card}>
