@@ -1,8 +1,10 @@
 // [AGENT] TASK-09: 5분봉 캔들 차트 — Lightweight Charts v5 CandlestickSeries
 // TASK-FIX: candleHistory prop 수신(초기 렌더) + WS로 실시간 append (candleType prop으로 엔드포인트 결정)
+// UX: 사용자가 FUTURES 차트를 좌우 이동/확대 가능, 신규 데이터셋 첫 로드 때만 fitContent 적용
 // is_closed:true → onCandleUpdate 콜백(SignalPage candleHistory 업데이트)
 import { createChart, CandlestickSeries } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
+import chs from '@/global/chs';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
@@ -16,6 +18,7 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
     const onCandleTimeRef     = useRef(onCandleTime);
     const onCandleUpdateRef   = useRef(onCandleUpdate);
     const formingBarRef       = useRef(null);
+    const fittedRef           = useRef(false);
     const [connecting, setConnecting] = useState(true);
     const [tooltip, setTooltip] = useState(null); // { x, y, time, close, delta }
     const candleHistoryRef = useRef(candleHistory);
@@ -29,10 +32,12 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
     useEffect(() => {
         if (!containerRef.current || isInitRef.current) return;
 
+        chs.dlog(4, '차트 확대 축소 활성화');
+        chs.dlog(4, '차트 좌우 이동 활성화');
         const chart = createChart(containerRef.current, {
             autoSize: true,
-            handleScale: false,
-            handleScroll: false,
+            handleScale: true,
+            handleScroll: true,
             layout: {
                 background: { color: '#0e0f18' },
                 textColor: 'rgba(255,255,255,0.3)',
@@ -90,12 +95,25 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
             chartRef.current  = null;
             seriesRef.current = null;
             isInitRef.current = false;
+            fittedRef.current = false;
         };
     }, []);
 
+    useEffect(() => {
+        fittedRef.current = false;
+        formingBarRef.current = null;
+    }, [symbol, candleType]);
+
     // candleHistory 변경 시 차트 데이터 갱신 — 초기 로드 시점 고정, 우측으로 누적 (OI 차트와 동일)
     useEffect(() => {
-        if (!seriesRef.current || candleHistory.length === 0) return;
+        if (!seriesRef.current) return;
+        if (candleHistory.length === 0) {
+            chs.dlog(4, '신규 조회 범위 로딩 전 차트 데이터 초기화');
+            fittedRef.current = false;
+            formingBarRef.current = null;
+            seriesRef.current.setData([]);
+            return;
+        }
         const bars = candleHistory
             .map((c) => ({
                 time:  Math.floor(c.time / 1000),
@@ -116,7 +134,12 @@ export default function CandleChart({ symbol, candleHistory = [], candleType = '
         if (formingBarRef.current) {
             seriesRef.current.update(formingBarRef.current);
         }
-        chartRef.current?.timeScale().fitContent();
+        chs.dlog(4, '최초 데이터 로드 때만 차트 전체 범위 맞춤');
+        if (!fittedRef.current) {
+            chartRef.current?.timeScale().fitContent();
+            fittedRef.current = true;
+        }
+        chs.dlog(4, '사용자가 이동한 visible range 유지');
         setConnecting(false); // eslint-disable-line react-hooks/set-state-in-effect
     }, [candleHistory]);
 
