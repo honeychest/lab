@@ -6,16 +6,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
+import { preloadSignalPage } from '@/app/router/lazyPages.js';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
-    { label: 'Binance', path: '/binance' },
-    { label: 'Trade',   path: '/trade' },
-    { label: 'Signal',  path: '/signal' },
-    { label: 'Analysis', path: '/analysis' },
-    { label: 'Winner', path: '/winner' },
-    { label: 'Monitor', path: '/monitor' },
-    { label: 'Admin',   path: '/admin'  },
+    { label: 'Binance',   path: '/binance' },
+    { label: 'Trade',     path: '/trade' },
+    { label: 'Signal',    path: '/signal' },
+    { label: 'Analysis',  path: '/analysis' },
+    { label: 'Logistics', path: '/logistics' },
+    { label: 'Winner',    path: '/winner' },
+    { label: 'Monitor',   path: '/monitor' },
+    { label: 'Admin',     path: '/admin'  },
 ];
 
 /**
@@ -71,6 +73,12 @@ function Header() {
         return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
     }, []);
 
+    const handleNavPreload = (path) => {
+        if (path === '/signal') {
+            void preloadSignalPage();
+        }
+    };
+
     return (
         <header className={styles.header}>
             {/* ── 네비게이션 ──────────────────────────────────── */}
@@ -81,6 +89,8 @@ function Header() {
                             <NavLink
                                 to={path}
                                 end
+                                onMouseEnter={() => handleNavPreload(path)}
+                                onFocus={() => handleNavPreload(path)}
                                 className={({ isActive }) =>
                                     `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
                                 }
