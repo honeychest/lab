@@ -201,6 +201,28 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
                     </div>
                 </div>
 
+                <div className="logistics-header-center">
+                    <div className="logistics-health-row">
+                        {HEALTH_AXES.map(axis => (
+                            <span
+                                key={axis}
+                                className={`logistics-health-pill logistics-health-help tooltip-${healthTooltipSide[axis] ?? 'right'}`}
+                                tabIndex={0}
+                                onMouseEnter={(event) => updateTooltipSide(axis, event.currentTarget)}
+                                onFocus={(event) => updateTooltipSide(axis, event.currentTarget)}
+                            >
+                                <span className="logistics-health-dot" style={{ color: HEALTH_COLOR[health[axis]] }}>
+                                    {HEALTH_DOT[health[axis]]}
+                                </span>
+                                <span>{HEALTH_LABELS[axis]}</span>
+                                <span className="logistics-health-tooltip">
+                                    {healthDetails[axis]}
+                                </span>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="logistics-header-actions">
                     <button className={autoMode ? 'logistics-primary-btn' : 'logistics-outline-btn'} onClick={onAutoToggle}>
                         {autoMode ? '⏸ Auto 정지 (진행 중)' : '▶ Auto 시작'}
@@ -219,17 +241,14 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
                 <div className="logistics-kpi-card">
                     <div className="logistics-kpi-label">오더</div>
                     <div className="logistics-kpi-value">{kpi.orders}</div>
-                    <div className="logistics-kpi-meta">현재 스토어 적재된 전체 task</div>
                 </div>
                 <div className="logistics-kpi-card">
                     <div className="logistics-kpi-label">처리중</div>
                     <div className="logistics-kpi-value">{kpi.processing}</div>
-                    <div className="logistics-kpi-meta">active · paused 포함</div>
                 </div>
                 <div className="logistics-kpi-card">
                     <div className="logistics-kpi-label">실패</div>
                     <div className="logistics-kpi-value" style={{ color: failureTone }}>{kpi.failed}</div>
-                    <div className="logistics-kpi-meta">조치 전환 대상 카드 수</div>
                 </div>
                 <div className="logistics-kpi-card">
                     <div className="logistics-kpi-label">SLA 위반</div>
@@ -247,32 +266,8 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
                         })}
                     >
                         <div className="logistics-kpi-value" style={{ color: slaTone }}>{kpi.sla}</div>
-                        <div className="logistics-kpi-meta">집계 슬롯 유지</div>
                     </button>
                 </div>
-            </div>
-
-            <div className="logistics-header-bottom">
-                <div className="logistics-health-row">
-                    {HEALTH_AXES.map(axis => (
-                        <span
-                            key={axis}
-                            className={`logistics-health-pill logistics-health-help tooltip-${healthTooltipSide[axis] ?? 'right'}`}
-                            tabIndex={0}
-                            onMouseEnter={(event) => updateTooltipSide(axis, event.currentTarget)}
-                            onFocus={(event) => updateTooltipSide(axis, event.currentTarget)}
-                        >
-                            <span className="logistics-health-dot" style={{ color: HEALTH_COLOR[health[axis]] }}>
-                                {HEALTH_DOT[health[axis]]}
-                            </span>
-                            <span>{HEALTH_LABELS[axis]}</span>
-                            <span className="logistics-health-tooltip">
-                                {healthDetails[axis]}
-                            </span>
-                        </span>
-                    ))}
-                </div>
-
             </div>
         </header>
     );

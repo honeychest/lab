@@ -4,7 +4,7 @@ import { emitter } from '@/domain/logistics/common/emitter';
 import { getTaskById, patchTask, updateTaskStatus } from '@/store/taskStore';
 import { appendEvent, getEventsByAggregate } from '@/store/eventStore';
 import { pauseTask, removeTask, resumeTask } from '@/scheduler/tickLoop';
-import { STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getFailureCandidatesForStage, getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
 import { appendAuditEvent } from '@/store/auditStore';
@@ -55,8 +55,15 @@ function eventLabel(eventType) {
 }
 
 function historyEventLabel(event) {
+    if (event.eventType?.startsWith('order.') && event.payload?.receiveNodeLabel) {
+        const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'OMS';
+        return `${stageName}: ${event.payload.receiveNodeLabel}`;
+    }
+
     if ((event.eventType === 'task.failed.simulated' || event.eventType === 'task.failed.injected') && event.payload?.failureLabel) {
-        return event.payload.failureLabel;
+        return event.payload?.receiveNodeLabel
+            ? `${event.payload.receiveNodeLabel} 실패: ${event.payload.failureLabel}`
+            : event.payload.failureLabel;
     }
 
     if (event.eventType === 'task.recovered' && event.payload?.actionLabel) {
@@ -94,6 +101,8 @@ function buildInjectedFailureEvent(task, type) {
         aggregateId: task.taskId,
         payload: {
             stage: task.currentStage,
+            receiveNodeKey: task.receiveNodeKey,
+            receiveNodeLabel: task.currentStage === 'OMS_RECEIVED' ? getOmsReceiveNodeLabel(task.receiveNodeKey) : undefined,
             failureCode: failure?.code ?? type,
             failureLabel: failure?.label ?? type,
             reason: failure?.summary ?? type,
@@ -183,6 +192,7 @@ export default function RightPanel({ open, onToggle, onInfoOpen }) {
             failureReason: failure?.summary ?? type,
             failureCode: failure?.code ?? type,
             failureLabel: failure?.label ?? type,
+            failureReceiveNodeKey: task.receiveNodeKey,
             failureDomain: failure?.domain,
             failureType: failure?.type,
             failureRecoverable: failure?.recoverable ?? true,
@@ -224,117 +234,121 @@ export default function RightPanel({ open, onToggle, onInfoOpen }) {
     const isFailed  = task?.status === 'failed';
     const isPaused  = task?.status === 'paused';
     const latestFailureEvent = history.find(isFailureEvent);
-    const branchCandidates = task ? getFailureCandidatesForStage(task.currentStage) : [];
+    const branchCandidates = task ? getFailureCandidatesForStage(task.currentStage, task.receiveNodeKey) : [];
     const currentStageGuidance = task ? STAGE_GUIDANCE[task.currentStage] : null;
+    const receiveNodeLabel = task?.currentStage === 'OMS_RECEIVED' ? getOmsReceiveNodeLabel(task.receiveNodeKey) : null;
 
     return (
         <aside className={`logistics-side-panel${open ? '' : ' closed'}`}>
             <div className="logistics-side-stack">
-            <button className="logistics-panel-toggle" onClick={onToggle}>
-                {open ? '▶' : '◀'}
-            </button>
+                <button className="logistics-panel-toggle" onClick={onToggle}>
+                    {open ? '▶' : '◀'}
+                </button>
 
-            {!task ? (
-                <div className="logistics-panel-empty">📭 포커스 작업 없음</div>
-            ) : (
-                <>
-                    <div className="logistics-side-section">
-                        <div className="logistics-side-title">상세</div>
-                        <div className="logistics-focus-id">{task.taskId}</div>
-                        <div className="logistics-task-meta">
-                            {task.owner} · {task.itemCode} · ▶ {task.destination}
-                        </div>
-                        {(task.zoneCode || task.vehicleId || task.boxId) && (
+                <div className="logistics-side-scroll">
+                {!task ? (
+                    <div className="logistics-panel-empty">📭 포커스 작업 없음</div>
+                ) : (
+                    <>
+                        <div className="logistics-side-section">
+                            <div className="logistics-side-title">상세</div>
+                            <div className="logistics-focus-id">{task.taskId}</div>
                             <div className="logistics-task-meta">
-                                {task.zoneCode ? `Zone ${task.zoneCode}` : ''}
-                                {task.zoneCode && task.zoneTemperature ? ` · ${task.zoneTemperature}` : ''}
-                                {task.vehicleId ? ` · ${task.vehicleId}` : ''}
-                                {task.boxId ? ` · ${task.boxId}` : ''}
+                                {task.owner} · {task.itemCode} · ▶ {task.destination}
                             </div>
-                        )}
-                        <div className="logistics-task-meta">
-                            현재: {STAGE_LABELS[task.currentStage] ?? task.currentStage}
-                            {task.status === 'failed' && ` ❌ ${task.failureLabel ?? task.failureReason ?? ''}`}
-                            {isPaused && ' ⏸'}
-                        </div>
-                        {currentStageGuidance && (
-                            <div className="logistics-task-meta logistics-task-stage-summary">
-                                {currentStageGuidance.summary}
-                            </div>
-                        )}
-                        {task.status === 'failed' && (
+                            {(task.zoneCode || task.vehicleId || task.boxId) && (
+                                <div className="logistics-task-meta">
+                                    {task.zoneCode ? `Zone ${task.zoneCode}` : ''}
+                                    {task.zoneCode && task.zoneTemperature ? ` · ${task.zoneTemperature}` : ''}
+                                    {task.vehicleId ? ` · ${task.vehicleId}` : ''}
+                                    {task.boxId ? ` · ${task.boxId}` : ''}
+                                </div>
+                            )}
                             <div className="logistics-task-meta">
-                                {task.failureReason}
+                                현재: {STAGE_LABELS[task.currentStage] ?? task.currentStage}
+                                {receiveNodeLabel && ` · ${receiveNodeLabel}`}
+                                {task.status === 'failed' && ` ❌ ${task.failureLabel ?? task.failureReason ?? ''}`}
+                                {isPaused && ' ⏸'}
                             </div>
-                        )}
-                        {task.status !== 'failed' && latestFailureEvent && (
-                            <div className="logistics-task-meta">
-                                최근 실패: {historyEventLabel(latestFailureEvent)}
+                            {currentStageGuidance && (
+                                <div className="logistics-task-meta logistics-task-stage-summary">
+                                    {currentStageGuidance.summary}
+                                </div>
+                            )}
+                            {task.status === 'failed' && (
+                                <div className="logistics-task-meta">
+                                    {task.failureReason}
+                                </div>
+                            )}
+                            {task.status !== 'failed' && latestFailureEvent && (
+                                <div className="logistics-task-meta">
+                                    최근 실패: {historyEventLabel(latestFailureEvent)}
+                                </div>
+                            )}
+                            <div className="logistics-button-row">
+                                <button className="logistics-secondary-btn" onClick={handlePause}>
+                                    {isPaused ? '▶ 재개' : '⏸ 일시정지'}
+                                </button>
+                                <button className="logistics-danger-btn" onClick={handleCancel}>✕ 취소</button>
+                                <button className="logistics-outline-btn" onClick={handleLogOpen}>🔍 로그 보기</button>
                             </div>
-                        )}
-                        <div className="logistics-button-row">
-                            <button className="logistics-secondary-btn" onClick={handlePause}>
-                                {isPaused ? '▶ 재개' : '⏸ 일시정지'}
-                            </button>
-                            <button className="logistics-danger-btn" onClick={handleCancel}>✕ 취소</button>
-                            <button className="logistics-outline-btn" onClick={handleLogOpen}>🔍 로그 보기</button>
                         </div>
-                    </div>
 
-                    <div className="logistics-side-section">
-                        {!isFailed ? (
-                            <>
-                                <div className="logistics-side-title">분기 주입</div>
-                                <div className="logistics-action-grid">
-                                    {branchCandidates.length > 0 ? branchCandidates.map(failure => (
-                                        <button key={failure.code} className="logistics-outline-btn" onClick={() => handleBranchInject(failure.code)}>
-                                            {failure.label}
-                                        </button>
-                                    )) : (
-                                        <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
-                                            이 단계에 등록된 실패 주입 후보가 없습니다.
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="logistics-side-title">조치 ({task.failureLabel ?? '실패'})</div>
-                                <div className="logistics-action-grid">
-                                    {(task.failureActions ?? []).map(action => (
-                                        <button
-                                            key={action.id}
-                                            className="logistics-success-btn"
-                                            onClick={() => handleRecoveryAction(action)}
-                                        >
-                                            {action.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-
-                    <div className="logistics-side-section grow">
-                        <div className="logistics-side-title">이력 체인</div>
-                        {history.length === 0 && <p className="logistics-task-meta">이력 없음</p>}
-                        <div className="logistics-chain-list">
-                        {history.map((ev, i) => {
-                            const type = historyRowType(ev, i, task.status);
-                            return (
-                                <div key={ev.eventId} className="logistics-chain-row" style={{ background: CHAIN_BG[type] ?? CHAIN_BG.pending }}>
-                                    <span>{CHAIN_ICON[type]}</span>
-                                    <span style={{ color: 'var(--dark-text-neutral)' }}>
-                                        {new Date(ev.timestamp).toLocaleTimeString('ko-KR', { hour12: false })}
-                                    </span>
-                                    <span>{historyEventLabel(ev)}</span>
-                                </div>
-                            );
-                        })}
+                        <div className="logistics-side-section">
+                            {!isFailed ? (
+                                <>
+                                    <div className="logistics-side-title">분기 주입</div>
+                                    <div className="logistics-action-grid">
+                                        {branchCandidates.length > 0 ? branchCandidates.map(failure => (
+                                            <button key={failure.code} className="logistics-outline-btn" onClick={() => handleBranchInject(failure.code)}>
+                                                {failure.label}
+                                            </button>
+                                        )) : (
+                                            <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
+                                                이 단계에 등록된 실패 주입 후보가 없습니다.
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="logistics-side-title">조치 ({task.failureLabel ?? '실패'})</div>
+                                    <div className="logistics-action-grid">
+                                        {(task.failureActions ?? []).map(action => (
+                                            <button
+                                                key={action.id}
+                                                className="logistics-success-btn"
+                                                onClick={() => handleRecoveryAction(action)}
+                                            >
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    </div>
-                </>
-            )}
+
+                        <div className="logistics-side-section grow">
+                            <div className="logistics-side-title">이력 체인</div>
+                            {history.length === 0 && <p className="logistics-task-meta">이력 없음</p>}
+                            <div className="logistics-chain-list">
+                            {history.map((ev, i) => {
+                                const type = historyRowType(ev, i, task.status);
+                                return (
+                                    <div key={ev.eventId} className="logistics-chain-row" style={{ background: CHAIN_BG[type] ?? CHAIN_BG.pending }}>
+                                        <span>{CHAIN_ICON[type]}</span>
+                                        <span style={{ color: 'var(--dark-text-neutral)' }}>
+                                            {new Date(ev.timestamp).toLocaleTimeString('ko-KR', { hour12: false })}
+                                        </span>
+                                        <span>{historyEventLabel(ev)}</span>
+                                    </div>
+                                );
+                            })}
+                            </div>
+                        </div>
+                    </>
+                )}
+                </div>
             </div>
         </aside>
     );

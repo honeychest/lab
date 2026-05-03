@@ -1,7 +1,7 @@
 import { createTask, getAllTasks } from '@/store/taskStore';
 import { appendEvent } from '@/store/eventStore';
 import { getFocusedTaskId, applyAutoFocus } from '@/store/focusStore';
-import { randomTicks } from '@/domain/logistics/common/stages';
+import { getInitialOmsReceiveNodeKey, OMS_RECEIVE_NODE_TICKS, randomTicks } from '@/domain/logistics/common/stages';
 import { dlog } from '@/global/chs';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getSimulationSettings } from './simulationSettings';
@@ -82,6 +82,8 @@ function buildCommonTask({
     sourceChannel,
     ownerView,
     currentStage,
+    receiveNodeKey,
+    ticksTarget,
 }) {
     const now = Date.now();
     const simulationSettings = getSimulationSettings();
@@ -103,7 +105,8 @@ function buildCommonTask({
         updatedAt: now,
         idempotencyKey: `${taskId}:${now}`,
         ticksInCurrentStage: 0,
-        ticksTarget: randomTicks(),
+        ticksTarget: ticksTarget ?? randomTicks(),
+        receiveNodeKey,
         simulationGlobalFailureRate: simulationSettings.globalFailureRate,
         simulationStageOverrides: { ...simulationSettings.stageOverrides },
     };
@@ -117,6 +120,8 @@ async function buildOrderTask(input) {
         taskId,
         type: 'ORDER',
         currentStage: 'OMS_RECEIVED',
+        receiveNodeKey: getInitialOmsReceiveNodeKey(),
+        ticksTarget: OMS_RECEIVE_NODE_TICKS,
     });
 }
 

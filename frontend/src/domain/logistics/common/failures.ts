@@ -1,4 +1,4 @@
-import type { LogisticsTask, TaskStage } from './events';
+import type { LogisticsTask, OmsReceiveNodeKey, TaskStage } from './events';
 
 export type FailureType = 'business' | 'system' | 'external' | 'capacity' | 'data';
 export type ResumePolicy = 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
@@ -20,6 +20,7 @@ export interface FailureAction {
     id: FailureActionId;
     label: string;
     nextStage?: TaskStage;
+    nextReceiveNodeKey?: OmsReceiveNodeKey;
 }
 
 export interface FailureDefinition {
@@ -28,6 +29,7 @@ export interface FailureDefinition {
     domain: 'OMS' | 'WMS' | 'TMS' | 'stream';
     type: FailureType;
     stage: TaskStage;
+    receiveNodeKey?: OmsReceiveNodeKey;
     recoverable: boolean;
     resumePolicy: ResumePolicy;
     summary: string;
@@ -37,31 +39,93 @@ export interface FailureDefinition {
 const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
     OMS_RECEIVED: [
         {
+            code: 'OMS_RAW_PAYLOAD_MISSING',
+            label: '주문 원문 누락',
+            domain: 'OMS',
+            type: 'data',
+            stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'raw-ingest',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '채널 payload가 비어 있거나 원문 식별자가 없어 접수할 수 없습니다.',
+            actions: [
+                { id: 'replay_event', label: '원문 재수신', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'raw-ingest' },
+                { id: 'cancel_order', label: '주문 취소' },
+            ],
+        },
+        {
+            code: 'OMS_OWNER_UNMATCHED',
+            label: '화주 식별 실패',
+            domain: 'OMS',
+            type: 'data',
+            stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'owner-match',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '유입 채널과 화주 계약 정보를 연결하지 못했습니다.',
+            actions: [
+                { id: 'retry_validation', label: '화주 매핑 후 재시도', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'owner-match' },
+                { id: 'notify_customer', label: '화주 확인 요청' },
+            ],
+        },
+        {
+            code: 'OMS_REQUIRED_FIELD_MISSING',
+            label: '필수값 누락',
+            domain: 'OMS',
+            type: 'data',
+            stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'required-fields',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '품목, 수량, 도착지, 외부 주문키 중 하나가 누락되었습니다.',
+            actions: [
+                { id: 'retry_validation', label: '필수값 보정 후 재검사', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'required-fields' },
+                { id: 'cancel_order', label: '주문 취소' },
+            ],
+        },
+        {
             code: 'OMS_DUPLICATE_ORDER',
             label: '중복 주문 감지',
             domain: 'OMS',
             type: 'data',
             stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'duplicate-check',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '같은 주문이 중복 유입되어 접수 단계에서 차단되었습니다.',
             actions: [
-                { id: 'retry_validation', label: '중복 확인 후 재접수', nextStage: 'OMS_RECEIVED' },
+                { id: 'retry_validation', label: '중복 확인 후 재접수', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'duplicate-check' },
                 { id: 'cancel_order', label: '중복 주문 취소' },
             ],
         },
         {
-            code: 'OMS_INVALID_ADDRESS',
-            label: '주소 형식 오류',
+            code: 'OMS_RECEIPT_KEY_CONFLICT',
+            label: '접수키 충돌',
             domain: 'OMS',
-            type: 'data',
+            type: 'system',
             stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'receipt-key',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
-            summary: '배송지 주소가 누락되었거나 형식이 맞지 않습니다.',
+            summary: 'taskId 또는 traceId 발급 중 충돌이 발생했습니다.',
             actions: [
-                { id: 'confirm_address', label: '주소 수정 후 재검증', nextStage: 'OMS_RECEIVED' },
-                { id: 'notify_customer', label: '고객 확인 요청' },
+                { id: 'retry_validation', label: '접수키 재발급', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'receipt-key' },
+                { id: 'cancel_order', label: '주문 취소' },
+            ],
+        },
+        {
+            code: 'OMS_VALIDATION_QUEUE_FAILED',
+            label: '검증 큐 등록 실패',
+            domain: 'OMS',
+            type: 'system',
+            stage: 'OMS_RECEIVED',
+            receiveNodeKey: 'next-queue',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '검증 레인으로 넘길 이벤트를 큐에 적재하지 못했습니다.',
+            actions: [
+                { id: 'replay_event', label: '검증 큐 재등록', nextStage: 'OMS_RECEIVED', nextReceiveNodeKey: 'next-queue' },
+                { id: 'cancel_order', label: '주문 취소' },
             ],
         },
     ],
@@ -72,6 +136,7 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'OMS',
             type: 'business',
             stage: 'OMS_VALIDATED',
+            receiveNodeKey: 'item-rule',
             recoverable: false,
             resumePolicy: 'manual_review',
             summary: '해당 상품은 현재 출고 정책상 처리할 수 없습니다.',
@@ -86,11 +151,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'OMS',
             type: 'data',
             stage: 'OMS_VALIDATED',
+            receiveNodeKey: 'quantity-rule',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '주문 필수값과 품목 마스터 정보가 일치하지 않습니다.',
             actions: [
-                { id: 'retry_validation', label: '데이터 수정 후 재검증', nextStage: 'OMS_VALIDATED' },
+                { id: 'retry_validation', label: '데이터 수정 후 재검증', nextStage: 'OMS_VALIDATED', nextReceiveNodeKey: 'quantity-rule' },
                 { id: 'cancel_order', label: '주문 취소' },
             ],
         },
@@ -102,11 +168,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'OMS',
             type: 'external',
             stage: 'OMS_WMS_REQUESTED',
+            receiveNodeKey: 'broker-send',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: 'OMS에서 WMS로 넘기는 요청이 제한 시간 안에 응답하지 않았습니다.',
             actions: [
-                { id: 'replay_event', label: 'WMS 요청 재전송', nextStage: 'OMS_WMS_REQUESTED' },
+                { id: 'replay_event', label: 'WMS 요청 재전송', nextStage: 'OMS_WMS_REQUESTED', nextReceiveNodeKey: 'broker-send' },
                 { id: 'notify_customer', label: '지연 안내' },
             ],
         },
@@ -375,12 +442,20 @@ export function pickFailureForStage(stage: TaskStage): FailureDefinition | null 
     return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+export function pickFailureForReceiveNode(stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): FailureDefinition | null {
+    const candidates = getFailureCandidatesForStage(stage, receiveNodeKey);
+    if (candidates.length === 0) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 export function hasFailureCandidates(stage: TaskStage): boolean {
     return (FAILURE_CATALOG[stage] ?? []).length > 0;
 }
 
-export function getFailureCandidatesForStage(stage: TaskStage): FailureDefinition[] {
-    return FAILURE_CATALOG[stage] ?? [];
+export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): FailureDefinition[] {
+    const candidates = FAILURE_CATALOG[stage] ?? [];
+    if (!stage.startsWith('OMS_') || !receiveNodeKey) return candidates;
+    return candidates.filter(item => item.receiveNodeKey === receiveNodeKey);
 }
 
 export function getFailureDefinitionByCode(code?: string): FailureDefinition | null {

@@ -21,6 +21,24 @@ export type OmsStage =
     | 'OMS_VALIDATED'
     | 'OMS_WMS_REQUESTED';
 
+export type OmsReceiveNodeKey =
+    | 'raw-ingest'
+    | 'owner-match'
+    | 'required-fields'
+    | 'duplicate-check'
+    | 'receipt-key'
+    | 'next-queue'
+    | 'contract-rule'
+    | 'item-rule'
+    | 'quantity-rule'
+    | 'destination-rule'
+    | 'audit-ready'
+    | 'shipment-build'
+    | 'inventory-hint'
+    | 'event-envelope'
+    | 'broker-send'
+    | 'handoff-watch';
+
 export type InboundStage =
     | 'INBOUND_RECEIVED'
     | 'INBOUND_VALIDATED'
@@ -57,6 +75,7 @@ export interface LogisticsTask {
     quantity: number;
     destination: string;
     currentStage: TaskStage;
+    receiveNodeKey?: OmsReceiveNodeKey;
     status: TaskStatus;
     actor: string;
     sourceChannel?: 'operator' | 'owner' | 'auto' | 'bulk';
@@ -76,7 +95,8 @@ export interface LogisticsTask {
     failureDomain?: 'OMS' | 'WMS' | 'TMS' | 'stream';
     failureType?: 'business' | 'system' | 'external' | 'capacity' | 'data';
     failureRecoverable?: boolean;
-    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage }>;
+    failureReceiveNodeKey?: OmsReceiveNodeKey;
+    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey }>;
     failureResumePolicy?: 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
     simulationGlobalFailureRate?: number;
     simulationStageOverrides?: Partial<Record<TaskStage, number>>;

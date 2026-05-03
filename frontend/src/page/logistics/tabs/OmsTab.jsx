@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
-import { OMS_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { OMS_STAGE_WORK_NODES, OMS_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
 import {
     createBulkOmsOrders,
     createOmsTask,
@@ -29,12 +29,30 @@ function progressPercent(task) {
     return Math.max(10, Math.min(100, Math.round((task.ticksInCurrentStage / task.ticksTarget) * 100)));
 }
 
-function statusText(task) {
-    if (task.status === 'completed' && task.currentStage === 'TMS_DELIVERED') return '인도 완료';
-    if (task.status === 'completed') return '완료';
-    if (task.status === 'failed') return '실패';
-    if (task.status === 'paused') return '일시정지';
-    return '진행 중';
+function stageWorkIndex(task, stage) {
+    const nodes = OMS_STAGE_WORK_NODES[stage] ?? [];
+    if (nodes.length === 0) return 0;
+    const nodeIndex = nodes.findIndex(node => node.key === task?.receiveNodeKey);
+    if (nodeIndex >= 0) return nodeIndex;
+    const percent = progressPercent(task);
+    const rawIndex = Math.floor((percent / 100) * nodes.length);
+    return Math.min(nodes.length - 1, Math.max(0, rawIndex));
+}
+
+function stageNodeTasks(tasks, stage, nodeIndex) {
+    return tasks.filter(task => stageWorkIndex(task, stage) === nodeIndex);
+}
+
+function nodeStatusCounts(tasks) {
+    return {
+        active: tasks.filter(task => task.status === 'active').length,
+        failed: tasks.filter(task => task.status === 'failed').length,
+    };
+}
+
+function nodeStatusLabel(status) {
+    if (status === 'failed') return '실패';
+    return '진행중';
 }
 
 function defaultForm(owner) {
@@ -98,6 +116,7 @@ export default function OmsTab({ onInfoOpen }) {
     const [selectedOwner, setSelectedOwner] = useState(() => window.localStorage.getItem(OWNER_KEY) ?? OWNER_OPTIONS[0]);
     const [form, setForm] = useState(() => defaultForm(window.localStorage.getItem(OWNER_KEY) ?? OWNER_OPTIONS[0]));
     const [modalMode, setModalMode] = useState(null);
+    const [taskPopover, setTaskPopover] = useState(null);
 
     useEffect(() => {
         window.localStorage.setItem(OWNER_KEY, selectedOwner);
@@ -140,6 +159,23 @@ export default function OmsTab({ onInfoOpen }) {
         } finally {
             setBulkProgress(progress => ({ ...progress, active: false }));
         }
+    };
+
+    const openNodeTaskPopover = (event, stage, node, status, nodeTasks) => {
+        event.stopPropagation();
+        const filteredTasks = nodeTasks.filter(task => task.status === status);
+        if (filteredTasks.length === 0) return;
+        if (filteredTasks.length === 1) {
+            setFocus(filteredTasks[0].taskId);
+            return;
+        }
+        setTaskPopover({
+            stage,
+            nodeKey: node.key,
+            nodeLabel: node.label,
+            status,
+            tasks: filteredTasks,
+        });
     };
 
     const omsFlows = [
@@ -185,33 +221,52 @@ export default function OmsTab({ onInfoOpen }) {
             <div className="logistics-grid-3 logistics-stage-grid-shell">
                 {OMS_STAGES.map(stage => {
                     const stageTasks = tasksForStage(tasks, stage);
+                    const stageNodes = OMS_STAGE_WORK_NODES[stage] ?? [];
                     return (
-                        <article key={stage} className="logistics-lane">
+                        <article key={stage} className="logistics-lane logistics-work-lane">
                             <div className="logistics-lane-top">
                                 <div className="logistics-lane-title">{STAGE_LABELS[stage]}</div>
                                 <div className="logistics-lane-count">적재 {stageTasks.length}건</div>
                             </div>
-                            <div className="logistics-card-stack">
-                                {stageTasks.length > 0 ? stageTasks.map(task => (
-                                    <button
-                                        key={task.taskId}
-                                        type="button"
-                                        className={`logistics-preview-card${focusedTaskId === task.taskId ? ' focused' : ''}`}
-                                        style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
-                                        onClick={() => setFocus(task.taskId)}
-                                    >
-                                        <div className="logistics-preview-top">
-                                            <span className="logistics-preview-id">{task.taskId}</span>
-                                            <span className={`logistics-status-chip ${task.status}`}>
-                                                {statusText(task)}
-                                            </span>
+                            <div className="logistics-receive-workflow">
+                                {stageNodes.map((node, index) => {
+                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index);
+                                    const counts = nodeStatusCounts(nodeTasks);
+                                    return (
+                                        <div key={node.key} className={`logistics-work-node${nodeTasks.length > 0 ? ' active' : ''}${counts.failed > 0 ? ' has-failure' : ''}`}>
+                                            <div className="logistics-work-node-rail" aria-hidden="true">
+                                                <span>{String(index + 1).padStart(2, '0')}</span>
+                                            </div>
+                                            <div className="logistics-work-node-body">
+                                                <div className="logistics-work-node-top">
+                                                    <div className="logistics-work-node-title">{node.label}</div>
+                                                    {nodeTasks.length > 0 && <span className="logistics-work-node-count">{nodeTasks.length}</span>}
+                                                </div>
+                                                <div className="logistics-work-node-status-row">
+                                                    {[
+                                                        ['active', '⟳', '진행중', counts.active],
+                                                        ['failed', '!', '실패', counts.failed],
+                                                    ].map(([status, icon, label, count]) => (
+                                                        <button
+                                                            key={status}
+                                                            type="button"
+                                                            className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
+                                                            disabled={count === 0}
+                                                            onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
+                                                        >
+                                                            <span>{icon}</span>
+                                                            <span>{label}</span>
+                                                            <strong>{count}</strong>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="logistics-preview-meta">{task.owner} · {task.itemCode} · {task.quantity}ea</div>
-                                        <div className={`logistics-progress ${task.status}`}><span style={{ width: `${progressPercent(task)}%` }} /></div>
-                                    </button>
-                                )) : (
+                                    );
+                                })}
+                                {stage === 'OMS_RECEIVED' && stageTasks.length === 0 && (
                                     <div className="logistics-empty-card">
-                                        {stage === 'OMS_RECEIVED' ? 'Auto 시작 또는 등록 버튼으로 오더를 투입하세요.' : '이 단계에 머무는 카드가 아직 없습니다.'}
+                                        Auto 시작 또는 등록 버튼으로 오더를 투입하세요.
                                     </div>
                                 )}
                             </div>
@@ -219,6 +274,37 @@ export default function OmsTab({ onInfoOpen }) {
                     );
                 })}
             </div>
+
+            {taskPopover && (
+                <div className="logistics-node-popover-backdrop" onClick={() => setTaskPopover(null)}>
+                    <div className="logistics-node-popover" onClick={(event) => event.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">{STAGE_LABELS[taskPopover.stage]} · {taskPopover.nodeLabel}</div>
+                                <div className="logistics-node-popover-title">{nodeStatusLabel(taskPopover.status)} {taskPopover.tasks.length}건</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setTaskPopover(null)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {taskPopover.tasks.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className={`logistics-node-popover-row${focusedTaskId === task.taskId ? ' focused' : ''}`}
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setTaskPopover(null);
+                                    }}
+                                >
+                                    <span>{task.taskId}</span>
+                                    <strong>{task.owner}</strong>
+                                    <em>{task.itemCode} · {task.quantity}ea</em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {modalMode && (
                 <div

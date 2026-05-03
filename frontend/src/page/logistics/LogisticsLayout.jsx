@@ -50,6 +50,10 @@ function formatLogTimestamp(timestamp) {
 }
 
 function summarizeEvent(event) {
+    if (event.eventType?.startsWith('order.') && event.payload?.receiveNodeLabel) {
+        const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'OMS';
+        return `${stageName}: ${event.payload.receiveNodeLabel}`;
+    }
     if (event.eventType === 'inbound.received') return '입고 등록';
     if (event.eventType === 'inbound.validated') return '입고 유효성 통과';
     if (event.eventType === 'inbound.zone.assigned') return '입고 Zone 배정';
@@ -396,7 +400,7 @@ export default function LogisticsLayout() {
                             {visibleEvents.length > 0 ? visibleEvents.slice().reverse().map(event => (
                                 <div key={event.eventId} className="logistics-log-row">
                                     <div className="logistics-log-row-top">
-                                        <span className="logistics-log-key">{event.routingKey}</span>
+                                        <span className="logistics-log-key">{summarizeEvent(event)}</span>
                                         <span className="logistics-log-time">{formatLogTimestamp(event.timestamp)}</span>
                                     </div>
                                     <div className="logistics-log-row-meta">
@@ -404,7 +408,7 @@ export default function LogisticsLayout() {
                                         <span>{event.actor}</span>
                                         <span>{event.correlationId.slice(0, 8)}</span>
                                     </div>
-                                    <div className="logistics-log-row-summary">{summarizeEvent(event)}</div>
+                                    <div className="logistics-log-row-summary">{event.routingKey}</div>
                                 </div>
                             )) : (
                                 <div className="logistics-empty-card">

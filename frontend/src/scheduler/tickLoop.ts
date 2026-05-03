@@ -7,11 +7,21 @@ import { emitter } from '@/domain/logistics/common/emitter';
 import { getActiveTasks, patchTask, updateTaskStage, updateTaskStatus } from '@/store/taskStore';
 import { appendEvent } from '@/store/eventStore';
 import { applyAutoFocus, getFocusedTaskId } from '@/store/focusStore';
-import { PIPELINE_STAGES, randomTicks, STAGE_ROUTING_KEY, getFinalStageForTask, getPipelineStagesForTask } from '@/domain/logistics/common/stages';
-import type { LogisticsTask, TaskStage } from '@/domain/logistics/common/events';
+import {
+    getInitialOmsStageWorkNodeKey,
+    getNextOmsStageWorkNodeKey,
+    getOmsStageWorkNodeLabel,
+    OMS_RECEIVE_NODE_TICKS,
+    PIPELINE_STAGES,
+    randomTicks,
+    STAGE_ROUTING_KEY,
+    getFinalStageForTask,
+    getPipelineStagesForTask,
+} from '@/domain/logistics/common/stages';
+import type { LogisticsTask, OmsReceiveNodeKey, OmsStage, TaskStage } from '@/domain/logistics/common/events';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getFailureRateForStage } from '@/page/logistics/services/simulationSettings';
-import { hasFailureCandidates, pickFailureForStage } from '@/domain/logistics/common/failures';
+import { hasFailureCandidates, pickFailureForReceiveNode, pickFailureForStage } from '@/domain/logistics/common/failures';
 
 // 인메모리 틱 카운터 — Dexie는 단계 전이 시에만 기록 (100ms 반복 I/O 방지)
 interface TickState {
@@ -67,7 +77,9 @@ async function processTasks(): Promise<void> {
 }
 
 async function advanceStage(task: LogisticsTask): Promise<void> {
-    if (shouldFailAtStage(task, task.currentStage)) {
+    if (await advanceOmsWorkNode(task)) return;
+
+    if (!task.currentStage.startsWith('OMS_') && shouldFailAtStage(task, task.currentStage)) {
         await failTask(task, task.currentStage);
         return;
     }
@@ -132,18 +144,46 @@ async function advanceStage(task: LogisticsTask): Promise<void> {
     if (nextStage === 'WMS_PACKED') {
         stagePatch.boxId = `BOX-${String(Math.floor(Math.random() * 9000) + 1000)}`;
     }
-    await updateTaskStage(task.taskId, nextStage, ticks);
+    const isNextOmsStage = nextStage.startsWith('OMS_');
+    if (isNextOmsStage) {
+        stagePatch.receiveNodeKey = getInitialOmsStageWorkNodeKey(nextStage as OmsStage);
+    }
+    await updateTaskStage(task.taskId, nextStage, isNextOmsStage ? OMS_RECEIVE_NODE_TICKS : ticks);
     if (Object.keys(stagePatch).length > 0) {
         await patchTask(task.taskId, stagePatch);
     }
     await publishEvent(task, nextStage);
 
-    _states.set(task.taskId, { ticks: 0, target: ticks, paused: false });
+    _states.set(task.taskId, { ticks: 0, target: isNextOmsStage ? OMS_RECEIVE_NODE_TICKS : ticks, paused: false });
 
     // 첫 Task 자동 포커스 (DECISION-LOG [7])
     if (getFocusedTaskId() === null) {
         applyAutoFocus(task.taskId);
     }
+}
+
+async function advanceOmsWorkNode(task: LogisticsTask): Promise<boolean> {
+    if (task.type !== 'ORDER' || !task.currentStage.startsWith('OMS_')) return false;
+    const currentStage = task.currentStage as OmsStage;
+
+    const receiveNodeKey = task.receiveNodeKey;
+    if (shouldFailAtOmsWorkNode(task, currentStage, receiveNodeKey)) {
+        await failTask(task, task.currentStage, receiveNodeKey);
+        return true;
+    }
+
+    await publishOmsWorkNodeEvent(task, currentStage, receiveNodeKey);
+
+    const nextReceiveNodeKey = getNextOmsStageWorkNodeKey(currentStage, receiveNodeKey);
+    if (!nextReceiveNodeKey) return false;
+
+    await patchTask(task.taskId, {
+        receiveNodeKey: nextReceiveNodeKey,
+        ticksInCurrentStage: 0,
+        ticksTarget: OMS_RECEIVE_NODE_TICKS,
+    });
+    _states.set(task.taskId, { ticks: 0, target: OMS_RECEIVE_NODE_TICKS, paused: false });
+    return true;
 }
 
 function shouldFailAtStage(task: LogisticsTask, stage: TaskStage): boolean {
@@ -157,10 +197,24 @@ function shouldFailAtStage(task: LogisticsTask, stage: TaskStage): boolean {
     return Math.random() * 100 < failureRate;
 }
 
-async function failTask(task: LogisticsTask, stage: TaskStage): Promise<void> {
-    const failure = pickFailureForStage(stage);
+function shouldFailAtOmsWorkNode(task: LogisticsTask, stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): boolean {
+    if (!hasFailureCandidates(stage)) return false;
+    const failureRate = getFailureRateForStage(stage, {
+        globalFailureRate: task.simulationGlobalFailureRate,
+        stageOverrides: task.simulationStageOverrides,
+    });
+
+    if (failureRate <= 0) return false;
+    return Math.random() * 100 < failureRate && Boolean(pickFailureForReceiveNode(stage, receiveNodeKey));
+}
+
+async function failTask(task: LogisticsTask, stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): Promise<void> {
+    const failure = receiveNodeKey ? pickFailureForReceiveNode(stage, receiveNodeKey) : pickFailureForStage(stage);
     if (!failure) return;
-    dtag(2, ['logistics', 'exception', 'event'], '시뮬레이션 실패 상태 전이와 실패 이벤트 발행 블록', task.taskId, stage, failure.code);
+    dtag(2, ['logistics', 'exception', 'event'], '시뮬레이션 실패 상태 전이와 실패 이벤트 발행 블록', task.taskId, stage, receiveNodeKey ?? '-', failure.code);
+    if (stage.startsWith('OMS_') && receiveNodeKey) {
+        dlog(2, 'tickLoop.failTask — OMS 내부 작업 실패/조치 매핑 실로직 교체 지점', task.taskId, getOmsStageWorkNodeLabel(stage as OmsStage, receiveNodeKey), failure.code);
+    }
     if (stage === 'OMS_VALIDATED') {
         dlog(2, 'tickLoop.failTask — OMS 검증 실패 사유/감사 로그 실로직 교체 지점 (REQ-T2-002 [pu→co])', task.taskId, stage);
     }
@@ -185,6 +239,7 @@ async function failTask(task: LogisticsTask, stage: TaskStage): Promise<void> {
         failureReason: failure.summary,
         failureCode: failure.code,
         failureLabel: failure.label,
+        failureReceiveNodeKey: receiveNodeKey,
         failureDomain: failure.domain,
         failureType: failure.type,
         failureRecoverable: failure.recoverable,
@@ -198,6 +253,8 @@ async function failTask(task: LogisticsTask, stage: TaskStage): Promise<void> {
         aggregateId: task.taskId,
         payload: {
             stage,
+            receiveNodeKey,
+            receiveNodeLabel: receiveNodeKey ? getOmsStageWorkNodeLabel(stage as OmsStage, receiveNodeKey) : undefined,
             failureCode: failure.code,
             failureLabel: failure.label,
             reason: failure.summary,
@@ -213,6 +270,33 @@ async function failTask(task: LogisticsTask, stage: TaskStage): Promise<void> {
         idempotencyKey: `${task.taskId}:${stage}:${failure.code}`,
     });
     emitter.emit('logistics:task:updated', { taskId: task.taskId });
+}
+
+async function publishOmsWorkNodeEvent(task: LogisticsTask, stage: OmsStage, receiveNodeKey?: OmsReceiveNodeKey): Promise<void> {
+    const safeKey = receiveNodeKey ?? getInitialOmsStageWorkNodeKey(stage);
+    const routingKey = `order.${stage.toLowerCase().replace('oms_', '').replaceAll('_', '.')}.${safeKey}.done`;
+    dtag(2, ['logistics', 'oms', 'event'], 'OMS 내부 작업 완료 이벤트 발행 블록', task.taskId, stage, safeKey);
+    dlog(2, 'tickLoop.publishOmsWorkNodeEvent — OMS 내부 작업별 이벤트/MQ 교체 지점', task.taskId, stage, safeKey);
+    await appendEvent({
+        eventId:       generateUUID(),
+        eventType:     routingKey,
+        routingKey,
+        aggregateId:   task.taskId,
+        payload:       {
+            stage,
+            receiveNodeKey: safeKey,
+            receiveNodeLabel: getOmsStageWorkNodeLabel(stage, safeKey),
+            owner: task.owner,
+            itemCode: task.itemCode,
+            type: task.type,
+        },
+        eventVersion:  '1.0',
+        actor:         task.actor,
+        timestamp:     Date.now(),
+        correlationId: task.correlationId,
+        idempotencyKey: `${task.taskId}:OMS_RECEIVED:${safeKey}`,
+    });
+    emitter.emit('logistics:task:stage', { taskId: task.taskId, stage });
 }
 
 async function publishEvent(task: LogisticsTask, stage: TaskStage): Promise<void> {

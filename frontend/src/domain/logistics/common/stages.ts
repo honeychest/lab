@@ -1,10 +1,228 @@
-import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage } from './events';
+import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage, OmsReceiveNodeKey } from './events';
 
 export const OMS_STAGES: OmsStage[] = [
     'OMS_RECEIVED',
     'OMS_VALIDATED',
     'OMS_WMS_REQUESTED',
 ];
+
+export type OmsReceiveWorkNode = {
+    key: string;
+    label: string;
+    summary: string;
+    signal: string;
+    output: string;
+    stage: number;
+    dlog: string;
+    handoff: string;
+};
+
+export const OMS_RECEIVE_NODE_TICKS = 50;
+
+export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
+    {
+        key: 'raw-ingest',
+        label: '주문 원문 수신',
+        summary: '외부 채널에서 들어온 주문 원문을 접수 큐에 올립니다.',
+        signal: '원문 누락, 채널 불명',
+        output: '접수 이벤트',
+        stage: 2,
+        dlog: 'OmsReceive.rawIngest — 주문 원문 수신/채널 payload 보존 구현 지점',
+        handoff: '채널, 원문 ID, 수신 시각',
+    },
+    {
+        key: 'owner-match',
+        label: '화주·채널 식별',
+        summary: '화주와 유입 채널을 계약 범위에 맞춰 식별합니다.',
+        signal: '미등록 화주, 계약 불일치',
+        output: 'owner key',
+        stage: 2,
+        dlog: 'OmsReceive.ownerMatch — 화주/채널/계약 식별 구현 지점',
+        handoff: 'owner key, 계약 정책',
+    },
+    {
+        key: 'required-fields',
+        label: '필수값 검사',
+        summary: '품목, 수량, 도착지, 외부 주문키를 확인합니다.',
+        signal: '필수값 누락, 형식 오류',
+        output: '검증 후보',
+        stage: 2,
+        dlog: 'OmsReceive.requiredFields — OMS 접수 필수값 검증 구현 지점',
+        handoff: '검증 결과, 반려 사유',
+    },
+    {
+        key: 'duplicate-check',
+        label: '중복 주문 탐지',
+        summary: '외부 주문번호를 접수 이력과 대조해 중복을 막습니다.',
+        signal: '재전송, 멱등 충돌',
+        output: '중복 판정',
+        stage: 2,
+        dlog: 'OmsReceive.duplicateCheck — 중복 주문 탐지/멱등 처리 구현 지점',
+        handoff: '중복 여부, 기존 taskId',
+    },
+    {
+        key: 'receipt-key',
+        label: '접수키 발급',
+        summary: '작업 추적용 taskId와 traceId를 만들고 이력 체인을 시작합니다.',
+        signal: '키 충돌, 추적 단절',
+        output: 'taskId / traceId',
+        stage: 2,
+        dlog: 'OmsReceive.receiptKey — 접수키/추적키 발급 구현 지점',
+        handoff: 'taskId, traceId, event seed',
+    },
+    {
+        key: 'next-queue',
+        label: '검증 큐 등록',
+        summary: '다음 검증 레인이 집어갈 이벤트를 생성합니다.',
+        signal: '큐 적재 실패, 이벤트 유실',
+        output: '검증 대기 작업',
+        stage: 2,
+        dlog: 'OmsReceive.nextQueue — OMS 검증 큐 등록/이벤트 발행 구현 지점',
+        handoff: 'validation queue event',
+    },
+];
+
+export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
+    {
+        key: 'contract-rule',
+        label: '계약 조건 확인',
+        summary: '화주 계약과 주문 채널 허용 범위를 확인합니다.',
+        signal: '계약 불일치',
+        output: '계약 검증 결과',
+        stage: 2,
+        dlog: 'OmsValidate.contractRule — 화주 계약/채널 정책 검증 구현 지점',
+        handoff: '계약 ID, 허용 채널',
+    },
+    {
+        key: 'item-rule',
+        label: '품목 정책 확인',
+        summary: '품목 코드와 취급 가능 조건을 확인합니다.',
+        signal: '미등록 품목',
+        output: '품목 검증 결과',
+        stage: 2,
+        dlog: 'OmsValidate.itemRule — 품목 정책/취급 가능 조건 구현 지점',
+        handoff: 'item policy, 보관 온도',
+    },
+    {
+        key: 'quantity-rule',
+        label: '수량·단위 확인',
+        summary: '주문 수량과 단위가 처리 가능한 범위인지 확인합니다.',
+        signal: '수량 초과, 단위 오류',
+        output: '수량 검증 결과',
+        stage: 2,
+        dlog: 'OmsValidate.quantityRule — 수량/단위 검증 구현 지점',
+        handoff: '수량 범위, 단위',
+    },
+    {
+        key: 'destination-rule',
+        label: '배송지 가능권 확인',
+        summary: '배송지와 서비스 가능 권역을 대조합니다.',
+        signal: '권역 불가',
+        output: '배송지 검증 결과',
+        stage: 2,
+        dlog: 'OmsValidate.destinationRule — 배송 가능 권역 검증 구현 지점',
+        handoff: '권역 코드, 제한 사유',
+    },
+    {
+        key: 'audit-ready',
+        label: '검증 감사 기록',
+        summary: '검증 결과와 반려 후보를 감사 로그로 남깁니다.',
+        signal: '감사 누락',
+        output: '검증 완료 이벤트',
+        stage: 2,
+        dlog: 'OmsValidate.auditReady — 검증 감사 로그/반려 사유 구현 지점',
+        handoff: '검증 결과, 감사 로그',
+    },
+];
+
+export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
+    {
+        key: 'shipment-build',
+        label: '출고 요청 구성',
+        summary: '검증된 주문을 WMS 출고 요청 payload로 구성합니다.',
+        signal: 'payload 누락',
+        output: 'shipment request',
+        stage: 2,
+        dlog: 'OmsWmsRequest.shipmentBuild — WMS 출고 요청 payload 구성 구현 지점',
+        handoff: '출고 요청 payload',
+    },
+    {
+        key: 'inventory-hint',
+        label: '재고 힌트 첨부',
+        summary: '후속 WMS 할당에 필요한 품목·수량 힌트를 붙입니다.',
+        signal: '품목 힌트 누락',
+        output: 'allocation hint',
+        stage: 2,
+        dlog: 'OmsWmsRequest.inventoryHint — 재고 할당 힌트 구성 구현 지점',
+        handoff: '품목, 수량, 온도대',
+    },
+    {
+        key: 'event-envelope',
+        label: '이벤트 봉투 생성',
+        summary: 'routingKey, trace, idempotency 정보를 묶습니다.',
+        signal: 'trace 단절',
+        output: 'event envelope',
+        stage: 2,
+        dlog: 'OmsWmsRequest.eventEnvelope — 이벤트 봉투/멱등키 구현 지점',
+        handoff: 'routingKey, traceId, idempotencyKey',
+    },
+    {
+        key: 'broker-send',
+        label: 'WMS 이벤트 발행',
+        summary: 'WMS가 수신할 출고 요청 이벤트를 발행합니다.',
+        signal: '브로커 발행 실패',
+        output: 'order.wms.requested',
+        stage: 2,
+        dlog: 'OmsWmsRequest.brokerSend — MQ/WS 이벤트 발행 구현 지점',
+        handoff: '발행 결과, 재시도 키',
+    },
+    {
+        key: 'handoff-watch',
+        label: '승계 확인',
+        summary: 'WMS 접수 카드 생성 여부를 확인할 추적점을 남깁니다.',
+        signal: 'WMS 미수신',
+        output: 'WMS 접수 대기',
+        stage: 2,
+        dlog: 'OmsWmsRequest.handoffWatch — WMS 수신 확인/미수신 보상 구현 지점',
+        handoff: 'WMS 수신 상태',
+    },
+];
+
+export const OMS_STAGE_WORK_NODES: Record<OmsStage, OmsReceiveWorkNode[]> = {
+    OMS_RECEIVED: OMS_RECEIVE_WORK_NODES,
+    OMS_VALIDATED: OMS_VALIDATE_WORK_NODES,
+    OMS_WMS_REQUESTED: OMS_WMS_REQUEST_WORK_NODES,
+};
+
+export function getInitialOmsReceiveNodeKey(): OmsReceiveNodeKey {
+    return OMS_RECEIVE_WORK_NODES[0].key as OmsReceiveNodeKey;
+}
+
+export function getInitialOmsStageWorkNodeKey(stage: OmsStage): OmsReceiveNodeKey {
+    return OMS_STAGE_WORK_NODES[stage][0].key as OmsReceiveNodeKey;
+}
+
+export function getNextOmsReceiveNodeKey(key?: OmsReceiveNodeKey): OmsReceiveNodeKey | null {
+    const currentIndex = OMS_RECEIVE_WORK_NODES.findIndex(node => node.key === key);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return (OMS_RECEIVE_WORK_NODES[safeIndex + 1]?.key as OmsReceiveNodeKey | undefined) ?? null;
+}
+
+export function getNextOmsStageWorkNodeKey(stage: OmsStage, key?: OmsReceiveNodeKey): OmsReceiveNodeKey | null {
+    const nodes = OMS_STAGE_WORK_NODES[stage];
+    const currentIndex = nodes.findIndex(node => node.key === key);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return (nodes[safeIndex + 1]?.key as OmsReceiveNodeKey | undefined) ?? null;
+}
+
+export function getOmsReceiveNodeLabel(key?: OmsReceiveNodeKey): string {
+    return OMS_RECEIVE_WORK_NODES.find(node => node.key === key)?.label ?? OMS_RECEIVE_WORK_NODES[0].label;
+}
+
+export function getOmsStageWorkNodeLabel(stage: OmsStage, key?: OmsReceiveNodeKey): string {
+    const nodes = OMS_STAGE_WORK_NODES[stage];
+    return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
+}
 
 export const INBOUND_STAGES: InboundStage[] = [
     'INBOUND_RECEIVED',

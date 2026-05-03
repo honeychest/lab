@@ -2,8 +2,8 @@ import { dlog, dtag } from '@/global/chs';
 import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
 import { patchTask } from '@/store/taskStore';
-import { removeTask, resumeTask } from '@/scheduler/tickLoop';
-import { INBOUND_STAGES, PIPELINE_STAGES } from '@/domain/logistics/common/stages';
+import { removeTask, resumeTask, seedTickState } from '@/scheduler/tickLoop';
+import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, PIPELINE_STAGES } from '@/domain/logistics/common/stages';
 import generateUUID from '@/shared/lib/generateUUID';
 
 function previousStage(stage) {
@@ -13,7 +13,7 @@ function previousStage(stage) {
     return stages[index - 1];
 }
 
-function buildRecoveryEvent(task, action, targetStage) {
+function buildRecoveryEvent(task, action, targetStage, targetReceiveNodeKey) {
     return {
         eventId: generateUUID(),
         eventType: 'task.recovered',
@@ -23,6 +23,7 @@ function buildRecoveryEvent(task, action, targetStage) {
             actionId: action.id,
             actionLabel: action.label,
             nextStage: targetStage,
+            nextReceiveNodeKey: targetReceiveNodeKey,
             cancelled: action.id === 'cancel_order',
         },
         eventVersion: '1.0',
@@ -41,15 +42,21 @@ export async function performRecoveryAction(task, action) {
         ?? (task.failureResumePolicy === 'rollback_previous_stage'
             ? previousStage(task.currentStage)
             : task.currentStage);
+    const isOmsStage = targetStage.startsWith('OMS_');
+    const targetReceiveNodeKey = isOmsStage
+        ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
+        : undefined;
 
     await patchTask(task.taskId, {
         status: action.id === 'cancel_order' ? 'cancelled' : 'active',
         currentStage: action.id === 'cancel_order' ? task.currentStage : targetStage,
+        receiveNodeKey: action.id === 'cancel_order' ? task.receiveNodeKey : targetReceiveNodeKey,
         ticksInCurrentStage: 0,
-        ticksTarget: task.ticksTarget,
+        ticksTarget: isOmsStage ? OMS_RECEIVE_NODE_TICKS : task.ticksTarget,
         failureReason: undefined,
         failureCode: undefined,
         failureLabel: undefined,
+        failureReceiveNodeKey: undefined,
         failureDomain: undefined,
         failureType: undefined,
         failureRecoverable: undefined,
@@ -57,7 +64,7 @@ export async function performRecoveryAction(task, action) {
         failureResumePolicy: undefined,
     });
 
-    await appendEvent(buildRecoveryEvent(task, action, targetStage));
+    await appendEvent(buildRecoveryEvent(task, action, targetStage, targetReceiveNodeKey));
     await appendAuditEvent('audit.recovery.performed', {
         stage: task.currentStage,
         actionId: action.id,
@@ -71,6 +78,7 @@ export async function performRecoveryAction(task, action) {
     if (action.id === 'cancel_order') {
         removeTask(task.taskId);
     } else {
+        seedTickState(task.taskId, isOmsStage ? OMS_RECEIVE_NODE_TICKS : task.ticksTarget);
         resumeTask(task.taskId);
     }
 
