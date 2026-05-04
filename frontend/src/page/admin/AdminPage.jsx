@@ -2,6 +2,7 @@
 // IP 인증: 마운트 시 /api/admin/data-gap/access 체크 → canAccess false면 접근 거부
 // 갭 조회: /api/admin/data-gap/check?type=xxx → 결과 테이블, 체크박스로 행 선택 → [선택 수집] 버튼
 // 수동 수집: /api/admin/backfill/collect → Job 폴링 | flat/outlier 보정: /api/admin/backfill/*-correction
+// Outlier: 전용 symbol/market select 값으로 진단/보정 API 호출, 실행 시 갭 조회 결과와 분리
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
@@ -9,6 +10,7 @@ import chs from '@/global/chs';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import styles from './AdminPage.module.css';
 import '../../styles/themes/monitor-teal.css';
+import { VISUAL_EFFECT_SAMPLES } from '@/shared/ui/samples/visualSamples';
 
 const CHECKS = [
     { type: 'RAW_AGG_TRADE', label: 'Raw AggTrade (7일)', days: 7,    desc: 'agg_trade_id 연속성 갭 · 최근 7일' },
@@ -20,8 +22,10 @@ const CHECKS = [
 const HEALTH_HOURS_OPTIONS = [1, 2, 4, 12, 24, 48];
 const OUTLIER_RANGE_OPTIONS = [
     { key: 'current', label: '선택 범위(최대 48시간)', useHealthHours: true },
+    { key: 'custom', label: '직접 지정' },
     { key: '48_96', label: '48~96시간 전', fromHours: 96, toHours: 48 },
     { key: '96_120', label: '96~120시간 전', fromHours: 120, toHours: 96 },
+    { key: '120_144', label: '120~144시간 전', fromHours: 144, toHours: 120 },
 ];
 const SYMBOLS   = ['BTCUSDT', 'ENAUSDT'];
 const MARKETS   = ['SPOT', 'FUTURES'];
@@ -94,11 +98,23 @@ export default function AdminPage() {
     const [correctionResult, setCorrectionResult] = useState(null);
     const [correctionLoading, setCorrectionLoading] = useState(false);
     const [correctionError, setCorrectionError] = useState(null);
+    chs.dlog(4, 'outlier 전용 symbol 상태 선언');
+    const [outlierSymbol, setOutlierSymbol] = useState('BTCUSDT');
+    chs.dlog(4, 'outlier 전용 market 상태 선언');
+    const [outlierMarket, setOutlierMarket] = useState('FUTURES');
     const [outlierHealth, setOutlierHealth] = useState(null);
     const [outlierResult, setOutlierResult] = useState(null);
     const [outlierLoading, setOutlierLoading] = useState(false);
     const [outlierError, setOutlierError] = useState(null);
     const [outlierRangeKey, setOutlierRangeKey] = useState('current');
+    const [outlierCustomFrom, setOutlierCustomFrom] = useState('');
+    const [outlierCustomTo, setOutlierCustomTo] = useState('');
+
+    const resetOutlierResults = () => {
+        setOutlierHealth(null);
+        setOutlierResult(null);
+        setOutlierError(null);
+    };
 
     // ── 내 IP ────────────────────────────────────────────────────────────────
     const [myIp, setMyIp] = useState(null);
@@ -112,6 +128,7 @@ export default function AdminPage() {
     const [allowedIps, setAllowedIps] = useState([]);
     const [allowedLoading, setAllowedLoading] = useState(false);
     const [allowedError, setAllowedError] = useState(null);
+    const [sampleOpen, setSampleOpen] = useState(false);
 
     const [deletingFlat, setDeletingFlat] = useState(null); // '1s'|'1m'|'5m'
     const [deleteMessage, setDeleteMessage] = useState(null);
@@ -217,16 +234,34 @@ export default function AdminPage() {
 
     const handleOutlierCorrectionHealth = async () => {
         chs.dlog(4, 'admin outlier 보정 진단 시작');
+        chs.dlog(4, 'outlier 진단 시작 시 갭 조회 버튼 선택과 조회 결과 초기화');
+        setActiveKey(null);
+        setRows(null);
+        chs.dlog(4, 'outlier 진단 시작 시 갭 조회 컬럼과 선택 row 초기화');
+        setColumns([]);
+        setSelectedRows(new Set());
+        setError(null);
         chs.dlog(4, 'outlier 전용 시간 범위 확인');
+        chs.dlog(4, 'outlier 직접 지정 범위가 선택되었는지 확인');
+        chs.dlog(4, '직접 지정 from datetime-local 값을 Unix ms로 변환');
+        chs.dlog(4, '직접 지정 to datetime-local 값을 Unix ms로 변환');
+        chs.dlog(4, '직접 지정 범위가 비어있거나 역전된 경우 진단 요청 중단');
+        let range;
+        try {
+            range = getOutlierRange();
+        } catch (e) {
+            setOutlierError(e.message);
+            return;
+        }
         setOutlierLoading(true);
-        setOutlierError(null);
-        setOutlierHealth(null);
-        const { fromMs, toMs } = getOutlierRange();
+        resetOutlierResults();
+        const { fromMs, toMs } = range;
         chs.dlog(4, 'outlier 진단은 선택한 48시간 이하 구간만 사용');
+        chs.dlog(4, 'outlier 진단 API에 outlier 전용 symbol market 전달');
         try {
             chs.dlog(4, '/api/admin/backfill/outlier-correction/health 호출');
             const r = await apiClient.get('/api/admin/backfill/outlier-correction/health', {
-                params: { symbol: healthSymbol, marketType: healthMarket, fromMs, toMs },
+                params: { symbol: outlierSymbol, marketType: outlierMarket, fromMs, toMs },
             });
             chs.dlog(4, 'raw 기준 불일치 1m 후보를 화면 상태값에 저장');
             setOutlierHealth(r.data);
@@ -240,17 +275,36 @@ export default function AdminPage() {
 
     const handleOutlierCorrection = async () => {
         chs.dlog(4, 'admin outlier 보정 실행 시작');
+        chs.dlog(4, 'outlier 보정 시작 시 갭 조회 버튼 선택과 조회 결과 초기화');
+        setActiveKey(null);
+        setRows(null);
+        chs.dlog(4, 'outlier 보정 시작 시 갭 조회 컬럼과 선택 row 초기화');
+        setColumns([]);
+        setSelectedRows(new Set());
+        setError(null);
         chs.dlog(4, 'outlier 전용 시간 범위 확인');
+        chs.dlog(4, 'outlier 직접 지정 범위가 선택되었는지 확인');
+        chs.dlog(4, '직접 지정 from datetime-local 값을 Unix ms로 변환');
+        chs.dlog(4, '직접 지정 to datetime-local 값을 Unix ms로 변환');
+        chs.dlog(4, '직접 지정 범위가 비어있거나 역전된 경우 보정 요청 중단');
+        let range;
+        try {
+            range = getOutlierRange();
+        } catch (e) {
+            setOutlierError(e.message);
+            return;
+        }
         setOutlierLoading(true);
         setOutlierError(null);
         setOutlierResult(null);
-        const { fromMs, toMs } = getOutlierRange();
+        const { fromMs, toMs } = range;
         chs.dlog(4, 'FUTURES와 raw 존재 구간인지 확인');
+        chs.dlog(4, 'outlier 보정 API에 outlier 전용 symbol market 전달');
         try {
             chs.dlog(4, '/api/admin/backfill/outlier-correction 호출');
             const r = await apiClient.post('/api/admin/backfill/outlier-correction', {
-                symbol: healthSymbol,
-                marketType: healthMarket,
+                symbol: outlierSymbol,
+                marketType: outlierMarket,
                 fromMs,
                 toMs,
             });
@@ -258,8 +312,8 @@ export default function AdminPage() {
             chs.dlog(4, '영향 5m 재생성 결과를 화면 상태값에 저장');
             setOutlierResult(r.data);
             setOutlierHealth(r.data?.health ?? null);
-            chs.dlog(4, '보정 후 outlier 진단과 flat health 조회를 다시 실행');
-            await handleHealthCheck();
+            chs.dlog(4, 'outlier 보정 응답의 outlier health만 화면에 반영');
+            chs.dlog(4, 'flat health와 갭 조회 결과는 outlier 보정 후 자동 재조회하지 않음');
         } catch (e) {
             setOutlierError(e.response?.data?.error ?? 'outlier 보정 실패');
         } finally {
@@ -271,8 +325,23 @@ export default function AdminPage() {
 
     const getOutlierRange = () => {
         chs.dlog(4, 'outlierRangeKey로 fromMs toMs 계산');
+        chs.dlog(4, 'outlier 범위 옵션에 120~144시간 전 한단계 추가');
+        chs.dlog(4, '직접 지정 옵션이면 outlierCustomFrom 값을 fromMs로 변환');
+        chs.dlog(4, '직접 지정 옵션이면 outlierCustomTo 값을 toMs로 변환');
+        chs.dlog(4, '직접 지정 옵션이면 변환된 fromMs toMs 반환');
         const option = OUTLIER_RANGE_OPTIONS.find((item) => item.key === outlierRangeKey)
             ?? OUTLIER_RANGE_OPTIONS[0];
+        if (option.key === 'custom') {
+            const fromMs = datetimeLocalToMs(outlierCustomFrom);
+            const toMs = datetimeLocalToMs(outlierCustomTo);
+            if (!fromMs || !toMs) {
+                throw new Error('직접 지정 From/To를 입력해주세요.');
+            }
+            if (fromMs >= toMs) {
+                throw new Error('직접 지정 From은 To보다 이전이어야 합니다.');
+            }
+            return { fromMs, toMs };
+        }
         const now = Date.now();
         if (option.useHealthHours) {
             return {
@@ -712,6 +781,31 @@ export default function AdminPage() {
                                 </div>
                             )}
                             <div className={styles.actions}>
+                                {chs.dlog(4, 'outlier 전용 symbol select 표시')}
+                                <select
+                                    className={styles.select}
+                                    value={outlierSymbol}
+                                    onChange={e => {
+                                        setOutlierSymbol(e.target.value);
+                                        resetOutlierResults();
+                                    }}
+                                    disabled={outlierLoading}
+                                >
+                                    {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                {chs.dlog(4, 'outlier 전용 market select 표시')}
+                                <select
+                                    className={styles.select}
+                                    value={outlierMarket}
+                                    onChange={e => {
+                                        setOutlierMarket(e.target.value);
+                                        resetOutlierResults();
+                                    }}
+                                    disabled={outlierLoading}
+                                >
+                                    {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                {chs.dlog(4, 'outlier 범위 선택에 직접 지정 옵션을 표시')}
                                 <select
                                     className={styles.select}
                                     value={outlierRangeKey}
@@ -722,6 +816,28 @@ export default function AdminPage() {
                                         <option key={option.key} value={option.key}>{option.label}</option>
                                     ))}
                                 </select>
+                                {chs.dlog(4, '직접 지정 옵션 선택 시 from datetime-local 입력을 표시')}
+                                {chs.dlog(4, '직접 지정 옵션 선택 시 to datetime-local 입력을 표시')}
+                                {outlierRangeKey === 'custom' && (
+                                    <>
+                                        <input
+                                            className={styles.input}
+                                            type="datetime-local"
+                                            value={outlierCustomFrom}
+                                            onChange={e => setOutlierCustomFrom(e.target.value)}
+                                            disabled={outlierLoading}
+                                            title="Outlier From"
+                                        />
+                                        <input
+                                            className={styles.input}
+                                            type="datetime-local"
+                                            value={outlierCustomTo}
+                                            onChange={e => setOutlierCustomTo(e.target.value)}
+                                            disabled={outlierLoading}
+                                            title="Outlier To"
+                                        />
+                                    </>
+                                )}
                                 <button
                                     type="button"
                                     className={styles.btn}
@@ -734,8 +850,8 @@ export default function AdminPage() {
                                     type="button"
                                     className={`${styles.btn} ${styles.btnActive}`}
                                     onClick={handleOutlierCorrection}
-                                    disabled={outlierLoading || healthMarket !== 'FUTURES'}
-                                    style={{ opacity: outlierLoading || healthMarket !== 'FUTURES' ? 0.6 : 1 }}
+                                    disabled={outlierLoading || outlierMarket !== 'FUTURES'}
+                                    style={{ opacity: outlierLoading || outlierMarket !== 'FUTURES' ? 0.6 : 1 }}
                                 >
                                     {outlierLoading ? '처리 중...' : 'Outlier 보정 실행'}
                                 </button>
@@ -745,24 +861,34 @@ export default function AdminPage() {
                                 <div className={styles.tableWrap}>
                                     <div className={styles.desc}>
                                         raw 불일치 1m {fmtNum(outlierHealth.outlier1mCount)}건 · 영향 5m {fmtNum(outlierHealth.impacted5mCount)}건
+                                        {outlierHealth.reasonSummary && (
+                                            <>
+                                                {' · '}
+                                                {Object.entries(outlierHealth.reasonSummary).map(([key, value]) => `${key} ${fmtNum(value)}`).join(' / ')}
+                                            </>
+                                        )}
                                     </div>
                                     {Array.isArray(outlierHealth.rows) && outlierHealth.rows.length > 0 && (
                                         <table className={styles.table}>
                                             <thead>
                                                 <tr>
-                                                    {['시간', 'agg OHLC', 'raw OHLC', 'agg/raw 거래수'].map(h => <th key={h} className={styles.th}>{h}</th>)}
+                                                    {chs.dlog(4, 'outlier 진단 테이블에 reason 컬럼을 표시')}
+                                                    {chs.dlog(4, 'outlier 진단 테이블에 agg와 raw 차이 핵심값을 표시')}
+                                                    {['시간', 'reason', 'agg OHLC', 'raw OHLC', 'max diff', 'agg/raw 거래수'].map(h => <th key={h} className={styles.th}>{h}</th>)}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {outlierHealth.rows.slice(0, 20).map((row, idx) => (
                                                     <tr key={`${row.candle_time_ms}-${idx}`}>
                                                         <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(row.candle_time_ms)}</td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{row.reason}</td>
                                                         <td className={`${styles.td} ${styles.mono}`}>
                                                             {row.open_price}/{row.high_price}/{row.low_price}/{row.close_price}
                                                         </td>
                                                         <td className={`${styles.td} ${styles.mono}`}>
                                                             {row.raw_open}/{row.raw_high}/{row.raw_low}/{row.raw_close}
                                                         </td>
+                                                        <td className={`${styles.td} ${styles.mono}`}>{row.max_price_diff}</td>
                                                         <td className={`${styles.td} ${styles.mono}`}>
                                                             {fmtNum(row.trade_count)}/{fmtNum(row.raw_trade_count)}
                                                         </td>
@@ -777,6 +903,7 @@ export default function AdminPage() {
                                 <div className={styles.desc} style={{ color: 'var(--monitor-gauge-ok)' }}>
                                     Outlier 보정 완료 · 1m 삭제 {fmtNum(outlierResult.oneMinute?.deleted)} / 생성 {fmtNum(outlierResult.oneMinute?.inserted)}
                                     {' · '}5m 삭제 {fmtNum(outlierResult.fiveMinute?.deleted)} / 생성 {fmtNum(outlierResult.fiveMinute?.inserted)}
+                                    {' · '}대상 1m {fmtNum(outlierResult.summary?.targetOneMinuteCount)}건 / 대상 5m {fmtNum(outlierResult.summary?.targetFiveMinuteCount)}건
                                 </div>
                             )}
                         </div>
@@ -1109,6 +1236,26 @@ export default function AdminPage() {
                             )}
                         </div>
 
+                        <div className={styles.card}>
+                            <div className={styles.titleRow}>
+                                <div>
+                                    <div className={styles.title}>UI 샘플</div>
+                                    <div className={styles.subtitle}>공용 effect catalog</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className={`${styles.btn} ${styles.btnActive}`}
+                                    onClick={() => setSampleOpen(true)}
+                                    style={{ marginLeft: 'auto' }}
+                                >
+                                    샘플 보기
+                                </button>
+                            </div>
+                            <div className={styles.desc}>
+                                예: sample_live_spinner 를 특정 노드에 적용.
+                            </div>
+                        </div>
+
                         {flags.monitorAllowedIpManage && (
                             <div className={styles.card}>
                                 <div className={styles.titleRow}>
@@ -1156,6 +1303,40 @@ export default function AdminPage() {
                     </aside>
                 </div>
             </div>
+            {sampleOpen && (
+                <div className={styles.sampleOverlay} onClick={() => setSampleOpen(false)}>
+                    <div className={styles.sampleModal} onClick={(event) => event.stopPropagation()}>
+                        <div className={styles.titleRow}>
+                            <div>
+                                <div className={styles.title}>UI 샘플 카탈로그</div>
+                                <div className={styles.subtitle}>class name으로 다른 페이지에서 재사용</div>
+                            </div>
+                            <button
+                                type="button"
+                                className={styles.btn}
+                                onClick={() => setSampleOpen(false)}
+                            >
+                                닫기
+                            </button>
+                        </div>
+                        <div className={styles.sampleGrid}>
+                            {VISUAL_EFFECT_SAMPLES.map(sample => (
+                                <div key={sample.key} className={styles.sampleCard}>
+                                    <div className={styles.samplePreview}>
+                                        <span className={`${styles.sampleGlyph} ${sample.className}`} aria-hidden="true" />
+                                    </div>
+                                    <div className={styles.sampleMeta}>
+                                        <div className={styles.sampleKey}>{sample.key}</div>
+                                        <div className={styles.sampleLabel}>{sample.label}</div>
+                                        <div className={styles.desc}>{sample.intent}</div>
+                                        <code className={styles.sampleCode}>{sample.example}</code>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 }
