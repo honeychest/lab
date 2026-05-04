@@ -1,0 +1,114 @@
+.sample_live_spinner {
+  animation: sample-live-spinner 2s linear infinite;
+}
+
+.sample_live_dot {
+  animation: sample-live-dot-blink 1s ease infinite;
+}
+
+.sample_scan_beam {
+  position: relative;
+  overflow: hidden;
+}
+
+.sample_scan_beam::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0.26;
+  animation: sample-scan-beam 2.5s linear infinite;
+}
+
+.sample_error_badge {
+  animation: sample-error-attention 0.9s ease-in-out infinite;
+}
+
+.sample_route_flow {
+  animation: sample-route-flow 1.2s ease-in-out infinite;
+}
+
+.sample_route_arrow {
+  animation: sample-route-arrow 1.5s cubic-bezier(0.32, 0, 0.18, 1) infinite;
+}
+
+.sample_orbit_ring {
+  animation: sample-orbit-ring 1.8s ease-in-out infinite;
+}
+
+@keyframes sample-live-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sample-live-dot-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes sample-error-attention {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+
+@keyframes sample-scan-beam {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+@keyframes sample-route-flow {
+  0% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.18;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes sample-route-arrow {
+  0% {
+    opacity: 0;
+    translate: -6px 0;
+  }
+  14%, 72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 32px 0;
+  }
+}
+
+@keyframes sample-orbit-ring {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(0.5);
+  }
+}

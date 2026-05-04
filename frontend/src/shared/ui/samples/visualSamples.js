@@ -1,0 +1,51 @@
+export const VISUAL_EFFECT_SAMPLES = [
+    {
+        key: 'sample_live_spinner',
+        label: 'Live Spinner',
+        intent: '진행 중, 연결 중, 실시간 처리',
+        className: 'sample_live_spinner',
+        example: '<span className="sample_live_spinner" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_live_dot',
+        label: 'Live Dot',
+        intent: '실시간 수신, 활성 상태',
+        className: 'sample_live_dot',
+        example: '<span className="sample_live_dot" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_scan_beam',
+        label: 'Scan Beam',
+        intent: '감시 중, 탐색 중, 대기 스캔',
+        className: 'sample_scan_beam',
+        example: '<span className="sample_scan_beam" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_error_badge',
+        label: 'Error Badge',
+        intent: '실패, 차단, 수동 확인',
+        className: 'sample_error_badge',
+        example: '<span className="sample_error_badge" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_route_flow',
+        label: 'Route Flow',
+        intent: '단계 이동, 흐름 진행',
+        className: 'sample_route_flow',
+        example: '<span className="sample_route_flow" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_route_arrow',
+        label: 'Route Arrow',
+        intent: '노선 화살표 이동, 다음 단계 방향 강조',
+        className: 'sample_route_arrow',
+        example: '<span className="sample_route_arrow" aria-hidden="true" />',
+    },
+    {
+        key: 'sample_orbit_ring',
+        label: 'Orbit Ring',
+        intent: '현재 노드 강조, 주변 링 수축/확장',
+        className: 'sample_orbit_ring',
+        example: '<span className="sample_orbit_ring" aria-hidden="true" />',
+    },
+];
