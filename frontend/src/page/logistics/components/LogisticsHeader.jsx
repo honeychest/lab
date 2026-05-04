@@ -197,7 +197,7 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
                 <div className="logistics-title-wrap">
                     <button className="logistics-home-btn" onClick={() => navigate('/binance')}>🏠</button>
                     <div className="logistics-title-block">
-                        <h1 className="logistics-title">3PL Platform</h1>
+                        <h1 className="logistics-title">물류 프로세스 관제 (업무분석)</h1>
                     </div>
                 </div>
 

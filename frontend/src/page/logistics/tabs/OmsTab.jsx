@@ -233,32 +233,38 @@ export default function OmsTab({ onInfoOpen }) {
                                     const nodeTasks = stageNodeTasks(stageTasks, stage, index);
                                     const counts = nodeStatusCounts(nodeTasks);
                                     return (
-                                        <div key={node.key} className={`logistics-work-node${nodeTasks.length > 0 ? ' active' : ''}${counts.failed > 0 ? ' has-failure' : ''}`}>
+                                        <div key={node.key} className={`logistics-work-node${nodeTasks.length > 0 ? ' active' : ''}${counts.active > 0 ? ' has-active' : ''}${counts.failed > 0 ? ' has-failure' : ''}`}>
                                             <div className="logistics-work-node-rail" aria-hidden="true">
                                                 <span>{String(index + 1).padStart(2, '0')}</span>
                                             </div>
                                             <div className="logistics-work-node-body">
                                                 <div className="logistics-work-node-top">
                                                     <div className="logistics-work-node-title">{node.label}</div>
-                                                    {nodeTasks.length > 0 && <span className="logistics-work-node-count">{nodeTasks.length}</span>}
-                                                </div>
-                                                <div className="logistics-work-node-status-row">
-                                                    {[
-                                                        ['active', '⟳', '진행중', counts.active],
-                                                        ['failed', '!', '실패', counts.failed],
-                                                    ].map(([status, icon, label, count]) => (
-                                                        <button
-                                                            key={status}
-                                                            type="button"
-                                                            className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
-                                                            disabled={count === 0}
-                                                            onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
-                                                        >
-                                                            <span>{icon}</span>
-                                                            <span>{label}</span>
-                                                            <strong>{count}</strong>
-                                                        </button>
-                                                    ))}
+                                                    <div className="logistics-work-node-top-meta">
+                                                        {nodeTasks.length > 0 && <span className="logistics-work-node-count">{nodeTasks.length}</span>}
+                                                        <div className="logistics-work-node-status-row">
+                                                            {[
+                                                                ['active', '진행중', counts.active],
+                                                                ['failed', '실패', counts.failed],
+                                                            ].map(([status, label, count]) => (
+                                                                <button
+                                                                    key={status}
+                                                                    type="button"
+                                                                    className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
+                                                                    disabled={count === 0}
+                                                                    onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
+                                                                >
+                                                                    {status === 'active' ? (
+                                                                        <span className={count > 0 ? 'sample_live_spinner' : 'logistics-status-idle-ring'} aria-hidden="true" />
+                                                                    ) : (
+                                                                        <span className="logistics-health-dot" aria-hidden="true">❌</span>
+                                                                    )}
+                                                                    <span>{label}</span>
+                                                                    <strong>{count}</strong>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -133,7 +133,7 @@ function FocusRouteSummary() {
                                         <Fragment key={stage}>
                                             <span className="logistics-route-step">
                                                 <span className={`logistics-route-node is-${state}`}>
-                                                    <span className={`logistics-stage-dot is-${state}`} title={isCompletionStage ? '완료' : STAGE_LABELS[stage]} />
+                                                    <span className={`logistics-stage-dot is-${state}${state === 'current' || state === 'fail' ? ' sample_live_dot' : ''}`} title={isCompletionStage ? '완료' : STAGE_LABELS[stage]} />
                                                 </span>
                                             </span>
                                             {si < cluster.stages.length - 1 && (
