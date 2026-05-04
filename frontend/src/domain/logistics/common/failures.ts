@@ -1,4 +1,4 @@
-import type { LogisticsTask, OmsReceiveNodeKey, TmsWorkNodeKey, TaskStage } from './events';
+import type { LogisticsTask, OmsReceiveNodeKey, TmsWorkNodeKey, WmsWorkNodeKey, TaskStage } from './events';
 
 export type FailureType = 'business' | 'system' | 'external' | 'capacity' | 'data';
 export type ResumePolicy = 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
@@ -21,7 +21,7 @@ export interface FailureAction {
     id: FailureActionId;
     label: string;
     nextStage?: TaskStage;
-    nextReceiveNodeKey?: OmsReceiveNodeKey;
+    nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
 }
 
 export interface FailureDefinition {
@@ -30,7 +30,7 @@ export interface FailureDefinition {
     domain: 'OMS' | 'WMS' | 'TMS' | 'stream';
     type: FailureType;
     stage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
     recoverable: boolean;
     resumePolicy: ResumePolicy;
     summary: string;
@@ -251,11 +251,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'data',
             stage: 'WMS_RECEIVED',
+            receiveNodeKey: 'request-ingest',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: 'WMS 수신 데이터와 OMS 전달 데이터가 맞지 않습니다.',
             actions: [
-                { id: 'replay_event', label: 'WMS 접수 재전송', nextStage: 'WMS_RECEIVED' },
+                { id: 'replay_event', label: 'WMS 접수 재전송', nextStage: 'WMS_RECEIVED', nextReceiveNodeKey: 'request-ingest' },
                 { id: 'retry_validation', label: 'OMS 재검증 요청', nextStage: 'OMS_VALIDATED' },
             ],
         },
@@ -267,11 +268,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'business',
             stage: 'WMS_ALLOCATED',
+            receiveNodeKey: 'stock-check',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '할당 가능한 재고가 부족하여 출고 할당에 실패했습니다.',
             actions: [
-                { id: 'reallocate_stock', label: '대체 재고 재할당', nextStage: 'WMS_ALLOCATED' },
+                { id: 'reallocate_stock', label: '대체 재고 재할당', nextStage: 'WMS_ALLOCATED', nextReceiveNodeKey: 'stock-check' },
                 { id: 'partial_ship', label: '부분 출고 전환', nextStage: 'WMS_PICKING' },
                 { id: 'cancel_order', label: '주문 취소' },
             ],
@@ -282,11 +284,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'capacity',
             stage: 'WMS_ALLOCATED',
+            receiveNodeKey: 'rule-apply',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '현재 Zone 적재량이 한계를 넘어서 다른 위치로 재배치가 필요합니다.',
             actions: [
-                { id: 'switch_zone', label: '다른 Zone으로 재배치', nextStage: 'WMS_ALLOCATED' },
+                { id: 'switch_zone', label: '다른 Zone으로 재배치', nextStage: 'WMS_ALLOCATED', nextReceiveNodeKey: 'rule-apply' },
                 { id: 'notify_customer', label: '출고 지연 안내' },
             ],
         },
@@ -298,12 +301,13 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'business',
             stage: 'WMS_PICKING',
+            receiveNodeKey: 'barcode-scan',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '지시된 로케이션에서 품목을 찾지 못했습니다.',
             actions: [
-                { id: 'retry_picking', label: '피킹 재시도', nextStage: 'WMS_PICKING' },
-                { id: 'reallocate_stock', label: '대체 로케이션 재할당', nextStage: 'WMS_ALLOCATED' },
+                { id: 'retry_picking', label: '피킹 재시도', nextStage: 'WMS_PICKING', nextReceiveNodeKey: 'barcode-scan' },
+                { id: 'reallocate_stock', label: '대체 로케이션 재할당', nextStage: 'WMS_ALLOCATED', nextReceiveNodeKey: 'stock-check' },
             ],
         },
     ],
@@ -314,11 +318,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'capacity',
             stage: 'WMS_PACKED',
+            receiveNodeKey: 'box-select',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '필요한 포장 자재가 부족하여 출고 포장을 완료할 수 없습니다.',
             actions: [
-                { id: 'repack', label: '자재 보충 후 재포장', nextStage: 'WMS_PACKED' },
+                { id: 'repack', label: '자재 보충 후 재포장', nextStage: 'WMS_PACKED', nextReceiveNodeKey: 'box-select' },
                 { id: 'notify_customer', label: '출고 지연 안내' },
             ],
         },
@@ -330,11 +335,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'data',
             stage: 'WMS_DISPATCHED',
+            receiveNodeKey: 'dispatch-check',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '출하에 필요한 문서가 누락되어 출고를 마무리할 수 없습니다.',
             actions: [
-                { id: 'redispatch', label: '문서 보완 후 재출하', nextStage: 'WMS_DISPATCHED' },
+                { id: 'redispatch', label: '문서 보완 후 재출하', nextStage: 'WMS_DISPATCHED', nextReceiveNodeKey: 'dispatch-check' },
                 { id: 'notify_customer', label: '출고 지연 안내' },
             ],
         },
@@ -346,11 +352,12 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'WMS',
             type: 'external',
             stage: 'WMS_DELIVERING',
+            receiveNodeKey: 'tms-sync',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '창고에서 운송사로의 인계가 지연되고 있습니다.',
             actions: [
-                { id: 'redispatch', label: '운송사 재인계', nextStage: 'WMS_DISPATCHED' },
+                { id: 'redispatch', label: '운송사 재인계', nextStage: 'WMS_DISPATCHED', nextReceiveNodeKey: 'tms-request' },
                 { id: 'notify_customer', label: '지연 안내' },
             ],
         },
@@ -505,7 +512,7 @@ export function hasFailureCandidates(stage: TaskStage): boolean {
 
 export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: string): FailureDefinition[] {
     const candidates = FAILURE_CATALOG[stage] ?? [];
-    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_');
+    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_') || stage.startsWith('WMS_');
     if (!isWorkNodeStage || !receiveNodeKey) return candidates;
     return candidates.filter(item => item.receiveNodeKey === receiveNodeKey);
 }

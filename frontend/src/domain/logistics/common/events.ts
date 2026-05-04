@@ -59,6 +59,32 @@ export type TmsWorkNodeKey =
     | 'proof-capture'
     | 'close-order';
 
+export type WmsWorkNodeKey =
+    | 'request-ingest'
+    | 'duplicate-check'
+    | 'work-key'
+    | 'stock-check'
+    | 'rule-apply'
+    | 'stock-reserve'
+    | 'shortage-check'
+    | 'pick-order'
+    | 'worker-assign'
+    | 'location-move'
+    | 'barcode-scan'
+    | 'item-check'
+    | 'box-select'
+    | 'label-print'
+    | 'weight-check'
+    | 'dock-assign'
+    | 'dispatch-check'
+    | 'tms-request'
+    | 'tms-sync'
+    | 'delay-watch'
+    | 'delivery-result'
+    | 'stock-confirm'
+    | 'audit-close'
+    | 'order-close';
+
 export type InboundStage =
     | 'INBOUND_RECEIVED'
     | 'INBOUND_VALIDATED'
@@ -95,7 +121,7 @@ export interface LogisticsTask {
     quantity: number;
     destination: string;
     currentStage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
     status: TaskStatus;
     actor: string;
     sourceChannel?: 'operator' | 'owner' | 'auto' | 'bulk';
@@ -115,8 +141,8 @@ export interface LogisticsTask {
     failureDomain?: 'OMS' | 'WMS' | 'TMS' | 'stream';
     failureType?: 'business' | 'system' | 'external' | 'capacity' | 'data';
     failureRecoverable?: boolean;
-    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
-    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey }>;
+    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
+    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey }>;
     failureResumePolicy?: 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
     simulationGlobalFailureRate?: number;
     simulationStageOverrides?: Partial<Record<TaskStage, number>>;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
-import { STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { STAGE_LABELS, WMS_STAGE_WORK_NODES } from '@/domain/logistics/common/stages';
 import { setFocus } from '@/store/focusStore';
 import { dlog } from '@/global/chs';
 import SupportFlowStrip from '../components/SupportFlowStrip';
@@ -89,50 +89,11 @@ const WMS_STAGES = [
     'WMS_COMPLETED',
 ];
 
-const WMS_STAGE_WORK_NODES = {
-    WMS_RECEIVED: [
-        { key: 'request-ingest', label: '출고 요청 수신' },
-        { key: 'duplicate-check', label: '중복 요청 검사' },
-        { key: 'work-key', label: '작업번호 발급' },
-    ],
-    WMS_ALLOCATED: [
-        { key: 'stock-check', label: '가용 재고 조회' },
-        { key: 'rule-apply', label: 'Zone/Lot 규칙' },
-        { key: 'stock-reserve', label: '재고 예약' },
-        { key: 'shortage-check', label: '부족 판정' },
-    ],
-    WMS_PICKING: [
-        { key: 'pick-order', label: '피킹 지시 생성' },
-        { key: 'worker-assign', label: '작업자 배정' },
-        { key: 'location-move', label: '위치 이동' },
-        { key: 'barcode-scan', label: '바코드 확인' },
-    ],
-    WMS_PACKED: [
-        { key: 'item-check', label: '상품 검수' },
-        { key: 'box-select', label: '박스 선택' },
-        { key: 'label-print', label: '라벨 출력' },
-        { key: 'weight-check', label: '중량 확인' },
-    ],
-    WMS_DISPATCHED: [
-        { key: 'dock-assign', label: '도크 배정' },
-        { key: 'dispatch-check', label: '출하 검수' },
-        { key: 'tms-request', label: 'TMS 요청' },
-    ],
-    WMS_DELIVERING: [
-        { key: 'tms-sync', label: 'TMS 상태 수신' },
-        { key: 'delay-watch', label: '지연 감지' },
-        { key: 'delivery-result', label: '인도 결과 대기' },
-    ],
-    WMS_COMPLETED: [
-        { key: 'stock-confirm', label: '재고 차감 확정' },
-        { key: 'audit-close', label: '감사 로그 저장' },
-        { key: 'order-close', label: '주문 종료 연계' },
-    ],
-};
-
 function stageWorkIndex(task, stage) {
     const nodes = WMS_STAGE_WORK_NODES[stage] ?? [];
     if (nodes.length === 0) return 0;
+    const receiveNodeIndex = nodes.findIndex(node => node.key === (task.failureReceiveNodeKey ?? task.receiveNodeKey));
+    if (receiveNodeIndex >= 0) return receiveNodeIndex;
     const percent = progressPercent(task);
     const rawIndex = Math.floor((percent / 100) * nodes.length);
     return Math.min(nodes.length - 1, Math.max(0, rawIndex));

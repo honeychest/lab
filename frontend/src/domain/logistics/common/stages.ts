@@ -1,4 +1,4 @@
-import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage, OmsReceiveNodeKey, TmsWorkNodeKey } from './events';
+import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage, OmsReceiveNodeKey, TmsWorkNodeKey, WmsWorkNodeKey } from './events';
 
 export const OMS_STAGES: OmsStage[] = [
     'OMS_RECEIVED',
@@ -21,6 +21,7 @@ export type OmsReceiveWorkNode = {
 export const LOGISTICS_STAGE_TICKS = 30;
 export const OMS_RECEIVE_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 export const TMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
+export const WMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 
 export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
     {
@@ -457,6 +458,68 @@ export function getTmsStageWorkNodeLabel(stage: TmsStage, key?: TmsWorkNodeKey):
     return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
 }
 
+export type WmsWorkNode = {
+    key: string;
+    label: string;
+};
+
+export const WMS_STAGE_WORK_NODES: Record<WmsOutStage, WmsWorkNode[]> = {
+    WMS_RECEIVED: [
+        { key: 'request-ingest', label: '출고 요청 수신' },
+        { key: 'duplicate-check', label: '중복 요청 검사' },
+        { key: 'work-key', label: '작업번호 발급' },
+    ],
+    WMS_ALLOCATED: [
+        { key: 'stock-check', label: '가용 재고 조회' },
+        { key: 'rule-apply', label: 'Zone/Lot 규칙' },
+        { key: 'stock-reserve', label: '재고 예약' },
+        { key: 'shortage-check', label: '부족 판정' },
+    ],
+    WMS_PICKING: [
+        { key: 'pick-order', label: '피킹 지시 생성' },
+        { key: 'worker-assign', label: '작업자 배정' },
+        { key: 'location-move', label: '위치 이동' },
+        { key: 'barcode-scan', label: '바코드 확인' },
+    ],
+    WMS_PACKED: [
+        { key: 'item-check', label: '상품 검수' },
+        { key: 'box-select', label: '박스 선택' },
+        { key: 'label-print', label: '라벨 출력' },
+        { key: 'weight-check', label: '중량 확인' },
+    ],
+    WMS_DISPATCHED: [
+        { key: 'dock-assign', label: '도크 배정' },
+        { key: 'dispatch-check', label: '출하 검수' },
+        { key: 'tms-request', label: 'TMS 요청' },
+    ],
+    WMS_DELIVERING: [
+        { key: 'tms-sync', label: 'TMS 상태 수신' },
+        { key: 'delay-watch', label: '지연 감지' },
+        { key: 'delivery-result', label: '인도 결과 대기' },
+    ],
+    WMS_COMPLETED: [
+        { key: 'stock-confirm', label: '재고 차감 확정' },
+        { key: 'audit-close', label: '감사 로그 저장' },
+        { key: 'order-close', label: '주문 종료 연계' },
+    ],
+};
+
+export function getInitialWmsStageWorkNodeKey(stage: WmsOutStage): WmsWorkNodeKey {
+    return WMS_STAGE_WORK_NODES[stage][0].key as WmsWorkNodeKey;
+}
+
+export function getNextWmsStageWorkNodeKey(stage: WmsOutStage, key?: WmsWorkNodeKey): WmsWorkNodeKey | null {
+    const nodes = WMS_STAGE_WORK_NODES[stage];
+    const currentIndex = nodes.findIndex(node => node.key === key);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return (nodes[safeIndex + 1]?.key as WmsWorkNodeKey | undefined) ?? null;
+}
+
+export function getWmsStageWorkNodeLabel(stage: WmsOutStage, key?: WmsWorkNodeKey): string {
+    const nodes = WMS_STAGE_WORK_NODES[stage];
+    return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
+}
+
 export const INBOUND_STAGES: InboundStage[] = [
     'INBOUND_RECEIVED',
     'INBOUND_VALIDATED',
@@ -713,18 +776,8 @@ export const STAGE_ROUTING_KEY: Record<TaskStage, string> = {
     TMS_DELIVERED:        'dispatch.delivered',
 };
 
-const WMS_STAGE_WORK_NODE_COUNTS: Partial<Record<TaskStage, number>> = {
-    WMS_RECEIVED: 3,
-    WMS_ALLOCATED: 4,
-    WMS_PICKING: 4,
-    WMS_PACKED: 4,
-    WMS_DISPATCHED: 3,
-    WMS_DELIVERING: 3,
-    WMS_COMPLETED: 3,
-};
-
 export function getStageTicks(stage?: TaskStage): number {
-    return LOGISTICS_STAGE_TICKS * (stage ? (WMS_STAGE_WORK_NODE_COUNTS[stage] ?? 1) : 1);
+    return LOGISTICS_STAGE_TICKS;
 }
 
 export function randomTicks(): number {
