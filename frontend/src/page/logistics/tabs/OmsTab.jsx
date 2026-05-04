@@ -51,6 +51,7 @@ function nodeStatusCounts(tasks) {
 }
 
 function nodeStatusLabel(status) {
+    if (status === 'all') return '전체';
     if (status === 'failed') return '실패';
     return '진행중';
 }
@@ -65,20 +66,6 @@ function defaultForm(owner) {
 }
 
 const OMS_SUPPORT_FLOWS = [
-    {
-        key: 'oms-bulk',
-        label: 'Bulk 일괄등록',
-        meta: '대량 주문 투입',
-        stageLabel: 'OMS 보조 흐름',
-        summary: '여러 주문을 순차 투입해 OMS 접수와 검증 흐름에 부하를 만드는 작업입니다.',
-        bullets: [
-            '현재 L1은 20건 순차 투입 스텁으로만 동작',
-            '부분 실패 집계와 중단 안전성은 L4 회수 대상',
-            '메인 OMS 3단 레인은 유지하고 보조 작업으로만 표시',
-        ],
-        handoffLog: 'OmsTab.supportFlow — 일괄등록 요약/부분 실패/중단 안전성 상세 구현 회수 지점',
-        stage: 3,
-    },
     {
         key: 'oms-owner-portal',
         label: 'Owner Portal',
@@ -163,7 +150,9 @@ export default function OmsTab({ onInfoOpen }) {
 
     const openNodeTaskPopover = (event, stage, node, status, nodeTasks) => {
         event.stopPropagation();
-        const filteredTasks = nodeTasks.filter(task => task.status === status);
+        const filteredTasks = status === 'all'
+            ? nodeTasks
+            : nodeTasks.filter(task => task.status === status);
         if (filteredTasks.length === 0) return;
         if (filteredTasks.length === 1) {
             setFocus(filteredTasks[0].taskId);
@@ -218,7 +207,7 @@ export default function OmsTab({ onInfoOpen }) {
                 </div>
             )}
 
-            <div className="logistics-grid-3 logistics-stage-grid-shell">
+            <div className="logistics-grid-3 logistics-stage-grid-shell logistics-stage-grid-scroll">
                 {OMS_STAGES.map(stage => {
                     const stageTasks = tasksForStage(tasks, stage);
                     const stageNodes = OMS_STAGE_WORK_NODES[stage] ?? [];
@@ -241,7 +230,14 @@ export default function OmsTab({ onInfoOpen }) {
                                                 <div className="logistics-work-node-top">
                                                     <div className="logistics-work-node-title">{node.label}</div>
                                                     <div className="logistics-work-node-top-meta">
-                                                        {nodeTasks.length > 0 && <span className="logistics-work-node-count">{nodeTasks.length}</span>}
+                                                        <button
+                                                            type="button"
+                                                            className={`logistics-work-node-count ${nodeTasks.length === 0 ? 'is-empty' : ''}`}
+                                                            disabled={nodeTasks.length === 0}
+                                                            onClick={(event) => openNodeTaskPopover(event, stage, node, 'all', nodeTasks)}
+                                                        >
+                                                            {nodeTasks.length > 0 ? nodeTasks.length : ''}
+                                                        </button>
                                                         <div className="logistics-work-node-status-row">
                                                             {[
                                                                 ['active', '진행중', counts.active],
@@ -270,11 +266,6 @@ export default function OmsTab({ onInfoOpen }) {
                                         </div>
                                     );
                                 })}
-                                {stage === 'OMS_RECEIVED' && stageTasks.length === 0 && (
-                                    <div className="logistics-empty-card">
-                                        Auto 시작 또는 등록 버튼으로 오더를 투입하세요.
-                                    </div>
-                                )}
                             </div>
                         </article>
                     );

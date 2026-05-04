@@ -24,6 +24,53 @@
   opacity: 0.28;
 }
 
+.logistics-mobile-gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at top left, rgba(5, 142, 217, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(250, 159, 66, 0.12), transparent 24%),
+    linear-gradient(180deg, #0f1728 0%, #0d1321 52%, #0a1020 100%);
+  color: var(--dark-text-primary);
+  font-family: "Noto Sans KR", "Segoe UI", sans-serif;
+}
+
+body:has(.logistics-shell),
+body:has(.logistics-mobile-gate) {
+  background:
+    radial-gradient(circle at top left, rgba(5, 142, 217, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(250, 159, 66, 0.12), transparent 24%),
+    linear-gradient(180deg, #0f1728 0%, #0d1321 52%, #0a1020 100%);
+}
+
+html:has(.logistics-shell),
+body:has(.logistics-shell),
+#root:has(.logistics-shell) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+html:has(.logistics-mobile-gate),
+body:has(.logistics-mobile-gate),
+#root:has(.logistics-mobile-gate) {
+  width: 100%;
+  min-height: 100%;
+}
+
+.logistics-desktop-scrollport {
+  width: 100vw;
+  height: 100dvh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background:
+    radial-gradient(circle at top left, rgba(5, 142, 217, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(250, 159, 66, 0.12), transparent 24%),
+    linear-gradient(180deg, #0f1728 0%, #0d1321 52%, #0a1020 100%);
+}
+
 .logistics-header {
   position: relative;
   z-index: 1;
@@ -1306,6 +1353,7 @@
 
 .logistics-grid-3,
 .logistics-grid-2,
+.logistics-grid-4,
 .logistics-grid-5,
 .logistics-grid-7 {
   display: grid;
@@ -1314,7 +1362,8 @@
 
 .logistics-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .logistics-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.logistics-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.logistics-grid-4 { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+.logistics-grid-5 { grid-template-columns: repeat(5, minmax(180px, 1fr)); }
 .logistics-grid-7 { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
 
 .logistics-stage-grid-shell {
@@ -1322,6 +1371,10 @@
   min-height: 0;
   align-items: stretch;
   overflow: hidden;
+}
+
+.logistics-stage-grid-scroll {
+  overflow-x: auto;
 }
 
 .logistics-stage-grid-shell > .logistics-lane {
@@ -1412,13 +1465,15 @@
   position: absolute;
   left: 12px;
   top: 32px;
+  bottom: -12px;
   width: 2px;
-  height: 18px;
   border-radius: 999px;
   background: linear-gradient(180deg, transparent, rgba(56, 199, 255, 0.85), transparent);
+  background-repeat: no-repeat;
+  background-size: 100% 38px;
   filter: drop-shadow(0 0 6px rgba(56, 199, 255, 0.72));
   pointer-events: none;
-  animation: logistics-work-rail-flow 1.45s ease-in-out infinite;
+  animation: logistics-work-rail-comet-flow 1.45s ease-in-out infinite;
 }
 
 .logistics-work-node-rail span {
@@ -1507,7 +1562,27 @@
   line-height: 1.25;
 }
 
+.logistics-work-node--stacked .logistics-work-node-top {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistics-work-node--stacked .logistics-work-node-top-meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.logistics-work-node--stacked .logistics-work-node-count {
+  margin-inline: auto;
+}
+
+.logistics-work-node--stacked .logistics-work-node-title {
+  width: 100%;
+}
+
 .logistics-work-node-count {
+  appearance: none;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -1516,9 +1591,17 @@
   height: 20px;
   border-radius: 999px;
   background: rgba(5, 142, 217, 0.2);
+  border: 0;
   color: var(--dark-accent);
   font-size: 11px;
   font-weight: 900;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.logistics-work-node-count.is-empty {
+  cursor: default;
+  opacity: 0;
 }
 
 .logistics-work-node-tasks {
@@ -1529,9 +1612,16 @@
 
 .logistics-work-node-status-row {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+}
+
+.logistics-work-node--stacked .logistics-work-node-status-row {
+  align-items: stretch;
+  flex-direction: column;
+  width: 100%;
 }
 
 .logistics-work-node-status {
@@ -1540,7 +1630,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 0;
+  min-width: 72px;
   min-height: 22px;
   padding: 3px 7px;
   border-radius: 999px;
@@ -1550,6 +1640,13 @@
   font-size: 11px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.logistics-work-node--stacked .logistics-work-node-status {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  justify-content: stretch;
+  width: 100%;
 }
 
 .logistics-work-node-status span,
@@ -1643,6 +1740,20 @@
   }
 }
 
+@keyframes logistics-work-rail-comet-flow {
+  0% {
+    opacity: 0;
+    background-position: 0 -38px;
+  }
+  18%, 68% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.12;
+    background-position: 0 calc(100% + 38px);
+  }
+}
+
 @keyframes logistics-failure-pulse {
   0%, 100% {
     box-shadow:
@@ -1669,6 +1780,7 @@
 
 .logistics-node-popover {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   width: min(460px, 92vw);
   max-height: min(520px, 80vh);
@@ -1696,6 +1808,7 @@
   display: grid;
   gap: 8px;
   min-height: 0;
+  max-height: min(390px, 58vh);
   overflow: auto;
   padding-right: 4px;
 }
@@ -1752,6 +1865,103 @@
 .logistics-work-task-card {
   padding: 7px 8px;
   border-radius: 10px;
+}
+
+/* WMS ㄷ 배치 — 4열 그리드 */
+.logistics-wms-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px 10px;
+}
+
+.logistics-wms-stage-grid .logistics-work-node {
+  overflow: visible;
+}
+
+/* WMS work-node 가로 배치 공통 — 열 구조를 행 구조로 전환 */
+.logistics-work-node--h,
+.logistics-work-node--h-flip {
+  grid-template-columns: 1fr;
+  min-height: unset;
+  overflow: visible;
+}
+
+/* Row 1: 바디 상단, 레일 하단 */
+.logistics-work-node--h-flip {
+  grid-template-rows: 1fr 26px;
+}
+.logistics-work-node--h-flip .logistics-work-node-rail { grid-row: 2; }
+.logistics-work-node--h-flip .logistics-work-node-body { grid-row: 1; }
+
+/* Row 2: 레일 상단, 바디 하단 */
+.logistics-work-node--h {
+  grid-template-rows: 26px 1fr;
+}
+
+/* 우측 연결선 — Row 1 레일 원 중심(bottom: 13px)에서 우측으로 */
+.logistics-work-node--h-flip.wms-flow-right::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  bottom: 13px;
+  width: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(5, 142, 217, 0.22), rgba(255, 255, 255, 0.04));
+  z-index: 2;
+}
+.logistics-work-node--h-flip.wms-flow-right.is-active::after {
+  background: linear-gradient(90deg, rgba(56, 199, 255, 0.85), rgba(5, 142, 217, 0.2));
+  box-shadow: 0 0 6px rgba(56, 199, 255, 0.45);
+  animation: logistics-wms-flow-h 1.45s ease-in-out infinite;
+}
+
+/* 코너 연결선 — 패킹(bottom: 13px) → 출하(top: 13px), gap 20px 포함 총 46px */
+.logistics-work-node--h-flip.wms-corner::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 1px);
+  bottom: -33px;
+  width: 2px;
+  height: 46px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(5, 142, 217, 0.22), rgba(255, 255, 255, 0.04));
+  z-index: 2;
+}
+.logistics-work-node--h-flip.wms-corner.is-active::after {
+  background: linear-gradient(180deg, rgba(56, 199, 255, 0.85), rgba(5, 142, 217, 0.2));
+  box-shadow: 0 0 6px rgba(56, 199, 255, 0.45);
+  animation: logistics-work-rail-flow 1.45s ease-in-out infinite;
+}
+
+/* 좌측 연결선 — Row 2 레일 원 중심(top: 13px)에서 좌측으로 */
+.logistics-work-node--h.wms-flow-left::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 13px;
+  width: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(270deg, rgba(5, 142, 217, 0.22), rgba(255, 255, 255, 0.04));
+  z-index: 2;
+}
+.logistics-work-node--h.wms-flow-left.is-active::before {
+  background: linear-gradient(270deg, rgba(56, 199, 255, 0.85), rgba(5, 142, 217, 0.2));
+  box-shadow: 0 0 6px rgba(56, 199, 255, 0.45);
+  animation: logistics-wms-flow-h-rev 1.45s ease-in-out infinite;
+}
+
+@keyframes logistics-wms-flow-h {
+  0%   { opacity: 0; transform: translateX(-6px); }
+  18%, 68% { opacity: 1; }
+  100% { opacity: 0.12; transform: translateX(10px); }
+}
+
+@keyframes logistics-wms-flow-h-rev {
+  0%   { opacity: 0; transform: translateX(6px); }
+  18%, 68% { opacity: 1; }
+  100% { opacity: 0.12; transform: translateX(-10px); }
 }
 
 .logistics-work-task-card .logistics-preview-top {
@@ -2503,5 +2713,95 @@
   .logistics-support-strip {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 1024px) {
+  .logistics-shell.logistics-desktop-forced {
+    width: 1280px;
+    min-width: 1280px;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .logistics-desktop-forced .logistics-body,
+  .logistics-desktop-forced .logistics-main,
+  .logistics-desktop-forced .logistics-tab-shell,
+  .logistics-desktop-forced .logistics-stage-tab-shell,
+  .logistics-desktop-forced .logistics-stage-grid-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .logistics-desktop-forced .logistics-lane {
+    max-height: none;
+  }
+
+  .logistics-desktop-forced .logistics-header-top {
+    grid-template-columns: minmax(180px, 1fr) auto minmax(280px, 1fr);
+  }
+
+  .logistics-desktop-forced .logistics-header-center {
+    justify-content: center;
+  }
+
+  .logistics-desktop-forced .logistics-header-actions {
+    justify-content: flex-end;
+  }
+
+  .logistics-desktop-forced .logistics-kpi-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-4 {
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-5 {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-7 {
+    grid-template-columns: repeat(7, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-support-strip {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .logistics-desktop-forced .logistics-focus-side {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .logistics-desktop-forced .logistics-focus-heading {
+    flex-wrap: nowrap;
+  }
+
+  .logistics-desktop-forced .logistics-route-strip {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-5 {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-7 {
+    grid-template-columns: repeat(7, minmax(180px, 1fr));
   }
 }

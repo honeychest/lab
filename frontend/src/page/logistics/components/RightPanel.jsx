@@ -4,7 +4,7 @@ import { emitter } from '@/domain/logistics/common/emitter';
 import { getTaskById, patchTask, updateTaskStatus } from '@/store/taskStore';
 import { appendEvent, getEventsByAggregate } from '@/store/eventStore';
 import { pauseTask, removeTask, resumeTask } from '@/scheduler/tickLoop';
-import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS, TMS_STAGE_WORK_NODES } from '@/domain/logistics/common/stages';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getFailureCandidatesForStage, getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
 import { appendAuditEvent } from '@/store/auditStore';
@@ -54,11 +54,34 @@ function eventLabel(eventType) {
     return EVENT_LABELS[eventType] ?? eventType;
 }
 
+function historyTmsEventLabel(event) {
+    if (!event.eventType?.startsWith('dispatch.')) return null;
+
+    if (event.payload?.receiveNodeLabel) {
+        const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'TMS';
+        return `${stageName}: ${event.payload.receiveNodeLabel}`;
+    }
+
+    if (!event.eventType.endsWith('.done')) return eventLabel(event.eventType);
+
+    const parts = event.eventType.split('.');
+    const doneIndex = parts.length - 1;
+    const nodeKey = parts[doneIndex - 1];
+    const stageKey = `TMS_${parts.slice(1, doneIndex - 1).join('_').toUpperCase()}`;
+    const stageName = STAGE_LABELS[stageKey] ?? 'TMS';
+    const nodeLabel = TMS_STAGE_WORK_NODES[stageKey]?.find(node => node.key === nodeKey)?.label;
+
+    return nodeLabel ? `${stageName}: ${nodeLabel}` : eventLabel(event.eventType);
+}
+
 function historyEventLabel(event) {
     if (event.eventType?.startsWith('order.') && event.payload?.receiveNodeLabel) {
         const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'OMS';
         return `${stageName}: ${event.payload.receiveNodeLabel}`;
     }
+
+    const tmsEventLabel = historyTmsEventLabel(event);
+    if (tmsEventLabel) return tmsEventLabel;
 
     if ((event.eventType === 'task.failed.simulated' || event.eventType === 'task.failed.injected') && event.payload?.failureLabel) {
         return event.payload?.receiveNodeLabel

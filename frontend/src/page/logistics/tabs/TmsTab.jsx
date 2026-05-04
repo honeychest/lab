@@ -1,11 +1,12 @@
+import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
-import { TMS_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { TMS_STAGE_WORK_NODES, TMS_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
 import { setFocus } from '@/store/focusStore';
 import SupportFlowStrip from '../components/SupportFlowStrip';
 
 function tasksForStage(tasks, stage) {
-    return tasks.filter(task => task.currentStage === stage);
+    return tasks.filter(task => task.type === 'ORDER' && task.currentStage === stage);
 }
 
 function progressPercent(task) {
@@ -14,15 +15,35 @@ function progressPercent(task) {
     if (typeof task?.liveProgress === 'number') {
         return Math.max(6, Math.min(100, Math.round(task.liveProgress * 100)));
     }
-    return 10;
+    if (!task?.ticksTarget) return 10;
+    return Math.max(10, Math.min(100, Math.round((task.ticksInCurrentStage / task.ticksTarget) * 100)));
 }
 
-function statusText(task) {
-    if (task.status === 'completed' && task.currentStage === 'TMS_DELIVERED') return '인도 완료';
-    if (task.status === 'completed') return '완료';
-    if (task.status === 'failed') return '실패';
-    if (task.status === 'paused') return '일시정지';
-    return '진행 중';
+function stageWorkIndex(task, stage) {
+    const nodes = TMS_STAGE_WORK_NODES[stage] ?? [];
+    if (nodes.length === 0) return 0;
+    const nodeIndex = nodes.findIndex(node => node.key === task?.receiveNodeKey);
+    if (nodeIndex >= 0) return nodeIndex;
+    const percent = progressPercent(task);
+    const rawIndex = Math.floor((percent / 100) * nodes.length);
+    return Math.min(nodes.length - 1, Math.max(0, rawIndex));
+}
+
+function stageNodeTasks(tasks, stage, nodeIndex) {
+    return tasks.filter(task => stageWorkIndex(task, stage) === nodeIndex);
+}
+
+function nodeStatusCounts(tasks) {
+    return {
+        active: tasks.filter(task => task.status === 'active').length,
+        failed: tasks.filter(task => task.status === 'failed').length,
+    };
+}
+
+function nodeStatusLabel(status) {
+    if (status === 'all') return '전체';
+    if (status === 'failed') return '실패';
+    return '진행중';
 }
 
 const TMS_SUPPORT_FLOWS = [
@@ -73,46 +94,129 @@ const TMS_SUPPORT_FLOWS = [
 export default function TmsTab({ onInfoOpen }) {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
+    const [taskPopover, setTaskPopover] = useState(null);
+
+    const openNodeTaskPopover = (event, stage, node, status, nodeTasks) => {
+        event.stopPropagation();
+        const filteredTasks = status === 'all'
+            ? nodeTasks
+            : nodeTasks.filter(task => task.status === status);
+        if (filteredTasks.length === 0) return;
+        if (filteredTasks.length === 1) {
+            setFocus(filteredTasks[0].taskId);
+            return;
+        }
+        setTaskPopover({
+            stage,
+            nodeKey: node.key,
+            nodeLabel: node.label,
+            status,
+            tasks: filteredTasks,
+        });
+    };
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip flows={TMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
+            <SupportFlowStrip title="TMS 흐름" flows={TMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
 
-            <div className="logistics-grid-5 logistics-stage-grid-shell">
+            <div className="logistics-grid-5 logistics-stage-grid-shell logistics-stage-grid-scroll">
                 {TMS_STAGES.map(stage => {
                     const stageTasks = tasksForStage(tasks, stage);
+                    const stageNodes = TMS_STAGE_WORK_NODES[stage] ?? [];
                     return (
-                        <article key={stage} className="logistics-lane">
+                        <article key={stage} className="logistics-lane logistics-work-lane">
                             <div className="logistics-lane-top">
                                 <div className="logistics-lane-title">{STAGE_LABELS[stage]}</div>
                                 <div className="logistics-lane-count">적재 {stageTasks.length}건</div>
                             </div>
-                            <div className="logistics-card-stack">
-                                {stageTasks.length > 0 ? stageTasks.map(task => (
-                                    <button
-                                        key={task.taskId}
-                                        type="button"
-                                        className={`logistics-preview-card${focusedTaskId === task.taskId ? ' focused' : ''}`}
-                                        style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
-                                        onClick={() => setFocus(task.taskId)}
-                                    >
-                                        <div className="logistics-preview-top">
-                                            <div className="logistics-preview-id">{task.taskId}</div>
-                                            <span className={`logistics-status-chip ${task.status}`}>{statusText(task)}</span>
+                            <div className="logistics-receive-workflow">
+                                {stageNodes.map((node, index) => {
+                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index);
+                                    const counts = nodeStatusCounts(nodeTasks);
+                                    return (
+                                        <div
+                                            key={node.key}
+                                            className={`logistics-work-node logistics-work-node--stacked${nodeTasks.length > 0 ? ' active' : ''}${counts.active > 0 ? ' has-active' : ''}${counts.failed > 0 ? ' has-failure' : ''}`}
+                                        >
+                                            <div className="logistics-work-node-rail" aria-hidden="true">
+                                                <span>{String(index + 1).padStart(2, '0')}</span>
+                                            </div>
+                                            <div className="logistics-work-node-body">
+                                                <div className="logistics-work-node-top">
+                                                    <div className="logistics-work-node-title">{node.label}</div>
+                                                    <div className="logistics-work-node-top-meta">
+                                                        <button
+                                                            type="button"
+                                                            className={`logistics-work-node-count ${nodeTasks.length === 0 ? 'is-empty' : ''}`}
+                                                            disabled={nodeTasks.length === 0}
+                                                            onClick={(event) => openNodeTaskPopover(event, stage, node, 'all', nodeTasks)}
+                                                        >
+                                                            {nodeTasks.length > 0 ? nodeTasks.length : ''}
+                                                        </button>
+                                                        <div className="logistics-work-node-status-row">
+                                                            {[
+                                                                ['active', '진행중', counts.active],
+                                                                ['failed', '실패', counts.failed],
+                                                            ].map(([status, label, count]) => (
+                                                                <button
+                                                                    key={status}
+                                                                    type="button"
+                                                                    className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
+                                                                    disabled={count === 0}
+                                                                    onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
+                                                                >
+                                                                    {status === 'active' ? (
+                                                                        <span className={count > 0 ? 'sample_live_spinner' : 'logistics-status-idle-ring'} aria-hidden="true" />
+                                                                    ) : (
+                                                                        <span className="logistics-health-dot" aria-hidden="true">❌</span>
+                                                                    )}
+                                                                    <span>{label}</span>
+                                                                    <strong>{count}</strong>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="logistics-preview-meta">{task.vehicleId ?? 'VEH 대기'} · {task.destination}</div>
-                                        <div className={`logistics-progress ${task.status}`}><span style={{ width: `${progressPercent(task)}%` }} /></div>
-                                    </button>
-                                )) : (
-                                    <div className="logistics-empty-card">
-                                        {stage === 'TMS_DELIVERING' ? '현재 운송 중 카드 없음' : '운송 카드 대기'}
-                                    </div>
-                                )}
+                                    );
+                                })}
                             </div>
                         </article>
                     );
                 })}
             </div>
+
+            {taskPopover && (
+                <div className="logistics-node-popover-backdrop" onClick={() => setTaskPopover(null)}>
+                    <div className="logistics-node-popover" onClick={(event) => event.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">{STAGE_LABELS[taskPopover.stage]} · {taskPopover.nodeLabel}</div>
+                                <div className="logistics-node-popover-title">{nodeStatusLabel(taskPopover.status)} {taskPopover.tasks.length}건</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setTaskPopover(null)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {taskPopover.tasks.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className={`logistics-node-popover-row${focusedTaskId === task.taskId ? ' focused' : ''}`}
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setTaskPopover(null);
+                                    }}
+                                >
+                                    <span>{task.taskId}</span>
+                                    <strong>{task.vehicleId ?? 'VEH 대기'}</strong>
+                                    <em>{task.destination}</em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

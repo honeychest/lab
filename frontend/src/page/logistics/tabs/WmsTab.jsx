@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
-import { WMS_OUT_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { STAGE_LABELS } from '@/domain/logistics/common/stages';
 import { setFocus } from '@/store/focusStore';
 import { dlog } from '@/global/chs';
 import SupportFlowStrip from '../components/SupportFlowStrip';
 
-function tasksForStage(tasks, stage, type) {
-    return tasks.filter(task => task.type === type && task.currentStage === stage);
+
+function tasksForStage(tasks, stage) {
+    return tasks.filter(task => task.type === 'ORDER' && task.currentStage === stage);
 }
 
 function progressPercent(task) {
@@ -16,15 +17,21 @@ function progressPercent(task) {
     if (typeof task?.liveProgress === 'number') {
         return Math.max(6, Math.min(100, Math.round(task.liveProgress * 100)));
     }
-    return 10;
+    if (!task?.ticksTarget) return 10;
+    return Math.max(10, Math.min(100, Math.round((task.ticksInCurrentStage / task.ticksTarget) * 100)));
 }
 
-function statusText(task) {
-    if (task.status === 'completed' && task.currentStage === 'TMS_DELIVERED') return '인도 완료';
-    if (task.status === 'completed') return '완료';
-    if (task.status === 'failed') return '실패';
-    if (task.status === 'paused') return '일시정지';
-    return '진행 중';
+function nodeStatusCounts(tasks) {
+    return {
+        active: tasks.filter(t => t.status === 'active').length,
+        failed: tasks.filter(t => t.status === 'failed').length,
+    };
+}
+
+function nodeStatusLabel(status) {
+    if (status === 'all') return '전체';
+    if (status === 'failed') return '실패';
+    return '진행중';
 }
 
 const WMS_SUPPORT_FLOWS = [
@@ -72,57 +79,206 @@ const WMS_SUPPORT_FLOWS = [
     },
 ];
 
+const WMS_STAGES = [
+    'WMS_RECEIVED',
+    'WMS_ALLOCATED',
+    'WMS_PICKING',
+    'WMS_PACKED',
+    'WMS_DISPATCHED',
+    'WMS_DELIVERING',
+    'WMS_COMPLETED',
+];
+
+const WMS_STAGE_WORK_NODES = {
+    WMS_RECEIVED: [
+        { key: 'request-ingest', label: '출고 요청 수신' },
+        { key: 'duplicate-check', label: '중복 요청 검사' },
+        { key: 'work-key', label: '작업번호 발급' },
+    ],
+    WMS_ALLOCATED: [
+        { key: 'stock-check', label: '가용 재고 조회' },
+        { key: 'rule-apply', label: 'Zone/Lot 규칙' },
+        { key: 'stock-reserve', label: '재고 예약' },
+        { key: 'shortage-check', label: '부족 판정' },
+    ],
+    WMS_PICKING: [
+        { key: 'pick-order', label: '피킹 지시 생성' },
+        { key: 'worker-assign', label: '작업자 배정' },
+        { key: 'location-move', label: '위치 이동' },
+        { key: 'barcode-scan', label: '바코드 확인' },
+    ],
+    WMS_PACKED: [
+        { key: 'item-check', label: '상품 검수' },
+        { key: 'box-select', label: '박스 선택' },
+        { key: 'label-print', label: '라벨 출력' },
+        { key: 'weight-check', label: '중량 확인' },
+    ],
+    WMS_DISPATCHED: [
+        { key: 'dock-assign', label: '도크 배정' },
+        { key: 'dispatch-check', label: '출하 검수' },
+        { key: 'tms-request', label: 'TMS 요청' },
+    ],
+    WMS_DELIVERING: [
+        { key: 'tms-sync', label: 'TMS 상태 수신' },
+        { key: 'delay-watch', label: '지연 감지' },
+        { key: 'delivery-result', label: '인도 결과 대기' },
+    ],
+    WMS_COMPLETED: [
+        { key: 'stock-confirm', label: '재고 차감 확정' },
+        { key: 'audit-close', label: '감사 로그 저장' },
+        { key: 'order-close', label: '주문 종료 연계' },
+    ],
+};
+
+function stageWorkIndex(task, stage) {
+    const nodes = WMS_STAGE_WORK_NODES[stage] ?? [];
+    if (nodes.length === 0) return 0;
+    const percent = progressPercent(task);
+    const rawIndex = Math.floor((percent / 100) * nodes.length);
+    return Math.min(nodes.length - 1, Math.max(0, rawIndex));
+}
+
+function stageNodeTasks(tasks, stage, nodeIndex) {
+    return tasks.filter(task => stageWorkIndex(task, stage) === nodeIndex);
+}
+
 export default function WmsTab({ onInfoOpen }) {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
+    const [taskPopover, setTaskPopover] = useState(null);
 
     useEffect(() => {
-        dlog(1, 'WmsTab — OMS/TMS와 맞춰 출고 7단 레인만 메인 표시');
+        dlog(1, 'WmsTab — OMS 참조 단일 레인 work-node 방식 (7단 세로 배치)');
         dlog(2, 'WmsTab — Inbound 5단은 보조 흐름 팝업으로 축소, 상세 구현은 dlog/dtag로 후속 회수');
     }, []);
 
+    const openNodeTaskPopover = (event, stage, node, status, nodeTasks) => {
+        event.stopPropagation();
+        const filtered = status === 'all' ? nodeTasks : nodeTasks.filter(t => t.status === status);
+        if (filtered.length === 0) return;
+        if (filtered.length === 1) {
+            setFocus(filtered[0].taskId);
+            return;
+        }
+        setTaskPopover({
+            stage,
+            nodeKey: node.key,
+            nodeLabel: node.label,
+            status,
+            tasks: filtered,
+        });
+    };
+
+    const renderNode = (stage, node, index, nodeTasks) => {
+        const counts = nodeStatusCounts(nodeTasks);
+        const nodeClass = [
+            'logistics-work-node logistics-work-node--stacked',
+            nodeTasks.length > 0 ? 'active' : '',
+            counts.active > 0 ? 'has-active' : '',
+            counts.failed > 0 ? 'has-failure' : '',
+        ].filter(Boolean).join(' ');
+
+        return (
+            <div key={node.key} className={nodeClass}>
+                <div className="logistics-work-node-rail" aria-hidden="true">
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                </div>
+                <div className="logistics-work-node-body">
+                    <div className="logistics-work-node-top">
+                        <div className="logistics-work-node-title">{node.label}</div>
+                        <div className="logistics-work-node-top-meta">
+                            <button
+                                type="button"
+                                className={`logistics-work-node-count ${nodeTasks.length === 0 ? 'is-empty' : ''}`}
+                                disabled={nodeTasks.length === 0}
+                                onClick={(event) => openNodeTaskPopover(event, stage, node, 'all', nodeTasks)}
+                            >
+                                {nodeTasks.length > 0 ? nodeTasks.length : ''}
+                            </button>
+                            <div className="logistics-work-node-status-row">
+                                {[
+                                    ['active', '진행중', counts.active],
+                                    ['failed', '실패', counts.failed],
+                                ].map(([status, label, count]) => (
+                                    <button
+                                        key={status}
+                                        type="button"
+                                        className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
+                                        disabled={count === 0}
+                                        onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
+                                    >
+                                        {status === 'active' ? (
+                                            <span className={count > 0 ? 'sample_live_spinner' : 'logistics-status-idle-ring'} aria-hidden="true" />
+                                        ) : (
+                                            <span className="logistics-health-dot" aria-hidden="true">❌</span>
+                                        )}
+                                        <span>{label}</span>
+                                        <strong>{count}</strong>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip flows={WMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
+            <SupportFlowStrip title="WMS 흐름" flows={WMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
 
-            <div className="logistics-grid-7 logistics-stage-grid-shell" style={{ overflowX: 'auto' }}>
-                {WMS_OUT_STAGES.map(stage => {
-                    const stageTasks = tasksForStage(tasks, stage, 'ORDER');
+            <div className="logistics-grid-7 logistics-stage-grid-shell logistics-stage-grid-scroll">
+                {WMS_STAGES.map(stage => {
+                    const stageTasks = tasksForStage(tasks, stage);
+                    const stageNodes = WMS_STAGE_WORK_NODES[stage] ?? [];
                     return (
-                        <article key={stage} className="logistics-lane">
+                        <article key={stage} className="logistics-lane logistics-work-lane">
                             <div className="logistics-lane-top">
                                 <div className="logistics-lane-title">{STAGE_LABELS[stage]}</div>
                                 <div className="logistics-lane-count">적재 {stageTasks.length}건</div>
                             </div>
-                            <div className="logistics-card-stack">
-                                {stageTasks.length > 0 ? stageTasks.map(task => (
-                                    <button
-                                        key={task.taskId}
-                                        type="button"
-                                        className={`logistics-preview-card${focusedTaskId === task.taskId ? ' focused' : ''}`}
-                                        style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
-                                        onClick={() => setFocus(task.taskId)}
-                                    >
-                                        <div className="logistics-preview-top">
-                                            <div className="logistics-preview-id">{task.taskId}</div>
-                                            <span className={`logistics-status-chip ${task.status}`}>{statusText(task)}</span>
-                                        </div>
-                                        <div className="logistics-preview-meta">
-                                            {task.owner} · {task.itemCode}
-                                            {task.boxId ? ` · ${task.boxId}` : ''}
-                                        </div>
-                                        <div className={`logistics-progress ${task.status}`}><span style={{ width: `${progressPercent(task)}%` }} /></div>
-                                    </button>
-                                )) : (
-                                    <div className="logistics-empty-card">
-                                        {stage === 'WMS_ALLOCATED' ? '할당 실패는 우측 상세 패널 조치로 전환된다.' : '카드 유입 대기'}
-                                    </div>
-                                )}
+                            <div className="logistics-receive-workflow">
+                                {stageNodes.map((node, index) => {
+                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index);
+                                    return renderNode(stage, node, index, nodeTasks);
+                                })}
                             </div>
                         </article>
                     );
                 })}
             </div>
+
+            {taskPopover && (
+                <div className="logistics-node-popover-backdrop" onClick={() => setTaskPopover(null)}>
+                    <div className="logistics-node-popover" onClick={e => e.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">{STAGE_LABELS[taskPopover.stage]} · {taskPopover.nodeLabel}</div>
+                                <div className="logistics-node-popover-title">{nodeStatusLabel(taskPopover.status)} {taskPopover.tasks.length}건</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setTaskPopover(null)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {taskPopover.tasks.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className={`logistics-node-popover-row${focusedTaskId === task.taskId ? ' focused' : ''}`}
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setTaskPopover(null);
+                                    }}
+                                >
+                                    <span>{task.taskId}</span>
+                                    <strong>{task.owner} · {task.itemCode}</strong>
+                                    <em>{task.boxId ?? task.zoneId ?? '-'}</em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

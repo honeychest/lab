@@ -1,4 +1,4 @@
-import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage, OmsReceiveNodeKey } from './events';
+import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, TmsStage, OmsReceiveNodeKey, TmsWorkNodeKey } from './events';
 
 export const OMS_STAGES: OmsStage[] = [
     'OMS_RECEIVED',
@@ -17,7 +17,10 @@ export type OmsReceiveWorkNode = {
     handoff: string;
 };
 
-export const OMS_RECEIVE_NODE_TICKS = 50;
+// 1 tick = 100ms. 모든 단계/세부 노드가 같은 기준 시간을 참조한다.
+export const LOGISTICS_STAGE_TICKS = 30;
+export const OMS_RECEIVE_NODE_TICKS = LOGISTICS_STAGE_TICKS;
+export const TMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 
 export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
     {
@@ -71,6 +74,16 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         handoff: 'taskId, traceId, event seed',
     },
     {
+        key: 'sla-classify',
+        label: 'SLA 분류',
+        summary: '주문 긴급도와 SLA 등급을 분류해 처리 우선순위를 부여합니다.',
+        signal: 'SLA 정책 불명, 등급 미지정',
+        output: 'SLA 등급',
+        stage: 3,
+        dlog: 'OmsReceive.slaClassify — 화주 계약 SLA 등급/우선순위 분류 구현 지점',
+        handoff: 'SLA 등급, 처리 우선순위',
+    },
+    {
         key: 'next-queue',
         label: '검증 큐 등록',
         summary: '다음 검증 레인이 집어갈 이벤트를 생성합니다.',
@@ -122,6 +135,16 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.destinationRule — 배송 가능 권역 검증 구현 지점',
         handoff: '권역 코드, 제한 사유',
+    },
+    {
+        key: 'payment-check',
+        label: '결제 상태 확인',
+        summary: '주문에 연결된 결제 상태를 확인해 미결제/취소 건을 걸러냅니다.',
+        signal: '결제 미확인, 결제 취소',
+        output: '결제 상태',
+        stage: 3,
+        dlog: 'OmsValidate.paymentCheck — 결제 상태 조회/미결제 반려 구현 지점',
+        handoff: '결제 ID, 결제 상태',
     },
     {
         key: 'audit-ready',
@@ -194,6 +217,200 @@ export const OMS_STAGE_WORK_NODES: Record<OmsStage, OmsReceiveWorkNode[]> = {
     OMS_WMS_REQUESTED: OMS_WMS_REQUEST_WORK_NODES,
 };
 
+export type TmsWorkNode = {
+    key: string;
+    label: string;
+    summary: string;
+    signal: string;
+    output: string;
+    stage: number;
+    dlog: string;
+    handoff: string;
+};
+
+const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
+    {
+        key: 'dispatch-ingest',
+        label: '배차 요청 접수',
+        summary: 'WMS 출하 완료 이벤트를 수신해 배차 요청 작업을 생성합니다.',
+        signal: '이벤트 유실, 중복 요청',
+        output: '배차 요청 작업',
+        stage: 2,
+        dlog: 'TmsRequested.dispatchIngest — 배차 요청 이벤트 수신/중복 방지 구현 지점',
+        handoff: 'dispatch 요청 ID, 출하 참조 ID',
+    },
+    {
+        key: 'route-calc',
+        label: '경로 계산',
+        summary: '출발지와 도착지를 기반으로 최적 운송 경로를 산출합니다.',
+        signal: '경로 데이터 없음, 도착지 불가',
+        output: '추천 경로',
+        stage: 3,
+        dlog: 'TmsRequested.routeCalc — 경로 최적화/거리 비용 계산 구현 지점',
+        handoff: '경로 코드, 예상 거리, 예상 시간',
+    },
+    {
+        key: 'vehicle-match',
+        label: '차량 가용성 확인',
+        summary: '경로와 화물에 맞는 가용 차량을 조회합니다.',
+        signal: '가용 차량 없음, 차량 용량 초과',
+        output: '차량 후보 목록',
+        stage: 2,
+        dlog: 'TmsRequested.vehicleMatch — 차량 가용성/차량 풀 조회 구현 지점',
+        handoff: '차량 후보 ID 목록',
+    },
+    {
+        key: 'dispatch-queue',
+        label: '배차 대기 등록',
+        summary: '배차 확정을 기다리는 대기 큐에 요청을 등록합니다.',
+        signal: '큐 적재 실패',
+        output: '배차 대기 이벤트',
+        stage: 2,
+        dlog: 'TmsRequested.dispatchQueue — 배차 대기 큐 등록/이벤트 발행 구현 지점',
+        handoff: '배차 대기 이벤트',
+    },
+];
+
+const TMS_VEHICLE_ASSIGNED_WORK_NODES: TmsWorkNode[] = [
+    {
+        key: 'vehicle-confirm',
+        label: '차량 확정',
+        summary: '차량 후보 중 하나를 최종 배정 차량으로 확정합니다.',
+        signal: '배차 경합, 차량 이미 배정',
+        output: '확정 차량 ID',
+        stage: 2,
+        dlog: 'TmsVehicleAssigned.vehicleConfirm — 차량 최종 확정/경합 처리 구현 지점',
+        handoff: '차량 ID, 차량 유형',
+    },
+    {
+        key: 'driver-assign',
+        label: '기사 배정',
+        summary: '배정 차량에 운전 기사를 연결합니다.',
+        signal: '기사 미등록, 기사 부재',
+        output: '기사 ID',
+        stage: 2,
+        dlog: 'TmsVehicleAssigned.driverAssign — 기사 배정/가용성 확인 구현 지점',
+        handoff: '기사 ID, 연락처',
+    },
+    {
+        key: 'departure-notify',
+        label: '출발 준비 통보',
+        summary: '기사와 화주에게 출발 일정과 상차 위치를 통보합니다.',
+        signal: '통보 실패',
+        output: '통보 이벤트',
+        stage: 2,
+        dlog: 'TmsVehicleAssigned.departureNotify — 출발 준비 통보/알림 발행 구현 지점',
+        handoff: '통보 수신 확인',
+    },
+];
+
+const TMS_LOADED_WORK_NODES: TmsWorkNode[] = [
+    {
+        key: 'cargo-scan',
+        label: '화물 스캔·확인',
+        summary: '상차 전 화물 바코드를 스캔해 출하 정보와 일치 여부를 확인합니다.',
+        signal: '스캔 불일치, 화물 누락',
+        output: '화물 확인 결과',
+        stage: 2,
+        dlog: 'TmsLoaded.cargoScan — 화물 스캔/출하 정보 대조 구현 지점',
+        handoff: '스캔 결과, 박스 ID 목록',
+    },
+    {
+        key: 'load-confirm',
+        label: '상차 완료 확인',
+        summary: '모든 화물이 차량에 적재됐음을 기사가 확인하고 서명합니다.',
+        signal: '서명 누락, 부분 상차',
+        output: '상차 완료 이벤트',
+        stage: 2,
+        dlog: 'TmsLoaded.loadConfirm — 상차 완료 확인/서명 처리 구현 지점',
+        handoff: '적재 완료 상태, 기사 서명',
+    },
+    {
+        key: 'departure-signal',
+        label: '출발 신호',
+        summary: '상차 완료 후 출발을 시스템에 등록하고 운송 추적을 시작합니다.',
+        signal: '출발 신호 미수신',
+        output: '출발 이벤트',
+        stage: 2,
+        dlog: 'TmsLoaded.departureSignal — 출발 신호/Track&Trace 시작 구현 지점',
+        handoff: '출발 시각, 추적 세션 ID',
+    },
+];
+
+const TMS_DELIVERING_WORK_NODES: TmsWorkNode[] = [
+    {
+        key: 'en-route',
+        label: '운송 중',
+        summary: '차량이 도착지를 향해 이동 중인 구간입니다.',
+        signal: '경로 이탈, 장시간 미응답',
+        output: '위치 이벤트',
+        stage: 3,
+        dlog: 'TmsDelivering.enRoute — 운송 중 위치 이벤트/경로 이탈 감지 구현 지점',
+        handoff: '현재 위치, 예상 도착',
+    },
+    {
+        key: 'checkpoint',
+        label: '중간 체크포인트',
+        summary: '중간 경유지 또는 구간 분기에서 위치를 확인합니다.',
+        signal: '체크포인트 미통과',
+        output: '체크포인트 이벤트',
+        stage: 3,
+        dlog: 'TmsDelivering.checkpoint — 체크포인트 확인/지연 감지 구현 지점',
+        handoff: '체크포인트 ID, 통과 시각',
+    },
+    {
+        key: 'arrival-estimate',
+        label: '도착 예정 확인',
+        summary: '도착지 인근에서 예상 도착 시각을 확인하고 수취인에게 통보합니다.',
+        signal: '수취인 미통보, 도착 지연',
+        output: '도착 예정 통보',
+        stage: 2,
+        dlog: 'TmsDelivering.arrivalEstimate — ETA 계산/수취인 사전 통보 구현 지점',
+        handoff: 'ETA, 수취인 통보 상태',
+    },
+];
+
+const TMS_DELIVERED_WORK_NODES: TmsWorkNode[] = [
+    {
+        key: 'delivery-confirm',
+        label: '인도 확인',
+        summary: '수취인이 화물을 직접 수령했음을 확인합니다.',
+        signal: '수취인 부재, 수령 거부',
+        output: '인도 확인 이벤트',
+        stage: 2,
+        dlog: 'TmsDelivered.deliveryConfirm — 인도 확인/수령 실패 처리 구현 지점',
+        handoff: '수령 확인 상태, 수취인 ID',
+    },
+    {
+        key: 'proof-capture',
+        label: '서명·증빙 수집',
+        summary: '전자 서명 또는 사진 증빙을 수집해 인도 완료 증거로 보관합니다.',
+        signal: '증빙 수집 실패',
+        output: '증빙 파일',
+        stage: 3,
+        dlog: 'TmsDelivered.proofCapture — 전자서명/사진 증빙 수집 구현 지점',
+        handoff: '증빙 파일 ID',
+    },
+    {
+        key: 'close-order',
+        label: '주문 종료',
+        summary: '인도 완료 이벤트를 발행하고 전체 주문 흐름을 닫습니다.',
+        signal: '종료 이벤트 발행 실패',
+        output: 'dispatch.delivered 이벤트',
+        stage: 2,
+        dlog: 'TmsDelivered.closeOrder — 인도 완료 이벤트 발행/주문 종료 구현 지점',
+        handoff: '종료 이벤트, 전체 주문 완료 상태',
+    },
+];
+
+export const TMS_STAGE_WORK_NODES: Record<TmsStage, TmsWorkNode[]> = {
+    TMS_REQUESTED: TMS_REQUESTED_WORK_NODES,
+    TMS_VEHICLE_ASSIGNED: TMS_VEHICLE_ASSIGNED_WORK_NODES,
+    TMS_LOADED: TMS_LOADED_WORK_NODES,
+    TMS_DELIVERING: TMS_DELIVERING_WORK_NODES,
+    TMS_DELIVERED: TMS_DELIVERED_WORK_NODES,
+};
+
 export function getInitialOmsReceiveNodeKey(): OmsReceiveNodeKey {
     return OMS_RECEIVE_WORK_NODES[0].key as OmsReceiveNodeKey;
 }
@@ -221,6 +438,22 @@ export function getOmsReceiveNodeLabel(key?: OmsReceiveNodeKey): string {
 
 export function getOmsStageWorkNodeLabel(stage: OmsStage, key?: OmsReceiveNodeKey): string {
     const nodes = OMS_STAGE_WORK_NODES[stage];
+    return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
+}
+
+export function getInitialTmsStageWorkNodeKey(stage: TmsStage): TmsWorkNodeKey {
+    return TMS_STAGE_WORK_NODES[stage][0].key as TmsWorkNodeKey;
+}
+
+export function getNextTmsStageWorkNodeKey(stage: TmsStage, key?: TmsWorkNodeKey): TmsWorkNodeKey | null {
+    const nodes = TMS_STAGE_WORK_NODES[stage];
+    const currentIndex = nodes.findIndex(node => node.key === key);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return (nodes[safeIndex + 1]?.key as TmsWorkNodeKey | undefined) ?? null;
+}
+
+export function getTmsStageWorkNodeLabel(stage: TmsStage, key?: TmsWorkNodeKey): string {
+    const nodes = TMS_STAGE_WORK_NODES[stage];
     return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
 }
 
@@ -480,11 +713,22 @@ export const STAGE_ROUTING_KEY: Record<TaskStage, string> = {
     TMS_DELIVERED:        'dispatch.delivered',
 };
 
-// 1틱 = 100ms. 단계당 평균 50틱 = 5초 (T3-ARCH 흐름 6)
-const AVG_TICKS = 50;
+const WMS_STAGE_WORK_NODE_COUNTS: Partial<Record<TaskStage, number>> = {
+    WMS_RECEIVED: 3,
+    WMS_ALLOCATED: 4,
+    WMS_PICKING: 4,
+    WMS_PACKED: 4,
+    WMS_DISPATCHED: 3,
+    WMS_DELIVERING: 3,
+    WMS_COMPLETED: 3,
+};
+
+export function getStageTicks(stage?: TaskStage): number {
+    return LOGISTICS_STAGE_TICKS * (stage ? (WMS_STAGE_WORK_NODE_COUNTS[stage] ?? 1) : 1);
+}
 
 export function randomTicks(): number {
-    return Math.floor(AVG_TICKS * (0.8 + Math.random() * 0.4));
+    return LOGISTICS_STAGE_TICKS;
 }
 
 export function getPipelineStagesForTask(task: Pick<LogisticsTask, 'type'>): TaskStage[] {

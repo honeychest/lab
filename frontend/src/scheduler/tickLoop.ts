@@ -12,13 +12,18 @@ import {
     getNextOmsStageWorkNodeKey,
     getOmsStageWorkNodeLabel,
     OMS_RECEIVE_NODE_TICKS,
+    getInitialTmsStageWorkNodeKey,
+    getNextTmsStageWorkNodeKey,
+    getTmsStageWorkNodeLabel,
+    TMS_WORK_NODE_TICKS,
+    getStageTicks,
     PIPELINE_STAGES,
     randomTicks,
     STAGE_ROUTING_KEY,
     getFinalStageForTask,
     getPipelineStagesForTask,
 } from '@/domain/logistics/common/stages';
-import type { LogisticsTask, OmsReceiveNodeKey, OmsStage, TaskStage } from '@/domain/logistics/common/events';
+import type { LogisticsTask, OmsReceiveNodeKey, TmsWorkNodeKey, OmsStage, TmsStage, TaskStage } from '@/domain/logistics/common/events';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getFailureRateForStage } from '@/page/logistics/services/simulationSettings';
 import { hasFailureCandidates, pickFailureForReceiveNode, pickFailureForStage } from '@/domain/logistics/common/failures';
@@ -48,9 +53,13 @@ async function processTasks(): Promise<void> {
     // 루프에 없는 신규 Task 동기화
     for (const task of tasks) {
         if (!_states.has(task.taskId)) {
+            const target = getStageTicks(task.currentStage as TaskStage);
+            if (task.ticksTarget !== target) {
+                await patchTask(task.taskId, { ticksTarget: target });
+            }
             _states.set(task.taskId, {
                 ticks: task.ticksInCurrentStage,
-                target: task.ticksTarget,
+                target,
                 paused: task.status === 'paused',
             });
         }
@@ -59,6 +68,11 @@ async function processTasks(): Promise<void> {
     for (const task of tasks) {
         const state = _states.get(task.taskId);
         if (!state) continue;
+        const target = getStageTicks(task.currentStage as TaskStage);
+        if (state.target !== target) {
+            state.target = target;
+            await patchTask(task.taskId, { ticksTarget: target });
+        }
 
         // 일시정지: 카운터 동결 (DECISION-LOG [T3-2] / 흐름 6)
         if (state.paused || task.status === 'paused') continue;
@@ -78,8 +92,10 @@ async function processTasks(): Promise<void> {
 
 async function advanceStage(task: LogisticsTask): Promise<void> {
     if (await advanceOmsWorkNode(task)) return;
+    if (await advanceTmsWorkNode(task)) return;
 
-    if (!task.currentStage.startsWith('OMS_') && shouldFailAtStage(task, task.currentStage)) {
+    const isWorkNodeStage = task.currentStage.startsWith('OMS_') || task.currentStage.startsWith('TMS_');
+    if (!isWorkNodeStage && shouldFailAtStage(task, task.currentStage)) {
         await failTask(task, task.currentStage);
         return;
     }
@@ -125,7 +141,7 @@ async function advanceStage(task: LogisticsTask): Promise<void> {
         dlog(2, 'tickLoop.advanceStage — 차량 가용성/경로 비용 기반 배차 실로직 교체 지점 (REQ-T2-020 [pu→co])', task.taskId);
     }
 
-    const ticks = randomTicks();
+    const ticks = getStageTicks(nextStage);
     const stagePatch: Partial<LogisticsTask> = {};
     if (nextStage === 'INBOUND_ZONE_ASSIGNED') {
         const zoneIndex = (Math.floor(Math.random() * 10) + 1).toString().padStart(2, '0');
@@ -145,16 +161,21 @@ async function advanceStage(task: LogisticsTask): Promise<void> {
         stagePatch.boxId = `BOX-${String(Math.floor(Math.random() * 9000) + 1000)}`;
     }
     const isNextOmsStage = nextStage.startsWith('OMS_');
+    const isNextTmsStage = nextStage.startsWith('TMS_');
     if (isNextOmsStage) {
         stagePatch.receiveNodeKey = getInitialOmsStageWorkNodeKey(nextStage as OmsStage);
     }
-    await updateTaskStage(task.taskId, nextStage, isNextOmsStage ? OMS_RECEIVE_NODE_TICKS : ticks);
+    if (isNextTmsStage) {
+        stagePatch.receiveNodeKey = getInitialTmsStageWorkNodeKey(nextStage as TmsStage);
+    }
+    const nextTicks = isNextOmsStage ? OMS_RECEIVE_NODE_TICKS : isNextTmsStage ? TMS_WORK_NODE_TICKS : ticks;
+    await updateTaskStage(task.taskId, nextStage, nextTicks);
     if (Object.keys(stagePatch).length > 0) {
         await patchTask(task.taskId, stagePatch);
     }
     await publishEvent(task, nextStage);
 
-    _states.set(task.taskId, { ticks: 0, target: isNextOmsStage ? OMS_RECEIVE_NODE_TICKS : ticks, paused: false });
+    _states.set(task.taskId, { ticks: 0, target: nextTicks, paused: false });
 
     // 첫 Task 자동 포커스 (DECISION-LOG [7])
     if (getFocusedTaskId() === null) {
@@ -184,6 +205,68 @@ async function advanceOmsWorkNode(task: LogisticsTask): Promise<boolean> {
     });
     _states.set(task.taskId, { ticks: 0, target: OMS_RECEIVE_NODE_TICKS, paused: false });
     return true;
+}
+
+async function advanceTmsWorkNode(task: LogisticsTask): Promise<boolean> {
+    if (task.type !== 'ORDER' || !task.currentStage.startsWith('TMS_')) return false;
+    const currentStage = task.currentStage as TmsStage;
+    const receiveNodeKey = task.receiveNodeKey as TmsWorkNodeKey | undefined;
+
+    if (shouldFailAtTmsWorkNode(task, currentStage, receiveNodeKey)) {
+        await failTask(task, task.currentStage, receiveNodeKey);
+        return true;
+    }
+
+    await publishTmsWorkNodeEvent(task, currentStage, receiveNodeKey);
+
+    const nextReceiveNodeKey = getNextTmsStageWorkNodeKey(currentStage, receiveNodeKey);
+    if (!nextReceiveNodeKey) return false;
+
+    await patchTask(task.taskId, {
+        receiveNodeKey: nextReceiveNodeKey,
+        ticksInCurrentStage: 0,
+        ticksTarget: TMS_WORK_NODE_TICKS,
+    });
+    _states.set(task.taskId, { ticks: 0, target: TMS_WORK_NODE_TICKS, paused: false });
+    return true;
+}
+
+async function publishTmsWorkNodeEvent(task: LogisticsTask, stage: TmsStage, receiveNodeKey?: TmsWorkNodeKey): Promise<void> {
+    const safeKey = receiveNodeKey ?? getInitialTmsStageWorkNodeKey(stage);
+    const routingKey = `dispatch.${stage.toLowerCase().replace('tms_', '').replaceAll('_', '.')}.${safeKey}.done`;
+    dtag(2, ['logistics', 'tms', 'event'], 'TMS 내부 작업 완료 이벤트 발행 블록', task.taskId, stage, safeKey);
+    dlog(2, 'tickLoop.publishTmsWorkNodeEvent — TMS 내부 작업별 이벤트/MQ 교체 지점', task.taskId, stage, safeKey);
+    await appendEvent({
+        eventId:       generateUUID(),
+        eventType:     routingKey,
+        routingKey,
+        aggregateId:   task.taskId,
+        payload:       {
+            stage,
+            receiveNodeKey: safeKey,
+            receiveNodeLabel: getTmsStageWorkNodeLabel(stage, safeKey),
+            owner: task.owner,
+            itemCode: task.itemCode,
+            vehicleId: task.vehicleId,
+            destination: task.destination,
+        },
+        eventVersion:  '1.0',
+        actor:         task.actor,
+        timestamp:     Date.now(),
+        correlationId: task.correlationId,
+        idempotencyKey: `${task.taskId}:${stage}:${safeKey}`,
+    });
+    emitter.emit('logistics:task:stage', { taskId: task.taskId, stage });
+}
+
+function shouldFailAtTmsWorkNode(task: LogisticsTask, stage: TaskStage, receiveNodeKey?: TmsWorkNodeKey): boolean {
+    if (!hasFailureCandidates(stage)) return false;
+    const failureRate = getFailureRateForStage(stage, {
+        globalFailureRate: task.simulationGlobalFailureRate,
+        stageOverrides: task.simulationStageOverrides,
+    });
+    if (failureRate <= 0) return false;
+    return Math.random() * 100 < failureRate && Boolean(pickFailureForReceiveNode(stage, receiveNodeKey));
 }
 
 function shouldFailAtStage(task: LogisticsTask, stage: TaskStage): boolean {
@@ -232,6 +315,9 @@ async function failTask(task: LogisticsTask, stage: TaskStage, receiveNodeKey?: 
     }
     if (stage === 'TMS_VEHICLE_ASSIGNED') {
         dlog(2, 'tickLoop.failTask — 차량 배정 경합/재배차 실로직 교체 지점 (REQ-T2-020 [pu→co])', task.taskId, stage);
+    }
+    if (stage.startsWith('TMS_') && receiveNodeKey) {
+        dlog(2, 'tickLoop.failTask — TMS 내부 작업 실패/조치 매핑 실로직 교체 지점', task.taskId, getTmsStageWorkNodeLabel(stage as TmsStage, receiveNodeKey as TmsWorkNodeKey), failure.code);
     }
     _states.delete(task.taskId);
     await patchTask(task.taskId, {
@@ -294,7 +380,7 @@ async function publishOmsWorkNodeEvent(task: LogisticsTask, stage: OmsStage, rec
         actor:         task.actor,
         timestamp:     Date.now(),
         correlationId: task.correlationId,
-        idempotencyKey: `${task.taskId}:OMS_RECEIVED:${safeKey}`,
+        idempotencyKey: `${task.taskId}:${stage}:${safeKey}`,
     });
     emitter.emit('logistics:task:stage', { taskId: task.taskId, stage });
 }
