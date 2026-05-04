@@ -1,6 +1,7 @@
 // [AGENT] 1분봉·5분봉 롤업 스케줄러 — agg_trade_1s → agg_trade_1m / agg_trade_1m → agg_trade_5m
 // 연관파일: AggTrade1m.java, AggTrade5m.java, AggTrade1mRepository.java, AggTrade5mRepository.java, AggTrade1sRollupService.java, CandleStreamService.java(CandleCompletedEvent 수신)
 // 주요메서드: rollup1m() @Scheduled(10 * * * * *), rollup5m() @Scheduled(30 */5 * * * *)
+// 재발방지: 기존 id-zero/kline-like 1m/5m row는 duplicate 시 raw/1s 기반 rollup 값으로 교체
 // catchUp(): 1s catchUp 완료 후 체이닝 실행 (CompletableFuture)
 package com.chs.springboot.domain.binance.service;
 
@@ -11,6 +12,7 @@ import com.chs.springboot.domain.binance.model.event.CandleCompletedEvent;
 import com.chs.springboot.domain.binance.repository.AggTrade1mRepository;
 import com.chs.springboot.domain.binance.repository.AggTrade5mRepository;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
+import com.chs.springboot.global.chs;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,26 @@ import java.util.Map;
 public class AggTradeRollupService {
 
     private static final String CATCHUP_LOCK_KEY = "aggtrade:rollup:catchup:lock";
+    private static final String REPLACE_BAD_CANDLE_UPDATE_SQL = """
+        open_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(open_price),         open_price),
+        high_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(high_price),         high_price),
+        low_price          = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(low_price),          low_price),
+        close_price        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(close_price),        close_price),
+        vwap               = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(vwap),               vwap),
+        buy_volume         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_volume),         buy_volume),
+        sell_volume        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_volume),        sell_volume),
+        total_volume       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(total_volume),       total_volume),
+        buy_quantity       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_quantity),       buy_quantity),
+        sell_quantity      = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_quantity),      sell_quantity),
+        delta              = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(delta),              delta),
+        buy_trade_count    = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_trade_count),    buy_trade_count),
+        sell_trade_count   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_trade_count),   sell_trade_count),
+        trade_count        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(trade_count),        trade_count),
+        min_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_agg_trade_id),   min_agg_trade_id),
+        max_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_agg_trade_id),   max_agg_trade_id),
+        min_first_trade_id = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_first_trade_id), min_first_trade_id),
+        max_last_trade_id  = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_last_trade_id),  max_last_trade_id)
+        """;
 
     private final LeaderElectionService leaderElectionService;
     private final AggTrade1mRepository agg1mRepository;
@@ -131,6 +153,11 @@ public class AggTradeRollupService {
 
         log.info("[RollupCatchUp] {} {} 1m catch-up {} ~ {}", symbol, marketType, fromMs, nowMs);
 
+        chs.dlog("catchUp1m raw 기반 1m rollup 결과 준비");
+        chs.dlog("catchUp1m 기존 1m row의 min_agg_trade_id 또는 min_first_trade_id가 0인지 확인");
+        chs.dlog("catchUp1m 기존 1m row가 buy_trade_count 0 sell_trade_count 0 trade_count 양수인지 확인");
+        chs.dlog("catchUp1m 기존 1m row가 id-zero 또는 kline-like이면 raw 기반 rollup 값으로 교체");
+        chs.dlog("catchUp1m 정상 raw 기반 기존 row는 유지");
         String sql = """
             INSERT INTO agg_trade_1m
                 (symbol, market_type, candle_time_ms,
@@ -165,8 +192,8 @@ public class AggTradeRollupService {
             FROM agg_trade_1s
             WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
-            ON DUPLICATE KEY UPDATE id = id
-            """;
+            ON DUPLICATE KEY UPDATE
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
         int rows = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, nowMs);
         log.info("[RollupCatchUp] {} {} 1m {}건 삽입", symbol, marketType, rows);
     }
@@ -246,8 +273,8 @@ public class AggTradeRollupService {
             FROM agg_trade_1m
             WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
-            ON DUPLICATE KEY UPDATE id = id
-            """;
+            ON DUPLICATE KEY UPDATE
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
         int rows = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, to5mMs);
         log.info("[RollupCatchUp] {} {} 5m {}건 삽입", symbol, marketType, rows);
     }
@@ -267,6 +294,9 @@ public class AggTradeRollupService {
         try {
             var targets = statusRepository.findByEnabledTrue();
 
+            chs.dlog("rollupRange 1m raw 기반 rollup 결과 준비");
+            chs.dlog("rollupRange 1m 기존 row가 id-zero 또는 kline-like이면 raw 기반 rollup 값으로 교체");
+            chs.dlog("rollupRange 1m 정상 raw 기반 기존 row는 유지");
             String sql1m = """
                 INSERT INTO agg_trade_1m
                     (symbol, market_type, candle_time_ms,
@@ -301,8 +331,8 @@ public class AggTradeRollupService {
                 FROM agg_trade_1s
                 WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
                 GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
-                ON DUPLICATE KEY UPDATE id = id
-                """;
+                ON DUPLICATE KEY UPDATE
+                """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
             for (var t : targets) {
                 int n = batchJdbcTemplate.update(sql1m, t.getSymbol(), t.getMarketType(), fromMs, toMs);
                 total1m += n;
@@ -312,6 +342,9 @@ public class AggTradeRollupService {
             long from5m = (fromMs / 300_000L) * 300_000L;
             long to5m   = ((toMs + 299_999L) / 300_000L) * 300_000L;
 
+            chs.dlog("rollupRange 5m 포함 1m row에 id-zero 또는 kline-like row가 있는지 확인");
+            chs.dlog("rollupRange 5m 이상 1m 포함 구간이면 5m를 재집계 값으로 교체");
+            chs.dlog("rollupRange 5m 정상 5m 기존 row는 유지");
             String sql5m = """
                 INSERT INTO agg_trade_5m
                     (symbol, market_type, candle_time_ms,
@@ -346,8 +379,8 @@ public class AggTradeRollupService {
                 FROM agg_trade_1m
                 WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
                 GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
-                ON DUPLICATE KEY UPDATE id = id
-                """;
+                ON DUPLICATE KEY UPDATE
+                """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
             for (var t : targets) {
                 int n = batchJdbcTemplate.update(sql5m, t.getSymbol(), t.getMarketType(), from5m, to5m);
                 total5m += n;
@@ -373,7 +406,9 @@ public class AggTradeRollupService {
         for (Map<String, Object> row : rows) {
             AggTrade1m candle = new AggTrade1m();
             fill1mCandle(candle, row, startMs);
-            agg1mRepository.insertIgnoreDuplicate(candle);
+            chs.dlog("rollup1m 기존 row가 id-zero 또는 kline-like이면 raw 기반 1m candle로 교체");
+            chs.dlog("rollup1m 정상 raw 기반 기존 row는 유지");
+            upsert1mReplacingBad(candle);
             log.debug("[Rollup1m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
             eventPublisher.publishEvent(new Candle1mCompletedEvent(this, candle));
         }
@@ -393,10 +428,54 @@ public class AggTradeRollupService {
         for (Map<String, Object> row : rows) {
             AggTrade5m candle = new AggTrade5m();
             fill5mCandle(candle, row);
-            agg5mRepository.insertIgnoreDuplicate(candle);
+            chs.dlog("rollup5m 포함 1m row에 id-zero 또는 kline-like row가 있으면 5m candle 교체");
+            chs.dlog("rollup5m 정상 5m 기존 row는 유지");
+            upsert5mReplacingBad(candle);
             log.debug("[Rollup5m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
             eventPublisher.publishEvent(new CandleCompletedEvent(this, candle));
         }
+    }
+
+    private void upsert1mReplacingBad(AggTrade1m candle) {
+        String sql = """
+            INSERT INTO agg_trade_1m
+                (symbol, market_type, candle_time_ms,
+                 open_price, high_price, low_price, close_price, vwap,
+                 buy_volume, sell_volume, total_volume,
+                 buy_quantity, sell_quantity, delta,
+                 buy_trade_count, sell_trade_count, trade_count,
+                 min_agg_trade_id, max_agg_trade_id,
+                 min_first_trade_id, max_last_trade_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
+        batchJdbcTemplate.update(sql, candle.getSymbol(), candle.getMarketType(), candle.getCandleTimeMs(),
+            candle.getOpenPrice(), candle.getHighPrice(), candle.getLowPrice(), candle.getClosePrice(), candle.getVwap(),
+            candle.getBuyVolume(), candle.getSellVolume(), candle.getTotalVolume(),
+            candle.getBuyQuantity(), candle.getSellQuantity(), candle.getDelta(),
+            candle.getBuyTradeCount(), candle.getSellTradeCount(), candle.getTradeCount(),
+            candle.getMinAggTradeId(), candle.getMaxAggTradeId(), candle.getMinFirstTradeId(), candle.getMaxLastTradeId());
+    }
+
+    private void upsert5mReplacingBad(AggTrade5m candle) {
+        String sql = """
+            INSERT INTO agg_trade_5m
+                (symbol, market_type, candle_time_ms,
+                 open_price, high_price, low_price, close_price, vwap,
+                 buy_volume, sell_volume, total_volume,
+                 buy_quantity, sell_quantity, delta,
+                 buy_trade_count, sell_trade_count, trade_count,
+                 min_agg_trade_id, max_agg_trade_id,
+                 min_first_trade_id, max_last_trade_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
+        batchJdbcTemplate.update(sql, candle.getSymbol(), candle.getMarketType(), candle.getCandleTimeMs(),
+            candle.getOpenPrice(), candle.getHighPrice(), candle.getLowPrice(), candle.getClosePrice(), candle.getVwap(),
+            candle.getBuyVolume(), candle.getSellVolume(), candle.getTotalVolume(),
+            candle.getBuyQuantity(), candle.getSellQuantity(), candle.getDelta(),
+            candle.getBuyTradeCount(), candle.getSellTradeCount(), candle.getTradeCount(),
+            candle.getMinAggTradeId(), candle.getMaxAggTradeId(), candle.getMinFirstTradeId(), candle.getMaxLastTradeId());
     }
 
     // ─── 1m: agg_trade_1s 집계 ───────────────────────────────────────────

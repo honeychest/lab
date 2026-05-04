@@ -1,5 +1,6 @@
 // [AGENT] 역할: 1초봉 롤업 서비스 (raw_agg_trade → agg_trade_1s) | 연관파일: AggTrade1s.java, AggTrade1sRepository.java, AggTradeCollectStatusRepository.java, LeaderElectionService.java
-// 실시간: @Scheduled(fixedRate=1000ms) — isLeader() 체크, T-2s~T-1s 구간 집계 후 INSERT IGNORE
+// 실시간: @Scheduled(fixedRate=1000ms) — isLeader() 체크, T-2s~T-1s 구간 raw 집계 후 bad/empty row 교체 upsert
+// 재발방지: raw 기반 1s candle은 기존 empty/id-zero row를 교체, 정상 raw row는 유지
 // 백필: @PostConstruct 비동기 — Redis 분산락(30분 TTL + heartbeat) + 1시간 청크 단위 루프
 package com.chs.springboot.domain.binance.service;
 
@@ -7,6 +8,7 @@ import com.chs.springboot.domain.binance.model.AggTrade1s;
 import com.chs.springboot.domain.binance.model.AggTradeCollectStatus;
 import com.chs.springboot.domain.binance.repository.AggTrade1sRepository;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
+import com.chs.springboot.global.chs;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -66,7 +68,7 @@ public class AggTrade1sRollupService {
 
             if (data != null) {
                 AggTrade1s candle = buildCandle(t.getSymbol(), t.getMarketType(), startMs, data);
-                agg1sRepository.insertIgnoreDuplicate(candle);
+                batchInsert(List.of(candle));
             } else {
                 agg1sRepository.findLatestClosePriceBefore(t.getSymbol(), t.getMarketType(), endMs)
                     .ifPresent(close -> {
@@ -359,24 +361,24 @@ public class AggTrade1sRollupService {
                  min_first_trade_id, max_last_trade_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-                open_price         = IF(trade_count = 0, VALUES(open_price),         open_price),
-                high_price         = IF(trade_count = 0, VALUES(high_price),         high_price),
-                low_price          = IF(trade_count = 0, VALUES(low_price),          low_price),
-                close_price        = IF(trade_count = 0, VALUES(close_price),        close_price),
-                vwap               = IF(trade_count = 0, VALUES(vwap),               vwap),
-                buy_volume         = IF(trade_count = 0, VALUES(buy_volume),         buy_volume),
-                sell_volume        = IF(trade_count = 0, VALUES(sell_volume),        sell_volume),
-                total_volume       = IF(trade_count = 0, VALUES(total_volume),       total_volume),
-                buy_quantity       = IF(trade_count = 0, VALUES(buy_quantity),       buy_quantity),
-                sell_quantity      = IF(trade_count = 0, VALUES(sell_quantity),      sell_quantity),
-                delta              = IF(trade_count = 0, VALUES(delta),              delta),
-                buy_trade_count    = IF(trade_count = 0, VALUES(buy_trade_count),    buy_trade_count),
-                sell_trade_count   = IF(trade_count = 0, VALUES(sell_trade_count),   sell_trade_count),
-                trade_count        = IF(trade_count = 0, VALUES(trade_count),        trade_count),
-                min_agg_trade_id   = IF(trade_count = 0, VALUES(min_agg_trade_id),   min_agg_trade_id),
-                max_agg_trade_id   = IF(trade_count = 0, VALUES(max_agg_trade_id),   max_agg_trade_id),
-                min_first_trade_id = IF(trade_count = 0, VALUES(min_first_trade_id), min_first_trade_id),
-                max_last_trade_id  = IF(trade_count = 0, VALUES(max_last_trade_id),  max_last_trade_id)
+                open_price         = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(open_price),         open_price),
+                high_price         = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(high_price),         high_price),
+                low_price          = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(low_price),          low_price),
+                close_price        = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(close_price),        close_price),
+                vwap               = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(vwap),               vwap),
+                buy_volume         = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(buy_volume),         buy_volume),
+                sell_volume        = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(sell_volume),        sell_volume),
+                total_volume       = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(total_volume),       total_volume),
+                buy_quantity       = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(buy_quantity),       buy_quantity),
+                sell_quantity      = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(sell_quantity),      sell_quantity),
+                delta              = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(delta),              delta),
+                buy_trade_count    = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(buy_trade_count),    buy_trade_count),
+                sell_trade_count   = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(sell_trade_count),   sell_trade_count),
+                trade_count        = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(trade_count),        trade_count),
+                min_agg_trade_id   = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(min_agg_trade_id),   min_agg_trade_id),
+                max_agg_trade_id   = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(max_agg_trade_id),   max_agg_trade_id),
+                min_first_trade_id = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(min_first_trade_id), min_first_trade_id),
+                max_last_trade_id  = IF(trade_count = 0 OR min_agg_trade_id = 0 OR min_first_trade_id = 0, VALUES(max_last_trade_id),  max_last_trade_id)
             """;
         batchJdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override

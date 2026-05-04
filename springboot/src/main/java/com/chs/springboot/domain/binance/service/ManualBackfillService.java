@@ -1,5 +1,6 @@
 // [AGENT] 역할: 수동 수집/보정 서비스 — 비동기 Job 관리, 타입별 Binance REST 호출, FUTURES flat/outlier 캔들 보정 | 연관파일: ManualBackfillController.java
 // 지원 타입: RAW_AGG_TRADE(fromId~toId), AGG_1M/5M(fromMs~toMs rollup), OI(REST 호출), flat-correction(1m klines + 5m 재롤업), outlier-correction(raw 기준 1m/5m 재생성)
+// 재발방지: raw 존재 1분은 kline fallback 저장 제외, id-zero/kline-like 1m/5m 기존 row는 raw/1s 기반 rollup으로 교체
 // Job 상태: RUNNING → DONE | ERROR / ConcurrentHashMap 저장 (앱 재시작 시 초기화)
 package com.chs.springboot.domain.binance.service;
 
@@ -27,6 +28,26 @@ public class ManualBackfillService {
     private static final Logger log = LoggerFactory.getLogger(ManualBackfillService.class);
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final long OUTLIER_MAX_RANGE_MS = 48L * 60L * 60L * 1000L;
+    private static final String REPLACE_BAD_CANDLE_UPDATE_SQL = """
+        open_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(open_price),         open_price),
+        high_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(high_price),         high_price),
+        low_price          = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(low_price),          low_price),
+        close_price        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(close_price),        close_price),
+        vwap               = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(vwap),               vwap),
+        buy_volume         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_volume),         buy_volume),
+        sell_volume        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_volume),        sell_volume),
+        total_volume       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(total_volume),       total_volume),
+        buy_quantity       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_quantity),       buy_quantity),
+        sell_quantity      = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_quantity),      sell_quantity),
+        delta              = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(delta),              delta),
+        buy_trade_count    = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_trade_count),    buy_trade_count),
+        sell_trade_count   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_trade_count),   sell_trade_count),
+        trade_count        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(trade_count),        trade_count),
+        min_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_agg_trade_id),   min_agg_trade_id),
+        max_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_agg_trade_id),   max_agg_trade_id),
+        min_first_trade_id = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_first_trade_id), min_first_trade_id),
+        max_last_trade_id  = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_last_trade_id),  max_last_trade_id)
+        """;
 
     private final JdbcTemplate batchJdbcTemplate;
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
@@ -185,6 +206,11 @@ public class ManualBackfillService {
             Long.class, symbol, marketType, fromMs, toMs
         );
         if (s1Count != null && s1Count > 0) {
+            chs.dlog("collectRollup1m agg_trade_1s 기반 1m rollup 결과 준비");
+            chs.dlog("collectRollup1m 기존 1m row의 min_agg_trade_id 또는 min_first_trade_id가 0인지 확인");
+            chs.dlog("collectRollup1m 기존 1m row가 buy_trade_count 0 sell_trade_count 0 trade_count 양수인지 확인");
+            chs.dlog("collectRollup1m 기존 1m row가 id-zero 또는 kline-like이면 raw 기반 rollup 값으로 교체");
+            chs.dlog("collectRollup1m 정상 raw 기반 기존 row는 유지");
             String sql = """
                 INSERT INTO agg_trade_1m
                     (symbol, market_type, candle_time_ms,
@@ -219,7 +245,25 @@ public class ManualBackfillService {
                 FROM agg_trade_1s
                 WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
                 GROUP BY symbol, market_type, FLOOR(candle_time_ms / 60000) * 60000
-                ON DUPLICATE KEY UPDATE id = id
+                ON DUPLICATE KEY UPDATE
+                    open_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(open_price),         open_price),
+                    high_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(high_price),         high_price),
+                    low_price          = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(low_price),          low_price),
+                    close_price        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(close_price),        close_price),
+                    vwap               = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(vwap),               vwap),
+                    buy_volume         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_volume),         buy_volume),
+                    sell_volume        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_volume),        sell_volume),
+                    total_volume       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(total_volume),       total_volume),
+                    buy_quantity       = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_quantity),       buy_quantity),
+                    sell_quantity      = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_quantity),      sell_quantity),
+                    delta              = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(delta),              delta),
+                    buy_trade_count    = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(buy_trade_count),    buy_trade_count),
+                    sell_trade_count   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(sell_trade_count),   sell_trade_count),
+                    trade_count        = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(trade_count),        trade_count),
+                    min_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_agg_trade_id),   min_agg_trade_id),
+                    max_agg_trade_id   = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_agg_trade_id),   max_agg_trade_id),
+                    min_first_trade_id = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(min_first_trade_id), min_first_trade_id),
+                    max_last_trade_id  = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(max_last_trade_id),  max_last_trade_id)
                 """;
             int s1Inserted = batchJdbcTemplate.update(sql, symbol, marketType, fromMs, toMs);
             log.info("[ManualBackfill] 1m {} {} 1s rollup {}건", symbol, marketType, s1Inserted);
@@ -245,6 +289,10 @@ public class ManualBackfillService {
         int total = 0;
         long startMs = fromMs;
 
+        chs.dlog("fillMissing1mWithKlines 대상 1분에 raw_agg_trade가 존재하는지 확인");
+        chs.dlog("fillMissing1mWithKlines raw가 존재하는 1분은 kline fallback 저장 대상에서 제외");
+        chs.dlog("fillMissing1mWithKlines raw가 없는 1분만 kline fallback row 저장 허용");
+        chs.dlog("fillMissing1mWithKlines kline fallback row는 id-zero와 buy/sell count 0 특성을 유지하여 raw row와 구분");
         String insertSql = """
             INSERT INTO agg_trade_1m
             (symbol, market_type, candle_time_ms,
@@ -255,21 +303,7 @@ public class ManualBackfillService {
              min_agg_trade_id, max_agg_trade_id, min_first_trade_id, max_last_trade_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-                open_price         = IF(trade_count = 0, VALUES(open_price),         open_price),
-                high_price         = IF(trade_count = 0, VALUES(high_price),         high_price),
-                low_price          = IF(trade_count = 0, VALUES(low_price),          low_price),
-                close_price        = IF(trade_count = 0, VALUES(close_price),        close_price),
-                vwap               = IF(trade_count = 0, VALUES(vwap),               vwap),
-                buy_volume         = IF(trade_count = 0, VALUES(buy_volume),         buy_volume),
-                sell_volume        = IF(trade_count = 0, VALUES(sell_volume),        sell_volume),
-                total_volume       = IF(trade_count = 0, VALUES(total_volume),       total_volume),
-                buy_quantity       = IF(trade_count = 0, VALUES(buy_quantity),       buy_quantity),
-                sell_quantity      = IF(trade_count = 0, VALUES(sell_quantity),      sell_quantity),
-                delta              = IF(trade_count = 0, VALUES(delta),              delta),
-                buy_trade_count    = IF(trade_count = 0, VALUES(buy_trade_count),    buy_trade_count),
-                sell_trade_count   = IF(trade_count = 0, VALUES(sell_trade_count),   sell_trade_count),
-                trade_count        = IF(trade_count = 0, VALUES(trade_count),        trade_count)
-            """;
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
 
         while (startMs < toMs) {
             String url = base + path + "?symbol=" + symbol + "&interval=1m"
@@ -303,6 +337,11 @@ public class ManualBackfillService {
                         ? BigDecimal.ZERO
                         : totalVol.divide(baseVol, 8, java.math.RoundingMode.HALF_UP);
 
+                if (hasRawAggTrade(symbol, marketType, openTime, openTime + 60_000L)) {
+                    if (openTime > lastOpenTime) lastOpenTime = openTime;
+                    continue;
+                }
+
                 batch.add(new Object[]{
                     symbol, marketType, openTime,
                     open, high, low, close, vwap,
@@ -324,6 +363,18 @@ public class ManualBackfillService {
         }
 
         return total;
+    }
+
+    private boolean hasRawAggTrade(String symbol, String marketType, long fromMs, long toMs) {
+        Long rawCount = batchJdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM raw_agg_trade
+            WHERE symbol = ? AND market_type = ? AND traded_at >= ? AND traded_at < ?
+            """,
+            Long.class, symbol, marketType, fromMs, toMs
+        );
+        return rawCount != null && rawCount > 0;
     }
 
     // ─── AGG_5M rollup ───────────────────────────────────────────────────────
@@ -371,8 +422,8 @@ public class ManualBackfillService {
             FROM agg_trade_1m
             WHERE symbol = ? AND market_type = ? AND candle_time_ms >= ? AND candle_time_ms < ?
             GROUP BY symbol, market_type, FLOOR(candle_time_ms / 300000) * 300000
-            ON DUPLICATE KEY UPDATE id = id
-            """;
+            ON DUPLICATE KEY UPDATE
+            """ + REPLACE_BAD_CANDLE_UPDATE_SQL;
         return batchJdbcTemplate.update(sql, symbol, marketType, fromMs, toMs);
     }
 
@@ -718,6 +769,11 @@ public class ManualBackfillService {
         chs.dlog("raw가 해당 1분에 일부 존재하는지 확인");
         chs.dlog("agg OHLC와 raw OHLC가 서로 다른지 확인");
         chs.dlog("mixed 후보를 outlier 보정 대상으로 포함");
+        chs.dlog("outlier 후보별 reason 값을 계산");
+        chs.dlog("reason PRICE_OUT_OF_RAW_RANGE는 agg OHLC가 raw high low 범위를 벗어난 경우");
+        chs.dlog("reason OPEN_CLOSE_MISMATCH는 agg open close가 raw open close와 다른 경우");
+        chs.dlog("reason ID_ZERO는 agg_trade_id 또는 first_trade_id가 0으로 저장된 경우");
+        chs.dlog("reason KLINE_LIKE_ROW는 trade_count는 있으나 buy sell trade count가 0인 경우");
         List<Map<String, Object>> outlierRows = findOutlier1mRows(symbol, marketType, fromMs, toMs);
         chs.dlog("outlier 1m이 포함된 5m candle_time_ms 목록 계산");
         Set<Long> impacted5m = collectImpacted5mTimes(outlierRows);
@@ -730,6 +786,8 @@ public class ManualBackfillService {
         result.put("impacted5mCount", impacted5m.size());
         result.put("rows", outlierRows);
         result.put("impacted5m", impacted5m);
+        chs.dlog("outlier reason별 건수 summary를 응답에 포함");
+        result.put("reasonSummary", summarizeOutlierReasons(outlierRows));
         chs.dlog("getOutlierCorrectionHealth 반환 - admin 화면에서 outlier 후보와 영향 5m 표시");
         return result;
     }
@@ -759,6 +817,14 @@ public class ManualBackfillService {
         result.put("toMs", toMs);
         result.put("oneMinute", oneM);
         result.put("fiveMinute", fiveM);
+        chs.dlog("보정 결과에 요청 fromMs toMs와 대상 1m count를 summary로 포함");
+        chs.dlog("보정 결과에 대상 5m count와 targetTimes를 summary로 포함");
+        result.put("summary", Map.of(
+                "fromMs", fromMs,
+                "toMs", toMs,
+                "targetOneMinuteCount", outlierRows.size(),
+                "targetFiveMinuteCount", collectImpacted5mTimes(outlierRows).size()
+        ));
         result.put("health", getOutlierCorrectionHealth(symbol, marketType, fromMs, toMs));
         chs.dlog("correctOutlierCandles 반환 - 1m/5m 삭제건수와 재생성건수 표시");
         return result;
@@ -774,6 +840,12 @@ public class ManualBackfillService {
         chs.dlog("mixed row 조건 조회");
         chs.dlog("raw_trade_count가 0보다 크고 agg id가 0으로 섞인 경우");
         chs.dlog("agg open high low close 중 하나라도 raw open high low close와 다른 경우");
+        chs.dlog("SELECT 절에 reason 계산 컬럼 추가");
+        chs.dlog("PRICE_OUT_OF_RAW_RANGE 조건을 reason에 포함");
+        chs.dlog("OPEN_CLOSE_MISMATCH 조건을 reason에 포함");
+        chs.dlog("ID_ZERO 조건을 reason에 포함");
+        chs.dlog("KLINE_LIKE_ROW 조건을 reason에 포함");
+        chs.dlog("복수 reason은 쉼표로 합쳐 admin에서 그대로 표시");
         String sql = """
             WITH raw_ranked AS (
                 SELECT
@@ -812,6 +884,8 @@ public class ManualBackfillService {
                 a.low_price,
                 a.close_price,
                 a.trade_count,
+                a.buy_trade_count,
+                a.sell_trade_count,
                 a.min_agg_trade_id,
                 a.max_agg_trade_id,
                 a.min_first_trade_id,
@@ -820,7 +894,31 @@ public class ManualBackfillService {
                 r.raw_high,
                 r.raw_low,
                 r.raw_close,
-                r.raw_trade_count
+                r.raw_trade_count,
+                GREATEST(
+                    ABS(a.open_price - r.raw_open),
+                    ABS(a.high_price - r.raw_high),
+                    ABS(a.low_price - r.raw_low),
+                    ABS(a.close_price - r.raw_close)
+                ) AS max_price_diff,
+                CONCAT_WS(',',
+                    CASE WHEN
+                        a.open_price > r.raw_high OR a.open_price < r.raw_low OR
+                        a.high_price > r.raw_high OR a.high_price < r.raw_low OR
+                        a.low_price > r.raw_high OR a.low_price < r.raw_low OR
+                        a.close_price > r.raw_high OR a.close_price < r.raw_low
+                    THEN 'PRICE_OUT_OF_RAW_RANGE' END,
+                    CASE WHEN
+                        a.open_price <> r.raw_open OR
+                        a.close_price <> r.raw_close
+                    THEN 'OPEN_CLOSE_MISMATCH' END,
+                    CASE WHEN
+                        a.min_agg_trade_id = 0 OR a.min_first_trade_id = 0
+                    THEN 'ID_ZERO' END,
+                    CASE WHEN
+                        a.buy_trade_count = 0 AND a.sell_trade_count = 0 AND a.trade_count > 0
+                    THEN 'KLINE_LIKE_ROW' END
+                ) AS reason
             FROM agg_trade_1m a
             JOIN raw_1m r ON r.candle_time_ms = a.candle_time_ms
             WHERE a.symbol = ? AND a.market_type = ?
@@ -918,6 +1016,29 @@ public class ManualBackfillService {
         return result;
     }
 
+    private Map<String, Integer> summarizeOutlierReasons(List<Map<String, Object>> rows) {
+        Map<String, Integer> result = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object value = row.get("reason");
+            if (value == null) {
+                continue;
+            }
+            String reasonText = value.toString();
+            if (reasonText.isBlank()) {
+                continue;
+            }
+            String[] reasons = reasonText.split(",");
+            for (String reason : reasons) {
+                String key = reason.trim();
+                if (key.isEmpty()) {
+                    continue;
+                }
+                result.put(key, result.getOrDefault(key, 0) + 1);
+            }
+        }
+        return result;
+    }
+
     private int deleteOneMinuteCandle(String table, String symbol, String marketType, long candleTimeMs) {
         String sql = """
             DELETE FROM %s
@@ -983,6 +1104,8 @@ public class ManualBackfillService {
     }
 
     private int insertFiveMinuteFrom1m(String symbol, String marketType, long candleTimeMs) {
+        chs.dlog("insertFiveMinuteFrom1m 삭제된 5m 구간을 1m 재집계 값으로 삽입");
+        chs.dlog("insertFiveMinuteFrom1m 정상 1m 구간만 5m로 집계");
         String sql = """
             INSERT INTO agg_trade_5m
                 (symbol, market_type, candle_time_ms,
