@@ -4,6 +4,7 @@ import FocusArea       from './components/FocusArea';
 import TabBar          from './components/TabBar';
 import RightPanel      from './components/RightPanel';
 import InfoOverlay     from './components/InfoOverlay';
+import { DesktopViewGate, DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
 import OverviewTab     from './tabs/OverviewTab';
 import OmsTab          from './tabs/OmsTab';
 import WmsTab          from './tabs/WmsTab';
@@ -28,6 +29,7 @@ import '@/styles/themes/theme-dark.css';
 import './logistics.css';
 
 const TAB_STORAGE_KEY = 'logistics.activeTab';
+const DESKTOP_VIEW_STORAGE_KEY = 'logistics.desktopView';
 
 const TAB_MAP = {
     overview: OverviewTab,
@@ -77,7 +79,9 @@ function summarizeEvent(event) {
 export default function LogisticsLayout() {
     const [activeTab, setActiveTab]       = useState(() => localStorage.getItem(TAB_STORAGE_KEY) ?? 'overview');
     const [autoMode, setAutoMode]         = useState(false);
-    const [rightPanelOpen, setRightPanel] = useState(() => !window.matchMedia('(max-width: 1280px)').matches);
+    const [rightPanelOpen, setRightPanel] = useState(true);
+    const [narrowScreen, setNarrowScreen] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
+    const [desktopView, setDesktopView] = useState(() => localStorage.getItem(DESKTOP_VIEW_STORAGE_KEY) === 'true');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [logOpen, setLogOpen]           = useState(false);
     const [infoOverlay, setInfoOverlay]   = useState(null);
@@ -91,13 +95,22 @@ export default function LogisticsLayout() {
         localStorage.setItem(TAB_STORAGE_KEY, activeTab);
     }, [activeTab]);
 
-    // 1280px 이하 우측 패널 자동 접기 (REQ-T2-031) — 초기값은 useState 지연 초기화로 설정
     useEffect(() => {
-        const mq = window.matchMedia('(max-width: 1280px)');
-        const handler = (e) => { if (e.matches) setRightPanel(false); };
+        const mq = window.matchMedia('(max-width: 1024px)');
+        const handler = (event) => setNarrowScreen(event.matches);
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);
     }, []);
+
+    const handleDesktopViewOpen = () => {
+        localStorage.setItem(DESKTOP_VIEW_STORAGE_KEY, 'true');
+        setDesktopView(true);
+    };
+
+    const handleDesktopViewClose = () => {
+        localStorage.removeItem(DESKTOP_VIEW_STORAGE_KEY);
+        setDesktopView(false);
+    };
 
     const handleAutoToggle = () => {
         const next = !autoMode;
@@ -253,8 +266,22 @@ export default function LogisticsLayout() {
         ? logSnapshot.events.filter(event => event.aggregateId === logSnapshot.focusedTaskId)
         : logSnapshot.events;
 
-    return (
-        <div className="theme-harbor logistics-shell">
+    if (narrowScreen && !desktopView) {
+        return (
+            <div className="theme-harbor logistics-mobile-gate">
+                <DesktopViewGate
+                    message="데스크톱 화면에서만 물류 운영 화면을 사용할 수 있습니다."
+                    onAction={handleDesktopViewOpen}
+                />
+            </div>
+        );
+    }
+
+    const dashboard = (
+        <div className={`theme-harbor logistics-shell${narrowScreen && desktopView ? ' logistics-desktop-forced' : ''}`}>
+            {narrowScreen && desktopView && (
+                <DesktopViewResetButton label="모바일로 보기" onClick={handleDesktopViewClose} fixed />
+            )}
             <LogisticsHeader
                 autoMode={autoMode}
                 onAutoToggle={handleAutoToggle}
@@ -435,4 +462,10 @@ export default function LogisticsLayout() {
             />
         </div>
     );
+
+    if (narrowScreen && desktopView) {
+        return <div className="logistics-desktop-scrollport">{dashboard}</div>;
+    }
+
+    return dashboard;
 }

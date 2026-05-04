@@ -4,7 +4,8 @@ import { dlog } from '@/global/chs';
 import { emitter } from '@/domain/logistics/common/emitter';
 import { getAllTasks } from '@/store/taskStore';
 import { getAllEvents, getEventCount, clearEventStore, EVENT_STORE_RETENTION_LIMIT } from '@/store/eventStore';
-import { STAGE_DOMAIN } from '@/domain/logistics/common/stages';
+import { STAGE_DOMAIN, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { setFocus } from '@/store/focusStore';
 
 const HEALTH_AXES = ['OMS', 'WMS', 'TMS', 'stream'];
 const HEALTH_LABELS = {
@@ -99,6 +100,12 @@ function buildDomainHealth(axis, tasks, events) {
 export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen, onLogOpen, onInfoOpen }) {
     const navigate = useNavigate();
     const [kpi, setKpi] = useState({ orders: 0, processing: 0, failed: 0, sla: 0 });
+    const [allTaskList, setAllTaskList] = useState([]);
+    const [processingTaskList, setProcessingTaskList] = useState([]);
+    const [failedTaskList, setFailedTaskList] = useState([]);
+    const [ordersPopupOpen, setOrdersPopupOpen] = useState(false);
+    const [processingPopupOpen, setProcessingPopupOpen] = useState(false);
+    const [failedPopupOpen, setFailedPopupOpen] = useState(false);
     const [health, setHealth] = useState(INITIAL_HEALTH);
     const [healthTooltipSide, setHealthTooltipSide] = useState({});
     const [healthDetails, setHealthDetails] = useState({
@@ -113,12 +120,17 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
         const tasks = await getAllTasks();
         const events = await getAllEvents();
         const cnt = await getEventCount();
+        const failed = tasks.filter(t => t.status === 'failed');
+        const processing = tasks.filter(t => t.status === 'active' || t.status === 'paused');
         setKpi({
             orders:     tasks.length,
-            processing: tasks.filter(t => t.status === 'active' || t.status === 'paused').length,
-            failed:     tasks.filter(t => t.status === 'failed').length,
+            processing: processing.length,
+            failed:     failed.length,
             sla:        0, // chs.dlog(3, 'KPI SLA 위반 집계 — 단계3 MySQL')
         });
+        setAllTaskList([...tasks].sort((a, b) => b.updatedAt - a.updatedAt));
+        setProcessingTaskList(processing.sort((a, b) => b.updatedAt - a.updatedAt));
+        setFailedTaskList(failed.sort((a, b) => b.updatedAt - a.updatedAt));
         setRetentionFull(cnt >= EVENT_STORE_RETENTION_LIMIT);
         const oms = buildDomainHealth('OMS', tasks, events);
         const wms = buildDomainHealth('WMS', tasks, events);
@@ -192,6 +204,7 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
     const failureTone = kpi.failed > 0 ? 'var(--dark-status-error)' : 'var(--dark-text-primary)';
 
     return (
+        <>
         <header className="logistics-header">
             <div className="logistics-header-top">
                 <div className="logistics-title-wrap">
@@ -238,18 +251,33 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
             </div>
 
             <div className="logistics-kpi-strip">
-                <div className="logistics-kpi-card">
+                <button
+                    type="button"
+                    className="logistics-kpi-card"
+                    style={{ cursor: kpi.orders > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
+                    onClick={() => kpi.orders > 0 && setOrdersPopupOpen(true)}
+                >
                     <div className="logistics-kpi-label">오더</div>
                     <div className="logistics-kpi-value">{kpi.orders}</div>
-                </div>
-                <div className="logistics-kpi-card">
+                </button>
+                <button
+                    type="button"
+                    className="logistics-kpi-card"
+                    style={{ cursor: kpi.processing > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
+                    onClick={() => kpi.processing > 0 && setProcessingPopupOpen(true)}
+                >
                     <div className="logistics-kpi-label">처리중</div>
                     <div className="logistics-kpi-value">{kpi.processing}</div>
-                </div>
-                <div className="logistics-kpi-card">
+                </button>
+                <button
+                    type="button"
+                    className="logistics-kpi-card"
+                    style={{ cursor: kpi.failed > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
+                    onClick={() => kpi.failed > 0 && setFailedPopupOpen(true)}
+                >
                     <div className="logistics-kpi-label">실패</div>
                     <div className="logistics-kpi-value" style={{ color: failureTone }}>{kpi.failed}</div>
-                </div>
+                </button>
                 <div className="logistics-kpi-card">
                     <div className="logistics-kpi-label">SLA 위반</div>
                     <button
@@ -270,5 +298,108 @@ export default function LogisticsHeader({ autoMode, onAutoToggle, onSettingsOpen
                 </div>
             </div>
         </header>
+
+            {ordersPopupOpen && (
+                <div className="logistics-node-popover-backdrop" style={{ zIndex: 120 }} onClick={() => setOrdersPopupOpen(false)}>
+                    <div className="logistics-node-popover" onClick={e => e.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">전체 오더</div>
+                                <div className="logistics-node-popover-title">{allTaskList.length}건 · 최신순</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setOrdersPopupOpen(false)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {allTaskList.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className="logistics-node-popover-row"
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setOrdersPopupOpen(false);
+                                    }}
+                                >
+                                    <span>{task.taskId}</span>
+                                    <strong>{task.owner} · {task.itemCode}</strong>
+                                    <em>
+                                        {task.status === 'active' ? '진행중'
+                                            : task.status === 'paused' ? '일시정지'
+                                            : task.status === 'completed' ? '완료'
+                                            : task.status === 'failed' ? '실패'
+                                            : task.status}
+                                        {' · '}{STAGE_LABELS[task.currentStage]}
+                                    </em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {processingPopupOpen && (
+                <div className="logistics-node-popover-backdrop" style={{ zIndex: 120 }} onClick={() => setProcessingPopupOpen(false)}>
+                    <div className="logistics-node-popover" onClick={e => e.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">처리중 작업</div>
+                                <div className="logistics-node-popover-title">{processingTaskList.length}건 · 최신순</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setProcessingPopupOpen(false)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {processingTaskList.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className="logistics-node-popover-row"
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setProcessingPopupOpen(false);
+                                    }}
+                                >
+                                    <span>{task.taskId}</span>
+                                    <strong>{task.owner} · {task.itemCode}</strong>
+                                    <em>{STAGE_DOMAIN[task.currentStage]} · {STAGE_LABELS[task.currentStage]}</em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {failedPopupOpen && (
+                <div className="logistics-node-popover-backdrop" style={{ zIndex: 120 }} onClick={() => setFailedPopupOpen(false)}>
+                    <div className="logistics-node-popover" onClick={e => e.stopPropagation()}>
+                        <div className="logistics-node-popover-top">
+                            <div>
+                                <div className="logistics-side-title">실패 작업 목록</div>
+                                <div className="logistics-node-popover-title">{failedTaskList.length}건 · 최신순</div>
+                            </div>
+                            <button type="button" className="logistics-outline-btn" onClick={() => setFailedPopupOpen(false)}>닫기</button>
+                        </div>
+                        <div className="logistics-node-popover-list">
+                            {failedTaskList.length === 0 ? (
+                                <div className="logistics-empty-card">실패 작업 없음</div>
+                            ) : failedTaskList.map(task => (
+                                <button
+                                    key={task.taskId}
+                                    type="button"
+                                    className="logistics-node-popover-row"
+                                    onClick={() => {
+                                        setFocus(task.taskId);
+                                        setFailedPopupOpen(false);
+                                    }}
+                                >
+                                    <span className="logistics-preview-id">{task.taskId}</span>
+                                    <strong>{task.owner} · {task.itemCode}</strong>
+                                    <em>{STAGE_DOMAIN[task.currentStage]} · {task.failureLabel || STAGE_LABELS[task.currentStage]}</em>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

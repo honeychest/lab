@@ -3,7 +3,7 @@ import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
 import { patchTask } from '@/store/taskStore';
 import { removeTask, resumeTask, seedTickState } from '@/scheduler/tickLoop';
-import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, PIPELINE_STAGES } from '@/domain/logistics/common/stages';
+import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, PIPELINE_STAGES, getInitialTmsStageWorkNodeKey } from '@/domain/logistics/common/stages';
 import generateUUID from '@/shared/lib/generateUUID';
 
 function previousStage(stage) {
@@ -43,16 +43,23 @@ export async function performRecoveryAction(task, action) {
             ? previousStage(task.currentStage)
             : task.currentStage);
     const isOmsStage = targetStage.startsWith('OMS_');
-    const targetReceiveNodeKey = isOmsStage
-        ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
+    const isTmsStage = targetStage.startsWith('TMS_');
+    const isSameStage = targetStage === task.currentStage;
+    const targetReceiveNodeKey = (isOmsStage || isTmsStage)
+        ? isSameStage
+            ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
+            : (action.nextReceiveNodeKey ?? (isTmsStage ? getInitialTmsStageWorkNodeKey(targetStage) : undefined))
         : undefined;
+    const targetTicks = isOmsStage ? OMS_RECEIVE_NODE_TICKS
+        : isTmsStage ? TMS_WORK_NODE_TICKS
+        : task.ticksTarget;
 
     await patchTask(task.taskId, {
         status: action.id === 'cancel_order' ? 'cancelled' : 'active',
         currentStage: action.id === 'cancel_order' ? task.currentStage : targetStage,
         receiveNodeKey: action.id === 'cancel_order' ? task.receiveNodeKey : targetReceiveNodeKey,
         ticksInCurrentStage: 0,
-        ticksTarget: isOmsStage ? OMS_RECEIVE_NODE_TICKS : task.ticksTarget,
+        ticksTarget: targetTicks,
         failureReason: undefined,
         failureCode: undefined,
         failureLabel: undefined,
@@ -78,7 +85,7 @@ export async function performRecoveryAction(task, action) {
     if (action.id === 'cancel_order') {
         removeTask(task.taskId);
     } else {
-        seedTickState(task.taskId, isOmsStage ? OMS_RECEIVE_NODE_TICKS : task.ticksTarget);
+        seedTickState(task.taskId, targetTicks);
         resumeTask(task.taskId);
     }
 

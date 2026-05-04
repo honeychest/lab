@@ -406,8 +406,8 @@ public class AggTradeRollupService {
         for (Map<String, Object> row : rows) {
             AggTrade1m candle = new AggTrade1m();
             fill1mCandle(candle, row, startMs);
-            chs.dlog("rollup1m 기존 row가 id-zero 또는 kline-like이면 raw 기반 1m candle로 교체");
-            chs.dlog("rollup1m 정상 raw 기반 기존 row는 유지");
+//            chs.dlog("rollup1m 기존 row가 id-zero 또는 kline-like이면 raw 기반 1m candle로 교체");
+//            chs.dlog("rollup1m 정상 raw 기반 기존 row는 유지");
             upsert1mReplacingBad(candle);
             log.debug("[Rollup1m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
             eventPublisher.publishEvent(new Candle1mCompletedEvent(this, candle));
@@ -428,8 +428,8 @@ public class AggTradeRollupService {
         for (Map<String, Object> row : rows) {
             AggTrade5m candle = new AggTrade5m();
             fill5mCandle(candle, row);
-            chs.dlog("rollup5m 포함 1m row에 id-zero 또는 kline-like row가 있으면 5m candle 교체");
-            chs.dlog("rollup5m 정상 5m 기존 row는 유지");
+//            chs.dlog("rollup5m 포함 1m row에 id-zero 또는 kline-like row가 있으면 5m candle 교체");
+//            chs.dlog("rollup5m 정상 5m 기존 row는 유지");
             upsert5mReplacingBad(candle);
             log.debug("[Rollup5m] {} {} 집계 완료", candle.getSymbol(), candle.getMarketType());
             eventPublisher.publishEvent(new CandleCompletedEvent(this, candle));

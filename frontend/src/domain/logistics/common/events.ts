@@ -27,17 +27,37 @@ export type OmsReceiveNodeKey =
     | 'required-fields'
     | 'duplicate-check'
     | 'receipt-key'
+    | 'sla-classify'
     | 'next-queue'
     | 'contract-rule'
     | 'item-rule'
     | 'quantity-rule'
     | 'destination-rule'
+    | 'payment-check'
     | 'audit-ready'
     | 'shipment-build'
     | 'inventory-hint'
     | 'event-envelope'
     | 'broker-send'
     | 'handoff-watch';
+
+export type TmsWorkNodeKey =
+    | 'dispatch-ingest'
+    | 'route-calc'
+    | 'vehicle-match'
+    | 'dispatch-queue'
+    | 'vehicle-confirm'
+    | 'driver-assign'
+    | 'departure-notify'
+    | 'cargo-scan'
+    | 'load-confirm'
+    | 'departure-signal'
+    | 'en-route'
+    | 'checkpoint'
+    | 'arrival-estimate'
+    | 'delivery-confirm'
+    | 'proof-capture'
+    | 'close-order';
 
 export type InboundStage =
     | 'INBOUND_RECEIVED'
@@ -75,7 +95,7 @@ export interface LogisticsTask {
     quantity: number;
     destination: string;
     currentStage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
     status: TaskStatus;
     actor: string;
     sourceChannel?: 'operator' | 'owner' | 'auto' | 'bulk';
@@ -95,8 +115,8 @@ export interface LogisticsTask {
     failureDomain?: 'OMS' | 'WMS' | 'TMS' | 'stream';
     failureType?: 'business' | 'system' | 'external' | 'capacity' | 'data';
     failureRecoverable?: boolean;
-    failureReceiveNodeKey?: OmsReceiveNodeKey;
-    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey }>;
+    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
+    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey }>;
     failureResumePolicy?: 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
     simulationGlobalFailureRate?: number;
     simulationStageOverrides?: Partial<Record<TaskStage, number>>;

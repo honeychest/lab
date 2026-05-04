@@ -1,4 +1,4 @@
-import type { LogisticsTask, OmsReceiveNodeKey, TaskStage } from './events';
+import type { LogisticsTask, OmsReceiveNodeKey, TmsWorkNodeKey, TaskStage } from './events';
 
 export type FailureType = 'business' | 'system' | 'external' | 'capacity' | 'data';
 export type ResumePolicy = 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
@@ -14,7 +14,8 @@ export type FailureActionId =
     | 'partial_ship'
     | 'notify_customer'
     | 'cancel_order'
-    | 'replay_event';
+    | 'replay_event'
+    | 'emergency_dispatch';
 
 export interface FailureAction {
     id: FailureActionId;
@@ -29,7 +30,7 @@ export interface FailureDefinition {
     domain: 'OMS' | 'WMS' | 'TMS' | 'stream';
     type: FailureType;
     stage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey;
     recoverable: boolean;
     resumePolicy: ResumePolicy;
     summary: string;
@@ -362,12 +363,28 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'TMS',
             type: 'capacity',
             stage: 'TMS_REQUESTED',
+            receiveNodeKey: 'vehicle-match',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '현재 가용 차량이 없어 배차에 실패했습니다.',
             actions: [
                 { id: 'reassign_vehicle', label: '재배차 시도', nextStage: 'TMS_REQUESTED' },
                 { id: 'notify_customer', label: '출고 지연 안내' },
+            ],
+        },
+        {
+            code: 'TMS_ROUTE_CALC_FAILED',
+            label: '경로 계산 실패',
+            domain: 'TMS',
+            type: 'system',
+            stage: 'TMS_REQUESTED',
+            receiveNodeKey: 'route-calc',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '도착지까지의 경로를 산출할 수 없습니다.',
+            actions: [
+                { id: 'redispatch', label: '경로 재계산 요청', nextStage: 'TMS_REQUESTED' },
+                { id: 'confirm_address', label: '도착지 확인' },
             ],
         },
     ],
@@ -378,6 +395,7 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             domain: 'TMS',
             type: 'system',
             stage: 'TMS_VEHICLE_ASSIGNED',
+            receiveNodeKey: 'vehicle-confirm',
             recoverable: true,
             resumePolicy: 'rollback_previous_stage',
             summary: '같은 차량 자원이 중복 배정되어 다시 배차해야 합니다.',
@@ -386,14 +404,45 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
                 { id: 'notify_customer', label: '배차 지연 안내' },
             ],
         },
+        {
+            code: 'TMS_DRIVER_UNAVAILABLE',
+            label: '기사 배정 불가',
+            domain: 'TMS',
+            type: 'capacity',
+            stage: 'TMS_VEHICLE_ASSIGNED',
+            receiveNodeKey: 'driver-assign',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '배정 가능한 기사가 없어 출발이 지연됩니다.',
+            actions: [
+                { id: 'reassign_vehicle', label: '기사 재배정', nextStage: 'TMS_VEHICLE_ASSIGNED' },
+                { id: 'notify_customer', label: '배송 지연 안내' },
+            ],
+        },
     ],
     TMS_LOADED: [
+        {
+            code: 'TMS_CARGO_SCAN_MISMATCH',
+            label: '화물 스캔 불일치',
+            domain: 'TMS',
+            type: 'data',
+            stage: 'TMS_LOADED',
+            receiveNodeKey: 'cargo-scan',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '화물 스캔 결과가 출하 정보와 일치하지 않습니다.',
+            actions: [
+                { id: 'redispatch', label: '화물 재확인 후 재스캔', nextStage: 'TMS_LOADED' },
+                { id: 'notify_customer', label: '출발 지연 안내' },
+            ],
+        },
         {
             code: 'TMS_LOADING_DELAY',
             label: '상차 지연',
             domain: 'TMS',
             type: 'external',
             stage: 'TMS_LOADED',
+            receiveNodeKey: 'load-confirm',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '상차 대기열이 길어 운송 출발이 지연되고 있습니다.',
@@ -405,31 +454,33 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
     ],
     TMS_DELIVERING: [
         {
-            code: 'TMS_CUSTOMER_ABSENT',
-            label: '수취인 부재',
-            domain: 'TMS',
-            type: 'business',
-            stage: 'TMS_DELIVERING',
-            recoverable: true,
-            resumePolicy: 'retry_current_stage',
-            summary: '배송지 도착 시 수취인이 없어 인도에 실패했습니다.',
-            actions: [
-                { id: 'notify_customer', label: '재방문 안내' },
-                { id: 'redispatch', label: '재배송 요청', nextStage: 'TMS_DELIVERING' },
-            ],
-        },
-        {
             code: 'TMS_ACCESS_RESTRICTED',
             label: '배송지 접근 제한',
             domain: 'TMS',
             type: 'external',
             stage: 'TMS_DELIVERING',
+            receiveNodeKey: 'en-route',
             recoverable: true,
             resumePolicy: 'retry_current_stage',
             summary: '차량 진입 제한 등으로 배송지 접근이 불가능합니다.',
             actions: [
                 { id: 'notify_customer', label: '대체 수령 안내' },
                 { id: 'redispatch', label: '배송 경로 재조정', nextStage: 'TMS_DELIVERING' },
+            ],
+        },
+        {
+            code: 'TMS_CUSTOMER_ABSENT',
+            label: '수취인 부재',
+            domain: 'TMS',
+            type: 'business',
+            stage: 'TMS_DELIVERING',
+            receiveNodeKey: 'arrival-estimate',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '배송지 도착 시 수취인이 없어 인도에 실패했습니다.',
+            actions: [
+                { id: 'notify_customer', label: '재방문 안내' },
+                { id: 'redispatch', label: '재배송 요청', nextStage: 'TMS_DELIVERING' },
             ],
         },
     ],
@@ -442,7 +493,7 @@ export function pickFailureForStage(stage: TaskStage): FailureDefinition | null 
     return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-export function pickFailureForReceiveNode(stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): FailureDefinition | null {
+export function pickFailureForReceiveNode(stage: TaskStage, receiveNodeKey?: string): FailureDefinition | null {
     const candidates = getFailureCandidatesForStage(stage, receiveNodeKey);
     if (candidates.length === 0) return null;
     return candidates[Math.floor(Math.random() * candidates.length)];
@@ -452,9 +503,10 @@ export function hasFailureCandidates(stage: TaskStage): boolean {
     return (FAILURE_CATALOG[stage] ?? []).length > 0;
 }
 
-export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: OmsReceiveNodeKey): FailureDefinition[] {
+export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: string): FailureDefinition[] {
     const candidates = FAILURE_CATALOG[stage] ?? [];
-    if (!stage.startsWith('OMS_') || !receiveNodeKey) return candidates;
+    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_');
+    if (!isWorkNodeStage || !receiveNodeKey) return candidates;
     return candidates.filter(item => item.receiveNodeKey === receiveNodeKey);
 }
 

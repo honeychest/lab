@@ -11,6 +11,7 @@ import CasesPanel            from './components/CasesPanel.jsx';
 import TemplateBar           from './components/TemplateBar.jsx';
 import TemplateManagerModal  from './components/TemplateManagerModal.jsx';
 import Toast                 from './components/Toast.jsx';
+import { DesktopViewGate, DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
 import { evaluate }          from './engine/detectionEngine.js';
 import { fetchKlines }       from './hooks/useBinanceKlines.js';
 
@@ -320,58 +321,14 @@ export default function AnalysisPage() {
         overflow:        'hidden',
       }}>
         {showMobileBlocked ? (
-          <div style={{
-            flex:           1,
-            display:        'flex',
-            flexDirection:  'column',
-            alignItems:     'center',
-            justifyContent: 'center',
-            color:          'var(--dark-text-primary)',
-            fontFamily:     "'Pretendard', sans-serif",
-            fontSize:       '0.94rem',
-            gap:            '12px',
-          }}>
-            <div>데스크톱 화면에서만 분석 페이지를 사용할 수 있습니다.</div>
-            <button
-              type="button"
-              onClick={() => setDesktopView('desktop')}
-              style={{
-                border:       '1px solid var(--dark-input-border)',
-                background:   'var(--dark-btn-secondary)',
-                color:        'var(--dark-text-primary)',
-                borderRadius: '10px',
-                padding:      '10px 12px',
-                fontWeight:   900,
-                cursor:       'pointer',
-              }}
-            >
-              PC화면으로 보기
-            </button>
-          </div>
+          <DesktopViewGate
+            message="데스크톱 화면에서만 분석 페이지를 사용할 수 있습니다."
+            onAction={() => setDesktopView('desktop')}
+          />
         ) : (
         <>
         {isMobile && forceDesktop && (
-          <div style={{
-            display:        'flex',
-            justifyContent: 'flex-end',
-            gap:            '8px',
-          }}>
-            <button
-              type="button"
-              onClick={() => setDesktopView('auto')}
-              style={{
-                border:       '1px solid var(--dark-input-border)',
-                background:   'var(--dark-btn-secondary)',
-                color:        'var(--dark-text-primary)',
-                borderRadius: '10px',
-                padding:      '8px 10px',
-                fontWeight:   900,
-                cursor:       'pointer',
-              }}
-            >
-              모바일로 보기
-            </button>
-          </div>
+          <DesktopViewResetButton onClick={() => setDesktopView('auto')} />
         )}
         {/* 컨트롤 바 */}
         <ControlBar
