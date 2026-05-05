@@ -35,3 +35,8 @@ __pycache__/
 .graphify_*.json
 .graphify_*.txt
 .graphify_python
+
+# Serena MCP 도구 (로컬 전용)
+.serena/
+/package.json
+/package-lock.json
