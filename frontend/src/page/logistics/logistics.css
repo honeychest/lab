@@ -207,6 +207,13 @@ body:has(.logistics-mobile-gate),
   color: var(--dark-text-primary);
 }
 
+.logistics-outline-btn.is-pressed {
+  transform: translateY(1px);
+  border-color: rgba(5, 142, 217, 0.55);
+  background: rgba(5, 142, 217, 0.18);
+  cursor: progress;
+}
+
 .logistics-success-btn {
   border: 1px solid rgba(38, 196, 133, 0.35);
   background: rgba(38, 196, 133, 0.12);
@@ -634,6 +641,20 @@ body:has(.logistics-mobile-gate),
   letter-spacing: 0.08em;
 }
 
+.logistics-work-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.logistics-node-description {
+  color: var(--dark-text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
 .logistics-caption-value {
   color: var(--dark-text-primary);
   font-size: 13px;
@@ -786,7 +807,7 @@ body:has(.logistics-mobile-gate),
 
 .logistics-work-line span {
   color: var(--dark-text-neutral);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -1529,7 +1550,7 @@ body:has(.logistics-mobile-gate),
     rgba(255, 255, 255, 0.025);
 }
 
-.logistics-work-node.has-active .logistics-work-node-body::after {
+.logistics-work-node.is-focused .logistics-work-node-body::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1537,6 +1558,17 @@ body:has(.logistics-mobile-gate),
   background: linear-gradient(90deg, transparent, rgba(56, 199, 255, 0.16), transparent);
   pointer-events: none;
   animation: logistics-work-node-scan 2.5s linear infinite;
+}
+
+.logistics-work-node.is-focused-failed .logistics-work-node-body {
+  border-color: rgba(235, 81, 96, 0.54);
+  background:
+    linear-gradient(135deg, rgba(235, 81, 96, 0.12), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.logistics-work-node.is-focused-failed .logistics-work-node-body::after {
+  background: linear-gradient(90deg, transparent, rgba(235, 81, 96, 0.24), transparent);
 }
 
 .logistics-work-node-top {
@@ -1560,7 +1592,9 @@ body:has(.logistics-mobile-gate),
   font-size: 14px;
   font-weight: 900;
   line-height: 1.25;
+  position: relative;
 }
+
 
 .logistics-work-node--stacked .logistics-work-node-top {
   flex-direction: column;
@@ -2398,8 +2432,8 @@ body:has(.logistics-mobile-gate),
 }
 
 .logistics-side-title {
-  color: var(--dark-text-neutral);
-  font-size: 10px;
+  color: var(--dark-text-primary);
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 10px;
@@ -2461,6 +2495,7 @@ body:has(.logistics-mobile-gate),
 }
 
 .logistics-log-overlay-card {
+  position: relative;
   min-width: 640px;
   width: min(960px, 92vw);
   max-height: 82vh;
@@ -2470,21 +2505,130 @@ body:has(.logistics-mobile-gate),
 }
 
 .logistics-log-overlay-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.logistics-log-overlay-summary {
+.logistics-log-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.logistics-log-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dark-text-primary);
+  font-size: 18px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logistics-log-title div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  color: var(--dark-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.logistics-log-title div span:not(:last-child)::after {
+  content: "·";
+  margin-left: 8px;
+  color: var(--dark-text-neutral);
+}
+
+.logistics-log-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.logistics-log-domain-filter {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.logistics-log-domain-filter button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dark-text-secondary);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.logistics-log-domain-filter button.is-active {
+  background: rgba(5, 142, 217, 0.22);
+  color: var(--dark-text-primary);
+}
+
+.logistics-log-domain-filter button.is-failure-filter.is-active {
+  background: rgba(235, 81, 96, 0.2);
+  color: var(--dark-status-error);
+}
+
+.logistics-log-search-field {
+  position: relative;
+  min-width: 0;
+}
+
+.logistics-log-search-field input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 34px 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dark-text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  outline: none;
+}
+
+.logistics-log-search-field input:focus {
+  border-color: rgba(5, 142, 217, 0.42);
+  box-shadow: 0 0 0 3px rgba(5, 142, 217, 0.1);
+}
+
+.logistics-log-search-field button {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--dark-text-secondary);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.logistics-log-search-field button:hover {
+  background: rgba(235, 81, 96, 0.16);
+  color: var(--dark-status-error);
 }
 
 .logistics-log-list {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2493,11 +2637,90 @@ body:has(.logistics-mobile-gate),
   padding-right: 4px;
 }
 
+.logistics-log-loading-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgba(10, 16, 28, 0.62);
+  cursor: progress;
+}
+
+.logistics-log-loading-layer span {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(5, 142, 217, 0.28);
+  background: rgba(5, 142, 217, 0.18);
+  color: var(--dark-text-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .logistics-log-row {
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.025);
+}
+
+.logistics-log-row.is-failure {
+  border-color: rgba(235, 81, 96, 0.34);
+  background:
+    linear-gradient(135deg, rgba(235, 81, 96, 0.12), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.logistics-log-row-main {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.logistics-log-row-content {
+  min-width: 0;
+}
+
+.logistics-log-domain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--dark-text-primary);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.logistics-log-domain.domain-oms {
+  border-color: rgba(5, 142, 217, 0.32);
+  background: rgba(5, 142, 217, 0.12);
+}
+
+.logistics-log-domain.domain-wms {
+  border-color: rgba(18, 184, 134, 0.32);
+  background: rgba(18, 184, 134, 0.12);
+}
+
+.logistics-log-domain.domain-tms {
+  border-color: rgba(250, 159, 66, 0.34);
+  background: rgba(250, 159, 66, 0.13);
+}
+
+.logistics-log-domain.domain-audit,
+.logistics-log-domain.domain-sys {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.logistics-log-row.is-failure .logistics-log-domain {
+  border-color: rgba(235, 81, 96, 0.48);
+  background: rgba(235, 81, 96, 0.18);
+  color: var(--dark-status-error);
 }
 
 .logistics-log-row-top,
@@ -2510,9 +2733,34 @@ body:has(.logistics-mobile-gate),
 }
 
 .logistics-log-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   color: var(--dark-text-primary);
   font-size: 12px;
   font-weight: 700;
+}
+
+.logistics-log-task-key {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--dark-text-primary);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.logistics-log-row.is-failure .logistics-log-key {
+  color: var(--dark-status-error);
+}
+
+.logistics-log-row.is-failure .logistics-log-task-key {
+  border-color: rgba(235, 81, 96, 0.34);
+  background: rgba(235, 81, 96, 0.14);
+  color: var(--dark-text-primary);
 }
 
 .logistics-log-time,
@@ -2525,6 +2773,14 @@ body:has(.logistics-mobile-gate),
   margin-top: 8px;
   color: var(--dark-text-primary);
   font-size: 12px;
+}
+
+.logistics-log-row.is-failure .logistics-log-row-summary {
+  color: rgba(255, 176, 184, 0.92);
+}
+
+.logistics-log-footer {
+  justify-content: flex-end;
 }
 
 .logistics-overlay-stage {

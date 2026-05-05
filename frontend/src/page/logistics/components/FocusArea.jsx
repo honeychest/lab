@@ -3,52 +3,12 @@ import { dlog } from '@/global/chs';
 import { emitter } from '@/domain/logistics/common/emitter';
 import { getTaskById } from '@/store/taskStore';
 import { EVENT_STORE_RETENTION_LIMIT, getEventCount, getEventsByAggregate } from '@/store/eventStore';
-import { STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
-import { performRecoveryAction } from '../services/recoveryActions';
+import { getWorkNodeDescription } from '@/domain/logistics/common/stages';
+import { getFailureCandidatesForStage } from '@/domain/logistics/common/failures';
+import { performRecoveryAction, performBranchInject } from '../services/recoveryActions';
+import { STATE_TEXT, formatRelativeAge, latestEvent, getStageTitle } from '../utils';
 
-const STATE_TEXT = {
-    active: '정상 진행',
-    paused: '운영자 일시정지',
-    failed: '실패 대응 필요',
-    completed: '타임라인 완료',
-    cancelled: '운영자 취소',
-};
 const EVENT_STORE_WARN_COUNT = Math.floor(EVENT_STORE_RETENTION_LIMIT * 0.7);
-
-function formatTimestamp(timestamp) {
-    if (!timestamp) return '기록 없음';
-    return new Date(timestamp).toLocaleString('ko-KR', {
-        hour12: false,
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    });
-}
-
-function latestEvent(history) {
-    return history[history.length - 1] ?? null;
-}
-
-function formatRelativeAge(timestamp) {
-    if (!timestamp) return '기록 없음';
-    const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-    if (seconds < 60) return `${seconds}초 전`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}분 전`;
-    return formatTimestamp(timestamp);
-}
-
-function getStageTitle(task) {
-    if (!task) return null;
-
-    const base = STAGE_GUIDANCE[task.currentStage] ?? {
-        title: STAGE_LABELS[task.currentStage] ?? task.currentStage,
-    };
-
-    return base.title;
-}
 
 function DetailItem({ label, value, tone }) {
     return (
@@ -183,6 +143,7 @@ export default function FocusArea({ onInfoOpen }) {
 
     const uniqueEventKeys = new Set(history.map(event => event.idempotencyKey)).size;
     const stageTitle = getStageTitle(focusedTask);
+    const nodeDescription = getWorkNodeDescription(focusedTask.currentStage, focusedTask.receiveNodeKey);
     const latest = latestEvent(history);
     const isFailed = focusedTask.status === 'failed';
     const actorText = focusedTask.actor === 'system' ? '자동' : focusedTask.actor;
@@ -191,24 +152,17 @@ export default function FocusArea({ onInfoOpen }) {
         : focusedTask.vehicleId
             ? focusedTask.vehicleId
             : '실행 정보 대기';
-    const recoveryText = typeof focusedTask.failureRecoverable === 'boolean'
-        ? (focusedTask.failureRecoverable ? '복구 가능' : '수동 검토 필요')
-        : '판단 대기';
     const failureCode = focusedTask.failureCode ?? focusedTask.failureLabel ?? '에러 코드 대기';
     const failureReason = focusedTask.failureReason ?? focusedTask.failureLabel ?? '에러 상세가 아직 기록되지 않았습니다.';
     const recoveryActions = focusedTask.failureActions ?? [];
+    const currentBranchCandidates = isFailed ? [] : getFailureCandidatesForStage(focusedTask.currentStage, focusedTask.receiveNodeKey);
+
     const handleWorkAction = async (action) => {
-        dlog(1, 'FocusArea.workAction — RightPanel 조치와 동일 recovery action 실행', action.id, focusedTask.taskId);
         await performRecoveryAction(focusedTask, action);
-        onInfoOpen?.({
-            title: `${action.label} 처리`,
-            summary: '상단 Current Work와 우측 조치 패널이 같은 recovery action을 실행했습니다.',
-            bullets: [
-                `Task: ${focusedTask.taskId}`,
-                `조치: ${action.label}`,
-                `최근 신호: ${latest?.routingKey ?? 'event 대기'}`,
-            ],
-        });
+    };
+
+    const handleBranchInject = async (failureCode) => {
+        await performBranchInject(focusedTask, failureCode);
     };
 
     return (
@@ -218,7 +172,10 @@ export default function FocusArea({ onInfoOpen }) {
                     <div className="logistics-work-head">
                         <div>
                             <span className="logistics-caption-label">Current Work</span>
-                            <strong>{stageTitle}</strong>
+                            <div className="logistics-work-title-row">
+                                <strong>{stageTitle}</strong>
+                                {nodeDescription && <span className="logistics-node-description">{nodeDescription}</span>}
+                            </div>
                         </div>
                         <div className="logistics-work-head-meta">
                             <button
@@ -239,6 +196,11 @@ export default function FocusArea({ onInfoOpen }) {
                             <span className="logistics-meta-pill" style={{ color: eventCount > EVENT_STORE_WARN_COUNT ? 'var(--dark-status-warn)' : 'var(--dark-text-secondary)' }}>
                                 Event Store {eventCount}/{EVENT_STORE_RETENTION_LIMIT}
                             </span>
+                            {latest && (
+                                <span className="logistics-meta-pill">
+                                    {formatRelativeAge(latest.timestamp)}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -247,13 +209,11 @@ export default function FocusArea({ onInfoOpen }) {
                             <h3>작업 대상</h3>
                             <DetailItem label="화주" value={focusedTask.owner} />
                             <DetailItem label="품목" value={`${focusedTask.itemCode} · ${focusedTask.quantity}ea`} />
-                            <DetailItem label="추적" value={focusedTask.correlationId.slice(0, 8)} />
                         </div>
                         <div className="logistics-work-card">
                             <h3>현재 처리</h3>
                             <DetailItem label="담당" value={`${focusedTask.currentStage.split('_')[0]} / ${actorText}`} />
                             <DetailItem label="실행" value={executionText} />
-                            <DetailItem label="최근" value={formatRelativeAge(latest?.timestamp)} />
                         </div>
                         <div className={`logistics-work-card${isFailed ? ' is-alert' : ''}`}>
                             <h3>{isFailed ? '에러 상세' : '진행 근거'}</h3>
@@ -261,13 +221,11 @@ export default function FocusArea({ onInfoOpen }) {
                                 <>
                                     <DetailItem label="코드" value={failureCode} tone="alert" />
                                     <DetailItem label="원인" value={failureReason} />
-                                    <DetailItem label="복구" value={recoveryText} />
                                 </>
                             ) : (
                                 <>
                                     <DetailItem label="신호" value={latest?.routingKey ?? 'event 대기'} />
                                     <DetailItem label="이벤트" value={`고유 ${uniqueEventKeys}건`} />
-                                    <DetailItem label="상태" value="조치 불필요" />
                                 </>
                             )}
                         </div>
@@ -290,11 +248,21 @@ export default function FocusArea({ onInfoOpen }) {
                                     <span className="logistics-work-muted">등록된 조치 항목이 없습니다.</span>
                                 )
                             ) : (
-                                <>
-                                    <DetailItem label="추천" value="관찰 유지" />
-                                    <DetailItem label="액션" value="현재 조치 없음" />
-                                    <DetailItem label="최근 신호" value={latest?.routingKey ?? 'event 대기'} />
-                                </>
+                                currentBranchCandidates.length > 0 ? (
+                                    <div className="logistics-work-actions">
+                                        {currentBranchCandidates.map(failure => (
+                                            <button
+                                                type="button"
+                                                key={failure.code}
+                                                onClick={() => handleBranchInject(failure.code)}
+                                            >
+                                                {failure.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span className="logistics-work-muted">현재 작업에 등록된 예외 후보가 없습니다.</span>
+                                )
                             )}
                         </div>
                     </div>

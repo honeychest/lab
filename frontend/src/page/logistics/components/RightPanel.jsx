@@ -1,144 +1,21 @@
 import { useState, useEffect } from 'react';
 import { dlog, dtag } from '@/global/chs';
 import { emitter } from '@/domain/logistics/common/emitter';
-import { getTaskById, patchTask, updateTaskStatus } from '@/store/taskStore';
-import { appendEvent, getEventsByAggregate } from '@/store/eventStore';
-import { pauseTask, removeTask, resumeTask } from '@/scheduler/tickLoop';
-import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS, TMS_STAGE_WORK_NODES } from '@/domain/logistics/common/stages';
-import generateUUID from '@/shared/lib/generateUUID';
-import { getFailureCandidatesForStage, getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
+import { getTaskById, updateTaskStatus } from '@/store/taskStore';
+import { getEventsByAggregate } from '@/store/eventStore';
+import { pauseTask, resumeTask } from '@/scheduler/tickLoop';
+import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { getFailureCandidatesForStage } from '@/domain/logistics/common/failures';
 import { appendAuditEvent } from '@/store/auditStore';
-import { performRecoveryAction } from '../services/recoveryActions';
+import { performBranchInject, performRecoveryAction } from '../services/recoveryActions';
+import { CHAIN_BG, CHAIN_ICON } from '../constants';
+import {
+    historyEventLabel,
+    isFailureEvent,
+    historyRowType,
+} from '../utils';
 
-// 이력 체인 배경색 토큰 (T3-ARCH 결정-10 / DECISION-LOG [8])
-const CHAIN_BG = {
-    done:    'rgba(16, 185, 129, 0.12)',
-    current: 'rgba(59, 130, 246, 0.2)',
-    pending: 'rgba(100, 116, 139, 0.07)',
-    fail:    'rgba(239, 68, 68, 0.15)',
-    recover: 'rgba(250, 159, 66, 0.16)',
-};
-const CHAIN_ICON = { done: '✓', current: '⋯', pending: '─', fail: '❌', recover: '↺' };
-const EVENT_LABELS = {
-    'order.received': '주문 접수',
-    'order.validated': '주문 검증 완료',
-    'order.wms.requested': 'WMS 전송 요청',
-    'inbound.received': '입고 등록',
-    'inbound.validated': '입고 유효성 통과',
-    'inbound.zone.assigned': '입고 Zone 배정',
-    'inbound.stored': '입고 재고 반영',
-    'inbound.completed': '입고 완료',
-    'shipment.received': 'WMS 접수',
-    'shipment.allocated': '재고 할당 완료',
-    'shipment.picking.started': '피킹 시작',
-    'shipment.packed': '패킹 완료',
-    'shipment.dispatched': '출하 완료',
-    'shipment.delivering': '배송 진행',
-    'shipment.completed': 'WMS 출고 완료',
-    'dispatch.requested': '배차 요청',
-    'dispatch.vehicleAssigned': '차량 배정',
-    'dispatch.loaded': '상차 완료',
-    'dispatch.delivering': '운송 진행',
-    'dispatch.delivered': '인도 완료',
-    'audit.pause.toggled': '운영자 일시정지/재개',
-    'audit.settings.saved': '설정 저장',
-    'audit.reset.performed': '초기화 실행',
-    'audit.branch.injected': '운영자 분기 주입',
-    'audit.recovery.performed': '운영자 조치 실행',
-    'task.failed.injected': '운영자 분기 주입 실패',
-    'task.failed.simulated': '실패 처리',
-    'task.recovered': '조치 후 재개',
-};
-
-function eventLabel(eventType) {
-    return EVENT_LABELS[eventType] ?? eventType;
-}
-
-function historyTmsEventLabel(event) {
-    if (!event.eventType?.startsWith('dispatch.')) return null;
-
-    if (event.payload?.receiveNodeLabel) {
-        const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'TMS';
-        return `${stageName}: ${event.payload.receiveNodeLabel}`;
-    }
-
-    if (!event.eventType.endsWith('.done')) return eventLabel(event.eventType);
-
-    const parts = event.eventType.split('.');
-    const doneIndex = parts.length - 1;
-    const nodeKey = parts[doneIndex - 1];
-    const stageKey = `TMS_${parts.slice(1, doneIndex - 1).join('_').toUpperCase()}`;
-    const stageName = STAGE_LABELS[stageKey] ?? 'TMS';
-    const nodeLabel = TMS_STAGE_WORK_NODES[stageKey]?.find(node => node.key === nodeKey)?.label;
-
-    return nodeLabel ? `${stageName}: ${nodeLabel}` : eventLabel(event.eventType);
-}
-
-function historyEventLabel(event) {
-    if (event.eventType?.startsWith('order.') && event.payload?.receiveNodeLabel) {
-        const stageName = event.payload.stage ? STAGE_LABELS[event.payload.stage] : 'OMS';
-        return `${stageName}: ${event.payload.receiveNodeLabel}`;
-    }
-
-    const tmsEventLabel = historyTmsEventLabel(event);
-    if (tmsEventLabel) return tmsEventLabel;
-
-    if ((event.eventType === 'task.failed.simulated' || event.eventType === 'task.failed.injected') && event.payload?.failureLabel) {
-        return event.payload?.receiveNodeLabel
-            ? `${event.payload.receiveNodeLabel} 실패: ${event.payload.failureLabel}`
-            : event.payload.failureLabel;
-    }
-
-    if (event.eventType === 'task.recovered' && event.payload?.actionLabel) {
-        return `조치: ${event.payload.actionLabel}`;
-    }
-
-    return eventLabel(event.eventType);
-}
-
-function isFailureEvent(event) {
-    return event.eventType === 'task.failed.simulated' || event.eventType === 'task.failed.injected';
-}
-
-function isRecoveryEvent(event) {
-    return event.eventType === 'task.recovered';
-}
-
-function historyRowType(event, index, taskStatus) {
-    if (isFailureEvent(event)) return 'fail';
-    if (isRecoveryEvent(event)) return 'recover';
-    if (index === 0) {
-        if (taskStatus === 'failed') return 'fail';
-        if (taskStatus === 'completed' || taskStatus === 'cancelled') return 'done';
-        return 'current';
-    }
-    return 'done';
-}
-
-function buildInjectedFailureEvent(task, type) {
-    const failure = getFailureDefinitionByCode(type);
-    return {
-        eventId: generateUUID(),
-        eventType: 'task.failed.injected',
-        routingKey: 'task.failed.injected',
-        aggregateId: task.taskId,
-        payload: {
-            stage: task.currentStage,
-            receiveNodeKey: task.receiveNodeKey,
-            receiveNodeLabel: task.currentStage === 'OMS_RECEIVED' ? getOmsReceiveNodeLabel(task.receiveNodeKey) : undefined,
-            failureCode: failure?.code ?? type,
-            failureLabel: failure?.label ?? type,
-            reason: failure?.summary ?? type,
-        },
-        eventVersion: '1.0',
-        actor: 'operator',
-        timestamp: Date.now(),
-        correlationId: task.correlationId,
-        idempotencyKey: `${task.taskId}:failed:${type}`,
-    };
-}
-
-export default function RightPanel({ open, onToggle, onInfoOpen }) {
+export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
     const [task, setTask] = useState(null);
     const [history, setHistory] = useState([]);
 
@@ -207,33 +84,8 @@ export default function RightPanel({ open, onToggle, onInfoOpen }) {
 
     const handleBranchInject = async (type) => {
         if (!task) return;
-        dtag(2, ['logistics', 'exception', 'audit'], '운영자 분기 주입 실패 처리와 감사 로그 저장 블록', task.taskId, type);
-        const failure = getFailureDefinitionByCode(type);
-        removeTask(task.taskId);
-        await patchTask(task.taskId, {
-            status: 'failed',
-            failureReason: failure?.summary ?? type,
-            failureCode: failure?.code ?? type,
-            failureLabel: failure?.label ?? type,
-            failureReceiveNodeKey: task.receiveNodeKey,
-            failureDomain: failure?.domain,
-            failureType: failure?.type,
-            failureRecoverable: failure?.recoverable ?? true,
-            failureActions: failure?.actions ?? [],
-            failureResumePolicy: failure?.resumePolicy,
-        });
-        await appendEvent(buildInjectedFailureEvent(task, type));
-        await appendAuditEvent('audit.branch.injected', {
-            stage: task.currentStage,
-            failureCode: failure?.code ?? type,
-        }, {
-            aggregateId: task.taskId,
-            correlationId: task.correlationId,
-            actor: 'operator',
-        });
+        await performBranchInject(task, type);
         await refresh(task.taskId);
-        dlog(1, `RightPanel.branchInject — 분기 주입 실패 처리 완료: ${type}`);
-        dlog(2, 'RightPanel.branchInject — co에서 단계×예외 매트릭스/감사 로그 저장 규칙 연결 지점 (REQ-T2-049 [pu→co])', task.taskId, type);
     };
 
     const handleRecoveryAction = async (action) => {
@@ -243,15 +95,7 @@ export default function RightPanel({ open, onToggle, onInfoOpen }) {
     };
 
     const handleLogOpen = () => {
-        onInfoOpen?.({
-            title: '로그 보기',
-            summary: '하단 이력 체인은 최근 20건 요약입니다. 전체 로그에서는 더 긴 이벤트 흐름을 바로 확인합니다.',
-            bullets: [
-                `현재 task 기준 이력 ${history.length}건`,
-                '전체 이벤트와 포커스 task 이벤트 전환',
-                'routing key, actor, 실패/복구 흐름 확인',
-            ],
-        });
+        onLogOpen?.();
     };
 
     const isFailed  = task?.status === 'failed';

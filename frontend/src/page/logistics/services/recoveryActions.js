@@ -3,7 +3,9 @@ import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
 import { patchTask } from '@/store/taskStore';
 import { removeTask, resumeTask, seedTickState } from '@/scheduler/tickLoop';
-import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, PIPELINE_STAGES, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey } from '@/domain/logistics/common/stages';
+import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, PIPELINE_STAGES, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
+import { getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
+import { buildInjectedFailureEvent } from '../utils/eventHelpers';
 import generateUUID from '@/shared/lib/generateUUID';
 
 function previousStage(stage) {
@@ -32,6 +34,35 @@ function buildRecoveryEvent(task, action, targetStage, targetReceiveNodeKey) {
         correlationId: task.correlationId,
         idempotencyKey: `${task.taskId}:recover:${action.id}`,
     };
+}
+
+export async function performBranchInject(task, failureCode) {
+    if (!task || !failureCode) return;
+    dtag(2, ['logistics', 'exception', 'audit'], '운영자 분기 주입 실패 처리와 감사 로그 저장 블록', task.taskId, failureCode);
+    const failure = getFailureDefinitionByCode(failureCode);
+    removeTask(task.taskId);
+    await patchTask(task.taskId, {
+        status: 'failed',
+        failureReason: failure?.summary ?? failureCode,
+        failureCode: failure?.code ?? failureCode,
+        failureLabel: failure?.label ?? failureCode,
+        failureReceiveNodeKey: task.receiveNodeKey,
+        failureDomain: failure?.domain,
+        failureType: failure?.type,
+        failureRecoverable: failure?.recoverable ?? true,
+        failureActions: failure?.actions ?? [],
+        failureResumePolicy: failure?.resumePolicy,
+    });
+    await appendEvent(buildInjectedFailureEvent(task, failureCode, { generateUUID, getFailureDefinitionByCode, getOmsReceiveNodeLabel }));
+    await appendAuditEvent('audit.branch.injected', {
+        stage: task.currentStage,
+        failureCode: failure?.code ?? failureCode,
+    }, {
+        aggregateId: task.taskId,
+        correlationId: task.correlationId,
+        actor: 'operator',
+    });
+    dlog(1, `Logistics.branchInject — 분기 주입 완료: ${failureCode}`);
 }
 
 export async function performRecoveryAction(task, action) {

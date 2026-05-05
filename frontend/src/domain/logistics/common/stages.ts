@@ -15,6 +15,7 @@ export type OmsReceiveWorkNode = {
     stage: number;
     dlog: string;
     handoff: string;
+    description?: string;
 };
 
 // 1 tick = 100ms. 모든 단계/세부 노드가 같은 기준 시간을 참조한다.
@@ -33,6 +34,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.rawIngest — 주문 원문 수신/채널 payload 보존 구현 지점',
         handoff: '채널, 원문 ID, 수신 시각',
+        description: '쇼핑몰·앱 등 외부 채널에서 "이 상품 주문이 들어왔어요"라는 데이터를 처음으로 받아 시스템에 기록하는 단계입니다.',
     },
     {
         key: 'owner-match',
@@ -43,6 +45,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.ownerMatch — 화주/채널/계약 식별 구현 지점',
         handoff: 'owner key, 계약 정책',
+        description: '이 주문을 맡긴 고객사(화주)가 누구인지, 어느 경로(채널)를 통해 들어온 주문인지 계약 정보와 대조해 확인하는 단계입니다.',
     },
     {
         key: 'required-fields',
@@ -53,6 +56,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.requiredFields — OMS 접수 필수값 검증 구현 지점',
         handoff: '검증 결과, 반려 사유',
+        description: '주문에 꼭 있어야 할 정보(무슨 물건, 몇 개, 어디로)가 빠지거나 잘못 적혀 있지 않은지 확인하는 단계입니다.',
     },
     {
         key: 'duplicate-check',
@@ -63,6 +67,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.duplicateCheck — 중복 주문 탐지/멱등 처리 구현 지점',
         handoff: '중복 여부, 기존 taskId',
+        description: '같은 주문이 두 번 들어와 물건이 두 번 나가지 않도록, 이미 처리한 주문번호인지 이력과 대조해 걸러내는 단계입니다.',
     },
     {
         key: 'receipt-key',
@@ -73,6 +78,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.receiptKey — 접수키/추적키 발급 구현 지점',
         handoff: 'taskId, traceId, event seed',
+        description: '이 주문이 창고를 거쳐 배송될 때까지 전 과정을 추적할 수 있도록 고유 번호(접수키)를 만들어 붙이는 단계입니다.',
     },
     {
         key: 'sla-classify',
@@ -83,6 +89,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 3,
         dlog: 'OmsReceive.slaClassify — 화주 계약 SLA 등급/우선순위 분류 구현 지점',
         handoff: 'SLA 등급, 처리 우선순위',
+        description: '당일배송·일반배송처럼 얼마나 빨리 처리해야 하는지 등급을 매겨, 급한 주문이 먼저 처리되도록 순서를 정하는 단계입니다.',
     },
     {
         key: 'next-queue',
@@ -93,6 +100,7 @@ export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsReceive.nextQueue — OMS 검증 큐 등록/이벤트 발행 구현 지점',
         handoff: 'validation queue event',
+        description: '접수를 마친 주문을 다음 단계인 검증 대기줄에 올려, 검증 작업자가 바로 이어서 처리할 수 있게 넘겨주는 단계입니다.',
     },
 ];
 
@@ -106,6 +114,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.contractRule — 화주 계약/채널 정책 검증 구현 지점',
         handoff: '계약 ID, 허용 채널',
+        description: '이 주문을 맡긴 고객사와 맺은 계약 내용(어떤 상품을, 어느 경로로 받을 수 있는지)에 어긋나지 않는지 확인하는 단계입니다.',
     },
     {
         key: 'item-rule',
@@ -116,6 +125,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.itemRule — 품목 정책/취급 가능 조건 구현 지점',
         handoff: 'item policy, 보관 온도',
+        description: '주문한 물건이 우리 창고에서 다룰 수 있는 상품인지(냉동 보관 필요 여부 등 조건 포함) 확인하는 단계입니다.',
     },
     {
         key: 'quantity-rule',
@@ -126,6 +136,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.quantityRule — 수량/단위 검증 구현 지점',
         handoff: '수량 범위, 단위',
+        description: '주문 수량이 너무 많거나 단위(개/박스/팔레트)가 잘못 적혀 있지 않은지 처리 가능한 범위인지 확인하는 단계입니다.',
     },
     {
         key: 'destination-rule',
@@ -136,6 +147,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.destinationRule — 배송 가능 권역 검증 구현 지점',
         handoff: '권역 코드, 제한 사유',
+        description: '주문에 적힌 배송지 주소가 우리가 실제로 배달할 수 있는 지역인지 확인하는 단계입니다.',
     },
     {
         key: 'payment-check',
@@ -146,6 +158,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 3,
         dlog: 'OmsValidate.paymentCheck — 결제 상태 조회/미결제 반려 구현 지점',
         handoff: '결제 ID, 결제 상태',
+        description: '고객이 실제로 결제를 완료했는지 확인해, 아직 결제가 안 됐거나 취소된 주문은 걸러내는 단계입니다.',
     },
     {
         key: 'audit-ready',
@@ -156,6 +169,7 @@ export const OMS_VALIDATE_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsValidate.auditReady — 검증 감사 로그/반려 사유 구현 지점',
         handoff: '검증 결과, 감사 로그',
+        description: '검증 결과(통과/반려)와 반려 이유를 나중에 확인할 수 있도록 기록으로 남기는 단계입니다.',
     },
 ];
 
@@ -169,6 +183,7 @@ export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsWmsRequest.shipmentBuild — WMS 출고 요청 payload 구성 구현 지점',
         handoff: '출고 요청 payload',
+        description: '검증을 통과한 주문 정보를 창고(WMS)가 이해할 수 있는 형식으로 바꿔 "이 상품 내보내 주세요" 요청서를 만드는 단계입니다.',
     },
     {
         key: 'inventory-hint',
@@ -179,6 +194,7 @@ export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsWmsRequest.inventoryHint — 재고 할당 힌트 구성 구현 지점',
         handoff: '품목, 수량, 온도대',
+        description: '창고가 재고를 더 빠르게 찾을 수 있도록 "이 상품 몇 개, 냉장 구역에 있음" 같은 힌트 정보를 요청서에 함께 첨부하는 단계입니다.',
     },
     {
         key: 'event-envelope',
@@ -189,6 +205,7 @@ export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsWmsRequest.eventEnvelope — 이벤트 봉투/멱등키 구현 지점',
         handoff: 'routingKey, traceId, idempotencyKey',
+        description: '요청 메시지가 어디서 와서 어디로 가는지, 혹시 두 번 전달돼도 중복 처리되지 않도록 식별 정보를 봉투처럼 감싸는 단계입니다.',
     },
     {
         key: 'broker-send',
@@ -199,6 +216,7 @@ export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsWmsRequest.brokerSend — MQ/WS 이벤트 발행 구현 지점',
         handoff: '발행 결과, 재시도 키',
+        description: '완성된 출고 요청 메시지를 창고 시스템(WMS)에 실제로 전송하는 단계입니다. 편지를 우체통에 넣는 것과 같습니다.',
     },
     {
         key: 'handoff-watch',
@@ -209,6 +227,7 @@ export const OMS_WMS_REQUEST_WORK_NODES: OmsReceiveWorkNode[] = [
         stage: 2,
         dlog: 'OmsWmsRequest.handoffWatch — WMS 수신 확인/미수신 보상 구현 지점',
         handoff: 'WMS 수신 상태',
+        description: '창고 시스템이 요청을 잘 받았는지 확인하는 단계입니다. 편지를 보낸 후 상대방이 받았다는 답장을 기다리는 것과 같습니다.',
     },
 ];
 
@@ -227,6 +246,7 @@ export type TmsWorkNode = {
     stage: number;
     dlog: string;
     handoff: string;
+    description?: string;
 };
 
 const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
@@ -239,6 +259,7 @@ const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsRequested.dispatchIngest — 배차 요청 이벤트 수신/중복 방지 구현 지점',
         handoff: 'dispatch 요청 ID, 출하 참조 ID',
+        description: '창고에서 "포장 완료, 트럭 보내줘"라는 신호를 받아 운송 시스템에 배차 작업을 만드는 단계입니다.',
     },
     {
         key: 'route-calc',
@@ -249,6 +270,7 @@ const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
         stage: 3,
         dlog: 'TmsRequested.routeCalc — 경로 최적화/거리 비용 계산 구현 지점',
         handoff: '경로 코드, 예상 거리, 예상 시간',
+        description: '창고에서 고객 집까지 가장 빠르고 효율적인 길을 계산하는 단계입니다. 내비게이션이 최적 경로를 찾는 것과 같습니다.',
     },
     {
         key: 'vehicle-match',
@@ -259,6 +281,7 @@ const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsRequested.vehicleMatch — 차량 가용성/차량 풀 조회 구현 지점',
         handoff: '차량 후보 ID 목록',
+        description: '이 화물 크기와 경로에 맞는 차량이 현재 사용 가능한지 확인해 후보 차량 목록을 뽑는 단계입니다.',
     },
     {
         key: 'dispatch-queue',
@@ -269,6 +292,7 @@ const TMS_REQUESTED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsRequested.dispatchQueue — 배차 대기 큐 등록/이벤트 발행 구현 지점',
         handoff: '배차 대기 이벤트',
+        description: '차량이 확정될 때까지 이 배차 요청을 대기줄에 올려놓는 단계입니다. 식당에서 자리가 날 때까지 대기 명단에 이름을 올리는 것과 같습니다.',
     },
 ];
 
@@ -282,6 +306,7 @@ const TMS_VEHICLE_ASSIGNED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsVehicleAssigned.vehicleConfirm — 차량 최종 확정/경합 처리 구현 지점',
         handoff: '차량 ID, 차량 유형',
+        description: '후보 차량 중 이 배송에 실제로 투입할 차량 하나를 최종 결정하는 단계입니다.',
     },
     {
         key: 'driver-assign',
@@ -292,6 +317,7 @@ const TMS_VEHICLE_ASSIGNED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsVehicleAssigned.driverAssign — 기사 배정/가용성 확인 구현 지점',
         handoff: '기사 ID, 연락처',
+        description: '확정된 차량에 오늘 이 배송을 맡을 기사를 연결하는 단계입니다. 택시 앱에서 주변 기사가 배정되는 것과 비슷합니다.',
     },
     {
         key: 'departure-notify',
@@ -302,6 +328,7 @@ const TMS_VEHICLE_ASSIGNED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsVehicleAssigned.departureNotify — 출발 준비 통보/알림 발행 구현 지점',
         handoff: '통보 수신 확인',
+        description: '배정된 기사에게 "언제, 창고 어디서 화물 실으면 돼요"를 알려주는 단계입니다.',
     },
 ];
 
@@ -315,6 +342,7 @@ const TMS_LOADED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsLoaded.cargoScan — 화물 스캔/출하 정보 대조 구현 지점',
         handoff: '스캔 결과, 박스 ID 목록',
+        description: '트럭에 싣기 전 박스 바코드를 스캐너로 찍어, 내보낼 화물이 맞는지 하나씩 대조 확인하는 단계입니다.',
     },
     {
         key: 'load-confirm',
@@ -325,6 +353,7 @@ const TMS_LOADED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsLoaded.loadConfirm — 상차 완료 확인/서명 처리 구현 지점',
         handoff: '적재 완료 상태, 기사 서명',
+        description: '모든 화물을 트럭에 다 실었는지 기사가 최종 확인하고 서명하는 단계입니다.',
     },
     {
         key: 'departure-signal',
@@ -335,6 +364,7 @@ const TMS_LOADED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsLoaded.departureSignal — 출발 신호/Track&Trace 시작 구현 지점',
         handoff: '출발 시각, 추적 세션 ID',
+        description: '트럭이 창고를 떠나는 시각을 시스템에 기록하고, 이후 배송 위치 추적을 시작하는 단계입니다.',
     },
 ];
 
@@ -348,6 +378,7 @@ const TMS_DELIVERING_WORK_NODES: TmsWorkNode[] = [
         stage: 3,
         dlog: 'TmsDelivering.enRoute — 운송 중 위치 이벤트/경로 이탈 감지 구현 지점',
         handoff: '현재 위치, 예상 도착',
+        description: '트럭이 배송지를 향해 달리는 구간입니다. GPS로 현재 위치를 주기적으로 기록합니다.',
     },
     {
         key: 'checkpoint',
@@ -358,6 +389,7 @@ const TMS_DELIVERING_WORK_NODES: TmsWorkNode[] = [
         stage: 3,
         dlog: 'TmsDelivering.checkpoint — 체크포인트 확인/지연 감지 구현 지점',
         handoff: '체크포인트 ID, 통과 시각',
+        description: '미리 정해둔 중간 지점(물류허브 등)을 제 시간에 통과하는지 확인해 지연 여부를 파악하는 단계입니다.',
     },
     {
         key: 'arrival-estimate',
@@ -368,6 +400,7 @@ const TMS_DELIVERING_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsDelivering.arrivalEstimate — ETA 계산/수취인 사전 통보 구현 지점',
         handoff: 'ETA, 수취인 통보 상태',
+        description: '트럭이 목적지 근처에 오면 "몇 시쯤 도착해요"를 계산해 받는 사람에게 미리 알려주는 단계입니다.',
     },
 ];
 
@@ -381,6 +414,7 @@ const TMS_DELIVERED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsDelivered.deliveryConfirm — 인도 확인/수령 실패 처리 구현 지점',
         handoff: '수령 확인 상태, 수취인 ID',
+        description: '받는 사람이 실제로 물건을 받았는지 확인하는 단계입니다. 집에 아무도 없으면 부재중 처리로 분기합니다.',
     },
     {
         key: 'proof-capture',
@@ -391,6 +425,7 @@ const TMS_DELIVERED_WORK_NODES: TmsWorkNode[] = [
         stage: 3,
         dlog: 'TmsDelivered.proofCapture — 전자서명/사진 증빙 수집 구현 지점',
         handoff: '증빙 파일 ID',
+        description: '받는 사람의 서명이나 문 앞 사진을 찍어 "이 시각에 정확히 배달했음"을 증명하는 자료로 보관하는 단계입니다.',
     },
     {
         key: 'close-order',
@@ -401,6 +436,7 @@ const TMS_DELIVERED_WORK_NODES: TmsWorkNode[] = [
         stage: 2,
         dlog: 'TmsDelivered.closeOrder — 인도 완료 이벤트 발행/주문 종료 구현 지점',
         handoff: '종료 이벤트, 전체 주문 완료 상태',
+        description: '"배송 완료"를 시스템에 기록해 주문-창고-배송으로 이어진 전체 흐름을 마무리하는 단계입니다.',
     },
 ];
 
@@ -461,46 +497,47 @@ export function getTmsStageWorkNodeLabel(stage: TmsStage, key?: TmsWorkNodeKey):
 export type WmsWorkNode = {
     key: string;
     label: string;
+    description?: string;
 };
 
 export const WMS_STAGE_WORK_NODES: Record<WmsOutStage, WmsWorkNode[]> = {
     WMS_RECEIVED: [
-        { key: 'request-ingest', label: '출고 요청 수신' },
-        { key: 'duplicate-check', label: '중복 요청 검사' },
-        { key: 'work-key', label: '작업번호 발급' },
+        { key: 'request-ingest', label: '출고 요청 수신', description: 'OMS(주문 시스템)에서 보낸 "이 상품을 내보내 주세요" 요청을 창고가 받아 적는 단계입니다.' },
+        { key: 'duplicate-check', label: '중복 요청 검사', description: '같은 주문이 두 번 들어와 똑같은 상품을 두 번 내보내지 않도록, 이미 처리된 요청인지 확인하는 단계입니다.' },
+        { key: 'work-key', label: '작업번호 발급', description: '창고 안에서 이 출고 건을 추적할 수 있도록 고유 번호(작업번호)를 만들어 붙이는 단계입니다.' },
     ],
     WMS_ALLOCATED: [
-        { key: 'stock-check', label: '가용 재고 조회' },
-        { key: 'rule-apply', label: 'Zone/Lot 규칙' },
-        { key: 'stock-reserve', label: '재고 예약' },
-        { key: 'shortage-check', label: '부족 판정' },
+        { key: 'stock-check', label: '가용 재고 조회', description: '창고 안에 실제로 보낼 수 있는 재고가 충분히 있는지 숫자를 세어 확인하는 단계입니다.' },
+        { key: 'rule-apply', label: 'Zone/Lot 규칙', description: '같은 상품이라도 어느 구역(Zone)·어느 묶음(Lot)에서 꺼낼지 정하는 규칙을 적용합니다. (예: 유통기한이 빠른 것부터)' },
+        { key: 'stock-reserve', label: '재고 예약', description: '꺼내기로 정한 재고에 "이건 이 주문 거예요" 표시를 걸어, 다른 주문이 가져가지 못하게 잠가두는 단계입니다.' },
+        { key: 'shortage-check', label: '부족 판정', description: '예약하려 했더니 재고가 모자란 경우를 잡아내, 부족 처리(결품)로 분기시키는 단계입니다.' },
     ],
     WMS_PICKING: [
-        { key: 'pick-order', label: '피킹 지시 생성' },
-        { key: 'worker-assign', label: '작업자 배정' },
-        { key: 'location-move', label: '위치 이동' },
-        { key: 'barcode-scan', label: '바코드 확인' },
+        { key: 'pick-order', label: '피킹 지시 생성', description: '"몇 번 선반에서 무엇을 몇 개 꺼내라"라는 작업 지시서를 만들어 작업자에게 내려보내는 단계입니다.' },
+        { key: 'worker-assign', label: '작업자 배정', description: '그 지시서를 누가 처리할지 창고 작업자를 정해 일감을 나눠주는 단계입니다.' },
+        { key: 'location-move', label: '위치 이동', description: '배정된 작업자가 상품이 놓인 선반 위치까지 직접 이동하는 단계입니다.' },
+        { key: 'barcode-scan', label: '바코드 확인', description: '선반에서 꺼낸 상품의 바코드를 스캐너로 찍어, 지시서에 적힌 상품과 같은지 확인하는 단계입니다.' },
     ],
     WMS_PACKED: [
-        { key: 'item-check', label: '상품 검수' },
-        { key: 'box-select', label: '박스 선택' },
-        { key: 'label-print', label: '라벨 출력' },
-        { key: 'weight-check', label: '중량 확인' },
+        { key: 'item-check', label: '상품 검수', description: '꺼내 온 상품의 수량과 상태(파손·오염 여부)를 사람이 눈으로 다시 한 번 확인하는 단계입니다.' },
+        { key: 'box-select', label: '박스 선택', description: '상품 크기와 개수에 맞는 포장 박스를 골라, 운송 중 흔들리지 않게 담는 단계입니다.' },
+        { key: 'label-print', label: '라벨 출력', description: '받는 사람 주소·운송장 번호가 적힌 스티커(송장)를 출력해서 박스에 붙이는 단계입니다.' },
+        { key: 'weight-check', label: '중량 확인', description: '박스를 저울에 올려 무게를 재어, 빠진 물건이 없는지·운송비가 맞는지 마지막으로 검증합니다.' },
     ],
     WMS_DISPATCHED: [
-        { key: 'dock-assign', label: '도크 배정' },
-        { key: 'dispatch-check', label: '출하 검수' },
-        { key: 'tms-request', label: 'TMS 요청' },
+        { key: 'dock-assign', label: '도크 배정', description: '출고할 박스를 어느 트럭 적재 자리(도크)로 보낼지 지정하는 단계입니다. 트럭마다 가는 지역이 달라 배정이 필요합니다.' },
+        { key: 'dispatch-check', label: '출하 검수', description: '도크로 옮긴 박스가 실제로 보내려던 박스가 맞는지(개수·라벨) 마지막으로 한 번 더 확인합니다.' },
+        { key: 'tms-request', label: 'TMS 요청', description: '운송 시스템(TMS)에 "이 박스 가져갈 차량을 보내달라"고 배차를 요청하는 단계입니다.' },
     ],
     WMS_DELIVERING: [
-        { key: 'tms-sync', label: 'TMS 상태 수신' },
-        { key: 'delay-watch', label: '지연 감지' },
-        { key: 'delivery-result', label: '인도 결과 대기' },
+        { key: 'tms-sync', label: 'TMS 상태 수신', description: '운송 시스템(TMS)으로부터 차량의 현재 위치와 배송 진행 상태를 실시간으로 받아오는 단계입니다.' },
+        { key: 'delay-watch', label: '지연 감지', description: '예정 시간보다 늦어지는 배송을 자동으로 발견해 경고를 띄우는 단계입니다.' },
+        { key: 'delivery-result', label: '인도 결과 대기', description: '"고객이 잘 받았다"는 최종 인도 확인 신호가 운송 시스템에서 도착하기를 기다리는 단계입니다.' },
     ],
     WMS_COMPLETED: [
-        { key: 'stock-confirm', label: '재고 차감 확정' },
-        { key: 'audit-close', label: '감사 로그 저장' },
-        { key: 'order-close', label: '주문 종료 연계' },
+        { key: 'stock-confirm', label: '재고 차감 확정', description: '예약 상태였던 재고를 "실제로 나갔다"로 바꿔, 창고 재고 숫자를 줄이는 단계입니다.' },
+        { key: 'audit-close', label: '감사 로그 저장', description: '나중에 누가 언제 무엇을 내보냈는지 추적할 수 있도록, 이번 출고 기록 전체를 감사 로그로 저장하는 단계입니다.' },
+        { key: 'order-close', label: '주문 종료 연계', description: 'OMS(주문 시스템)에 "이 주문은 출고가 끝났다"고 알려, 주문을 완결 처리하도록 연결하는 단계입니다.' },
     ],
 };
 
@@ -518,6 +555,20 @@ export function getNextWmsStageWorkNodeKey(stage: WmsOutStage, key?: WmsWorkNode
 export function getWmsStageWorkNodeLabel(stage: WmsOutStage, key?: WmsWorkNodeKey): string {
     const nodes = WMS_STAGE_WORK_NODES[stage];
     return nodes.find(node => node.key === key)?.label ?? nodes[0].label;
+}
+
+export type LogisticsStageWorkNode = {
+    key: string;
+    label: string;
+    description?: string;
+};
+
+export function getStageWorkNodes(stage: TaskStage): LogisticsStageWorkNode[] {
+    return [
+        ...(OMS_STAGE_WORK_NODES[stage as OmsStage] ?? []),
+        ...(WMS_STAGE_WORK_NODES[stage as WmsOutStage] ?? []),
+        ...(TMS_STAGE_WORK_NODES[stage as TmsStage] ?? []),
+    ];
 }
 
 export const INBOUND_STAGES: InboundStage[] = [
@@ -790,4 +841,9 @@ export function getPipelineStagesForTask(task: Pick<LogisticsTask, 'type'>): Tas
 
 export function getFinalStageForTask(task: Pick<LogisticsTask, 'type'>): TaskStage {
     return task.type === 'INBOUND' ? INBOUND_FINAL_STAGE : FINAL_STAGE;
+}
+
+export function getWorkNodeDescription(stage: TaskStage, nodeKey?: string): string | undefined {
+    if (!nodeKey) return undefined;
+    return getStageWorkNodes(stage).find(n => n.key === nodeKey)?.description;
 }

@@ -12,49 +12,11 @@ import {
 import { dlog } from '@/global/chs';
 import { setFocus } from '@/store/focusStore';
 import SupportFlowStrip from '../components/SupportFlowStrip';
-
-const OWNER_KEY = 'logistics.ownerSelection';
-
-function tasksForStage(tasks, stage) {
-    return tasks.filter(task => task.type === 'ORDER' && task.currentStage === stage);
-}
-
-function progressPercent(task) {
-    if (task?.status === 'completed') return 100;
-    if (task?.status === 'failed') return 100;
-    if (typeof task?.liveProgress === 'number') {
-        return Math.max(6, Math.min(100, Math.round(task.liveProgress * 100)));
-    }
-    if (!task?.ticksTarget) return 10;
-    return Math.max(10, Math.min(100, Math.round((task.ticksInCurrentStage / task.ticksTarget) * 100)));
-}
-
-function stageWorkIndex(task, stage) {
-    const nodes = OMS_STAGE_WORK_NODES[stage] ?? [];
-    if (nodes.length === 0) return 0;
-    const nodeIndex = nodes.findIndex(node => node.key === task?.receiveNodeKey);
-    if (nodeIndex >= 0) return nodeIndex;
-    const percent = progressPercent(task);
-    const rawIndex = Math.floor((percent / 100) * nodes.length);
-    return Math.min(nodes.length - 1, Math.max(0, rawIndex));
-}
-
-function stageNodeTasks(tasks, stage, nodeIndex) {
-    return tasks.filter(task => stageWorkIndex(task, stage) === nodeIndex);
-}
-
-function nodeStatusCounts(tasks) {
-    return {
-        active: tasks.filter(task => task.status === 'active').length,
-        failed: tasks.filter(task => task.status === 'failed').length,
-    };
-}
-
-function nodeStatusLabel(status) {
-    if (status === 'all') return '전체';
-    if (status === 'failed') return '실패';
-    return '진행중';
-}
+import WorkNodeCard from '../components/WorkNodeCard';
+import NodeTaskPopover from '../components/NodeTaskPopover';
+import OmsCreateModal from '../components/OmsCreateModal';
+import { OWNER_KEY, OMS_SUPPORT_FLOWS } from '../constants';
+import { tasksForStage, stageNodeTasks } from '../utils';
 
 function defaultForm(owner) {
     return {
@@ -64,37 +26,6 @@ function defaultForm(owner) {
         destination: DESTINATION_OPTIONS[0],
     };
 }
-
-const OMS_SUPPORT_FLOWS = [
-    {
-        key: 'oms-owner-portal',
-        label: 'Owner Portal',
-        meta: '화주 시점',
-        stageLabel: 'OMS 보조 흐름',
-        summary: '화주가 자기 주문과 입고 요청을 등록하거나 상태를 확인하는 별도 시점입니다.',
-        bullets: [
-            '현재 L1에서는 화면 노출 없이 설명 팝업만 제공',
-            '권한, 화주별 필터, 외부 입력 검증은 후속 구현 대상',
-            'OMS 접수 관문과 같은 이벤트 흐름으로 합류',
-        ],
-        handoffLog: 'OmsTab.supportFlow — Owner Portal 권한/화주별 필터/입력 검증 구현 회수 지점',
-        stage: 2,
-    },
-    {
-        key: 'oms-validation',
-        label: 'Validation 검증예외',
-        meta: '주문 반려/보류',
-        stageLabel: 'OMS 보조 흐름',
-        summary: '주문을 WMS로 넘기기 전에 화주, 품목, 수량, 도착지 오류를 걸러내는 흐름입니다.',
-        bullets: [
-            '현재 L1은 단계 설명과 실패 주입 후보로만 표현',
-            '실제 검증 규칙 4종은 co 단계에서 교체',
-            '실패 시 감사 로그와 운영자 조치 흐름으로 연결',
-        ],
-        handoffLog: 'OmsTab.supportFlow — OMS 검증 규칙/반려/보류/감사 로그 구현 회수 지점',
-        stage: 2,
-    },
-];
 
 export default function OmsTab({ onInfoOpen }) {
     const { tasks } = useLogisticsSnapshot();
@@ -219,52 +150,10 @@ export default function OmsTab({ onInfoOpen }) {
                             </div>
                             <div className="logistics-receive-workflow">
                                 {stageNodes.map((node, index) => {
-                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index);
-                                    const counts = nodeStatusCounts(nodeTasks);
-                                    return (
-                                        <div key={node.key} className={`logistics-work-node${nodeTasks.length > 0 ? ' active' : ''}${counts.active > 0 ? ' has-active' : ''}${counts.failed > 0 ? ' has-failure' : ''}`}>
-                                            <div className="logistics-work-node-rail" aria-hidden="true">
-                                                <span>{String(index + 1).padStart(2, '0')}</span>
-                                            </div>
-                                            <div className="logistics-work-node-body">
-                                                <div className="logistics-work-node-top">
-                                                    <div className="logistics-work-node-title">{node.label}</div>
-                                                    <div className="logistics-work-node-top-meta">
-                                                        <button
-                                                            type="button"
-                                                            className={`logistics-work-node-count ${nodeTasks.length === 0 ? 'is-empty' : ''}`}
-                                                            disabled={nodeTasks.length === 0}
-                                                            onClick={(event) => openNodeTaskPopover(event, stage, node, 'all', nodeTasks)}
-                                                        >
-                                                            {nodeTasks.length > 0 ? nodeTasks.length : ''}
-                                                        </button>
-                                                        <div className="logistics-work-node-status-row">
-                                                            {[
-                                                                ['active', '진행중', counts.active],
-                                                                ['failed', '실패', counts.failed],
-                                                            ].map(([status, label, count]) => (
-                                                                <button
-                                                                    key={status}
-                                                                    type="button"
-                                                                    className={`logistics-work-node-status ${status} ${count === 0 ? 'is-empty' : ''}`}
-                                                                    disabled={count === 0}
-                                                                    onClick={(event) => openNodeTaskPopover(event, stage, node, status, nodeTasks)}
-                                                                >
-                                                                    {status === 'active' ? (
-                                                                        <span className={count > 0 ? 'sample_live_spinner' : 'logistics-status-idle-ring'} aria-hidden="true" />
-                                                                    ) : (
-                                                                        <span className="logistics-health-dot" aria-hidden="true">❌</span>
-                                                                    )}
-                                                                    <span>{label}</span>
-                                                                    <strong>{count}</strong>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
+                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index, stageNodes);
+                                    const focused = nodeTasks.some(t => t.taskId === focusedTaskId);
+                                    const focusedFailed = nodeTasks.some(t => t.taskId === focusedTaskId && t.status === 'failed');
+                                    return <WorkNodeCard key={node.key} node={node} index={index} nodeTasks={nodeTasks} stage={stage} onPopover={openNodeTaskPopover} stacked={false} focused={focused} focusedFailed={focusedFailed} />;
                                 })}
                             </div>
                         </article>
@@ -273,109 +162,23 @@ export default function OmsTab({ onInfoOpen }) {
             </div>
 
             {taskPopover && (
-                <div className="logistics-node-popover-backdrop" onClick={() => setTaskPopover(null)}>
-                    <div className="logistics-node-popover" onClick={(event) => event.stopPropagation()}>
-                        <div className="logistics-node-popover-top">
-                            <div>
-                                <div className="logistics-side-title">{STAGE_LABELS[taskPopover.stage]} · {taskPopover.nodeLabel}</div>
-                                <div className="logistics-node-popover-title">{nodeStatusLabel(taskPopover.status)} {taskPopover.tasks.length}건</div>
-                            </div>
-                            <button type="button" className="logistics-outline-btn" onClick={() => setTaskPopover(null)}>닫기</button>
-                        </div>
-                        <div className="logistics-node-popover-list">
-                            {taskPopover.tasks.map(task => (
-                                <button
-                                    key={task.taskId}
-                                    type="button"
-                                    className={`logistics-node-popover-row${focusedTaskId === task.taskId ? ' focused' : ''}`}
-                                    onClick={() => {
-                                        setFocus(task.taskId);
-                                        setTaskPopover(null);
-                                    }}
-                                >
-                                    <span>{task.taskId}</span>
-                                    <strong>{task.owner}</strong>
-                                    <em>{task.itemCode} · {task.quantity}ea</em>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <NodeTaskPopover
+                    taskPopover={taskPopover}
+                    focusedTaskId={focusedTaskId}
+                    onClose={() => setTaskPopover(null)}
+                />
             )}
 
             {modalMode && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'var(--dark-overlay-bg)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 110,
-                    }}
-                    onClick={() => setModalMode(null)}
-                >
-                    <div
-                        className="logistics-side-section"
-                        style={{ background: 'var(--dark-modal-bg)', minWidth: '340px', maxWidth: '420px' }}
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <div className="logistics-side-title">{modalMode === 'inbound' ? '입고 예약' : '오더 등록'}</div>
-                        <div className="logistics-settings-advanced" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
-                            <label className="logistics-slider-wrap compact">
-                                <span className="logistics-settings-stage"><span>화주</span></span>
-                                <select
-                                    value={selectedOwner}
-                                    onChange={(event) => setSelectedOwner(event.target.value)}
-                                    className="logistics-outline-btn"
-                                >
-                                    {OWNER_OPTIONS.map(owner => <option key={owner} value={owner}>{owner}</option>)}
-                                </select>
-                            </label>
-                            <label className="logistics-slider-wrap compact">
-                                <span className="logistics-settings-stage"><span>품목</span></span>
-                                <select
-                                    value={form.itemCode}
-                                    onChange={(event) => setForm(current => ({ ...current, itemCode: event.target.value }))}
-                                    className="logistics-outline-btn"
-                                >
-                                    {ITEM_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
-                                </select>
-                            </label>
-                            <label className="logistics-slider-wrap compact">
-                                <span className="logistics-settings-stage"><span>도착지</span></span>
-                                <select
-                                    value={form.destination}
-                                    onChange={(event) => setForm(current => ({ ...current, destination: event.target.value }))}
-                                    className="logistics-outline-btn"
-                                >
-                                    {DESTINATION_OPTIONS.map(destination => <option key={destination} value={destination}>{destination}</option>)}
-                                </select>
-                            </label>
-                            <label className="logistics-slider-wrap compact">
-                                <span className="logistics-settings-stage">
-                                    <span>수량</span>
-                                    <span className="logistics-meta-pill">{form.quantity} ea</span>
-                                </span>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="30"
-                                    step="1"
-                                    value={form.quantity}
-                                    onChange={(event) => setForm(current => ({ ...current, quantity: Number(event.target.value) }))}
-                                />
-                            </label>
-                        </div>
-                        <div className="logistics-button-row">
-                            <button className="logistics-primary-btn" onClick={handleSubmit}>
-                                {modalMode === 'inbound' ? '입고 요청 생성' : '오더 생성'}
-                            </button>
-                            <button className="logistics-outline-btn" onClick={() => setModalMode(null)}>닫기</button>
-                        </div>
-                    </div>
-                </div>
+                <OmsCreateModal
+                    mode={modalMode}
+                    form={form}
+                    selectedOwner={selectedOwner}
+                    onOwnerChange={setSelectedOwner}
+                    onFormChange={setForm}
+                    onSubmit={handleSubmit}
+                    onClose={() => setModalMode(null)}
+                />
             )}
         </section>
     );
