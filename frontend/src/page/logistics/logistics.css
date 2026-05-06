@@ -1032,8 +1032,12 @@ body:has(.logistics-mobile-gate),
     0 10px 28px rgba(5, 142, 217, 0.08);
 }
 
-.logistics-tab-spacer {
-  display: none;
+.logistics-tab-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .logistics-tab-focus-summary.is-empty {

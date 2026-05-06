@@ -151,7 +151,17 @@ function FocusRouteSummary() {
     );
 }
 
-export default function TabBar({ activeTab, onTabChange }) {
+export default function TabBar({
+    activeTab,
+    onTabChange,
+    autoMode,
+    onAutoToggle,
+    onSettingsOpen,
+    onLogOpen,
+    logOpening = false,
+    retentionFull = false,
+    onRetentionClear,
+}) {
     return (
         <nav className="logistics-tabbar">
             <div className="logistics-tab-list">
@@ -166,7 +176,24 @@ export default function TabBar({ activeTab, onTabChange }) {
                 ))}
             </div>
             <FocusRouteSummary />
-            <div className="logistics-tab-spacer" aria-hidden="true" />
+            <div className="logistics-tab-actions">
+                <button className={autoMode ? 'logistics-primary-btn' : 'logistics-outline-btn'} onClick={onAutoToggle}>
+                    {autoMode ? '⏸ 시뮬레이션 정지 (진행 중)' : '▶ 시뮬레이션 시작'}
+                </button>
+                <button className="logistics-secondary-btn" onClick={onSettingsOpen}>⚙ 설정</button>
+                {retentionFull && (
+                    <button className="logistics-meta-pill logistics-retention-badge" onClick={onRetentionClear}>
+                        ⚠ Event Store 가득 참 — 초기화
+                    </button>
+                )}
+                <button
+                    className={`logistics-outline-btn${logOpening ? ' is-pressed' : ''}`}
+                    onClick={onLogOpen}
+                    aria-busy={logOpening}
+                >
+                    📊 전체 로그
+                </button>
+            </div>
         </nav>
     );
 }

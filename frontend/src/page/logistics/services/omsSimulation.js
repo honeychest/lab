@@ -230,7 +230,13 @@ async function scheduleNextAutoOrder() {
 export function startAutoOmsOrders() {
     if (autoRunning) return;
     autoRunning = true;
-    scheduleNextAutoOrder();
+    void (async () => {
+        try {
+            await createRandomOmsOrder('auto');
+        } finally {
+            if (autoRunning) scheduleNextAutoOrder();
+        }
+    })();
 }
 
 export function stopAutoOmsOrders() {

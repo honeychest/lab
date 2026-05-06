@@ -20,6 +20,7 @@ import useLogPanel from './hooks/ui/useLogPanel';
 import useAutoMode from './hooks/simulation/useAutoMode';
 import useSimulationSettings from './hooks/simulation/useSimulationSettings';
 import useLogisticsReset from './hooks/useLogisticsReset';
+import useLogisticsHeaderSnapshot from './hooks/useLogisticsHeaderSnapshot';
 import '@/styles/themes/theme-dark.css';
 import './logistics.css';
 
@@ -52,6 +53,7 @@ export default function LogisticsLayout() {
         setAutoMode,
         closeSettings: handleSettingsClose,
     });
+    const headerSnapshot = useLogisticsHeaderSnapshot();
 
     useEffect(() => {
         startTickLoop();
@@ -107,15 +109,21 @@ export default function LogisticsLayout() {
                 <DesktopViewResetButton label="모바일로 보기" onClick={handleDesktopViewClose} fixed />
             )}
             <LogisticsHeader
+                snapshot={headerSnapshot}
+                onInfoOpen={handleInfoOverlayOpen}
+            />
+            <TabBar
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 autoMode={autoMode}
                 onAutoToggle={handleAutoToggle}
                 onSettingsOpen={handleSettingsOpenWithInit}
                 onLogOpen={handleLogOpen}
                 logOpening={logOpen && logScope === 'all'}
-                onInfoOpen={handleInfoOverlayOpen}
+                retentionFull={headerSnapshot.retentionFull}
+                onRetentionClear={headerSnapshot.handleRetentionClear}
             />
             <FocusArea onInfoOpen={handleInfoOverlayOpen} />
-            <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
             <div className="logistics-body">
                 <main className="logistics-main">
