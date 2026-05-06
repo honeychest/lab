@@ -55,3 +55,7 @@ export const deleteAllowedIp = (ip) =>
 
 export const getMyIp = () =>
     apiClient.get('/api/admin/my-ip').then(r => r.data);
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+export const postLogout = () =>
+    apiClient.post('/api/auth/logout').then(r => r.data);

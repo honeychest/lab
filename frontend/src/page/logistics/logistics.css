@@ -12,6 +12,11 @@
   font-family: "Noto Sans KR", "Segoe UI", sans-serif;
 }
 
+/* 공용 Header(<header>, .logistics-header 아님)는 다른 페이지와 동일한 폰트 유지 */
+.logistics-shell > header:not(.logistics-header) {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
 .logistics-shell::before {
   content: "";
   position: absolute;
