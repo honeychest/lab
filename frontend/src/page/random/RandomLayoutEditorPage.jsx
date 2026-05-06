@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import apiClient from '@/api/apiClient.js';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../shared/ui/layout/Layout.jsx';
+import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
 import styles from './RandomLayoutEditorPage.module.css';
 import {
     BOARD_HEIGHT,
@@ -64,7 +64,7 @@ function buildLayoutJson(funnelPoints, goalLayout, goalLeftPoints, deflectors, p
 
 function RandomLayoutEditorPage() {
     var navigate = useNavigate();
-    var [canAccess, setCanAccess] = useState(null);
+    var { canAccess, isForbidden } = useAdminAuth();
     var [funnelPoints, setFunnelPoints] = useState(FUNNEL_LEFT_POINTS);
     var [goalLayout, setGoalLayout] = useState(GOAL_LAYOUT);
     var [goalLeftPoints, setGoalLeftPoints] = useState(GOAL_LEFT_POINTS);
@@ -78,19 +78,10 @@ function RandomLayoutEditorPage() {
     var svgRef = useRef(null);
 
     useEffect(function () {
-        apiClient.get('/api/admin/data-gap/access')
-            .then(function (response) {
-                setCanAccess(response.data.canAccess);
-            })
-            .catch(function (error) {
-                if (error != null && error.response != null && error.response.status === 403) {
-                    navigate('/forbidden', { replace: true });
-                    return;
-                }
-
-                setCanAccess(false);
-            });
-    }, [navigate]);
+        if (isForbidden) {
+            navigate('/forbidden', { replace: true });
+        }
+    }, [isForbidden, navigate]);
 
     var rightPoints = useMemo(function () {
         return buildMirrorPoints(funnelPoints);

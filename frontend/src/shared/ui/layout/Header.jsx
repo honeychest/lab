@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
 import { preloadSignalPage } from '@/app/router/lazyPages.js';
+import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [
@@ -17,7 +18,8 @@ const NAV_ITEMS = [
     { label: 'Logistics', path: '/logistics' },
     { label: 'Winner',    path: '/winner' },
     { label: 'Monitor',   path: '/monitor' },
-    { label: 'Admin',     path: '/admin'  },
+    { label: 'Admin',     path: '/admin',     requireAdmin: true },
+    { label: 'Test',      path: '/admin/test', requireAdmin: true },
 ];
 
 /**
@@ -36,6 +38,8 @@ function Header() {
     const [scrollProgress, setScrollProgress] = useState(0);
     const location = useLocation();
     const navRef = useRef(null);
+    const { canAccess } = useAdminAuth();
+    const visibleNavItems = NAV_ITEMS.filter(item => !item.requireAdmin || canAccess === true);
 
     useEffect(() => {
         apiClient.get('/api/binance/price')
@@ -84,7 +88,7 @@ function Header() {
             {/* ── 네비게이션 ──────────────────────────────────── */}
             <nav className={styles.navWrap}>
                 <ul className={styles.nav} ref={navRef}>
-                    {NAV_ITEMS.map(({ label, path }) => (
+                    {visibleNavItems.map(({ label, path }) => (
                         <li key={path} className={styles.navItem}>
                             <NavLink
                                 to={path}

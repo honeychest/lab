@@ -1,0 +1,91 @@
+.container {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr;
+    gap: 12px;
+    height: calc(100vh - 220px);
+    color: var(--monitor-text-primary);
+}
+
+.col {
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-card-bg);
+    padding: 16px;
+    overflow-y: auto;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+}
+
+.featureBtn {
+    padding: 12px 16px;
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-sidebar-bg);
+    color: var(--monitor-text-primary);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.featureBtnActive {
+    background: var(--monitor-primary);
+    color: #ffffff;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-sidebar-bg);
+    color: var(--monitor-text-primary);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.primaryBtn {
+    padding: 12px 16px;
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-primary);
+    color: #ffffff;
+    cursor: pointer;
+    width: 100%;
+}
+
+.primaryBtnDimmed {
+    opacity: 0.4;
+}
+
+.warningBtn {
+    background: var(--monitor-severity-warning);
+    opacity: 0.9;
+}
+
+.label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--monitor-text-secondary);
+}
+
+.subLabel {
+    font-size: 12px;
+    color: var(--monitor-text-secondary);
+}
+
+.fieldGroup {
+    display: grid;
+    gap: 6px;
+}
+
+.formStack {
+    display: grid;
+    gap: 10px;
+}
+
+.countLine {
+    font-size: 13px;
+    color: var(--monitor-text-primary);
+}
+
+.placeholder {
+    color: var(--monitor-text-secondary);
+    font-size: 13px;
+}

@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../../../api/apiClient.js';
 import Layout from '../../../shared/ui/layout/Layout.jsx';
+import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
 import styles from './AdminLoginPage.module.css';
 import '../../../styles/themes/monitor-teal.css';
 
 export default function AdminLoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { refresh } = useAdminAuth();
     const from = location.state?.from ?? '/admin'; // 로그인 전 접근하려던 경로
 
     const [email, setEmail] = useState('');
@@ -26,6 +28,7 @@ export default function AdminLoginPage() {
 
         try {
             await apiClient.post('/api/auth/login', { email, password });
+            await refresh(); // Provider 캐시 갱신 — 안 하면 다시 로그인 페이지로 튕김
             navigate(from, { replace: true }); // 원래 가려던 경로로 복귀
         } catch (err) {
             const message = err?.response?.data?.message ?? '로그인에 실패했습니다.';

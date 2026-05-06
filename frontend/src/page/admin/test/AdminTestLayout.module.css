@@ -1,0 +1,31 @@
+.layout {
+    min-height: calc(100vh - 120px);
+    padding: 24px;
+}
+
+.tabBar {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    margin-bottom: 24px;
+}
+
+.tab {
+    padding: 10px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: none;
+    background: rgba(0, 0, 0, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.tabActive {
+    background: rgba(0, 180, 160, 0.18);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.mutedBox {
+    color: rgba(255, 255, 255, 0.7);
+}
