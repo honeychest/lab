@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../shared/ui/layout/Layout.jsx';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import styles from './RandomLayoutEditorPage.module.css';
 import {
     BOARD_HEIGHT,

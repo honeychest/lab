@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import styles from '../AdminPage.module.css';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import { postLogout } from '../api/adminApi';
 
 export default function MyIpCard({ myIp }) {

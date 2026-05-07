@@ -1,10 +1,9 @@
 // 관리자 접근 권한 단일 소스 — /api/admin/data-gap/access 결과를 앱 전역에서 공유.
 // 리다이렉트 정책은 각 소비자(페이지)가 결정한다 (페이지마다 목적지가 다르므로).
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/api/apiClient.js';
-
-const AdminAuthContext = createContext(null);
+import AdminAuthContext from './AdminAuthContext.js';
 
 export function AdminAuthProvider({ children }) {
     const [canAccess, setCanAccess] = useState(null); // null: 미확인, true/false: 확인됨
@@ -24,18 +23,19 @@ export function AdminAuthProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        fetchAccess();
-    }, [fetchAccess]);
+        apiClient.get('/api/admin/data-gap/access')
+            .then((r) => setCanAccess(Boolean(r.data?.canAccess)))
+            .catch((e) => {
+                if (e?.response?.status === 403) {
+                    setIsForbidden(true);
+                }
+                setCanAccess(false);
+            });
+    }, []);
 
     return (
         <AdminAuthContext.Provider value={{ canAccess, isForbidden, refresh: fetchAccess }}>
             {children}
         </AdminAuthContext.Provider>
     );
-}
-
-export function useAdminAuth() {
-    const ctx = useContext(AdminAuthContext);
-    if (!ctx) throw new Error('useAdminAuth must be used within <AdminAuthProvider>');
-    return ctx;
 }

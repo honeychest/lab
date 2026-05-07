@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../shared/ui/layout/Layout.jsx';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import styles from './AdminPage.module.css';
 import '../../styles/themes/monitor-teal.css';
 import useFeatureFlags from './hooks/useFeatureFlags';

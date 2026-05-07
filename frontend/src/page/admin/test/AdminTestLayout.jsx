@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../../shared/ui/layout/Layout.jsx';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import '../../../styles/themes/monitor-teal.css';
 import styles from './AdminTestLayout.module.css';
 

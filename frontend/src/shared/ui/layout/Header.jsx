@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import apiClient from '@/api/apiClient.js';
 import { preloadSignalPage } from '@/app/router/lazyPages.js';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import styles from './Header.module.css';
 
 const NAV_ITEMS = [

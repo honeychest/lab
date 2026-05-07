@@ -7,7 +7,8 @@ import SettingsOverlay from '../SettingsOverlay';
 import LogOverlay from '../LogOverlay';
 import { DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
 
-export default function LogisticsDashboard({
+export default function LogisticsDashboard(props) {
+    const {
     narrowScreen,
     desktopView,
     onDesktopViewClose,
@@ -28,7 +29,6 @@ export default function LogisticsDashboard({
     onRightPanelOpen,
     onRightPanelToggle,
     onFocusLogOpen,
-    TabContent,
     settingsOpen,
     simulationSettings,
     advancedOpen,
@@ -42,7 +42,9 @@ export default function LogisticsDashboard({
     onStageOverrideChange,
     infoOverlay,
     onInfoClose,
-}) {
+    } = props;
+    const TabContent = props.TabContent;
+
     return (
         <div className={`theme-harbor logistics-shell${narrowScreen && desktopView ? ' logistics-desktop-forced' : ''}`}>
             {narrowScreen && desktopView && (

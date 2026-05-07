@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../../../api/apiClient.js';
 import Layout from '../../../shared/ui/layout/Layout.jsx';
-import { useAdminAuth } from '@/shared/auth/AdminAuthContext.jsx';
+import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
 import styles from './AdminLoginPage.module.css';
 import '../../../styles/themes/monitor-teal.css';
 
