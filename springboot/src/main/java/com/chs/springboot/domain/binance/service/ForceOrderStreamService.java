@@ -1,4 +1,4 @@
-// [AGENT] Binance Force Order WebSocket 스트림 구독 서비스 — !forceOrder@arr 스트림, BTCUSDT/ENAUSDT 필터링
+// [AGENT] Binance Force Order WebSocket 스트림 구독 서비스 — market?streams 방식, BTCUSDT/ENAUSDT 필터링
 // 연관파일: ForceOrderRepository.java, SignalSseService.java, LeaderElectionService.java
 // 핵심: @PostConstruct에서 리더 체크 후 연결, generation 기반 재연결 제어, 5초 후 자동 reconnect
 package com.chs.springboot.domain.binance.service;
@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class ForceOrderStreamService {
 
-    private static final String FORCE_ORDER_WS_URL = "wss://fstream.binance.com/ws/!forceOrder@arr";
+    private static final String FORCE_ORDER_WS_URL = "wss://fstream.binance.com/market/stream?streams=btcusdt@forceOrder/enausdt@forceOrder";
     private static final List<String> TARGET_SYMBOLS = List.of("BTCUSDT", "ENAUSDT");
 
     private final LeaderElectionService leaderElectionService;
@@ -69,6 +69,12 @@ public class ForceOrderStreamService {
                         private final StringBuilder buffer = new StringBuilder();
 
                         @Override
+                        public void onOpen(java.net.http.WebSocket ws) {
+                            log.info("[ForceOrderStream] WebSocket 연결 성공 (gen={})", myGen);
+                            ws.request(1);
+                        }
+
+                        @Override
                         public java.util.concurrent.CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
                             buffer.append(data);
                             if (last) {
@@ -76,8 +82,10 @@ public class ForceOrderStreamService {
                                 buffer.setLength(0);
                                 try {
                                     JsonNode root = objectMapper.readTree(json);
-                                    JsonNode o = root.get("o");
+                                    JsonNode payload = root.has("data") ? root.get("data") : root;
+                                    JsonNode o = payload.get("o");
                                     if (o == null) {
+                                        log.warn("[ForceOrderStream] o==null 스킵 raw={}", json);
                                         ws.request(1);
                                         return null;
                                     }
@@ -105,7 +113,7 @@ public class ForceOrderStreamService {
                                     forceOrder.setLastFilledQty(new BigDecimal(o.get("l").asText()));
                                     forceOrder.setFilledAccumulatedQty(new BigDecimal(o.get("z").asText()));
                                     forceOrder.setTradeTimeMs(o.get("T").asLong());
-                                    forceOrder.setEventTimeMs(root.get("E").asLong());
+                                    forceOrder.setEventTimeMs(payload.get("E").asLong());
 
                                     forceOrderRepository.insertIgnoreDuplicate(forceOrder);
                                     
@@ -150,6 +158,11 @@ public class ForceOrderStreamService {
                                 scheduleReconnect();
                             }
                         }
+                    })
+                    .exceptionally(ex -> {
+                        log.error("[ForceOrderStream] 연결 실패 (gen={}): {}", myGen, ex.getMessage());
+                        if (myGen == generation) scheduleReconnect();
+                        return null;
                     });
         } catch (Exception e) {
             log.error("[ForceOrderStream] 연결 오류: {}", e.getMessage());

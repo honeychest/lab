@@ -1,13 +1,7 @@
 import { useEffect } from 'react';
-import LogisticsHeader from './components/LogisticsHeader';
-import FocusArea       from './components/FocusArea';
-import TabBar          from './components/TabBar';
-import RightPanel      from './components/RightPanel';
-import InfoOverlay     from './components/InfoOverlay';
-import SettingsOverlay from './components/SettingsOverlay';
-import LogOverlay      from './components/LogOverlay';
-import { DesktopViewGate, DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
-import { dlog }       from '@/global/chs';
+import LogisticsDashboard from './components/layout/LogisticsDashboard';
+import { DesktopViewGate } from '@/shared/ui/DesktopViewGate.jsx';
+import { dlog, dtag } from '@/global/chs';
 import { startTickLoop, stopTickLoop } from '@/scheduler/tickLoop';
 import { stopAutoOmsOrders } from './services/omsSimulation';
 import { TAB_MAP, OverviewTab } from './constants';
@@ -22,7 +16,7 @@ import useSimulationSettings from './hooks/simulation/useSimulationSettings';
 import useLogisticsReset from './hooks/useLogisticsReset';
 import useLogisticsHeaderSnapshot from './hooks/useLogisticsHeaderSnapshot';
 import '@/styles/themes/theme-dark.css';
-import './logistics.css';
+import './LogisticsLayout.css';
 
 export default function LogisticsLayout() {
     const { activeTab, setActiveTab } = useTabState();
@@ -56,6 +50,7 @@ export default function LogisticsLayout() {
     const headerSnapshot = useLogisticsHeaderSnapshot();
 
     useEffect(() => {
+        dtag(1, ['logistics', 'scheduler', 'ui'], '진행 스케줄러 라이프사이클 블록 (REQ-T2-070)');
         startTickLoop();
         dlog(1, 'LogisticsLayout.tickLoop — 화면 진입 시 진행 스케줄러 활성화');
         return () => {
@@ -104,76 +99,42 @@ export default function LogisticsLayout() {
     }
 
     const dashboard = (
-        <div className={`theme-harbor logistics-shell${narrowScreen && desktopView ? ' logistics-desktop-forced' : ''}`}>
-            {narrowScreen && desktopView && (
-                <DesktopViewResetButton label="모바일로 보기" onClick={handleDesktopViewClose} fixed />
-            )}
-            <LogisticsHeader
-                snapshot={headerSnapshot}
-                onInfoOpen={handleInfoOverlayOpen}
-            />
-            <TabBar
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                autoMode={autoMode}
-                onAutoToggle={handleAutoToggle}
-                onSettingsOpen={handleSettingsOpenWithInit}
-                onLogOpen={handleLogOpen}
-                logOpening={logOpen && logScope === 'all'}
-                retentionFull={headerSnapshot.retentionFull}
-                onRetentionClear={headerSnapshot.handleRetentionClear}
-            />
-            <FocusArea onInfoOpen={handleInfoOverlayOpen} />
-
-            <div className="logistics-body">
-                <main className="logistics-main">
-                    <TabContent onInfoOpen={handleInfoOverlayOpen} />
-                </main>
-
-                {!rightPanelOpen && (
-                    <button
-                        onClick={() => setRightPanel(true)}
-                        className="logistics-panel-toggle"
-                        style={{ position: 'absolute', right: 0, top: '50%', left: 'auto', borderRadius: '12px 0 0 12px' }}
-                    >◀</button>
-                )}
-
-                <RightPanel open={rightPanelOpen} onToggle={toggleRightPanel} onInfoOpen={handleInfoOverlayOpen} onLogOpen={handleFocusLogOpen} />
-            </div>
-
-            {settingsOpen && (
-                <SettingsOverlay
-                    simulationSettings={simulationSettings}
-                    advancedOpen={advancedOpen}
-                    onClose={handleSettingsClose}
-                    onSave={handleSettingsSaveAndClose}
-                    onReset={handleSettingsReset}
-                    onProgressReset={handleProgressReset}
-                    onFullReset={handleFullReset}
-                    onToggleAdvanced={toggleAdvanced}
-                    onGlobalFailureRateChange={handleGlobalFailureRateChange}
-                    onStageOverrideChange={handleStageOverrideChange}
-                />
-            )}
-
-            {logOpen && (
-                <LogOverlay
-                    logScope={logScope}
-                    logSnapshot={logSnapshot}
-                    visibleEvents={visibleEvents}
-                    onClose={() => setLogOpen(false)}
-                />
-            )}
-
-            <InfoOverlay
-                open={Boolean(infoOverlay)}
-                title={infoOverlay?.title}
-                stageLabel={infoOverlay?.stageLabel}
-                summary={infoOverlay?.summary}
-                bullets={infoOverlay?.bullets}
-                onClose={() => setInfoOverlay(null)}
-            />
-        </div>
+        <LogisticsDashboard
+            narrowScreen={narrowScreen}
+            desktopView={desktopView}
+            onDesktopViewClose={handleDesktopViewClose}
+            headerSnapshot={headerSnapshot}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            autoMode={autoMode}
+            onAutoToggle={handleAutoToggle}
+            onSettingsOpen={handleSettingsOpenWithInit}
+            onLogOpen={handleLogOpen}
+            logOpen={logOpen}
+            logScope={logScope}
+            logSnapshot={logSnapshot}
+            visibleEvents={visibleEvents}
+            onLogClose={() => setLogOpen(false)}
+            onInfoOpen={handleInfoOverlayOpen}
+            rightPanelOpen={rightPanelOpen}
+            onRightPanelOpen={() => setRightPanel(true)}
+            onRightPanelToggle={toggleRightPanel}
+            onFocusLogOpen={handleFocusLogOpen}
+            TabContent={TabContent}
+            settingsOpen={settingsOpen}
+            simulationSettings={simulationSettings}
+            advancedOpen={advancedOpen}
+            onSettingsClose={handleSettingsClose}
+            onSettingsSave={handleSettingsSaveAndClose}
+            onSettingsReset={handleSettingsReset}
+            onProgressReset={handleProgressReset}
+            onFullReset={handleFullReset}
+            onToggleAdvanced={toggleAdvanced}
+            onGlobalFailureRateChange={handleGlobalFailureRateChange}
+            onStageOverrideChange={handleStageOverrideChange}
+            infoOverlay={infoOverlay}
+            onInfoClose={() => setInfoOverlay(null)}
+        />
     );
 
     if (narrowScreen && desktopView) {

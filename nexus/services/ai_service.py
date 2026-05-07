@@ -6,8 +6,8 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-GENAI_MODELS = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
-QUIZ_MODELS  = ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemma-3-27b-it"]
+GENAI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-pro-latest", "gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash"]
+QUIZ_MODELS  = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-pro-latest", "gemini-3.1-flash-lite-preview", "gemini-2.5-flash-lite", "gemini-2.5-flash"]
 
 
 async def summarize_url(url: str) -> dict:

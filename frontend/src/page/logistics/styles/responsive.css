@@ -1,0 +1,190 @@
+@media (max-width: 1280px) {
+  .logistics-focus-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-side-panel {
+    max-width: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .logistics-header-top {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-header-center {
+    justify-content: flex-start;
+  }
+
+  .logistics-header-actions {
+    justify-content: flex-start;
+  }
+
+  .logistics-kpi-strip,
+  .logistics-grid-3,
+  .logistics-grid-5 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .logistics-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-stage-learning-grid,
+  .logistics-work-grid,
+  .logistics-inbound-support-strip,
+  .logistics-axis-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .logistics-shell {
+    font-size: 14px;
+  }
+
+  .logistics-header,
+  .logistics-focus-shell,
+  .logistics-tabbar,
+  .logistics-main {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .logistics-kpi-strip,
+  .logistics-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-stage-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-focus-side {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-focus-heading {
+    flex-wrap: wrap;
+  }
+
+  .logistics-route-strip {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .logistics-stage-learning-grid,
+  .logistics-work-grid,
+  .logistics-inbound-support-strip,
+  .logistics-axis-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-work-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .logistics-work-head-meta {
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .logistics-support-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 1024px) {
+  .logistics-shell.logistics-desktop-forced {
+    width: 1280px;
+    min-width: 1280px;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .logistics-desktop-forced .logistics-body,
+  .logistics-desktop-forced .logistics-main,
+  .logistics-desktop-forced .logistics-tab-shell,
+  .logistics-desktop-forced .logistics-stage-tab-shell,
+  .logistics-desktop-forced .logistics-stage-grid-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .logistics-desktop-forced .logistics-lane {
+    max-height: none;
+  }
+
+  .logistics-desktop-forced .logistics-header-top {
+    grid-template-columns: minmax(180px, 1fr) auto minmax(280px, 1fr);
+  }
+
+  .logistics-desktop-forced .logistics-header-center {
+    justify-content: center;
+  }
+
+  .logistics-desktop-forced .logistics-header-actions {
+    justify-content: flex-end;
+  }
+
+  .logistics-desktop-forced .logistics-kpi-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-4 {
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-5 {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-grid-7 {
+    grid-template-columns: repeat(7, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-support-strip {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .logistics-desktop-forced .logistics-focus-side {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .logistics-desktop-forced .logistics-focus-heading {
+    flex-wrap: nowrap;
+  }
+
+  .logistics-desktop-forced .logistics-route-strip {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-5 {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-7 {
+    grid-template-columns: repeat(7, minmax(180px, 1fr));
+  }
+}

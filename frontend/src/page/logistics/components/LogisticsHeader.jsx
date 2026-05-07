@@ -14,7 +14,7 @@ export default function LogisticsHeader({ snapshot }) {
             <header className="logistics-header">
                 <div className="logistics-kpi-strip">
                     <div className="logistics-kpi-card" style={{ border: 'none', background: 'transparent' }}>
-                        <div className="logistics-kpi-value">물류 프로세스 관제 (업무분석)</div>
+                        <div className="logistics-kpi-value">물류 프로세스 관제 (업무분석용/백엔드미구현)</div>
                     </div>
                     <button
                         type="button"

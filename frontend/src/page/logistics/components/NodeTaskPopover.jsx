@@ -6,6 +6,8 @@ export default function NodeTaskPopover({
     taskPopover,
     focusedTaskId,
     onClose,
+    renderPrimary = task => task.owner,
+    renderMeta = task => `${task.itemCode} · ${task.quantity}ea`,
 }) {
     return (
         <div className="logistics-node-popover-backdrop" onClick={onClose}>
@@ -29,8 +31,8 @@ export default function NodeTaskPopover({
                             }}
                         >
                             <span>{task.taskId}</span>
-                            <strong>{task.owner}</strong>
-                            <em>{task.itemCode} · {task.quantity}ea</em>
+                            <strong>{renderPrimary(task)}</strong>
+                            <em>{renderMeta(task)}</em>
                         </button>
                     ))}
                 </div>

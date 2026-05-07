@@ -2,7 +2,7 @@ import { createTask, getAllTasks } from '@/store/taskStore';
 import { appendEvent } from '@/store/eventStore';
 import { getFocusedTaskId, applyAutoFocus } from '@/store/focusStore';
 import { getInitialOmsReceiveNodeKey, OMS_RECEIVE_NODE_TICKS, randomTicks } from '@/domain/logistics/common/stages';
-import { dlog } from '@/global/chs';
+import { dlog, dtag } from '@/global/chs';
 import generateUUID from '@/shared/lib/generateUUID';
 import { getSimulationSettings } from './simulationSettings';
 
@@ -200,6 +200,7 @@ export async function createOmsTask(input = {}) {
         : await buildOrderTask(normalized);
 
     await persistTask(task);
+    dtag(2, ['logistics', 'oms', 'event', 'validation'], 'OMS 단일 진입 관문 검증과 inbound/order 이벤트 발행 블록', task.taskId);
     dlog(1, `omsSimulation.createOmsTask — ${task.type} ${normalized.sourceChannel} 경로 접수`, task.taskId);
     if (task.type === 'INBOUND') {
         dlog(2, 'omsSimulation.createOmsTask — OMS 단일 진입 관문에서 inbound.received 발행 후 WMS 입고 축약 띠로 승계 (REQ-T2-013 [pu])', task.taskId);
@@ -248,6 +249,7 @@ export function stopAutoOmsOrders() {
 }
 
 export async function createBulkOmsOrders(onProgress) {
+    dtag(3, ['logistics', 'oms', 'exception'], '대량 주문 생성 부분 실패 집계와 중단 안전성 회수 블록');
     dlog(3, 'omsSimulation.createBulkOmsOrders — 요약 카드/중단 안전성/부분 실패 집계는 단계3 구현');
 
     for (let index = 0; index < BULK_COUNT; index += 1) {

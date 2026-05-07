@@ -23,18 +23,18 @@ from config import settings
 URL_MODELS = [
     "gemini-3.1-flash-lite-preview",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemma-3-27b-it",
-    "gemma-3-4b-it"
+    "gemini-pro-latest",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest"
 ]
 
 # ── quiz 테스트 모델 목록 ────────────────────────────────────────
 QUIZ_MODELS = [
     "gemini-3.1-flash-lite-preview",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemma-3-27b-it",
-    "gemma-3-4b-it"
+    "gemini-pro-latest",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest"
 ]
 # ────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ async def call_model(client: genai.Client, model: str, prompt: str, use_url_cont
         config_kwargs["tools"] = [gtypes.Tool(url_context=gtypes.UrlContext())]
 
     config  = gtypes.GenerateContentConfig(**config_kwargs)
-    timeout = 20.0 if use_url_context else 15.0
+    timeout = 40.0 if use_url_context else 30.0
     t       = time.time()
     try:
         response = await asyncio.wait_for(

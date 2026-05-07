@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
-import { OMS_STAGE_WORK_NODES, OMS_STAGES, STAGE_LABELS } from '@/domain/logistics/common/stages';
 import {
     createBulkOmsOrders,
     createOmsTask,
@@ -9,14 +8,14 @@ import {
     ITEM_OPTIONS,
     DESTINATION_OPTIONS,
 } from '../services/omsSimulation';
-import { dlog } from '@/global/chs';
+import { dlog, dtag } from '@/global/chs';
 import { setFocus } from '@/store/focusStore';
 import SupportFlowStrip from '../components/SupportFlowStrip';
-import WorkNodeCard from '../components/WorkNodeCard';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import OmsCreateModal from '../components/OmsCreateModal';
 import { OWNER_KEY, OMS_SUPPORT_FLOWS } from '../constants';
-import { tasksForStage, stageNodeTasks } from '../utils';
+import OmsBulkProgress from '../components/tabs/oms/OmsBulkProgress';
+import OmsStageGrid from '../components/tabs/oms/OmsStageGrid';
 
 function defaultForm(owner) {
     return {
@@ -51,6 +50,7 @@ export default function OmsTab({ onInfoOpen }) {
     const handleSubmit = async () => {
         if (!modalMode) return;
         const inbound = modalMode === 'inbound';
+        dtag(2, ['logistics', 'oms', 'ui', 'validation'], 'OMS UI 진입 관문에서 단건/입고 등록 디스패치 블록');
         await createOmsTask({
             ...form,
             inbound,
@@ -125,41 +125,16 @@ export default function OmsTab({ onInfoOpen }) {
     ];
 
     return (
-        <section className="logistics-tab-shell logistics-stage-tab-shell">
+            <section className="logistics-tab-shell logistics-stage-tab-shell">
             <SupportFlowStrip title="OMS 흐름" flows={omsFlows} onInfoOpen={onInfoOpen} />
 
-            {bulkProgress.active && (
-                <div className="logistics-preview-ribbon" style={{ padding: '14px', borderRadius: '16px', marginBottom: '12px' }}>
-                    <div className="logistics-side-title">일괄 등록 진행</div>
-                    <div className="logistics-preview-note">순차 투입 중 {bulkProgress.current}/{bulkProgress.total}</div>
-                    <div className="logistics-progress" style={{ marginTop: '10px' }}>
-                        <span style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }} />
-                    </div>
-                </div>
-            )}
+            <OmsBulkProgress progress={bulkProgress} />
 
-            <div className="logistics-grid-3 logistics-stage-grid-shell logistics-stage-grid-scroll">
-                {OMS_STAGES.map(stage => {
-                    const stageTasks = tasksForStage(tasks, stage);
-                    const stageNodes = OMS_STAGE_WORK_NODES[stage] ?? [];
-                    return (
-                        <article key={stage} className="logistics-lane logistics-work-lane">
-                            <div className="logistics-lane-top">
-                                <div className="logistics-lane-title">{STAGE_LABELS[stage]}</div>
-                                <div className="logistics-lane-count">적재 {stageTasks.length}건</div>
-                            </div>
-                            <div className="logistics-receive-workflow">
-                                {stageNodes.map((node, index) => {
-                                    const nodeTasks = stageNodeTasks(stageTasks, stage, index, stageNodes);
-                                    const focused = nodeTasks.some(t => t.taskId === focusedTaskId);
-                                    const focusedFailed = nodeTasks.some(t => t.taskId === focusedTaskId && t.status === 'failed');
-                                    return <WorkNodeCard key={node.key} node={node} index={index} nodeTasks={nodeTasks} stage={stage} onPopover={openNodeTaskPopover} stacked={false} focused={focused} focusedFailed={focusedFailed} />;
-                                })}
-                            </div>
-                        </article>
-                    );
-                })}
-            </div>
+            <OmsStageGrid
+                tasks={tasks}
+                focusedTaskId={focusedTaskId}
+                onPopover={openNodeTaskPopover}
+            />
 
             {taskPopover && (
                 <NodeTaskPopover

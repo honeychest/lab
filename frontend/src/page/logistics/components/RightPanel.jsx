@@ -4,16 +4,9 @@ import { emitter } from '@/domain/logistics/common/emitter';
 import { getTaskById, updateTaskStatus } from '@/store/taskStore';
 import { getEventsByAggregate } from '@/store/eventStore';
 import { pauseTask, resumeTask } from '@/scheduler/tickLoop';
-import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
-import { getFailureCandidatesForStage } from '@/domain/logistics/common/failures';
 import { appendAuditEvent } from '@/store/auditStore';
 import { performBranchInject, performRecoveryAction } from '../services/recoveryActions';
-import { CHAIN_BG, CHAIN_ICON } from '../constants';
-import {
-    historyEventLabel,
-    isFailureEvent,
-    historyRowType,
-} from '../utils';
+import RightPanelContent from './side/RightPanelContent';
 
 export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
     const [task, setTask] = useState(null);
@@ -98,13 +91,6 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
         onLogOpen?.();
     };
 
-    const isFailed  = task?.status === 'failed';
-    const isPaused  = task?.status === 'paused';
-    const latestFailureEvent = history.find(isFailureEvent);
-    const branchCandidates = task ? getFailureCandidatesForStage(task.currentStage, task.receiveNodeKey) : [];
-    const currentStageGuidance = task ? STAGE_GUIDANCE[task.currentStage] : null;
-    const receiveNodeLabel = task?.currentStage === 'OMS_RECEIVED' ? getOmsReceiveNodeLabel(task.receiveNodeKey) : null;
-
     return (
         <aside className={`logistics-side-panel${open ? '' : ' closed'}`}>
             <div className="logistics-side-stack">
@@ -113,108 +99,15 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
                 </button>
 
                 <div className="logistics-side-scroll">
-                {!task ? (
-                    <div className="logistics-panel-empty">📭 포커스 작업 없음</div>
-                ) : (
-                    <>
-                        <div className="logistics-side-section">
-                            <div className="logistics-side-title">상세</div>
-                            <div className="logistics-focus-id">{task.taskId}</div>
-                            <div className="logistics-task-meta">
-                                {task.owner} · {task.itemCode} · ▶ {task.destination}
-                            </div>
-                            {(task.zoneCode || task.vehicleId || task.boxId) && (
-                                <div className="logistics-task-meta">
-                                    {task.zoneCode ? `Zone ${task.zoneCode}` : ''}
-                                    {task.zoneCode && task.zoneTemperature ? ` · ${task.zoneTemperature}` : ''}
-                                    {task.vehicleId ? ` · ${task.vehicleId}` : ''}
-                                    {task.boxId ? ` · ${task.boxId}` : ''}
-                                </div>
-                            )}
-                            <div className="logistics-task-meta">
-                                현재: {STAGE_LABELS[task.currentStage] ?? task.currentStage}
-                                {receiveNodeLabel && ` · ${receiveNodeLabel}`}
-                                {task.status === 'failed' && ` ❌ ${task.failureLabel ?? task.failureReason ?? ''}`}
-                                {isPaused && ' ⏸'}
-                            </div>
-                            {currentStageGuidance && (
-                                <div className="logistics-task-meta logistics-task-stage-summary">
-                                    {currentStageGuidance.summary}
-                                </div>
-                            )}
-                            {task.status === 'failed' && (
-                                <div className="logistics-task-meta">
-                                    {task.failureReason}
-                                </div>
-                            )}
-                            {task.status !== 'failed' && latestFailureEvent && (
-                                <div className="logistics-task-meta">
-                                    최근 실패: {historyEventLabel(latestFailureEvent)}
-                                </div>
-                            )}
-                            <div className="logistics-button-row">
-                                <button className="logistics-secondary-btn" onClick={handlePause}>
-                                    {isPaused ? '▶ 재개' : '⏸ 일시정지'}
-                                </button>
-                                <button className="logistics-danger-btn" onClick={handleCancel}>✕ 취소</button>
-                                <button className="logistics-outline-btn" onClick={handleLogOpen}>🔍 로그 보기</button>
-                            </div>
-                        </div>
-
-                        <div className="logistics-side-section">
-                            {!isFailed ? (
-                                <>
-                                    <div className="logistics-side-title">분기 주입</div>
-                                    <div className="logistics-action-grid">
-                                        {branchCandidates.length > 0 ? branchCandidates.map(failure => (
-                                            <button key={failure.code} className="logistics-outline-btn" onClick={() => handleBranchInject(failure.code)}>
-                                                {failure.label}
-                                            </button>
-                                        )) : (
-                                            <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
-                                                이 단계에 등록된 실패 주입 후보가 없습니다.
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="logistics-side-title">조치 ({task.failureLabel ?? '실패'})</div>
-                                    <div className="logistics-action-grid">
-                                        {(task.failureActions ?? []).map(action => (
-                                            <button
-                                                key={action.id}
-                                                className="logistics-success-btn"
-                                                onClick={() => handleRecoveryAction(action)}
-                                            >
-                                                {action.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        <div className="logistics-side-section grow">
-                            <div className="logistics-side-title">이력 체인</div>
-                            {history.length === 0 && <p className="logistics-task-meta">이력 없음</p>}
-                            <div className="logistics-chain-list">
-                            {history.map((ev, i) => {
-                                const type = historyRowType(ev, i, task.status);
-                                return (
-                                    <div key={ev.eventId} className="logistics-chain-row" style={{ background: CHAIN_BG[type] ?? CHAIN_BG.pending }}>
-                                        <span>{CHAIN_ICON[type]}</span>
-                                        <span style={{ color: 'var(--dark-text-neutral)' }}>
-                                            {new Date(ev.timestamp).toLocaleTimeString('ko-KR', { hour12: false })}
-                                        </span>
-                                        <span>{historyEventLabel(ev)}</span>
-                                    </div>
-                                );
-                            })}
-                            </div>
-                        </div>
-                    </>
-                )}
+                    <RightPanelContent
+                        task={task}
+                        history={history}
+                        onPause={handlePause}
+                        onCancel={handleCancel}
+                        onLogOpen={handleLogOpen}
+                        onBranchInject={handleBranchInject}
+                        onRecoveryAction={handleRecoveryAction}
+                    />
                 </div>
             </div>
         </aside>

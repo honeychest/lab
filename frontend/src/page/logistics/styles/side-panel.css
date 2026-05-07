@@ -1,0 +1,104 @@
+.logistics-side-panel {
+  width: 30%;
+  min-width: 320px;
+  max-width: 420px;
+  padding: 18px 18px 18px 0;
+  min-height: 0;
+  transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
+}
+
+.logistics-side-panel.closed {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.logistics-side-stack {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.logistics-side-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.logistics-panel-toggle {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  z-index: 5;
+}
+
+.logistics-side-section {
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.logistics-side-section.grow {
+  flex: initial;
+  min-height: auto;
+  overflow: visible;
+}
+
+.logistics-side-title {
+  color: var(--dark-text-primary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.logistics-task-meta {
+  margin-top: 6px;
+  color: var(--dark-text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.logistics-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.logistics-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.logistics-settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.logistics-settings-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.logistics-settings-note {
+  border-style: dashed;
+}
+
