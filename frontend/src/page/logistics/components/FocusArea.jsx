@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { dlog } from '@/global/chs';
 import { emitter } from '@/domain/logistics/common/emitter';
+import { getFocusedTaskId } from '@/store/focusStore';
 import { getTaskById } from '@/store/taskStore';
 import { getEventCount, getEventsByAggregate } from '@/store/eventStore';
 import { performRecoveryAction, performBranchInject } from '../services/recoveryActions';
@@ -55,10 +56,14 @@ export default function FocusArea({ onInfoOpen }) {
                 await refresh(focusedTaskId);
             }
         };
+        const initialRefreshTimer = window.setTimeout(() => {
+            void refresh(getFocusedTaskId());
+        }, 0);
         emitter.on('logistics:focus:changed', onFocusChanged);
         emitter.on('logistics:task:updated', onTaskUpdated);
         emitter.on('logistics:event', onEventLogged);
         return () => {
+            window.clearTimeout(initialRefreshTimer);
             emitter.off('logistics:focus:changed', onFocusChanged);
             emitter.off('logistics:task:updated', onTaskUpdated);
             emitter.off('logistics:event', onEventLogged);

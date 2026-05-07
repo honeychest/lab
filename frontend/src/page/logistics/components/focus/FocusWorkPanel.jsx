@@ -124,7 +124,7 @@ function FocusActionCard({ isFailed, recoveryActions, branchCandidates, onWorkAc
 
     return (
         <div className="logistics-work-card logistics-work-action-card">
-            <h3>처리 방법</h3>
+            <h3>오류주입</h3>
             {branchCandidates.length > 0 ? (
                 <div className="logistics-work-actions">
                     {branchCandidates.map(failure => (

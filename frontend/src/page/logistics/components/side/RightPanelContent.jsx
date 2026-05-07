@@ -66,7 +66,7 @@ function BranchInjectionSection({ task, onBranchInject }) {
 
     return (
         <div className="logistics-side-section">
-            <div className="logistics-side-title">분기 주입</div>
+            <div className="logistics-side-title">오류주입</div>
             <div className="logistics-action-grid">
                 {branchCandidates.length > 0 ? branchCandidates.map(failure => (
                     <button

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { dlog, dtag } from '@/global/chs';
 import { emitter } from '@/domain/logistics/common/emitter';
+import { getFocusedTaskId } from '@/store/focusStore';
 import { getTaskById, updateTaskStatus } from '@/store/taskStore';
 import { getEventsByAggregate } from '@/store/eventStore';
 import { pauseTask, resumeTask } from '@/scheduler/tickLoop';
@@ -25,9 +26,13 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
     useEffect(() => {
         const onFocus = ({ taskId }) => refresh(taskId);
         const onUpdate = ({ taskId }) => { if (task?.taskId === taskId) refresh(taskId); };
+        const initialRefreshTimer = window.setTimeout(() => {
+            void refresh(getFocusedTaskId());
+        }, 0);
         emitter.on('logistics:focus:changed', onFocus);
         emitter.on('logistics:task:updated', onUpdate);
         return () => {
+            window.clearTimeout(initialRefreshTimer);
             emitter.off('logistics:focus:changed', onFocus);
             emitter.off('logistics:task:updated', onUpdate);
         };

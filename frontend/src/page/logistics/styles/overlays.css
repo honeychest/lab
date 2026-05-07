@@ -179,10 +179,22 @@
 }
 
 .logistics-log-row {
+  width: 100%;
+  text-align: left;
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.025);
+  color: inherit;
+}
+
+.logistics-log-row.is-selectable {
+  cursor: pointer;
+}
+
+.logistics-log-row.is-selectable:hover {
+  border-color: rgba(5, 142, 217, 0.34);
+  background: rgba(5, 142, 217, 0.08);
 }
 
 .logistics-log-row.is-failure {
@@ -389,5 +401,107 @@
   border: 1px dashed rgba(255, 255, 255, 0.08);
   color: var(--dark-text-neutral);
   font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .logistics-log-overlay-card {
+    min-width: 0;
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    gap: 10px;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  .logistics-log-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .logistics-log-title strong {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  .logistics-log-title div {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 5px 8px;
+    font-size: 11px;
+  }
+
+  .logistics-log-search {
+    grid-template-columns: 1fr;
+  }
+
+  .logistics-log-domain-filter {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .logistics-log-domain-filter button {
+    min-width: 0;
+    padding: 0 4px;
+  }
+
+  .logistics-log-search > .logistics-outline-btn {
+    width: 100%;
+    min-height: 36px;
+  }
+
+  .logistics-log-list {
+    gap: 8px;
+    padding-right: 0;
+  }
+
+  .logistics-log-row {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .logistics-log-row-main {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .logistics-log-domain {
+    min-height: 22px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+
+  .logistics-log-key {
+    display: block;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+  }
+
+  .logistics-log-task-key {
+    display: inline-block;
+    margin-right: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    vertical-align: bottom;
+    text-overflow: ellipsis;
+  }
+
+  .logistics-log-time {
+    font-size: 10px;
+  }
+
+  .logistics-log-row-summary {
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+
+  .logistics-log-footer .logistics-outline-btn {
+    width: 100%;
+    min-height: 38px;
+  }
 }
 

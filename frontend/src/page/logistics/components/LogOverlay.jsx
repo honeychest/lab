@@ -8,6 +8,7 @@ export default function LogOverlay({
     logSnapshot,
     visibleEvents,
     onClose,
+    onEventSelect,
 }) {
     const isFocusScope = logScope === 'focus';
     const [query, setQuery] = useState('');
@@ -76,6 +77,7 @@ export default function LogOverlay({
             onFailureOnlyToggle={handleFailureOnlyToggle}
             onQueryApply={setQuery}
             onQueryClear={handleQueryClear}
+            onEventSelect={onEventSelect}
         />
     );
 }

@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import LogisticsDashboard from './components/layout/LogisticsDashboard';
-import { DesktopViewGate } from '@/shared/ui/DesktopViewGate.jsx';
+import LogisticsMobileDashboard from './components/layout/LogisticsMobileDashboard';
+import LogisticsOverlays from './components/layout/LogisticsOverlays';
 import { dlog, dtag } from '@/global/chs';
 import { startTickLoop, stopTickLoop } from '@/scheduler/tickLoop';
 import { stopAutoOmsOrders } from './services/omsSimulation';
 import { TAB_MAP, OverviewTab } from './constants';
-import { getSimulationSettings } from './services/simulationSettings';
 import useTabState from './hooks/shared/useTabState';
 import useWindowState from './hooks/shared/useWindowState';
 import usePanelState from './hooks/ui/usePanelState';
@@ -15,12 +15,14 @@ import useAutoMode from './hooks/simulation/useAutoMode';
 import useSimulationSettings from './hooks/simulation/useSimulationSettings';
 import useLogisticsReset from './hooks/useLogisticsReset';
 import useLogisticsHeaderSnapshot from './hooks/useLogisticsHeaderSnapshot';
+import useLogisticsFocusedTask from './hooks/useLogisticsFocusedTask';
+import useLogisticsActions from './hooks/useLogisticsActions';
 import '@/styles/themes/theme-dark.css';
 import './LogisticsLayout.css';
 
 export default function LogisticsLayout() {
     const { activeTab, setActiveTab } = useTabState();
-    const { narrowScreen, desktopView, handleDesktopViewOpen, handleDesktopViewClose } = useWindowState();
+    const { narrowScreen } = useWindowState();
     const { rightPanelOpen, setRightPanel, toggleRightPanel } = usePanelState();
     const {
         settingsOpen,
@@ -48,6 +50,21 @@ export default function LogisticsLayout() {
         closeSettings: handleSettingsClose,
     });
     const headerSnapshot = useLogisticsHeaderSnapshot();
+    const {
+        focusedTask,
+        latestFocusedEvent,
+        selectTask,
+        selectEventTask,
+    } = useLogisticsFocusedTask(headerSnapshot.allTaskList);
+    const actions = useLogisticsActions({
+        setSimulationSettings,
+        openSettings: handleSettingsOpen,
+        closeSettings: handleSettingsClose,
+        saveSettings: handleSettingsSave,
+        setLogScope,
+        setLogOpen,
+        selectedTask: focusedTask,
+    });
 
     useEffect(() => {
         dtag(1, ['logistics', 'scheduler', 'ui'], '진행 스케줄러 라이프사이클 블록 (REQ-T2-070)');
@@ -59,27 +76,10 @@ export default function LogisticsLayout() {
         };
     }, []);
 
-    const handleSettingsOpenWithInit = () => {
-        setSimulationSettings(getSimulationSettings());
-        handleSettingsOpen();
-        dlog(1, 'LogisticsLayout.settings — 설정 팝업 오픈');
-    };
-
-    const handleSettingsSaveAndClose = async () => {
-        await handleSettingsSave();
-        handleSettingsClose();
-    };
-
-    const handleLogOpen = () => {
-        setLogScope('all');
-        setLogOpen(true);
-        dlog(1, 'LogisticsLayout.log — 전체 로그 오버레이 열기');
-    };
-
-    const handleFocusLogOpen = () => {
-        setLogScope('focus');
-        setLogOpen(true);
-        dlog(1, 'LogisticsLayout.log — 포커스 로그 오버레이 열기');
+    const handleMobileLogEventSelect = (event) => {
+        if (!event?.aggregateId) return;
+        selectEventTask(event);
+        setLogOpen(false);
     };
 
     const TabContent = TAB_MAP[activeTab] ?? OverviewTab;
@@ -87,29 +87,62 @@ export default function LogisticsLayout() {
         ? logSnapshot.events.filter(event => event.aggregateId === logSnapshot.focusedTaskId)
         : logSnapshot.events;
 
-    if (narrowScreen && !desktopView) {
+    if (narrowScreen) {
         return (
-            <div className="theme-harbor logistics-mobile-gate">
-                <DesktopViewGate
-                    message="데스크톱 화면에서만 물류 운영 화면을 사용할 수 있습니다."
-                    onAction={handleDesktopViewOpen}
+            <>
+                <LogisticsMobileDashboard
+                    headerSnapshot={headerSnapshot}
+                    autoMode={autoMode}
+                    onAutoToggle={handleAutoToggle}
+                    onSettingsOpen={actions.openSettingsWithInit}
+                    onLogOpen={actions.openAllLog}
+                    logOpen={logOpen}
+                    logScope={logScope}
+                    selectedTask={focusedTask}
+                    latestSelectedEvent={latestFocusedEvent}
+                    onTaskSelect={selectTask}
+                    onRecoveryAction={actions.runRecoveryAction}
+                    onBranchInject={actions.runBranchInject}
                 />
-            </div>
+                <LogisticsOverlays
+                    settingsOpen={settingsOpen}
+                    settingsProps={{
+                        simulationSettings,
+                        advancedOpen,
+                        onClose: handleSettingsClose,
+                        onSave: actions.saveSettingsAndClose,
+                        onReset: handleSettingsReset,
+                        onProgressReset: handleProgressReset,
+                        onFullReset: handleFullReset,
+                        onToggleAdvanced: toggleAdvanced,
+                        onGlobalFailureRateChange: handleGlobalFailureRateChange,
+                        onStageOverrideChange: handleStageOverrideChange,
+                    }}
+                    logOpen={logOpen}
+                    logProps={{
+                        logScope,
+                        logSnapshot,
+                        visibleEvents,
+                        onClose: () => setLogOpen(false),
+                        onEventSelect: handleMobileLogEventSelect,
+                    }}
+                />
+            </>
         );
     }
 
-    const dashboard = (
+    return (
         <LogisticsDashboard
             narrowScreen={narrowScreen}
-            desktopView={desktopView}
-            onDesktopViewClose={handleDesktopViewClose}
+            desktopView={false}
+            onDesktopViewClose={() => {}}
             headerSnapshot={headerSnapshot}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             autoMode={autoMode}
             onAutoToggle={handleAutoToggle}
-            onSettingsOpen={handleSettingsOpenWithInit}
-            onLogOpen={handleLogOpen}
+            onSettingsOpen={actions.openSettingsWithInit}
+            onLogOpen={actions.openAllLog}
             logOpen={logOpen}
             logScope={logScope}
             logSnapshot={logSnapshot}
@@ -119,13 +152,13 @@ export default function LogisticsLayout() {
             rightPanelOpen={rightPanelOpen}
             onRightPanelOpen={() => setRightPanel(true)}
             onRightPanelToggle={toggleRightPanel}
-            onFocusLogOpen={handleFocusLogOpen}
+            onFocusLogOpen={actions.openFocusLog}
             TabContent={TabContent}
             settingsOpen={settingsOpen}
             simulationSettings={simulationSettings}
             advancedOpen={advancedOpen}
             onSettingsClose={handleSettingsClose}
-            onSettingsSave={handleSettingsSaveAndClose}
+            onSettingsSave={actions.saveSettingsAndClose}
             onSettingsReset={handleSettingsReset}
             onProgressReset={handleProgressReset}
             onFullReset={handleFullReset}
@@ -136,10 +169,4 @@ export default function LogisticsLayout() {
             onInfoClose={() => setInfoOverlay(null)}
         />
     );
-
-    if (narrowScreen && desktopView) {
-        return <div className="logistics-desktop-scrollport">{dashboard}</div>;
-    }
-
-    return dashboard;
 }

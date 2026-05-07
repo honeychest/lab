@@ -76,12 +76,17 @@ function LogSearchBar({
     );
 }
 
-function LogEventRow({ event, isFocusScope }) {
+function LogEventRow({ event, isFocusScope, onEventSelect }) {
     const domain = getLogDomain(event);
     const failed = isFailureEvent(event);
 
     return (
-        <div key={event.eventId} className={`logistics-log-row${failed ? ' is-failure' : ''}`}>
+        <button
+            key={event.eventId}
+            type="button"
+            className={`logistics-log-row${failed ? ' is-failure' : ''}${onEventSelect ? ' is-selectable' : ''}`}
+            onClick={() => onEventSelect?.(event)}
+        >
             <div className="logistics-log-row-main">
                 <span className={`logistics-log-domain domain-${domain.toLowerCase()}`}>{domain}</span>
                 <div className="logistics-log-row-content">
@@ -95,7 +100,7 @@ function LogEventRow({ event, isFocusScope }) {
                     <div className="logistics-log-row-summary">{event.routingKey}</div>
                 </div>
             </div>
-        </div>
+        </button>
     );
 }
 
@@ -111,7 +116,7 @@ function EmptyLogCard({ isFocusScope, normalizedQuery }) {
     );
 }
 
-function LogEventList({ filteredEvents, isFocusScope, normalizedQuery }) {
+function LogEventList({ filteredEvents, isFocusScope, normalizedQuery, onEventSelect }) {
     return (
         <div className="logistics-log-list">
             {filteredEvents.length > 0 ? filteredEvents.slice().reverse().map(event => (
@@ -119,6 +124,7 @@ function LogEventList({ filteredEvents, isFocusScope, normalizedQuery }) {
                     key={event.eventId}
                     event={event}
                     isFocusScope={isFocusScope}
+                    onEventSelect={onEventSelect}
                 />
             )) : (
                 <EmptyLogCard
@@ -145,6 +151,7 @@ export default function LogOverlayContent({
     onFailureOnlyToggle,
     onQueryApply,
     onQueryClear,
+    onEventSelect,
 }) {
     return (
         <div
@@ -183,6 +190,7 @@ export default function LogOverlayContent({
                     filteredEvents={filteredEvents}
                     isFocusScope={isFocusScope}
                     normalizedQuery={normalizedQuery}
+                    onEventSelect={onEventSelect}
                 />
                 <div className="logistics-button-row logistics-log-footer">
                     <button className="logistics-outline-btn" onClick={onClose}>닫기</button>

@@ -1,0 +1,196 @@
+.logistics-mobile-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(5, 142, 217, 0.16), transparent 34%),
+    linear-gradient(180deg, #0f1728 0%, #0b1220 100%);
+  color: var(--dark-text-primary);
+  font-family: "Noto Sans KR", "Segoe UI", sans-serif;
+}
+
+.logistics-mobile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: 18px 14px;
+  box-sizing: border-box;
+}
+
+.logistics-mobile-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.logistics-mobile-kpi {
+  min-width: 0;
+  min-height: 86px;
+  padding: 13px 10px;
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  background: rgba(20, 27, 45, 0.9);
+  color: var(--dark-text-primary);
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.logistics-mobile-kpi span {
+  display: block;
+  color: var(--dark-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.logistics-mobile-kpi strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.logistics-mobile-kpi.is-danger strong {
+  color: var(--dark-status-error);
+}
+
+.logistics-mobile-tab-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logistics-mobile-tab-actions button {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.logistics-mobile-detail {
+  padding: 14px;
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  background: rgba(20, 27, 45, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.logistics-mobile-detail.is-empty {
+  min-height: 150px;
+}
+
+.logistics-mobile-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.logistics-mobile-detail-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.logistics-mobile-detail-head span {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dark-text-secondary);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.logistics-mobile-detail.status-failed .logistics-mobile-detail-head span {
+  background: rgba(235, 81, 96, 0.14);
+  color: var(--dark-status-error);
+}
+
+.logistics-mobile-task-id {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 12px;
+  color: var(--dark-text-primary);
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logistics-mobile-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.logistics-mobile-detail-grid div,
+.logistics-mobile-failure,
+.logistics-mobile-latest,
+.logistics-mobile-actions-panel {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.logistics-mobile-detail-grid span,
+.logistics-mobile-failure span,
+.logistics-mobile-latest span,
+.logistics-mobile-actions-panel > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--dark-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.logistics-mobile-detail-grid strong,
+.logistics-mobile-failure strong,
+.logistics-mobile-latest strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--dark-text-primary);
+  font-size: 13px;
+}
+
+.logistics-mobile-failure,
+.logistics-mobile-latest,
+.logistics-mobile-actions-panel {
+  margin-top: 8px;
+}
+
+.logistics-mobile-failure strong {
+  color: var(--dark-status-error);
+}
+
+.logistics-mobile-failure p,
+.logistics-mobile-latest p,
+.logistics-mobile-actions-panel p,
+.logistics-mobile-detail.is-empty p {
+  margin: 6px 0 0;
+  color: var(--dark-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.logistics-mobile-actions-panel div {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.logistics-mobile-actions-panel button {
+  min-height: 38px;
+  border: 1px solid rgba(38, 196, 133, 0.35);
+  border-radius: 8px;
+  background: rgba(38, 196, 133, 0.12);
+  color: var(--dark-status-ok);
+  font-weight: 900;
+}
+
+html:has(.logistics-mobile-shell),
+body:has(.logistics-mobile-shell),
+#root:has(.logistics-mobile-shell) {
+  width: 100%;
+  min-height: 100%;
+}

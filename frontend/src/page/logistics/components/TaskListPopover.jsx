@@ -27,6 +27,7 @@ export default function TaskListPopover({
     emptyMessage,
     variant = 'default',
     onClose,
+    onTaskSelect,
 }) {
     return (
         <div className="logistics-node-popover-backdrop" style={{ zIndex: 120 }} onClick={onClose}>
@@ -48,6 +49,7 @@ export default function TaskListPopover({
                             className="logistics-node-popover-row"
                             onClick={() => {
                                 setFocus(task.taskId);
+                                onTaskSelect?.(task);
                                 onClose();
                             }}
                         >
