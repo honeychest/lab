@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -20,7 +21,7 @@ SCHEDULE_HOURS = [9, 15, 22]
 # 15시/22시 스케줄은 todo_service.build_schedule_content()가 현재 카운트로 메시지를 만든다.
 
 
-async def send_schedule_message(bot: Bot, chat_id: int, hour: int) -> None:
+async def send_schedule_message(bot: Bot, chat_id: int, hour: int, *, timeout: float = 10.0) -> None:
     """통합 스케줄 메시지 발송 — 09/15/22시 공통 진입점."""
     tracker = ScheduleTracker(chat_id)
 
@@ -35,7 +36,14 @@ async def send_schedule_message(bot: Bot, chat_id: int, hour: int) -> None:
         due_words = await notion_service.get_words_due()
         await QuizSession(chat_id).init_count(len(due_words))
 
-    messages = await todo_service.build_schedule_content(chat_id, hour)
+    try:
+        messages = await asyncio.wait_for(
+            todo_service.build_schedule_content(chat_id, hour),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"스케줄 메시지 타임아웃 — {hour:02d}:00 ({timeout}s 초과)")
+        return
 
     if not messages:
         logger.info(f"스케줄 메시지 스킵 — {hour:02d}:00 (할일/퀴즈 없음)")

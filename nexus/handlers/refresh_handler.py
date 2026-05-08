@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from services.github_service import get_repo_info
 from services.ai_service import summarize_github, summarize_youtube, summarize_url
 from services.notion_service import save, exists, delete_page
-from handlers.url_handler import _get_platform
+from handlers.url_handler import _get_platform, _github_error_reply
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +38,7 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             repo_info = await get_repo_info(url)
         except requests.HTTPError as e:
-            msg = str(e)
-            if msg.startswith("404"):
-                reply = "❌ 레포를 찾을 수 없습니다."
-            elif msg.startswith("rate_limit:"):
-                secs = int(msg.split(":")[1])
-                mins = max(1, secs // 60)
-                reply = f"⏳ GitHub API 한도 초과. 약 {mins}분 후 다시 시도해주세요."
-            else:
-                reply = "❌ GitHub API 오류가 발생했습니다."
-            await query.edit_message_text(reply)
+            await query.edit_message_text(_github_error_reply(str(e)))
             return
         result = await summarize_github(repo_info)
         await save(url, result["title"], result["summary"], platform="github")

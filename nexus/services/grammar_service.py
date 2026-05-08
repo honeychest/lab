@@ -2,11 +2,10 @@ import logging
 from datetime import datetime, timezone, timedelta
 from notion_client import AsyncClient
 from config import settings
+from constants import GRAMMAR_STAGE_DAYS as STAGE_DAYS
 
 logger = logging.getLogger(__name__)
 client = AsyncClient(auth=settings.NOTION_API_KEY)
-
-STAGE_DAYS = {1: 1, 2: 3, 3: 7}
 
 
 async def save_grammar_error(error_type: str, expression: str, wrong_sentence: str, error_detail: str) -> str:

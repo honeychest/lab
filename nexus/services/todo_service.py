@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
@@ -7,6 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from chs import dlog
 from redis_client import redis, _k, KEY_QUIZ_COUNT, KEY_INBOX_CB
 from services import notion_service
+from handlers.callback_codec import inbox_done, inbox_postpone
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +26,13 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
     today_str = today.isoformat()
     tomorrow_str = tomorrow.isoformat()
 
-    today_pending = await notion_service.get_todos_by_date(today_str)
     dlog("overdue_pending 추가 조회 — 날짜 지난 미완료 항목")
-    overdue_pending = await notion_service.get_todos_overdue(today_str)
-    today_done = await notion_service.get_todos_done_today()
-    tomorrow_todos = await notion_service.get_todos_by_date(tomorrow_str)
+    today_pending, overdue_pending, today_done, tomorrow_todos = await asyncio.gather(
+        notion_service.get_todos(date=today_str),
+        notion_service.get_todos(overdue_before=today_str),
+        notion_service.get_todos(done_on=today_str),
+        notion_service.get_todos(date=tomorrow_str),
+    )
 
     pending_with_keys = []
     for todo in today_pending:
@@ -82,8 +86,8 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
         dlog("pending_with_keys 순회 — 개별 메시지 + [완료][연기] 버튼")
         for item in pending_with_keys:
             markup = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✔ 완료", callback_data=f"inbox:done:{item['short_key']}"),
-                InlineKeyboardButton("연기▶", callback_data=f"inbox:postpone:{item['short_key']}")
+                InlineKeyboardButton("✔ 완료", callback_data=inbox_done(item['short_key'])),
+                InlineKeyboardButton("연기▶", callback_data=inbox_postpone(item['short_key']))
             ]])
             messages.append((f"📋 {item['text']}", markup))
 
@@ -104,8 +108,8 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
         # 미완료 할일 → 항목별 개별 메시지
         for item in pending_with_keys:
             markup = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✔ 완료", callback_data=f"inbox:done:{item['short_key']}"),
-                InlineKeyboardButton("연기▶", callback_data=f"inbox:postpone:{item['short_key']}")
+                InlineKeyboardButton("✔ 완료", callback_data=inbox_done(item['short_key'])),
+                InlineKeyboardButton("연기▶", callback_data=inbox_postpone(item['short_key']))
             ]])
             messages.append((f"📋 {item['text']}", markup))
 

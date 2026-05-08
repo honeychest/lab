@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 from chs import dlog
 from session import QuizSession, GrammarPending
 from services import ai_service, notion_service
+from utils.strings import levenshtein
 
 logger = logging.getLogger(__name__)
 
@@ -39,19 +40,6 @@ def _quiz_pause_buttons() -> InlineKeyboardMarkup:
 def _stage_icon(stage: int) -> str:
     return '✏️ 작문' if stage >= 3 else '🧩'
 
-
-def _levenshtein(s1: str, s2: str) -> int:
-    s1, s2 = s1.lower(), s2.lower()
-    dp = [[0] * (len(s2) + 1) for _ in range(len(s1) + 1)]
-    for i in range(len(s1) + 1):
-        dp[i][0] = i
-    for j in range(len(s2) + 1):
-        dp[0][j] = j
-    for i in range(1, len(s1) + 1):
-        for j in range(1, len(s2) + 1):
-            cost = 0 if s1[i - 1] == s2[j - 1] else 1
-            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
-    return dp[len(s1)][len(s2)]
 
 
 async def handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
@@ -123,7 +111,7 @@ async def handle_quiz_answer(update: Update, chat_id: int, text: str) -> None:
         if correct:
             await update.message.reply_text("✅ 정답!")
         else:
-            distance = _levenshtein(text, word)
+            distance = levenshtein(text, word)
             retry_count = session.get("retry_count", 0)
             if distance <= 2 and retry_count == 0:
                 session["retry_count"] = 1
@@ -173,7 +161,7 @@ async def _prefetch_next_question(chat_id: int, mode: str, exclude_page_id: str 
         logger.warning(f"[prefetch] 실패 — chat_id: {chat_id}, 오류: {e}")
 
 
-async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | None = None) -> None:
+async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | None = None, _depth: int = 0) -> None:
     """다음 문제 출제. 세션의 mode에 따라 자동출제/전체퀴즈 구분."""
     import asyncio as _asyncio
     qs = QuizSession(chat_id)
@@ -234,7 +222,11 @@ async def _send_next_quiz(update: Update, chat_id: int, exclude_page_id: str | N
 
     parsed = notion_service.parse_word_page(page)
     if not parsed:
-        await _send_next_quiz(update, chat_id)
+        if _depth >= 3:
+            logger.warning(f"_send_next_quiz: 파싱 가능한 단어 없음 — chat_id: {chat_id}")
+            await update.effective_message.reply_text("오늘 복습할 단어가 없어요!")
+            return
+        await _send_next_quiz(update, chat_id, _depth=_depth + 1)
         return
 
     if mode == "auto":

@@ -19,6 +19,16 @@ _PLATFORM_RULES = [
 ]
 
 
+def _github_error_reply(msg: str) -> str:
+    if msg.startswith("404"):
+        return "❌ 레포를 찾을 수 없습니다. 비공개이거나 존재하지 않는 레포입니다."
+    if msg.startswith("rate_limit:"):
+        secs = int(msg.split(":")[1])
+        mins = max(1, secs // 60)
+        return f"⏳ GitHub API 한도 초과. 약 {mins}분 후 다시 시도해주세요."
+    return "❌ GitHub API 오류가 발생했습니다."
+
+
 def _get_platform(url: str) -> str:
     for check, platform in _PLATFORM_RULES:
         if check(url):
@@ -71,16 +81,8 @@ async def _handle_github(update: Update, context: ContextTypes.DEFAULT_TYPE, url
         repo_info = await get_repo_info(url)
     except requests.HTTPError as e:
         msg = str(e)
-        if msg.startswith("404"):
-            reply = "❌ 레포를 찾을 수 없습니다. 비공개이거나 존재하지 않는 레포입니다."
-        elif msg.startswith("rate_limit:"):
-            secs = int(msg.split(":")[1])
-            mins = max(1, secs // 60)
-            reply = f"⏳ GitHub API 한도 초과. 약 {mins}분 후 다시 시도해주세요."
-        else:
-            reply = "❌ GitHub API 오류가 발생했습니다."
         await _log_failure(url, msg)
-        await update.message.reply_text(reply)
+        await update.message.reply_text(_github_error_reply(msg))
         return
 
     result = await summarize_github(repo_info)

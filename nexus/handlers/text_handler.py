@@ -7,6 +7,7 @@ from session import LawState, QuizSession, InboxPending
 from handlers.law_handler import handle_law_query
 from handlers.url_handler import handle_url
 from handlers import quiz_handler, word_handler, grammar_handler
+from handlers.callback_codec import INBOX_SHORT_CONFIRM, INBOX_SHORT_CANCEL, inbox_kind
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if len(text) <= 3:
         await inbox.set({"short_confirm": text})
         buttons = [[
-            InlineKeyboardButton("맞아요", callback_data="inbox:short_confirm"),
-            InlineKeyboardButton("아니에요", callback_data="inbox:short_cancel"),
+            InlineKeyboardButton("맞아요", callback_data=INBOX_SHORT_CONFIRM),
+            InlineKeyboardButton("아니에요", callback_data=INBOX_SHORT_CANCEL),
         ]]
         await update.message.reply_text(
             f"'{text}' — 올바르게 입력되었나요?",
@@ -56,9 +57,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     else:
         await inbox.set({"text": text})
         buttons = [[
-            InlineKeyboardButton("할일", callback_data="inbox:kind:할일"),
-            InlineKeyboardButton("아이디어", callback_data="inbox:kind:아이디어"),
-            InlineKeyboardButton("취소", callback_data="inbox:kind:취소"),
+            InlineKeyboardButton("할일", callback_data=inbox_kind("할일")),
+            InlineKeyboardButton("아이디어", callback_data=inbox_kind("아이디어")),
+            InlineKeyboardButton("취소", callback_data=inbox_kind("취소")),
         ]]
         await update.message.reply_text(
             "종류를 선택해주세요",

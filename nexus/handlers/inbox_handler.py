@@ -7,6 +7,11 @@ from telegram.ext import ContextTypes
 from chs import dlog
 from session import InboxPending, InboxCallback
 from services import notion_service
+from handlers.callback_codec import (
+    INBOX_SHORT_CONFIRM, INBOX_SHORT_CANCEL,
+    inbox_date, inbox_kind, inbox_postpone, inbox_postpone_date, inbox_done,
+    decode_inbox_date, decode_inbox_postpone, decode_inbox_postpone_date, decode_inbox_done,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +22,14 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
 
     if mode == "register":
         buttons.append([
-            InlineKeyboardButton("오늘", callback_data="inbox:date:" + base_date.isoformat()),
-            InlineKeyboardButton("내일", callback_data="inbox:date:" + (base_date + timedelta(days=1)).isoformat()),
-            InlineKeyboardButton("모레", callback_data="inbox:date:" + (base_date + timedelta(days=2)).isoformat()),
+            InlineKeyboardButton("오늘", callback_data=inbox_date(base_date.isoformat())),
+            InlineKeyboardButton("내일", callback_data=inbox_date((base_date + timedelta(days=1)).isoformat())),
+            InlineKeyboardButton("모레", callback_data=inbox_date((base_date + timedelta(days=2)).isoformat())),
         ])
     else:
         buttons.append([
-            InlineKeyboardButton("내일", callback_data=f"inbox:postpone_date:{short_key}:" + (base_date + timedelta(days=1)).isoformat()),
-            InlineKeyboardButton("모레", callback_data=f"inbox:postpone_date:{short_key}:" + (base_date + timedelta(days=2)).isoformat()),
+            InlineKeyboardButton("내일", callback_data=inbox_postpone_date(short_key, (base_date + timedelta(days=1)).isoformat())),
+            InlineKeyboardButton("모레", callback_data=inbox_postpone_date(short_key, (base_date + timedelta(days=2)).isoformat())),
         ])
 
     row = []
@@ -33,9 +38,9 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
         weekday = weekdays[target_date.weekday()]
         label = f"{weekday}({target_date.day})"
         if mode == "register":
-            row.append(InlineKeyboardButton(label, callback_data="inbox:date:" + target_date.isoformat()))
+            row.append(InlineKeyboardButton(label, callback_data=inbox_date(target_date.isoformat())))
         else:
-            row.append(InlineKeyboardButton(label, callback_data=f"inbox:postpone_date:{short_key}:" + target_date.isoformat()))
+            row.append(InlineKeyboardButton(label, callback_data=inbox_postpone_date(short_key, target_date.isoformat())))
 
     buttons.append(row)
     return buttons
@@ -79,7 +84,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
     ip = InboxPending(chat_id)
 
     try:
-        if data == "inbox:short_confirm":
+        if data == INBOX_SHORT_CONFIRM:
             pending = await ip.get()
             if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -98,15 +103,15 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ]]
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
 
-        elif data == "inbox:short_cancel":
+        elif data == INBOX_SHORT_CANCEL:
             await ip.clear()
             await query.edit_message_text("취소되었습니다")
 
-        elif data == "inbox:kind:취소":
+        elif data == inbox_kind("취소"):
             await ip.clear()
             await query.edit_message_text("취소되었습니다")
 
-        elif data == "inbox:kind:아이디어":
+        elif data == inbox_kind("아이디어"):
             pending = await ip.get()
             if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -125,7 +130,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 logger.warning(f"Notion 저장 실패: {e}")
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
 
-        elif data == "inbox:kind:할일":
+        elif data == inbox_kind("할일"):
             pending = await ip.get()
             if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -135,7 +140,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
 
         elif data.startswith("inbox:date:"):
-            date_iso = data.split(":")[-1]
+            date_iso = decode_inbox_date(data)
             pending = await ip.get()
             if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -152,20 +157,18 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
 
         elif data.startswith("inbox:postpone:"):
-            short_key = data.split(":")[-1]
+            short_key = decode_inbox_postpone(data)
             page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
             buttons = _build_date_buttons(today, "postpone", short_key)
             await query.edit_message_reply_markup(reply_markup=_replace_row_by_callback_prefix(
-                query.message.reply_markup, f"inbox:postpone:{short_key}", buttons
+                query.message.reply_markup, inbox_postpone(short_key), buttons
             ))
 
         elif data.startswith("inbox:postpone_date:"):
-            parts = data.split(":")
-            short_key = parts[2]
-            date_iso  = parts[3]
+            short_key, date_iso = decode_inbox_postpone_date(data)
             page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")
@@ -179,7 +182,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
 
         elif data.startswith("inbox:done:"):
-            short_key = data.split(":")[-1]
+            short_key = decode_inbox_done(data)
             page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")

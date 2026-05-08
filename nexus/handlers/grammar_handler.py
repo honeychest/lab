@@ -29,12 +29,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("이미 등록됐거나 오류를 찾을 수 없어요.", show_alert=True)
             return
         err = grammar_errors[idx]
-        await grammar_service.save_grammar_error(
-            error_type=err["type"],
-            expression=info["expression"],
-            wrong_sentence=info["wrong_sentence"],
-            error_detail=err["detail"],
-        )
+        try:
+            await grammar_service.save_grammar_error(
+                error_type=err["type"],
+                expression=info["expression"],
+                wrong_sentence=info["wrong_sentence"],
+                error_detail=err["detail"],
+            )
+        except Exception as e:
+            logger.warning(f"문법 오류 저장 실패: {e}")
+            await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요.", show_alert=True)
+            return
         grammar_errors.pop(idx)
         info["grammar_errors"] = grammar_errors
         if grammar_errors or collocation_errors:

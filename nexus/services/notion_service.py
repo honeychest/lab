@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from notion_client import AsyncClient
 from chs import dlog
 from config import settings
+from constants import WORD_STAGE_DAYS as STAGE_DAYS, MAX_ACTIVE_STAGE, GRADUATED_STAGE
 
 logger = logging.getLogger(__name__)
 client = AsyncClient(auth=settings.NOTION_API_KEY)
@@ -98,10 +99,6 @@ async def exists_word(word: str) -> str | None:
         return None
 
 
-STAGE_DAYS = {1: 1, 2: 3, 3: 7, 4: 30}  # 5단계는 랜덤(60~120일), 6단계 = 졸업
-MAX_ACTIVE_STAGE = 5
-GRADUATED_STAGE  = 6
-
 
 async def add_word(word: str, meaning: str) -> str:
     """영단어를 Notion DB에 저장하고 page_id 반환."""
@@ -145,10 +142,12 @@ async def get_words_due() -> list:
     today = datetime.now(timezone.utc).date().isoformat()
     response = await client.data_sources.query(
         data_source_id=settings.NOTION_WORD_DATABASE_ID,
-        filter={"property": "다음리뷰일", "date": {"on_or_before": today}},
+        filter={"and": [
+            {"property": "다음리뷰일", "date": {"on_or_before": today}},
+            {"property": "단계", "number": {"less_than": GRADUATED_STAGE}},
+        ]},
     )
-    results = response.get("results", [])
-    return [p for p in results if p.get("properties", {}).get("단계", {}).get("number", 0) < GRADUATED_STAGE]
+    return response.get("results", [])
 
 
 async def add_inbox(text: str, kind: str, date: str | None) -> str:
@@ -170,90 +169,53 @@ async def add_inbox(text: str, kind: str, date: str | None) -> str:
     return page_id
 
 
-async def get_todos_by_date(date_iso: str) -> list:
-    """특정 날짜의 할일 조회 (상태='대기')."""
+def _parse_todo_page(page: dict) -> dict | None:
+    text = page.get("properties", {}).get("내용", {}).get("title", [])
+    if not text:
+        return None
+    return {"page_id": page["id"], "text": text[0]["text"]["content"]}
+
+
+async def get_todos(
+    *,
+    date: str | None = None,
+    overdue_before: str | None = None,
+    done_on: str | None = None,
+) -> list:
+    """Inbox 할일 조회.
+
+    date: 특정 날짜의 대기 중 할일 (date_iso)
+    overdue_before: 해당 날짜 이전의 대기 중 할일
+    done_on: 특정 날짜에 완료된 항목 (생략 시 오늘 KST)
+    세 파라미터는 상호 배타적으로 사용.
+    """
     try:
+        if done_on is not None or (date is None and overdue_before is None):
+            target = done_on or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).date().isoformat()
+            f = {"and": [
+                {"property": "상태", "select": {"equals": "완료"}},
+                {"property": "날짜", "date": {"equals": target}},
+            ]}
+        elif overdue_before is not None:
+            f = {"and": [
+                {"property": "종류", "select": {"equals": "할일"}},
+                {"property": "상태", "select": {"equals": "대기"}},
+                {"property": "날짜", "date": {"before": overdue_before}},
+            ]}
+        else:
+            f = {"and": [
+                {"property": "종류", "select": {"equals": "할일"}},
+                {"property": "상태", "select": {"equals": "대기"}},
+                {"property": "날짜", "date": {"equals": date}},
+            ]}
+
         response = await client.data_sources.query(
             data_source_id=settings.NOTION_INBOX_DATABASE_ID,
-            filter={
-                "and": [
-                    {"property": "종류", "select": {"equals": "할일"}},
-                    {"property": "상태", "select": {"equals": "대기"}},
-                    {"property": "날짜", "date": {"equals": date_iso}},
-                ]
-            }
+            filter=f,
         )
-        results = response.get("results", [])
-        todos = []
-        for page in results:
-            text = page.get("properties", {}).get("내용", {}).get("title", [])
-            if text:
-                todos.append({
-                    "page_id": page["id"],
-                    "text": text[0]["text"]["content"]
-                })
-        return todos
+        return [t for p in response.get("results", []) if (t := _parse_todo_page(p))]
     except Exception as e:
         logger.warning(f"Notion 할일 조회 실패: {e}")
-        return []
-
-
-async def get_todos_overdue(today_iso: str) -> list:
-    """오늘 이전 날짜의 미완료 할일 조회 (기한 초과)."""
-    try:
-        dlog("종류=할일 & 상태=대기 & 날짜 before today 필터로 Notion 조회")
-        response = await client.data_sources.query(
-            data_source_id=settings.NOTION_INBOX_DATABASE_ID,
-            filter={
-                "and": [
-                    {"property": "종류", "select": {"equals": "할일"}},
-                    {"property": "상태", "select": {"equals": "대기"}},
-                    {"property": "날짜", "date": {"before": today_iso}},
-                ]
-            }
-        )
-        results = response.get("results", [])
-        dlog("결과 순회 — page_id, 내용 text 추출")
-        todos = []
-        for page in results:
-            text = page.get("properties", {}).get("내용", {}).get("title", [])
-            if text:
-                todos.append({
-                    "page_id": page["id"],
-                    "text": text[0]["text"]["content"]
-                })
-        dlog("추출 결과 list 반환 — build_schedule_content에서 overdue 항목으로 사용")
-        return todos
-    except Exception as e:
-        logger.warning(f"Notion 기한 초과 할일 조회 실패: {e}")
-        return []
-
-
-async def get_todos_done_today() -> list:
-    """오늘 완료된 항목 조회 (KST 기준)."""
-    try:
-        today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).date().isoformat()
-        response = await client.data_sources.query(
-            data_source_id=settings.NOTION_INBOX_DATABASE_ID,
-            filter={
-                "and": [
-                    {"property": "상태", "select": {"equals": "완료"}},
-                    {"property": "날짜", "date": {"equals": today}},
-                ]
-            }
-        )
-        results = response.get("results", [])
-        todos = []
-        for page in results:
-            text = page.get("properties", {}).get("내용", {}).get("title", [])
-            if text:
-                todos.append({
-                    "page_id": page["id"],
-                    "text": text[0]["text"]["content"]
-                })
-        return todos
-    except Exception as e:
-        logger.warning(f"Notion 완료 항목 조회 실패: {e}")
         return []
 
 
