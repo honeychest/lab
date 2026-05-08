@@ -4,12 +4,12 @@ from datetime import date, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from chs import dlog
-from session import InboxPending, InboxCallback
+from session import InboxPending
 from services import notion_service
+from services.inbox_action_token import create_inbox_action_token
 from handlers.callback_codec import (
     INBOX_SHORT_CONFIRM, INBOX_SHORT_CANCEL,
-    inbox_date, inbox_kind, inbox_postpone, inbox_postpone_date, inbox_done,
+    inbox_date, inbox_kind,
     decode_inbox_date, decode_inbox_postpone, decode_inbox_postpone_date, decode_inbox_done,
 )
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list:
     weekdays = ["월", "화", "수", "목", "금", "토", "일"]
     buttons = []
+    tokens = create_inbox_action_token()
 
     if mode == "register":
         buttons.append([
@@ -28,8 +29,8 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
         ])
     else:
         buttons.append([
-            InlineKeyboardButton("내일", callback_data=inbox_postpone_date(short_key, (base_date + timedelta(days=1)).isoformat())),
-            InlineKeyboardButton("모레", callback_data=inbox_postpone_date(short_key, (base_date + timedelta(days=2)).isoformat())),
+            InlineKeyboardButton("내일", callback_data=tokens.postpone_date_callback(short_key, (base_date + timedelta(days=1)).isoformat())),
+            InlineKeyboardButton("모레", callback_data=tokens.postpone_date_callback(short_key, (base_date + timedelta(days=2)).isoformat())),
         ])
 
     row = []
@@ -40,7 +41,7 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
         if mode == "register":
             row.append(InlineKeyboardButton(label, callback_data=inbox_date(target_date.isoformat())))
         else:
-            row.append(InlineKeyboardButton(label, callback_data=inbox_postpone_date(short_key, target_date.isoformat())))
+            row.append(InlineKeyboardButton(label, callback_data=tokens.postpone_date_callback(short_key, target_date.isoformat())))
 
     buttons.append(row)
     return buttons
@@ -82,6 +83,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data
     today = date.today()
     ip = InboxPending(chat_id)
+    tokens = create_inbox_action_token()
 
     try:
         if data == INBOX_SHORT_CONFIRM:
@@ -158,18 +160,18 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         elif data.startswith("inbox:postpone:"):
             short_key = decode_inbox_postpone(data)
-            page_id = await InboxCallback(short_key).get()
+            page_id = await tokens.resolve(short_key)
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
             buttons = _build_date_buttons(today, "postpone", short_key)
             await query.edit_message_reply_markup(reply_markup=_replace_row_by_callback_prefix(
-                query.message.reply_markup, inbox_postpone(short_key), buttons
+                query.message.reply_markup, tokens.postpone_callback(short_key), buttons
             ))
 
         elif data.startswith("inbox:postpone_date:"):
             short_key, date_iso = decode_inbox_postpone_date(data)
-            page_id = await InboxCallback(short_key).get()
+            page_id = await tokens.resolve(short_key)
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
@@ -183,7 +185,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         elif data.startswith("inbox:done:"):
             short_key = decode_inbox_done(data)
-            page_id = await InboxCallback(short_key).get()
+            page_id = await tokens.resolve(short_key)
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return

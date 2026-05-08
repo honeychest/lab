@@ -4,6 +4,7 @@ from notion_client import AsyncClient
 from chs import dlog
 from config import settings
 from constants import WORD_STAGE_DAYS as STAGE_DAYS, MAX_ACTIVE_STAGE, GRADUATED_STAGE
+from services.word_repository import parse_word_page as _parse_word_page
 
 logger = logging.getLogger(__name__)
 client = AsyncClient(auth=settings.NOTION_API_KEY)
@@ -11,18 +12,7 @@ client = AsyncClient(auth=settings.NOTION_API_KEY)
 
 def parse_word_page(page: dict) -> dict | None:
     """Notion 단어 페이지에서 속성 추출. 단어/의미 비어있으면 None 반환."""
-    props      = page["properties"]
-    title_list = props["단어"]["title"]
-    rich_list  = props["의미"]["rich_text"]
-    if not title_list or not rich_list:
-        logger.warning(f"빈 단어 페이지 건너뜀 — page_id: {page['id']}")
-        return None
-    return {
-        "page_id":    page["id"],
-        "word":       title_list[0]["text"]["content"],
-        "meaning_ko": rich_list[0]["text"]["content"],
-        "stage":      int(props["단계"]["number"]),
-    }
+    return _parse_word_page(page)
 
 
 async def exists(url: str) -> str | None:

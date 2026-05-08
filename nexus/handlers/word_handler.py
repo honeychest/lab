@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from session import WordPending
 from services import ai_service, notion_service
+from services.word_repository import WordRepository
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +37,11 @@ async def handle_word_query(update: Update, chat_id: int, text: str) -> None:
     word = info["word"]
     transformed = word.lower() != text.lower()
 
-    raw_conflicts = await notion_service.search_words_containing(text)
+    conflict_pages = await WordRepository(notion_service).search_words_containing(text)
     t2 = time.time()
-    logger.info(f"[word_query] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(raw_conflicts)}개")
+    logger.info(f"[word_query] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(conflict_pages)}개")
 
     await loading.delete()
-    conflict_pages = _parse_conflict_pages(raw_conflicts)
 
     await wp.set({
         **info,
@@ -57,15 +57,6 @@ async def handle_word_query(update: Update, chat_id: int, text: str) -> None:
         await _ask_conflict(update.message, conflict_pages[0])
     else:
         await update.message.reply_text(msg, reply_markup=_register_buttons(transformed))
-
-
-def _parse_conflict_pages(raw_pages: list) -> list:
-    result = []
-    for page in raw_pages:
-        parsed = notion_service.parse_word_page(page)
-        if parsed:
-            result.append({"page_id": parsed["page_id"], "word": parsed["word"], "stage": parsed["stage"]})
-    return result
 
 
 async def _ask_conflict(message, conflict: dict) -> None:
@@ -195,11 +186,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.info(f"[short_confirm] explain_word 소요: {t1 - t0:.2f}s — 입력: {text!r}, 결과: {info.get('word')!r}")
         word = info["word"]
         transformed = word.lower() != text.lower()
-        raw_conflicts = await notion_service.search_words_containing(text)
+        conflict_pages = await WordRepository(notion_service).search_words_containing(text)
         t2 = time.time()
-        logger.info(f"[short_confirm] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(raw_conflicts)}개")
+        logger.info(f"[short_confirm] search_words_containing 소요: {t2 - t1:.2f}s — 결과 {len(conflict_pages)}개")
         await loading.delete()
-        conflict_pages = _parse_conflict_pages(raw_conflicts)
         await wp.set({**info, "original_word": text, "existing_page_id": None, "conflict_pages": conflict_pages})
         msg = f"{word}\n뜻: {info['meaning_ko']}\n\n📌 \"{info['example']}\""
         if conflict_pages:

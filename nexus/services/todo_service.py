@@ -1,14 +1,13 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from uuid import uuid4
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from chs import dlog
-from redis_client import redis, _k, KEY_QUIZ_COUNT, KEY_INBOX_CB
+from redis_client import redis, _k, KEY_QUIZ_COUNT
 from services import notion_service
-from handlers.callback_codec import inbox_done, inbox_postpone
+from services.inbox_action_token import create_inbox_action_token
+from services.schedule_plan import ScheduleInputs, build_schedule_plan
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,6 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
     today_str = today.isoformat()
     tomorrow_str = tomorrow.isoformat()
 
-    dlog("overdue_pending 추가 조회 — 날짜 지난 미완료 항목")
     today_pending, overdue_pending, today_done, tomorrow_todos = await asyncio.gather(
         notion_service.get_todos(date=today_str),
         notion_service.get_todos(overdue_before=today_str),
@@ -34,102 +32,48 @@ async def build_schedule_content(chat_id: int, hour: int) -> list:
         notion_service.get_todos(date=tomorrow_str),
     )
 
-    pending_with_keys = []
-    for todo in today_pending:
-        short_key = uuid4().hex[:8]
-        await redis.set(KEY_INBOX_CB.format(short_key=short_key), todo["page_id"], ex=86400)
-        pending_with_keys.append({
-            "text": todo["text"],
-            "page_id": todo["page_id"],
-            "short_key": short_key
-        })
-
-    dlog("overdue_pending 순회 후 pending_with_keys에 합산 — today_pending 뒤에 추가")
-    for todo in overdue_pending:
-        short_key = uuid4().hex[:8]
-        await redis.set(KEY_INBOX_CB.format(short_key=short_key), todo["page_id"], ex=86400)
-        pending_with_keys.append({
-            "text": todo["text"],
-            "page_id": todo["page_id"],
-            "short_key": short_key
-        })
+    pending_with_keys = await _attach_inbox_action_keys([*today_pending, *overdue_pending])
     count_str = await redis.get(_k(KEY_QUIZ_COUNT, chat_id))
     quiz_count = int(count_str) if count_str else 0
-    dlog("quiz_count > 0이면 due words 존재 여부 추가 확인")
     if quiz_count > 0:
         due_words = await notion_service.get_words_due()
-        dlog("due words 없으면 quiz_count 0으로 보정 — 퀴즈 버튼 미노출")
         if not due_words:
             quiz_count = 0
 
-    messages = []  # list of (text, markup)
+    plan = build_schedule_plan(ScheduleInputs(
+        hour=hour,
+        today=today,
+        pending=pending_with_keys,
+        done=today_done,
+        tomorrow=tomorrow_todos,
+        quiz_count=quiz_count,
+    ))
+    return [(message.text, _markup_for_action(message.action)) for message in plan]
 
-    if hour == 22:
-        # 22시: 개별 메시지 구조
-        dlog("콘텐츠 없으면 return []")
-        if not pending_with_keys and not today_done and not tomorrow_todos and quiz_count == 0:
-            return []
 
-        dlog("헤더 메시지 — 완료 항목 포함, 내일 예정 포함, 버튼 없음")
-        header_parts = ["📋 오늘 마무리"]
-        for item in today_done:
-            header_parts.append(f"~~{item['text']}~~ ✔")
-        if not pending_with_keys and not today_done:
-            header_parts.append("오늘 마무리할 일 없음")
-        if tomorrow_todos:
-            header_parts.append("")
-            header_parts.append("📅 내일 예정")
-            for item in tomorrow_todos:
-                header_parts.append(f"• {item['text']}")
-        messages.append(("\n".join(header_parts), None))
+def _markup_for_action(action: dict | None):
+    if not action:
+        return None
+    if action["kind"] == "inbox_item":
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton("✔ 완료", callback_data=action["done_callback"]),
+            InlineKeyboardButton("연기▶", callback_data=action["postpone_callback"]),
+        ]])
+    if action["kind"] == "quiz_start":
+        return InlineKeyboardMarkup([[InlineKeyboardButton("시작", callback_data="quiz:start")]])
+    return None
 
-        dlog("pending_with_keys 순회 — 개별 메시지 + [완료][연기] 버튼")
-        for item in pending_with_keys:
-            markup = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✔ 완료", callback_data=inbox_done(item['short_key'])),
-                InlineKeyboardButton("연기▶", callback_data=inbox_postpone(item['short_key']))
-            ]])
-            messages.append((f"📋 {item['text']}", markup))
 
-        dlog("quiz_count > 0 이면 퀴즈 메시지 마지막 추가 — [시작] 버튼")
-        if quiz_count > 0:
-            quiz_markup = InlineKeyboardMarkup([[InlineKeyboardButton("시작", callback_data="quiz:start")]])
-            messages.append((f"🔤 퀴즈 {quiz_count}개 남음", quiz_markup))
-        else:
-            messages.append(("🔤 퀴즈 ✔ 완료", None))
-
-    else:  # 09시 또는 15시
-        has_todos = bool(pending_with_keys or today_done or tomorrow_todos)
-        dlog("15시 quiz_count 0이면 복습할 단어 없음 메시지 추가")
-        dlog("09시는 기존처럼 내용 없으면 스킵 유지")
-        if not has_todos and quiz_count == 0 and hour != 15:
-            return []
-
-        # 미완료 할일 → 항목별 개별 메시지
-        for item in pending_with_keys:
-            markup = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✔ 완료", callback_data=inbox_done(item['short_key'])),
-                InlineKeyboardButton("연기▶", callback_data=inbox_postpone(item['short_key']))
-            ]])
-            messages.append((f"📋 {item['text']}", markup))
-
-        # 완료된 항목 (버튼 없음)
-        for item in today_done:
-            messages.append((f"✔ ~~{item['text']}~~", None))
-
-        # 오늘 할일 없으면 내일 예정 단일 메시지
-        if not pending_with_keys and not today_done and tomorrow_todos:
-            text_parts = ["📅 내일 예정"]
-            for item in tomorrow_todos:
-                text_parts.append(f"• {item['text']}")
-            messages.append(("\n".join(text_parts), None))
-
-        # 퀴즈 → 별도 메시지
-        if quiz_count > 0:
-            quiz_markup = InlineKeyboardMarkup([[InlineKeyboardButton("시작", callback_data="quiz:start")]])
-            messages.append((f"🔤 퀴즈 {quiz_count}개 남음", quiz_markup))
-        elif hour == 15:
-            dlog("15시 quiz_count 0이면 messages에 '오늘 복습할 단어가 없어요' 추가")
-            messages.append(("오늘 복습할 단어가 없어요", None))
-
-    return messages
+async def _attach_inbox_action_keys(todos: list[dict]) -> list[dict]:
+    tokens = create_inbox_action_token()
+    pending_with_keys = []
+    for todo in todos:
+        actions = await tokens.create_item_actions(todo["page_id"])
+        pending_with_keys.append({
+            "text": todo["text"],
+            "page_id": todo["page_id"],
+            "short_key": actions.short_key,
+            "done_callback": actions.done_callback,
+            "postpone_callback": actions.postpone_callback,
+        })
+    return pending_with_keys
