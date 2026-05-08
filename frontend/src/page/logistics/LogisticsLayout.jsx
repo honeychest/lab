@@ -34,7 +34,7 @@ export default function LogisticsLayout() {
         advancedOpen,
         toggleAdvanced,
     } = useSettingsPanel();
-    const { logOpen, setLogOpen, logScope, setLogScope, logSnapshot } = useLogPanel();
+    const { logOpen, setLogOpen, logScope, setLogScope, logSnapshot, visibleEvents } = useLogPanel();
     const { autoMode, setAutoMode, handleAutoToggle } = useAutoMode();
     const {
         simulationSettings,
@@ -83,9 +83,6 @@ export default function LogisticsLayout() {
     };
 
     const TabContent = TAB_MAP[activeTab] ?? OverviewTab;
-    const visibleEvents = logScope === 'focus'
-        ? logSnapshot.events.filter(event => event.aggregateId === logSnapshot.focusedTaskId)
-        : logSnapshot.events;
 
     if (narrowScreen) {
         return (

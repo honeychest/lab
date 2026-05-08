@@ -43,6 +43,10 @@ export default function useLogPanel() {
         };
     }, [logOpen, refreshLogSnapshot]);
 
+    const visibleEvents = logScope === 'focus'
+        ? logSnapshot.events.filter(event => event.aggregateId === logSnapshot.focusedTaskId)
+        : logSnapshot.events;
+
     return {
         logOpen,
         setLogOpen,
@@ -50,5 +54,6 @@ export default function useLogPanel() {
         setLogScope,
         logSnapshot,
         setLogSnapshot,
+        visibleEvents,
     };
 }
