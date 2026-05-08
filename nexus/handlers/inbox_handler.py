@@ -1,24 +1,17 @@
-import json
 import logging
 from datetime import date, timedelta
-from uuid import uuid4
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from chs import dlog
-from redis_client import redis, _k, KEY_INBOX_PENDING, KEY_INBOX_CB
+from session import InboxPending, InboxCallback
 from services import notion_service
 
 logger = logging.getLogger(__name__)
 
 
 def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list:
-    """날짜 버튼 행 생성 — mode에 따라 [오늘] 포함 여부 결정.
-
-    mode='register': 1행 [오늘][내일][모레], 2행 [요일(DD)]×4
-    mode='postpone': 1행 [내일][모레], 2행 [요일(DD)]×4
-    """
     weekdays = ["월", "화", "수", "목", "금", "토", "일"]
     buttons = []
 
@@ -28,19 +21,17 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
             InlineKeyboardButton("내일", callback_data="inbox:date:" + (base_date + timedelta(days=1)).isoformat()),
             InlineKeyboardButton("모레", callback_data="inbox:date:" + (base_date + timedelta(days=2)).isoformat()),
         ])
-    else:  # postpone
+    else:
         buttons.append([
             InlineKeyboardButton("내일", callback_data=f"inbox:postpone_date:{short_key}:" + (base_date + timedelta(days=1)).isoformat()),
             InlineKeyboardButton("모레", callback_data=f"inbox:postpone_date:{short_key}:" + (base_date + timedelta(days=2)).isoformat()),
         ])
 
-    # 4일 뒤부터 7일까지
     row = []
     for i in range(3, 7):
         target_date = base_date + timedelta(days=i)
         weekday = weekdays[target_date.weekday()]
         label = f"{weekday}({target_date.day})"
-
         if mode == "register":
             row.append(InlineKeyboardButton(label, callback_data="inbox:date:" + target_date.isoformat()))
         else:
@@ -50,30 +41,22 @@ def _build_date_buttons(base_date: date, mode: str, short_key: str = "") -> list
     return buttons
 
 
-def _replace_row_by_callback_prefix(
-    markup: InlineKeyboardMarkup, prefix: str, new_rows: list
-) -> InlineKeyboardMarkup:
-    """기존 키보드에서 첫 버튼 callback_data가 prefix로 시작하는 행 탐색, 교체."""
+def _replace_row_by_callback_prefix(markup: InlineKeyboardMarkup, prefix: str, new_rows: list) -> InlineKeyboardMarkup:
     if not markup or not markup.inline_keyboard:
         return InlineKeyboardMarkup(new_rows)
-
     new_keyboard = []
     replaced = False
-
     for row in markup.inline_keyboard:
         if not replaced and row and row[0].callback_data and row[0].callback_data.startswith(prefix):
             new_keyboard.extend(new_rows)
             replaced = True
         else:
             new_keyboard.append(row)
-
     return InlineKeyboardMarkup(new_keyboard)
 
 
 def _format_date_label(date_iso: str, today: date) -> str:
-    """날짜 ISO를 사용자 표시용 레이블로 변환."""
     target = date.fromisoformat(date_iso)
-
     if target == today:
         return "오늘"
     elif target == today + timedelta(days=1):
@@ -93,23 +76,21 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = query.message.chat_id
     data = query.data
     today = date.today()
+    ip = InboxPending(chat_id)
 
     try:
         if data == "inbox:short_confirm":
-            raw = await redis.get(_k(KEY_INBOX_PENDING, chat_id))
-            if not raw:
+            pending = await ip.get()
+            if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
-            pending = json.loads(raw)
             text = pending.get("short_confirm")
             if not text:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
-            await redis.set(_k(KEY_INBOX_PENDING, chat_id), json.dumps({"text": text}), ex=600)
+            await ip.set({"text": text})
             buttons = [[
                 InlineKeyboardButton("할일", callback_data="inbox:kind:할일"),
                 InlineKeyboardButton("아이디어", callback_data="inbox:kind:아이디어"),
@@ -118,72 +99,64 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
 
         elif data == "inbox:short_cancel":
-            await redis.delete(_k(KEY_INBOX_PENDING, chat_id))
+            await ip.clear()
             await query.edit_message_text("취소되었습니다")
 
         elif data == "inbox:kind:취소":
-            await redis.delete(_k(KEY_INBOX_PENDING, chat_id))
+            await ip.clear()
             await query.edit_message_text("취소되었습니다")
 
         elif data == "inbox:kind:아이디어":
-            raw = await redis.get(_k(KEY_INBOX_PENDING, chat_id))
-            if not raw:
+            pending = await ip.get()
+            if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
-            pending = json.loads(raw)
             text = pending.get("text")
             if not text:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
             try:
                 await notion_service.add_inbox(text, "아이디어", None)
                 await query.edit_message_text(f"✔ 아이디어 저장: {text}")
-                await redis.delete(_k(KEY_INBOX_PENDING, chat_id))
+                await ip.clear()
             except Exception as e:
                 logger.warning(f"Notion 저장 실패: {e}")
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
 
         elif data == "inbox:kind:할일":
-            raw = await redis.get(_k(KEY_INBOX_PENDING, chat_id))
-            if not raw:
+            pending = await ip.get()
+            if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
             buttons = _build_date_buttons(today, "register")
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
 
         elif data.startswith("inbox:date:"):
             date_iso = data.split(":")[-1]
-            raw = await redis.get(_k(KEY_INBOX_PENDING, chat_id))
-            if not raw:
+            pending = await ip.get()
+            if not pending:
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text("등록 정보가 만료됐어요. 다시 입력해주세요.")
                 return
-
-            pending = json.loads(raw)
             text = pending.get("text")
-
             try:
                 await notion_service.add_inbox(text, "할일", date_iso)
                 label = _format_date_label(date_iso, today)
                 await query.edit_message_text(f"✔ 할일 저장 — {label}까지: {text}")
-                await redis.delete(_k(KEY_INBOX_PENDING, chat_id))
+                await ip.clear()
             except Exception as e:
                 logger.warning(f"Notion 저장 실패: {e}")
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
 
         elif data.startswith("inbox:postpone:"):
             short_key = data.split(":")[-1]
-            page_id = await redis.get(KEY_INBOX_CB.format(short_key=short_key))
+            page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
-
             buttons = _build_date_buttons(today, "postpone", short_key)
             await query.edit_message_reply_markup(reply_markup=_replace_row_by_callback_prefix(
                 query.message.reply_markup, f"inbox:postpone:{short_key}", buttons
@@ -192,13 +165,11 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
         elif data.startswith("inbox:postpone_date:"):
             parts = data.split(":")
             short_key = parts[2]
-            date_iso = parts[3]
-
-            page_id = await redis.get(KEY_INBOX_CB.format(short_key=short_key))
+            date_iso  = parts[3]
+            page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
-
             try:
                 await notion_service.update_inbox_date(page_id, date_iso)
                 label = _format_date_label(date_iso, today)
@@ -209,15 +180,12 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         elif data.startswith("inbox:done:"):
             short_key = data.split(":")[-1]
-            page_id = await redis.get(KEY_INBOX_CB.format(short_key=short_key))
+            page_id = await InboxCallback(short_key).get()
             if not page_id:
                 await query.answer("만료된 요청입니다")
                 return
-
             try:
                 await notion_service.update_inbox_status(page_id, "완료")
-                dlog("edit_message_text 호출 — 버튼 제거 + 완료 텍스트로 교체")
-                dlog("query.message.text 앞에 ✔ 추가하여 완료 상태 시각화")
                 await query.edit_message_text("✔ " + query.message.text)
             except Exception as e:
                 logger.warning(f"Notion 업데이트 실패: {e}")
