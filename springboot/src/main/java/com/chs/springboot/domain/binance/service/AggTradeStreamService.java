@@ -1,4 +1,4 @@
-// [AGENT] 역할: Binance aggTrade WebSocket 스트림 구독 서비스 (SPOT/FUTURES) | 연관파일: AggTradeStorageService.java(→enqueue), SignalSseService.java(→broadcastAggTrade), BinanceWebSocketStream.java(재연결 공통) | 핵심: @PostConstruct에서 BTCUSDT/ENAUSDT SPOT/FUTURES 4개 스트림 연결, 스트림별 독립 인스턴스로 재연결 누락 방지
+// [AGENT] 역할: Binance aggTrade WebSocket 스트림 구독 서비스 (SPOT/FUTURES) | 연관파일: AggTradeStorageService.java(→enqueue), AggTradeKafkaProducer.java(→publishRaw), SignalSseService.java(→broadcastAggTrade), BinanceWebSocketStream.java(재연결 공통) | 핵심: @PostConstruct에서 BTCUSDT/ENAUSDT SPOT/FUTURES 4개 스트림 연결, 스트림별 독립 인스턴스로 재연결 누락 방지
 package com.chs.springboot.domain.binance.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,6 +24,7 @@ public class AggTradeStreamService {
     private static final String FUTURES_WS_BASE    = "wss://fstream.binance.com/market/ws/";
 
     private final AggTradeStorageService storageService;
+    private final AggTradeKafkaProducer  kafkaProducer;
     private final SignalSseService       signalSseService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -36,8 +37,11 @@ public class AggTradeStreamService {
 
     private final List<BinanceWebSocketStream> streams = new ArrayList<>();
 
-    public AggTradeStreamService(AggTradeStorageService storageService, SignalSseService signalSseService) {
+    public AggTradeStreamService(AggTradeStorageService storageService,
+                                 AggTradeKafkaProducer kafkaProducer,
+                                 SignalSseService signalSseService) {
         this.storageService   = storageService;
+        this.kafkaProducer    = kafkaProducer;
         this.signalSseService = signalSseService;
     }
 
@@ -63,6 +67,7 @@ public class AggTradeStreamService {
     }
 
     private void handleMessage(String json, String symbolUpper, String marketType) {
+        long receivedAt = System.currentTimeMillis();
         String payloadJson = json;
         try {
             var root = objectMapper.readTree(json);
@@ -81,6 +86,12 @@ public class AggTradeStreamService {
         }
 
         storageService.enqueue(payloadJson, symbolUpper, marketType);
+        try {
+            kafkaProducer.publishRaw(payloadJson, symbolUpper, marketType, receivedAt);
+        } catch (Exception e) {
+            log.error("[AggTradeStream] Kafka publish 요청 실패 {} {} error={}",
+                    symbolUpper, marketType, e.getMessage());
+        }
 
         // Signal Dashboard SSE 브로드캐스트
         try {

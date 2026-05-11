@@ -3,12 +3,13 @@
 # 상세는 docs/README.md 참고. 아래는 로컬·비공유 위주.
 # -----------------------------------------------------------------------------
 CLAUDE.md
+AGENTS.md
 .cursorrules
 context.md
 chs-rules.md
 geminirules.md
 /.claude/
-chs/
+/chs/
 obsidian/
 # 로컬 전용 테스트 파일 (저장소에 없어도 두는 ignore 는 정상)
 springboot/src/test/java/com/chs/springboot/unitTest.java
