@@ -290,7 +290,7 @@ export default function MonitorPage() {
                                 ) : (
                                     <>
                                         {(() => {
-                                            const telegram = business.redisKeys.find(x => x?.key === 'telegram:leader');
+                                            const serverLeader = business.redisKeys.find(x => x?.key === 'server:leader');
                                             const maxQueue = business.redisKeys.find(x => x?.key === 'config:aggtrade:max-queue-size')?.value;
                                             // const threshold = business.redisKeys.find(x => x?.key === 'config:threshold');
 
@@ -308,10 +308,10 @@ export default function MonitorPage() {
                                                     </div>
 
                                                     <div className={`${styles.dockerRow} ${styles.redisRow}`} role="row">
-                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">telegram:leader</div>
+                                                        <div className={`${styles.redisColKey} ${styles.mono}`} role="cell">server:leader</div>
                                                         <div className={styles.redisColValue} role="cell">
                                                             <div className={styles.redisValueBox}>
-                                                                {telegram?.value ?? '—'}
+                                                                {serverLeader?.value ?? '—'}
                                                             </div>
                                                         </div>
                                                     </div>

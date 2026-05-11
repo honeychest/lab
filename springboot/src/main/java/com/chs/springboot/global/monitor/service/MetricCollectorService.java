@@ -444,7 +444,7 @@ public class MetricCollectorService {
 
     private List<MetricSnapshot.RedisKv> collectFixedRedisKv() {
         List<String> keys = List.of(
-                "telegram:leader",
+                "server:leader",
                 "config:aggtrade:max-queue-size",
                 "config:threshold"
         );
