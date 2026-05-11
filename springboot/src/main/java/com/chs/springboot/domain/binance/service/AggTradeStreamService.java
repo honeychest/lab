@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -43,6 +44,7 @@ public class AggTradeStreamService {
     private final List<BinanceWebSocketStream> streams = new ArrayList<>();
     private volatile boolean connected = false;
 
+    @Autowired
     public AggTradeStreamService(AggTradeParser parser, List<AggTradeSink> sinks) {
         this(parser, sinks, BinanceWebSocketStream::new);
     }
