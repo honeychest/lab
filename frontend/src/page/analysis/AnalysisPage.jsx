@@ -14,16 +14,14 @@ import Toast                 from './components/Toast.jsx';
 import { DesktopViewGate, DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
 import { evaluate }          from './engine/detectionEngine.js';
 import { fetchKlines }       from './hooks/useBinanceKlines.js';
-
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function fiveDaysAgoStr() {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 5);
-  return d.toISOString().slice(0, 10);
-}
-function emptyTree() {
-  return { groups: [], groupOperator: 'OR', palette: 'MID' };
-}
+import {
+  buildAnalysisSearchRequest,
+  emptyConditionTree,
+  fiveDaysAgoStr,
+  mapSearchTimesToIndices,
+  previousUtcDateStr,
+  todayStr,
+} from './model/analysisPageModel.js';
 
 export default function AnalysisPage() {
   const [symbol,            setSymbol]            = useState('BTC');
@@ -32,7 +30,7 @@ export default function AnalysisPage() {
   const [klineData,         setKlineData]         = useState([]);
   const [loading,           setLoading]           = useState(false);
   const [loadError,         setLoadError]         = useState(null);
-  const [conditionTree,     setConditionTree]     = useState(emptyTree());
+  const [conditionTree,     setConditionTree]     = useState(emptyConditionTree());
   const [matchedIndices,    setMatchedIndices]    = useState([]);
   const [detectionError,    setDetectionError]    = useState(null);
   const [page,              setPage]              = useState(0);
@@ -161,9 +159,7 @@ export default function AnalysisPage() {
   const handlePrev = async () => {
     if (page > 0) { setPage(page - 1); return; }
     // 이전 기간 추가 로드
-    const prevStart = new Date(startDate + 'T00:00:00Z');
-    prevStart.setUTCDate(prevStart.getUTCDate() - 1);
-    const prevStartStr = prevStart.toISOString().slice(0, 10);
+    const prevStartStr = previousUtcDateStr(startDate);
     try {
       setLoading(true);
       const prevKlines = await fetchKlines(symbol, prevStartStr, prevStartStr);
@@ -190,7 +186,7 @@ export default function AnalysisPage() {
   };
 
   const handleReset = () => {
-    setConditionTree(emptyTree());
+    setConditionTree(emptyConditionTree());
     setMatchedIndices([]);
     setDetectionError(null);
     setPage(0);
@@ -199,18 +195,10 @@ export default function AnalysisPage() {
   // ─── Analysis 더블클릭 수동 탐색 ─────────────────────────────────────────
 
   const handleAnalysisSearch = async (requestBody) => {
-    const fromMs = new Date(startDate + 'T00:00:00Z').getTime();
-    const endNext = new Date(endDate + 'T00:00:00Z');
-    endNext.setUTCDate(endNext.getUTCDate() + 1);
-    const toMs = endNext.getTime();
-
     try {
-      const res = await apiClient.post('/api/analysis/search', { ...requestBody, fromMs, toMs });
-      const times = Array.isArray(res.data) ? res.data : [];
-      const indices = times
-        .map((ms) => klineData.findIndex((c) => c.time === ms))
-        .filter((idx) => idx !== -1);
-      setMatchedIndices(indices);
+      const body = buildAnalysisSearchRequest(requestBody, startDate, endDate);
+      const res = await apiClient.post('/api/analysis/search', body);
+      setMatchedIndices(mapSearchTimesToIndices(res.data, klineData));
       setTimeframe(requestBody.timeframe);
       setPage(0);
     } catch (e) {
