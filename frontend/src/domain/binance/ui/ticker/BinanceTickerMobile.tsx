@@ -17,6 +17,15 @@
 import React from 'react';
 import type { BinanceTicker as BinanceTickerData } from '../../model/hook/useBinanceWebSocket';
 import type { UpbitTicker as UpbitTickerData } from '../../model/hook/useUpbitWebSocket';
+import {
+    buildBinanceTickerDisplayModel,
+    formatBinancePrice as fmt,
+    formatBinanceVolume as fmtVol,
+    formatKrwPrice as fmtKrw,
+    formatPremiumKrwAbs as fmtPremiumAbs,
+    formatUsdDiff as fmtDiff,
+} from '../../model/display/binanceTickerDisplayModel.js';
+import TickerSkeletonBox from './shared/TickerSkeletonBox.tsx';
 import styles from './BinanceTickerMobile.module.css';
 
 // ─────────────────────────────────────────────────────────────────
@@ -40,96 +49,9 @@ interface BinanceTickerMobileProps {
 //  (두 컴포넌트는 완전히 독립적으로 동작해야 함)
 // ─────────────────────────────────────────────────────────────────
 
-/** 바이낸스 가격 문자열 → "$42,000.53" 형식 */
-const fmt = (val: string, decimals = 2): string => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return '-';
-    return '$' + num.toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-    });
-};
-
-/** KRW 숫자 → "₩135,000,000" 형식 */
-const fmtKrw = (val: number): string => {
-    if (Number.isNaN(val)) return '-';
-    return '₩' + val.toLocaleString('ko-KR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
-};
-
-/** 현재가와의 차이 → "+$2,000.00" 형식 */
-const fmtDiff = (diff: number): string => {
-    if (isNaN(diff)) return '-';
-    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
-    const abs = Math.abs(diff);
-    return sign + '$' + abs.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-};
-
-/** 거래량 문자열 → "12,345.68 BTC" 형식 */
-const fmtVol = (val: string): string => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return '-';
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' BTC';
-};
-
-/** 변동률 문자열 → CSS 색상 반환 (양수 초록, 음수 빨강) */
-const changeColor = (p: string): string => {
-    const num = parseFloat(p);
-    if (isNaN(num)) return '#ffffff';
-    return num >= 0 ? '#2ecc71' : '#e74c3c';
-};
-
-/** 프리미엄 절댓값 → "₩1,200,000" 형식 (부호는 호출부에서 별도 처리) */
-const fmtPremiumAbs = (val: number): string => {
-    const abs = Math.abs(val);
-    if (isNaN(abs)) return '-';
-    return '₩' + abs.toLocaleString('ko-KR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
-};
-
 // ─────────────────────────────────────────────────────────────────
 //  Shimmer 스켈레톤
 // ─────────────────────────────────────────────────────────────────
-
-/** shimmer 키프레임. BinanceTicker.tsx와 이름 충돌 방지를 위해 'shimmerMobile' 사용 */
-const shimmerStyle = `
-@keyframes shimmerMobile {
-    0%   { background-position: -200% 0; }
-    100% { background-position:  200% 0; }
-}
-`;
-
-/** shimmer 애니메이션 블록 */
-function SkeletonBox({
-    width = '100%',
-    height = '16px',
-    borderRadius = '6px',
-    style,
-}: {
-    width?: string;
-    height?: string;
-    borderRadius?: string;
-    style?: React.CSSProperties;
-}) {
-    return (
-        <div style={{
-            width,
-            height,
-            borderRadius,
-            background: 'linear-gradient(90deg, var(--dark-border) 25%, #2d3f52 50%, var(--dark-border) 75%)',
-            backgroundSize: '200% 100%',
-            animation: 'shimmerMobile 1.5s infinite linear',
-            ...style,
-        }} />
-    );
-}
 
 /**
  * 모바일 레이아웃에 맞춘 스켈레톤.
@@ -138,11 +60,9 @@ function SkeletonBox({
 function BinanceTickerMobileSkeleton() {
     return (
         <div>
-            <style>{shimmerStyle}</style>
-
             {/* 고가 라인 */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-                <SkeletonBox width="160px" height="14px" />
+                <TickerSkeletonBox width="160px" height="14px" variant="mobile" injectKeyframes />
             </div>
 
             {/* 구분선 */}
@@ -150,12 +70,12 @@ function BinanceTickerMobileSkeleton() {
 
             {/* 현재가 */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
-                <SkeletonBox width="180px" height="38px" borderRadius="8px" />
+                <TickerSkeletonBox width="180px" height="38px" borderRadius="8px" variant="mobile" />
             </div>
 
             {/* 등락 */}
             <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '12px' }}>
-                <SkeletonBox width="120px" height="18px" />
+                <TickerSkeletonBox width="120px" height="18px" variant="mobile" />
             </div>
 
             {/* 구분선 */}
@@ -163,26 +83,26 @@ function BinanceTickerMobileSkeleton() {
 
             {/* 저가 라인 */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-                <SkeletonBox width="160px" height="14px" />
+                <TickerSkeletonBox width="160px" height="14px" variant="mobile" />
             </div>
 
             {/* 프리미엄 섹션 */}
             <div style={{ borderTop: '1px solid var(--dark-border)', padding: '14px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                <SkeletonBox width="60px" height="12px" />
-                <SkeletonBox width="130px" height="22px" borderRadius="4px" />
-                <SkeletonBox width="50px" height="14px" borderRadius="4px" />
+                <TickerSkeletonBox width="60px" height="12px" variant="mobile" />
+                <TickerSkeletonBox width="130px" height="22px" borderRadius="4px" variant="mobile" />
+                <TickerSkeletonBox width="50px" height="14px" borderRadius="4px" variant="mobile" />
             </div>
 
             {/* KRW 2열 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--dark-border)', padding: '14px 0', gap: '8px' }}>
-                <SkeletonBox height="48px" borderRadius="8px" />
-                <SkeletonBox height="48px" borderRadius="8px" />
+                <TickerSkeletonBox height="48px" borderRadius="8px" variant="mobile" />
+                <TickerSkeletonBox height="48px" borderRadius="8px" variant="mobile" />
             </div>
 
             {/* InfoBox 4개 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
                 {[1, 2, 3, 4].map(i => (
-                    <SkeletonBox key={i} height="52px" borderRadius="10px" />
+                    <TickerSkeletonBox key={i} height="52px" borderRadius="10px" variant="mobile" />
                 ))}
             </div>
         </div>
@@ -229,26 +149,26 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
     if (!ticker) return <BinanceTickerMobileSkeleton />;
 
     // ── 사전 계산 ──────────────────────────────────────────────────
-    const color      = changeColor(ticker.P);
-    const isPositive = parseFloat(ticker.P) >= 0;
-    const sign       = isPositive ? '+' : '';
-
-    const currentPrice = parseFloat(ticker.c);
-    const highDiff     = fmtDiff(parseFloat(ticker.h) - currentPrice); // 고가 - 현재가 (+양수)
-    const lowDiff      = fmtDiff(parseFloat(ticker.l) - currentPrice); // 저가 - 현재가 (-음수)
-
-    // 업비트 관련
-    const hasUpbitMarket = upbitTicker !== undefined;
-    const hasUpbitData   = upbitTicker !== undefined && upbitTicker !== null;
-    const upbitPrice     = upbitTicker?.trade_price ?? NaN;
-
-    // 프리미엄 계산 (업비트 KRW - 환율기준 KRW)
-    const hasUsdtRate  = usdtKrwTicker != null;
-    const calcKrw      = hasUsdtRate ? currentPrice * usdtKrwTicker!.trade_price : null;
-    const premium      = (hasUpbitData && calcKrw !== null) ? upbitPrice - calcKrw : null;
-    const premiumRate  = (premium !== null && calcKrw !== null) ? (premium / calcKrw) * 100 : null;
-    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : 'var(--dark-text-secondary)';
-    const premiumSign  = premium !== null && premium >= 0 ? '+' : '';
+    const {
+        color,
+        sign,
+        highDiffFromCurrent,
+        lowDiffFromCurrent,
+        hasUpbitMarket,
+        hasUpbitData,
+        upbitTradePrice: upbitPrice,
+        calcKrw,
+        premium,
+        premiumRate,
+        premiumColor,
+        premiumSign,
+    } = buildBinanceTickerDisplayModel({
+        ticker,
+        upbitTicker,
+        usdtKrwTicker,
+    });
+    const highDiff = fmtDiff(highDiffFromCurrent);
+    const lowDiff = fmtDiff(lowDiffFromCurrent);
 
     return (
         <div>
@@ -301,7 +221,7 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
                         {premiumSign}{fmtPremiumAbs(premium)}
                     </div>
                 ) : (
-                    <SkeletonBox width="130px" height="22px" borderRadius="4px" />
+                    <TickerSkeletonBox width="130px" height="22px" borderRadius="4px" variant="mobile" />
                 )}
 
                 {/* 퍼센트 */}
@@ -310,7 +230,7 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
                         {premiumSign}{premiumRate.toFixed(2)}%
                     </div>
                 ) : (
-                    <SkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
+                    <TickerSkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} variant="mobile" />
                 )}
             </div>
 
@@ -328,7 +248,7 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
                             {fmtKrw(calcKrw)}
                         </div>
                     ) : (
-                        <SkeletonBox height="26px" borderRadius="4px" style={{ margin: '0 12px' }} />
+                        <TickerSkeletonBox height="26px" borderRadius="4px" style={{ margin: '0 12px' }} variant="mobile" />
                     )}
                 </div>
 
@@ -341,7 +261,7 @@ function BinanceTickerMobile({ ticker, upbitTicker, usdtKrwTicker }: BinanceTick
                                 {fmtKrw(upbitPrice)}
                             </div>
                         ) : (
-                            <SkeletonBox height="26px" borderRadius="4px" style={{ margin: '0 12px' }} />
+                            <TickerSkeletonBox height="26px" borderRadius="4px" style={{ margin: '0 12px' }} variant="mobile" />
                         )}
                     </div>
                 )}

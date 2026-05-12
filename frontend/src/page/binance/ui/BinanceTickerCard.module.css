@@ -1,0 +1,60 @@
+.card {
+    background: var(--dark-card-bg);
+    border: 1px solid var(--dark-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.coinTab {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+    outline-offset: 2px;
+}
+
+.statusBlock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.statusRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.liveDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+}
+
+.statusText {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.rateText {
+    color: var(--dark-text-secondary);
+    font-size: 11px;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+}

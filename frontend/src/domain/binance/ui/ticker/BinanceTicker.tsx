@@ -24,6 +24,15 @@
 import React from 'react';
 import type { BinanceTicker as BinanceTickerData } from '../../model/hook/useBinanceWebSocket';
 import type { UpbitTicker as UpbitTickerData } from '../../model/hook/useUpbitWebSocket';
+import {
+    buildBinanceTickerDisplayModel,
+    formatBinancePrice as fmt,
+    formatBinanceVolume as fmtVol,
+    formatKrwPrice as fmtKrw,
+    formatPremiumKrwAbs as fmtPremiumAbs,
+    formatUsdDiff as fmtDiff,
+} from '../../model/display/binanceTickerDisplayModel.js';
+import TickerSkeletonBox from './shared/TickerSkeletonBox.tsx';
 
 /**
  * 이 컴포넌트에서 "표시할 수 있는" ticker 필드 요약
@@ -120,90 +129,6 @@ interface BinanceTickerProps {
  *   jQuery에서 수동으로 천단위 콤마를 넣던 것을 브라우저 내장으로 처리.
  *   { minimumFractionDigits: 2, maximumFractionDigits: 2 } = 소수점 2자리 고정.
  */
-const fmt = (val: string, decimals = 2): string => {
-    const num = parseFloat(val);
-    // isNaN: "Not a Number" 체크. parseFloat("abc") = NaN 이 되므로 방어 처리
-    if (isNaN(num)) return '-';
-    return '$' + num.toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-    });
-};
-
-/**
- * 업비트 trade_price 숫자를 KRW 통화 문자열로 포맷.
- *
- * @param val - KRW 현재가 숫자
- * @returns 예: "₩135,000,000" 또는 파싱 실패 시 '-'
- */
-const fmtKrw = (val: number): string => {
-    if (Number.isNaN(val)) return '-';
-    return '₩' + val.toLocaleString('ko-KR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
-};
-
-/**
- * 현재가와의 차이를 달러 형식으로 포맷.
- *
- * @param diff - 고가/저가와 현재가의 차이 값 (숫자, 양수/음수 모두 가능)
- * @returns "+$123.45" 또는 "-$67.89" 형식 문자열, 계산 불가 시 '-'
- */
-const fmtDiff = (diff: number): string => {
-    if (isNaN(diff)) return '-';
-    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
-    const abs = Math.abs(diff);
-    return sign + '$' + abs.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-};
-
-/**
- * 거래량(BTC 수량)을 읽기 좋은 형식으로 포맷.
- *
- * @param val - 바이낸스에서 받은 거래량 문자열 (예: "12345.67890000")
- * @returns 포맷된 문자열 (예: "12,345.68 BTC") 또는 '-'
- */
-const fmtVol = (val: string): string => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return '-';
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' BTC';
-};
-
-/**
- * 가격 변동률 문자열을 파싱해서 CSS 색상 반환.
- *
- * @param p - 변동률 문자열 (예: "0.357" 또는 "-0.5")
- * @returns 양수 → 초록(#2ecc71), 음수 → 빨간(#e74c3c), 0/NaN → 흰색
- *
- * 주식/코인 관례:
- *   상승(양수) = 초록, 하락(음수) = 빨간
- *   이 색상값은 변동 텍스트와 변동률 값 모두에 적용됨.
- */
-const changeColor = (p: string): string => {
-    const num = parseFloat(p);
-    if (isNaN(num)) return '#ffffff';
-    return num >= 0 ? '#2ecc71' : '#e74c3c';
-};
-
-/**
- * 프리미엄(차이금액) 절댓값을 KRW 형식으로 포맷.
- * 부호(+/-)는 호출부에서 premiumSign 변수로 별도 처리.
- *
- * @param val - 차이금액 숫자 (음수여도 절댓값으로 처리)
- * @returns 예: "₩9,999,999" (부호 없음) 또는 파싱 실패 시 '-'
- */
-const fmtPremiumAbs = (val: number): string => {
-    const abs = Math.abs(val);
-    if (isNaN(abs)) return '-';
-    return '₩' + abs.toLocaleString('ko-KR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
-};
-
 // ─────────────────────────────────────────────────────────────────
 //  스켈레톤(Skeleton) 컴포넌트
 //  - ticker가 null일 때 실제 레이아웃과 같은 구조로 shimmer 애니메이션을 표시
@@ -215,51 +140,6 @@ const fmtPremiumAbs = (val: number): string => {
  * CSS Modules나 외부 파일 없이 <style> 태그를 JSX로 주입하는 패턴.
  * 컴포넌트가 마운트될 때 한 번만 DOM에 추가됨.
  */
-const shimmerStyle = `
-@keyframes shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position:  200% 0; }
-}
-`;
-
-/**
- * SkeletonBox: shimmer 애니메이션이 적용된 빈 블록.
- *
- * @param width        - CSS 너비 (기본 '100%')
- * @param height       - CSS 높이 (기본 '16px')
- * @param borderRadius - 모서리 반경 (기본 '6px')
- * @param style        - 추가 인라인 스타일 (선택)
- *
- * shimmer 동작 원리:
- *   background: linear-gradient(90deg, 어두운색 25%, 밝은색 50%, 어두운색 75%)
- *   backgroundSize: 200% → gradient 가 요소 너비의 2배로 설정
- *   animation: backgroundPosition을 -200% → +200% 로 이동시키면
- *              밝은 띠가 좌→우로 흘러가는 것처럼 보임
- */
-function SkeletonBox({
-    width = '100%',
-    height = '16px',
-    borderRadius = '6px',
-    style,
-}: {
-    width?: string;
-    height?: string;
-    borderRadius?: string;
-    style?: React.CSSProperties;
-}) {
-    return (
-        <div style={{
-            width,
-            height,
-            borderRadius,
-            background: 'linear-gradient(90deg, var(--dark-border) 25%, #2d3f52 50%, var(--dark-border) 75%)',
-            backgroundSize: '200% 100%',
-            animation: 'shimmer 1.5s infinite linear',
-            ...style,
-        }} />
-    );
-}
-
 /**
  * BinanceTickerSkeleton: ticker=null 시 보여줄 전체 스켈레톤 레이아웃.
  * 실제 BinanceTicker 렌더링 구조(고가라인 · 현재가 · 저가라인 · 그리드 · 집계기간)와
@@ -269,28 +149,26 @@ function BinanceTickerSkeleton() {
     return (
         <div>
             {/* @keyframes shimmer CSS 주입 */}
-            <style>{shimmerStyle}</style>
-
             {/* 고가 라인: fontSize 12px → line-height ≈ 18px */}
             <div style={{ marginBottom: '8px' }}>
-                <SkeletonBox width="160px" height="18px" />
+                <TickerSkeletonBox width="160px" height="18px" injectKeyframes />
             </div>
 
             {/* 현재가 영역: fontSize 40px monospace → line-height ≈ 48px */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <SkeletonBox width="200px" height="48px" borderRadius="8px" />
-                <SkeletonBox width="220px" height="48px" borderRadius="8px" />
+                <TickerSkeletonBox width="200px" height="48px" borderRadius="8px" />
+                <TickerSkeletonBox width="220px" height="48px" borderRadius="8px" />
             </div>
 
             {/* 변동액/변동률 행: fontSize 16px → line-height ≈ 20px */}
             <div style={{ display: 'flex', gap: '14px', marginBottom: '8px' }}>
-                <SkeletonBox width="80px" height="20px" />
-                <SkeletonBox width="60px" height="20px" />
+                <TickerSkeletonBox width="80px" height="20px" />
+                <TickerSkeletonBox width="60px" height="20px" />
             </div>
 
             {/* 저가 라인: fontSize 12px → line-height ≈ 18px */}
             <div style={{ marginBottom: '20px' }}>
-                <SkeletonBox width="160px" height="18px" />
+                <TickerSkeletonBox width="160px" height="18px" />
             </div>
 
             {/* 정보 박스 그리드 (4개)
@@ -305,15 +183,15 @@ function BinanceTickerSkeleton() {
                         flex: '1 1 120px',
                         minWidth: '120px',
                     }}>
-                        <SkeletonBox width="60px" height="14px" style={{ marginBottom: '4px' }} />
-                        <SkeletonBox width="80px" height="17px" />
+                        <TickerSkeletonBox width="60px" height="14px" style={{ marginBottom: '4px' }} />
+                        <TickerSkeletonBox width="80px" height="17px" />
                     </div>
                 ))}
             </div>
 
             {/* 집계 기간 라인: fontSize 11px → line-height ≈ 14px */}
             <div style={{ marginTop: '12px' }}>
-                <SkeletonBox width="280px" height="14px" />
+                <TickerSkeletonBox width="280px" height="14px" />
             </div>
         </div>
     );
@@ -388,42 +266,24 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
     //
     // 이 변수들은 JSX에서 여러 번 쓰이므로 미리 계산해 놓음.
     // jQuery에서 var price = parseFloat(data.c).toFixed(2); 로 미리 계산하는 것과 동일.
-    const color = changeColor(ticker.P);         // 변동률에 따른 색상
-    const isPositive = parseFloat(ticker.P) >= 0; // 상승 여부 (부호 기호 결정)
-    const sign = isPositive ? '+' : '';            // 양수는 '+' 추가, 음수는 이미 '-'가 있음
-
-    // 현재가/고가/저가 숫자값 및 현재가와의 차이 계산
-    const currentPrice = parseFloat(ticker.c);
-    const highPrice = parseFloat(ticker.h);
-    const lowPrice = parseFloat(ticker.l);
-    const highDiffFromCurrent = fmtDiff(highPrice - currentPrice);
-    const lowDiffFromCurrent = fmtDiff(lowPrice - currentPrice);
-
-    // ticker.E 타임스탬프는 BinancePage 헤더에서 기준시각으로 표시하므로 여기선 미사용
-    const hasUpbitMarket = upbitTicker !== undefined;
-    const hasUpbitData = upbitTicker !== undefined && upbitTicker !== null;
-    const upbitTradePrice = upbitTicker?.trade_price ?? NaN;
-
-    // ── 환율 기준 KRW 및 프리미엄 계산 ──────────────────────────
-    //
-    // calcKrw:
-    //   바이낸스 USD 현재가 × USDT 환율 = 환율 기준 적정 KRW 가격.
-    //   예: $95,000 × ₩1,430/USDT = ₩135,850,000
-    //   usdtKrwTicker가 null(미수신)이면 null 유지 → 스켈레톤 표시.
-    //
-    // premium:
-    //   업비트 실제 KRW - 환율기준 KRW = 김치 프리미엄(양수) 또는 역프리미엄(음수).
-    //   두 데이터(upbit + usdt) 모두 수신된 경우에만 계산.
-    //
-    // premiumRate:
-    //   프리미엄을 환율기준 KRW 대비 퍼센트로 환산.
-    const hasUsdtRate = usdtKrwTicker != null;
-    const calcKrw     = hasUsdtRate ? currentPrice * usdtKrwTicker!.trade_price : null;
-    const premium     = (hasUpbitData && calcKrw !== null) ? upbitTradePrice - calcKrw : null;
-    const premiumRate = (premium !== null && calcKrw !== null) ? (premium / calcKrw) * 100 : null;
-    // 프리미엄 양수(한국 비쌈) → 초록, 음수(역프리미엄) → 빨강, 미계산 → 회색
-    const premiumColor = premium !== null ? (premium >= 0 ? '#2ecc71' : '#e74c3c') : 'var(--dark-text-secondary)';
-    const premiumSign  = premium !== null && premium >= 0 ? '+' : '';
+    const {
+        color,
+        sign,
+        highDiffFromCurrent,
+        lowDiffFromCurrent,
+        hasUpbitMarket,
+        hasUpbitData,
+        upbitTradePrice,
+        calcKrw,
+        premium,
+        premiumRate,
+        premiumColor,
+        premiumSign,
+    } = buildBinanceTickerDisplayModel({
+        ticker,
+        upbitTicker,
+        usdtKrwTicker,
+    });
 
     return (
         <div>
@@ -434,7 +294,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                     {fmt(ticker.h)}
                 </span>
                 <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
-                    ({highDiffFromCurrent})
+                    ({fmtDiff(highDiffFromCurrent)})
                 </span>
             </div>
 
@@ -502,7 +362,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                             {premiumSign}{fmtPremiumAbs(premium)}
                         </div>
                     ) : (
-                        <SkeletonBox width="120px" height="20px" borderRadius="4px" />
+                        <TickerSkeletonBox width="120px" height="20px" borderRadius="4px" />
                     )}
                     {/* 퍼센트 */}
                     {premiumRate !== null ? (
@@ -510,7 +370,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                             {premiumSign}{premiumRate.toFixed(2)}%
                         </div>
                     ) : (
-                        <SkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
+                        <TickerSkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
                     )}
                 </div>
 
@@ -526,7 +386,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                             {fmtKrw(calcKrw)}
                         </span>
                     ) : (
-                        <SkeletonBox width="200px" height="42px" borderRadius="8px" />
+                        <TickerSkeletonBox width="200px" height="42px" borderRadius="8px" />
                     )}
                 </div>
 
@@ -553,7 +413,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                                 {fmtKrw(upbitTradePrice)}
                             </span>
                         ) : (
-                            <SkeletonBox width="200px" height="42px" borderRadius="8px" />
+                            <TickerSkeletonBox width="200px" height="42px" borderRadius="8px" />
                         )
                     )}
                 </div>
@@ -567,7 +427,7 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
                     {fmt(ticker.l)}
                 </span>
                 <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
-                    ({lowDiffFromCurrent})
+                    ({fmtDiff(lowDiffFromCurrent)})
                 </span>
             </div>
 
