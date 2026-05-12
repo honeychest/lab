@@ -18,6 +18,14 @@ import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
 import '@/styles/themes/theme-black.css';
 import { usePageTheme } from '@/app/context/useTheme.js';
+import {
+    appendCandle,
+    appendOi,
+    applyAggTrade,
+    applyForceOrder,
+    createSignalRuntimeState,
+    resetSignalRuntimeState,
+} from './model/signalRuntimeModel.js';
 
 // value: 타임라인 식별자 | dataRange: 에너지·청산·OI 조회 범위 | displayCount: 차트 표시 기준 범위
 const TIME_RANGES = [
@@ -49,18 +57,7 @@ export default function SignalPage() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const [longEnergy, setLongEnergy] = useState(0);
-    const [shortEnergy, setShortEnergy] = useState(0);
-    const [longTrades, setLongTrades] = useState([]);
-    const [shortTrades, setShortTrades] = useState([]);
-    const [longLiqEvents, setLongLiqEvents] = useState([]);
-    const [shortLiqEvents, setShortLiqEvents] = useState([]);
-    const [longLiqTotal, setLongLiqTotal] = useState(0);
-    const [shortLiqTotal, setShortLiqTotal] = useState(0);
-    const [patterns, setPatterns] = useState([]);
-    const [oiDataHistory, setOiDataHistory] = useState([]);
-    const [candleHistory, setCandleHistory] = useState([]);
-    const [, setLatestCandleTime] = useState(null);
+    const [runtimeState, setRuntimeState] = useState(() => createSignalRuntimeState());
     const [params, setParams] = useState(null);
     const [canEdit, setCanEdit] = useState(false);
     const [templates, setTemplates] = useState([]);
@@ -97,12 +94,15 @@ export default function SignalPage() {
                 const res = await apiClient.get(`/api/signal/history?symbol=${symbol}&range=${getDataRange(timeRange)}`, {
                     signal: abortControllerRef.current.signal,
                 });
-                if (res.data.longEnergy !== undefined) setLongEnergy(res.data.longEnergy);
-                if (res.data.shortEnergy !== undefined) setShortEnergy(res.data.shortEnergy);
-                if (res.data.longLiqTotal !== undefined) setLongLiqTotal(res.data.longLiqTotal);
-                if (res.data.shortLiqTotal !== undefined) setShortLiqTotal(res.data.shortLiqTotal);
-                if (res.data.longLiqEvents) setLongLiqEvents(res.data.longLiqEvents);
-                if (res.data.shortLiqEvents) setShortLiqEvents(res.data.shortLiqEvents);
+                setRuntimeState((prev) => ({
+                    ...prev,
+                    longEnergy: res.data.longEnergy ?? prev.longEnergy,
+                    shortEnergy: res.data.shortEnergy ?? prev.shortEnergy,
+                    longLiqTotal: res.data.longLiqTotal ?? prev.longLiqTotal,
+                    shortLiqTotal: res.data.shortLiqTotal ?? prev.shortLiqTotal,
+                    longLiqEvents: res.data.longLiqEvents ?? prev.longLiqEvents,
+                    shortLiqEvents: res.data.shortLiqEvents ?? prev.shortLiqEvents,
+                }));
             } catch (err) {
                 if (err.name !== 'CanceledError') {
                     console.error('[SignalPage] history failed', err);
@@ -119,7 +119,9 @@ export default function SignalPage() {
             try {
                 const oiRange = LARGE_OI_RANGES.has(timeRange) ? timeRange : '120h';
                 const res = await apiClient.get(`/api/signal/oi?symbol=${symbol}&range=${oiRange}`);
-                if (Array.isArray(res.data)) setOiDataHistory(res.data);
+                if (Array.isArray(res.data)) {
+                    setRuntimeState((prev) => ({ ...prev, oiDataHistory: res.data }));
+                }
             } catch (err) {
                 console.error('[SignalPage] OI history failed', err);
             }
@@ -177,14 +179,14 @@ export default function SignalPage() {
     const candleType  = CHART_CANDLE_TYPE;
     const candleRange = timeRange;
     useEffect(() => {
-        setCandleHistory([]);
+        setRuntimeState((prev) => ({ ...prev, candleHistory: [] }));
         apiClient.get(`/api/signal/candles?symbol=${symbol}&type=${candleType}&range=${candleRange}`)
-            .then((res) => setCandleHistory(res.data))
+            .then((res) => setRuntimeState((prev) => ({ ...prev, candleHistory: res.data })))
             .catch((err) => console.error('[SignalPage] candles failed', err));
     }, [symbol, candleType, candleRange]);
 
     const handleCandleUpdate = (bar) => {
-        setCandleHistory((prev) => [...prev, bar]);
+        setRuntimeState((prev) => appendCandle(prev, bar));
     };
 
     const handleParamsSave = async (newParams) => {
@@ -197,56 +199,20 @@ export default function SignalPage() {
     useEffect(() => {
         if (aggTrades.length === 0) return;
 
-        const latest = aggTrades[0];
-        
-        if (latest.symbol !== symbol) return;
-
-        const qty = parseFloat(latest.quantity);
-        const price = parseFloat(latest.price);
-        const value = qty * price;
-
-        if (latest.isBuyerMaker) {
-            setShortEnergy((prev) => prev + value);
-            setShortTrades((prev) => [...prev, latest].slice(-20));
-        } else {
-            setLongEnergy((prev) => prev + value);
-            setLongTrades((prev) => [...prev, latest].slice(-20));
-        }
-
+        setRuntimeState((prev) => applyAggTrade(prev, aggTrades[0], symbol));
     }, [aggTrades, symbol]);
 
     useEffect(() => {
         if (forceOrders.length === 0) return;
 
-        const latest = forceOrders[0];
-
-        if (latest.symbol !== symbol) return;
-
-        const qty = parseFloat(latest.quantity);
-        const price = parseFloat(latest.price);
-        const value = qty * price;
-
-        if (latest.side === 'SELL') {
-            setLongEnergy((prev) => Math.max(0, prev - value));
-            setLongLiqTotal((prev) => prev + value);
-            setLongLiqEvents((prev) => [latest, ...prev].slice(0, 50));
-        } else {
-            setShortEnergy((prev) => Math.max(0, prev - value));
-            setShortLiqTotal((prev) => prev + value);
-            setShortLiqEvents((prev) => [latest, ...prev].slice(0, 50));
-        }
+        setRuntimeState((prev) => applyForceOrder(prev, forceOrders[0], symbol));
     }, [forceOrders, symbol]);
 
     // OI 데이터 수신 처리
     useEffect(() => {
         if (!latestOi) return;
 
-        if (latestOi.symbol !== symbol) return;
-
-        setOiDataHistory((prev) => {
-            const updated = [...prev, latestOi].slice(-5000); // 최근 5000개 유지 (5분봉 ~17일)
-            return updated;
-        });
+        setRuntimeState((prev) => appendOi(prev, latestOi, symbol));
     }, [latestOi, symbol]);
 
     const handleTimeRangeChange = (range) => {
@@ -258,18 +224,7 @@ export default function SignalPage() {
         if (symbolDebounceRef.current) clearTimeout(symbolDebounceRef.current);
         symbolDebounceRef.current = setTimeout(() => {
             setSymbol(newSymbol);
-            setLongEnergy(0);
-            setShortEnergy(0);
-            setLongTrades([]);
-            setShortTrades([]);
-            setLongLiqEvents([]);
-            setShortLiqEvents([]);
-            setLongLiqTotal(0);
-            setShortLiqTotal(0);
-            setPatterns([]);
-            setOiDataHistory([]);
-            setCandleHistory([]);
-            setLatestCandleTime(null);
+            setRuntimeState((prev) => resetSignalRuntimeState(prev));
         }, 300);
     };
 
@@ -280,11 +235,7 @@ export default function SignalPage() {
     const commonProps = {
         symbol,
         fundingRate: initData?.latestFundingRate || null,
-        longEnergy, shortEnergy,
-        longTrades, shortTrades,
-        longLiqEvents, shortLiqEvents,
-        longLiqTotal, shortLiqTotal,
-        oiDataHistory, patterns,
+        ...runtimeState,
     };
 
     if (isMobile) {
@@ -301,18 +252,18 @@ export default function SignalPage() {
                         compact
                     />
                     <div style={{ backgroundColor: 'var(--black-panel-bg)', borderRadius: '10px', padding: '10px', position: 'relative', height: '200px', flexShrink: 0 }}>
-                        <EnergyGauge longEnergy={longEnergy} shortEnergy={shortEnergy} compact />
-                        <TugOfWar longEnergy={longEnergy} shortEnergy={shortEnergy} />
+                        <EnergyGauge longEnergy={runtimeState.longEnergy} shortEnergy={runtimeState.shortEnergy} compact />
+                        <TugOfWar longEnergy={runtimeState.longEnergy} shortEnergy={runtimeState.shortEnergy} />
                         <div style={{ position: 'absolute', bottom: '20px', left: '30px', fontSize: '10px', color: 'rgba(0,232,135,0.35)' }}>LONG</div>
                         <div style={{ position: 'absolute', bottom: '20px', right: '30px', fontSize: '10px', color: 'rgba(255,59,92,0.35)' }}>SHORT</div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', flex: 1, minHeight: 0 }}>
-                        <LongPanel energy={longEnergy} trades={longTrades} side="LONG" compact />
-                        <ShortPanel energy={shortEnergy} trades={shortTrades} side="SHORT" compact />
+                        <LongPanel energy={runtimeState.longEnergy} trades={runtimeState.longTrades} side="LONG" compact />
+                        <ShortPanel energy={runtimeState.shortEnergy} trades={runtimeState.shortTrades} side="SHORT" compact />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', flex: 1, minHeight: 0 }}>
-                        <ShortLiqPanel total={shortLiqTotal} events={shortLiqEvents} />
-                        <LiquidationPanel total={longLiqTotal} events={longLiqEvents} />
+                        <ShortLiqPanel total={runtimeState.shortLiqTotal} events={runtimeState.shortLiqEvents} />
+                        <LiquidationPanel total={runtimeState.longLiqTotal} events={runtimeState.longLiqEvents} />
                     </div>
                 </div>
             </Layout>
@@ -352,36 +303,36 @@ export default function SignalPage() {
             </div>
 
             <div style={{ gridColumn: '1 / 4', gridRow: '2', overflow: 'hidden' }}>
-                <LongPanel energy={longEnergy} trades={longTrades} side="LONG" />
+                <LongPanel energy={runtimeState.longEnergy} trades={runtimeState.longTrades} side="LONG" />
             </div>
 
             <div style={{ gridColumn: '1 / 4', gridRow: '3', overflow: 'hidden' }}>
-                <ShortLiqPanel total={shortLiqTotal} events={shortLiqEvents} />
+                <ShortLiqPanel total={runtimeState.shortLiqTotal} events={runtimeState.shortLiqEvents} />
             </div>
 
             <div style={{ gridColumn: '4 / 10', gridRow: '2 / 4' }}>
                 <MainCore
                     symbol={symbol}
-                    longEnergy={longEnergy}
-                    shortEnergy={shortEnergy}
+                    longEnergy={runtimeState.longEnergy}
+                    shortEnergy={runtimeState.shortEnergy}
                     fundingRate={commonProps.fundingRate}
-                    oiData={oiDataHistory}
-                    candleHistory={candleHistory}
+                    oiData={runtimeState.oiDataHistory}
+                    candleHistory={runtimeState.candleHistory}
                     candleType={candleType}
                     timeRange={timeRange}
                     displayCount={displayCount}
                     rangeMs={rangeMs}
-                    onCandleTime={setLatestCandleTime}
+                    onCandleTime={(time) => setRuntimeState((prev) => ({ ...prev, latestCandleTime: time }))}
                     onCandleUpdate={handleCandleUpdate}
                 />
             </div>
 
             <div style={{ gridColumn: '10 / 13', gridRow: '2', overflow: 'hidden' }}>
-                <ShortPanel energy={shortEnergy} trades={shortTrades} side="SHORT" />
+                <ShortPanel energy={runtimeState.shortEnergy} trades={runtimeState.shortTrades} side="SHORT" />
             </div>
 
             <div style={{ gridColumn: '10 / 13', gridRow: '3', overflow: 'hidden' }}>
-                <LiquidationPanel total={longLiqTotal} events={longLiqEvents} />
+                <LiquidationPanel total={runtimeState.longLiqTotal} events={runtimeState.longLiqEvents} />
             </div>
 
             <div style={{ gridColumn: '1 / 13', gridRow: '4' }}>
