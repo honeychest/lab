@@ -17,7 +17,6 @@ import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,20 +26,20 @@ public class AggTradeRawWriterService {
     private final StringRedisTemplate redisTemplate;
     private final AggTradeCollectStatusRepository statusRepository;
     private final ObjectMapper objectMapper;
-    private final AggTradeRawWriterSummaryStore summaryStore;
+    private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
     private final boolean dryRun;
 
     public AggTradeRawWriterService(JdbcTemplate jdbcTemplate,
                                     StringRedisTemplate redisTemplate,
                                     AggTradeCollectStatusRepository statusRepository,
                                     ObjectMapper objectMapper,
-                                    AggTradeRawWriterSummaryStore summaryStore,
+                                    AggTradeRawWriterDryRunVerifier dryRunVerifier,
                                     @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.statusRepository = statusRepository;
         this.objectMapper = objectMapper;
-        this.summaryStore = summaryStore;
+        this.dryRunVerifier = dryRunVerifier;
         this.dryRun = dryRun;
     }
 
@@ -53,7 +52,7 @@ public class AggTradeRawWriterService {
                 .toList();
 
         if (dryRun) {
-            trades.forEach(trade -> summaryStore.accumulate(new AggTradeRawWriterKafkaWindowEvent(
+            trades.forEach(trade -> dryRunVerifier.accumulate(new AggTradeRawWriterKafkaWindowEvent(
                     trade.getSymbol(),
                     trade.getMarketType(),
                     trade.getTradedAt(),
@@ -64,7 +63,7 @@ public class AggTradeRawWriterService {
                     .map(RawAggTrade::getTradedAt)
                     .max(Long::compareTo)
                     .orElse(0L);
-            summaryStore.finalizeWindowsBefore(windowStart(latestTradedAt));
+            dryRunVerifier.finalizeWindowsBefore(windowStart(latestTradedAt));
             return;
         }
 

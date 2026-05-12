@@ -22,13 +22,13 @@ class AggTradeRawWriterServiceTest {
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
     private final AggTradeCollectStatusRepository statusRepository = mock(AggTradeCollectStatusRepository.class);
-    private final AggTradeRawWriterSummaryStore summaryStore = new AggTradeRawWriterSummaryStore(jdbcTemplate, true, true);
+    private final AggTradeRawWriterDryRunVerifier dryRunVerifier = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, true);
     private final AggTradeRawWriterService service = new AggTradeRawWriterService(
             jdbcTemplate,
             redisTemplate,
             statusRepository,
             new ObjectMapper(),
-            summaryStore,
+            dryRunVerifier,
             true
     );
 
@@ -67,7 +67,7 @@ class AggTradeRawWriterServiceTest {
                         """
         )));
 
-        AggTradeRawWriterSummaryResponse snapshot = summaryStore.snapshot();
+        AggTradeRawWriterSummaryResponse snapshot = dryRunVerifier.snapshot();
         assertThat(snapshot.summaries()).isEmpty();
 
         verify(jdbcTemplate, never()).batchUpdate(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.BatchPreparedStatementSetter.class));
@@ -77,7 +77,7 @@ class AggTradeRawWriterServiceTest {
 
     @Test
     void writeModeUsesInsertIgnoreBatchSqlAndPreparedStatementBindings() throws Exception {
-        AggTradeRawWriterSummaryStore writeSummaryStore = new AggTradeRawWriterSummaryStore(jdbcTemplate, true, false);
+        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, false);
         AggTradeRawWriterService writeService = new AggTradeRawWriterService(
                 jdbcTemplate,
                 redisTemplate,

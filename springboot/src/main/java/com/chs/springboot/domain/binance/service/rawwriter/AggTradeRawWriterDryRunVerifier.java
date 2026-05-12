@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class AggTradeRawWriterSummaryStore {
+public class AggTradeRawWriterDryRunVerifier {
 
     private static final int MAX_SUMMARIES = 50;
     private static final long WINDOW_MS = 10_000L;
@@ -28,7 +28,7 @@ public class AggTradeRawWriterSummaryStore {
     private final long startedAtMs;
 
     @Autowired
-    public AggTradeRawWriterSummaryStore(
+    public AggTradeRawWriterDryRunVerifier(
             JdbcTemplate jdbcTemplate,
             @Value("${binance.agg-trade.raw-writer.enabled:false}") boolean enabled,
             @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun
@@ -36,10 +36,10 @@ public class AggTradeRawWriterSummaryStore {
         this(jdbcTemplate, enabled, dryRun, System.currentTimeMillis());
     }
 
-    AggTradeRawWriterSummaryStore(JdbcTemplate jdbcTemplate,
-                                  boolean enabled,
-                                  boolean dryRun,
-                                  long startedAtMs) {
+    AggTradeRawWriterDryRunVerifier(JdbcTemplate jdbcTemplate,
+                                    boolean enabled,
+                                    boolean dryRun,
+                                    long startedAtMs) {
         this.jdbcTemplate = jdbcTemplate;
         this.enabled = enabled;
         this.dryRun = dryRun;

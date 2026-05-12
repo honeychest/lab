@@ -1,7 +1,7 @@
 package com.chs.springboot.global.admin.test.rawwriter;
 
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
-import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryStore;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 class AggTradeRawWriterTestControllerWebMvcTest {
 
     @Mock
-    private AggTradeRawWriterSummaryStore summaryStore;
+    private AggTradeRawWriterDryRunVerifier summaryStore;
 
     private MockMvc mockMvc;
 

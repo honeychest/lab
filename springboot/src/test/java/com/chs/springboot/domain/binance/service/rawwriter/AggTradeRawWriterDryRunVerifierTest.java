@@ -9,10 +9,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class AggTradeRawWriterSummaryStoreTest {
+class AggTradeRawWriterDryRunVerifierTest {
 
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-    private final AggTradeRawWriterSummaryStore store = new AggTradeRawWriterSummaryStore(
+    private final AggTradeRawWriterDryRunVerifier store = new AggTradeRawWriterDryRunVerifier(
             jdbcTemplate,
             true,
             true,
