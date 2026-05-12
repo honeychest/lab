@@ -9,6 +9,7 @@ import styles from './AdminTestLayout.module.css';
 
 const TEST_TABS = [
     { label: 'Auth', path: 'auth' },
+    { label: 'Raw Writer', path: 'raw-writer' },
     { label: 'Trade', path: 'trade' },
     { label: 'Monitor', path: 'monitor' },
     { label: 'User', path: 'user' },
