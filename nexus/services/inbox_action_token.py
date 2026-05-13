@@ -45,7 +45,7 @@ class RedisInboxActionTokenStore:
     async def set(self, short_key: str, page_id: str, ttl: int = 86400) -> None:
         from session import InboxCallback
 
-        await InboxCallback(short_key).set(page_id, ttl=ttl)
+        await InboxCallback(short_key).set(page_id)
 
 
 def create_inbox_action_token() -> InboxActionToken:

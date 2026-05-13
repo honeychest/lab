@@ -15,16 +15,22 @@ MODELS = [
     "gemini-flash-lite-latest",
     "gemini-flash-latest",
     "gemini-pro-latest",
-    "gemini-3.1-flash-lite-preview",
+    "gemini-3.1-flash-lite",
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
 ]
 
 
 async def run(prompt: str, timeout: float = 8.0) -> dict:
-    """표준 텍스트 생성. AI_PROVIDER에 따라 Gemini 폴백 체인 또는 Claude."""
+    """표준 텍스트 생성. AI_PROVIDER에 따라 Gemini, LM Studio, Claude를 선택."""
     if settings.AI_PROVIDER == "gemini":
+        try:
+            return await _lmstudio(prompt, timeout, use_config_timeout=False)
+        except Exception:
+            logger.warning("[llm] LM Studio 우선 시도 실패 — Gemini 폴백")
         return await _gemini(prompt, timeout)
+    if settings.AI_PROVIDER == "lmstudio":
+        return await _lmstudio(prompt, timeout)
     return await _claude(prompt)
 
 
@@ -101,6 +107,45 @@ async def _gemini(prompt: str, timeout: float) -> dict:
         except Exception as e:
             logger.warning(f"[llm] {model} 실패 ({time.time() - t:.2f}s): {e}")
     raise Exception("모든 모델 실패")
+
+
+async def _lmstudio(prompt: str, timeout: float, *, use_config_timeout: bool = True) -> dict:
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(base_url=settings.LMSTUDIO_BASE_URL, api_key=settings.LMSTUDIO_API_KEY)
+    model = settings.LMSTUDIO_MODEL or await _detect_lmstudio_model(client)
+    if not model:
+        raise Exception("LM Studio 모델 감지 실패")
+
+    effective_timeout = max(timeout, settings.LMSTUDIO_TIMEOUT) if use_config_timeout else timeout
+    t = time.time()
+    try:
+        response = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=effective_timeout,
+        )
+        content = response.choices[0].message.content or ""
+        logger.info(f"[llm] 사용 모델: lmstudio:{model} ({time.time() - t:.2f}s)")
+        return parse_response(content)
+    except asyncio.TimeoutError:
+        logger.warning(f"[llm] lmstudio:{model} 타임아웃 ({time.time() - t:.2f}s)")
+        raise
+    except Exception as e:
+        logger.warning(f"[llm] lmstudio:{model} 실패 ({time.time() - t:.2f}s): {e}")
+        raise
+
+
+async def _detect_lmstudio_model(client) -> str | None:
+    try:
+        models = await client.models.list()
+        ids = [m.id for m in models.data]
+        return ids[0] if ids else None
+    except Exception as e:
+        logger.warning(f"[llm] LM Studio /v1/models 호출 실패: {e}")
+        return None
 
 
 async def _claude(prompt: str) -> dict:

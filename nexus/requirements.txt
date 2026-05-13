@@ -9,6 +9,7 @@ fastapi
 uvicorn
 pydantic-settings
 google-genai
+openai
 yt-dlp
 groq
 redis[asyncio]

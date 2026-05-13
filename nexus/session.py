@@ -14,6 +14,52 @@ def _ttl() -> int:
     return int((midnight - now).total_seconds())
 
 
+# ── 베이스 ─────────────────────────────────────────────────────────────────────
+
+class RedisJsonStore:
+    """dict/list 를 JSON 직렬화하여 Redis 에 저장하는 도메인 클래스의 공통 부모.
+
+    서브클래스는 키와 ttl() 만 정의하면 된다. TTL 누락은 NotImplementedError 로 차단.
+    """
+
+    def __init__(self, key: str):
+        self._key = key
+
+    def ttl(self) -> int:
+        raise NotImplementedError
+
+    async def get(self):
+        raw = await _redis.get(self._key)
+        return json.loads(raw) if raw else None
+
+    async def set(self, data) -> None:
+        await _redis.set(self._key, json.dumps(data), ex=self.ttl())
+
+    async def clear(self) -> None:
+        await _redis.delete(self._key)
+
+
+class RedisStringStore:
+    """문자열 값을 Redis 에 저장하는 도메인 클래스의 공통 부모."""
+
+    def __init__(self, key: str):
+        self._key = key
+
+    def ttl(self) -> int:
+        raise NotImplementedError
+
+    async def get(self) -> str | None:
+        return await _redis.get(self._key)
+
+    async def set(self, value: str) -> None:
+        await _redis.set(self._key, value, ex=self.ttl())
+
+    async def clear(self) -> None:
+        await _redis.delete(self._key)
+
+
+# ── QuizSession (그대로 유지) ──────────────────────────────────────────────────
+
 class QuizSession:
     """quiz:* 키 6개를 단일 인터페이스로 관리."""
 
@@ -125,90 +171,68 @@ class QuizSession:
         await _redis.delete(self._session_k, self._state_k, self._pause_k, self._prefetch_k)
 
 
-class WordPending:
+# ── 도메인별 서브클래스 ────────────────────────────────────────────────────────
+
+class WordPending(RedisJsonStore):
     def __init__(self, chat_id: int):
-        self._key = f"nexus:word:pending:{chat_id}"
+        super().__init__(f"nexus:word:pending:{chat_id}")
 
-    async def get(self) -> dict | None:
-        raw = await _redis.get(self._key)
-        return json.loads(raw) if raw else None
-
-    async def set(self, data: dict) -> None:
-        await _redis.set(self._key, json.dumps(data))
-
-    async def clear(self) -> None:
-        await _redis.delete(self._key)
+    def ttl(self) -> int:
+        return _ttl()
 
 
-class GrammarPending:
+class GrammarPending(RedisJsonStore):
     def __init__(self, chat_id: int):
-        self._key = f"nexus:grammar:pending:{chat_id}"
+        super().__init__(f"nexus:grammar:pending:{chat_id}")
 
-    async def get(self) -> dict | None:
-        raw = await _redis.get(self._key)
-        return json.loads(raw) if raw else None
-
-    async def set(self, data: dict) -> None:
-        await _redis.set(self._key, json.dumps(data), ex=_ttl())
-
-    async def clear(self) -> None:
-        await _redis.delete(self._key)
+    def ttl(self) -> int:
+        return _ttl()
 
 
-class InboxPending:
+class InboxPending(RedisJsonStore):
     def __init__(self, chat_id: int):
-        self._key = f"nexus:inbox:pending:{chat_id}"
+        super().__init__(f"nexus:inbox:pending:{chat_id}")
 
-    async def get(self) -> dict | None:
-        raw = await _redis.get(self._key)
-        return json.loads(raw) if raw else None
-
-    async def set(self, data: dict, ttl: int = 600) -> None:
-        await _redis.set(self._key, json.dumps(data), ex=ttl)
-
-    async def clear(self) -> None:
-        await _redis.delete(self._key)
+    def ttl(self) -> int:
+        return 600
 
 
-class InboxCallback:
+class ScheduleTracker(RedisJsonStore):
+    def __init__(self, chat_id: int):
+        super().__init__(f"nexus:schedule:msg_id:{chat_id}")
+
+    def ttl(self) -> int:
+        return 86400
+
+    async def get_message_ids(self) -> list[str]:
+        data = await self.get()
+        return data if isinstance(data, list) else []
+
+    async def set_message_ids(self, ids: list[str]) -> None:
+        await self.set(ids)
+
+
+class InboxCallback(RedisStringStore):
     """short_key → page_id 조회용 (chat_id 기반 아님)."""
 
     def __init__(self, short_key: str):
-        self._key = f"nexus:inbox:cb:{short_key}"
+        super().__init__(f"nexus:inbox:cb:{short_key}")
 
-    async def get(self) -> str | None:
-        return await _redis.get(self._key)
-
-    async def set(self, page_id: str, ttl: int = 86400) -> None:
-        await _redis.set(self._key, page_id, ex=ttl)
+    def ttl(self) -> int:
+        return 86400
 
 
-class LawState:
+class LawState(RedisStringStore):
+    """법령 검색 모드 토글. 10분 무활동 시 자동 만료. 검색어 입력마다 갱신."""
+
     def __init__(self, chat_id: int):
-        self._key = f"nexus:law:state:{chat_id}"
+        super().__init__(f"nexus:law:state:{chat_id}")
+
+    def ttl(self) -> int:
+        return 600
 
     async def is_active(self) -> bool:
-        return await _redis.get(self._key) == "law"
+        return await self.get() == "law"
 
     async def activate(self) -> None:
-        await _redis.set(self._key, "law")
-
-    async def clear(self) -> None:
-        await _redis.delete(self._key)
-
-
-class ScheduleTracker:
-    def __init__(self, chat_id: int):
-        self._key = f"nexus:schedule:msg_id:{chat_id}"
-
-    async def get_message_ids(self) -> list[str]:
-        raw = await _redis.get(self._key)
-        if not raw:
-            return []
-        try:
-            return json.loads(raw)
-        except Exception:
-            return []
-
-    async def set_message_ids(self, ids: list[str]) -> None:
-        await _redis.set(self._key, json.dumps(ids))
+        await self.set("law")

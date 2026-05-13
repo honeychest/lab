@@ -22,6 +22,7 @@ async def handle_law(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def handle_law_query(update: Update, chat_id: int, text: str) -> None:
+    await LawState(chat_id).activate()
     await _search_and_reply(update, text)
 
 
