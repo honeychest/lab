@@ -10,7 +10,7 @@ export default function OmsStageGrid({ tasks, focusedTaskId, onPopover }) {
             tasks={tasks}
             focusedTaskId={focusedTaskId}
             onPopover={onPopover}
-            stacked={false}
+            stacked
         />
     );
 }
