@@ -22,7 +22,12 @@ import './LogisticsLayout.css';
 
 export default function LogisticsLayout() {
     const { activeTab, setActiveTab } = useTabState();
-    const { narrowScreen } = useWindowState();
+    const {
+        narrowScreen,
+        desktopView,
+        handleDesktopViewOpen,
+        handleDesktopViewClose,
+    } = useWindowState();
     const { rightPanelOpen, setRightPanel, toggleRightPanel } = usePanelState();
     const {
         settingsOpen,
@@ -84,7 +89,7 @@ export default function LogisticsLayout() {
 
     const TabContent = TAB_MAP[activeTab] ?? OverviewTab;
 
-    if (narrowScreen) {
+    if (narrowScreen && !desktopView) {
         return (
             <>
                 <LogisticsMobileDashboard
@@ -100,6 +105,7 @@ export default function LogisticsLayout() {
                     onTaskSelect={selectTask}
                     onRecoveryAction={actions.runRecoveryAction}
                     onBranchInject={actions.runBranchInject}
+                    onDesktopViewOpen={handleDesktopViewOpen}
                 />
                 <LogisticsOverlays
                     settingsOpen={settingsOpen}
@@ -131,8 +137,8 @@ export default function LogisticsLayout() {
     return (
         <LogisticsDashboard
             narrowScreen={narrowScreen}
-            desktopView={false}
-            onDesktopViewClose={() => {}}
+            desktopView={desktopView}
+            onDesktopViewClose={handleDesktopViewClose}
             headerSnapshot={headerSnapshot}
             activeTab={activeTab}
             onTabChange={setActiveTab}

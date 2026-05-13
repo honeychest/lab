@@ -16,6 +16,7 @@ export default function LogisticsMobileDashboard({
     onTaskSelect,
     onRecoveryAction,
     onBranchInject,
+    onDesktopViewOpen,
 }) {
     const { kpi, allTaskList, processingTaskList, failedTaskList, retentionFull, handleRetentionClear } = headerSnapshot;
     const [activePopover, setActivePopover] = useState(null);
@@ -83,6 +84,9 @@ export default function LogisticsMobileDashboard({
                         aria-busy={logOpen && logScope === 'all'}
                     >
                         📊 전체 로그
+                    </button>
+                    <button className="logistics-outline-btn" onClick={onDesktopViewOpen}>
+                        PC화면으로 보기
                     </button>
                 </section>
                 <MobileTaskDetail
