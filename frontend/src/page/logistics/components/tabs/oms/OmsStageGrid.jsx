@@ -10,7 +10,8 @@ export default function OmsStageGrid({ tasks, focusedTaskId, onPopover }) {
             tasks={tasks}
             focusedTaskId={focusedTaskId}
             onPopover={onPopover}
-            stacked
+            stacked={false}
+            cardClassName="logistics-work-node--oms-mobile-title"
         />
     );
 }

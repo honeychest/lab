@@ -1,4 +1,14 @@
-export default function WorkNodeCard({ node, index, nodeTasks, stage, onPopover, stacked = true, focused = false, focusedFailed = false }) {
+export default function WorkNodeCard({
+    node,
+    index,
+    nodeTasks,
+    stage,
+    onPopover,
+    stacked = true,
+    className = '',
+    focused = false,
+    focusedFailed = false,
+}) {
     const counts = {
         active: nodeTasks.filter(t => t.status === 'active').length,
         failed: nodeTasks.filter(t => t.status === 'failed').length,
@@ -11,6 +21,7 @@ export default function WorkNodeCard({ node, index, nodeTasks, stage, onPopover,
         counts.failed > 0 ? 'has-failure' : '',
         focused ? 'is-focused' : '',
         focusedFailed ? 'is-focused-failed' : '',
+        className,
     ].filter(Boolean).join(' ');
 
     return (

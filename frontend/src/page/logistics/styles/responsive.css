@@ -97,6 +97,22 @@
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .logistics-work-node--oms-mobile-title .logistics-work-node-top {
+    flex-wrap: wrap;
+  }
+
+  .logistics-work-node--oms-mobile-title .logistics-work-node-title {
+    flex: 1 1 180px;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .logistics-work-node--oms-mobile-title .logistics-work-node-top-meta {
+    justify-content: flex-start;
+    width: 100%;
+  }
 }
 
 @media (max-width: 1024px) {

@@ -10,6 +10,7 @@ function StageWorkLane({
     onPopover,
     getNodeTasks,
     stacked,
+    cardClassName,
 }) {
     const stageTasks = tasksForStage(tasks, stage);
 
@@ -33,6 +34,7 @@ function StageWorkLane({
                             stage={stage}
                             onPopover={onPopover}
                             stacked={stacked}
+                            className={cardClassName}
                             focused={focused}
                             focusedFailed={focusedFailed}
                         />
@@ -52,6 +54,7 @@ export default function StageWorkGrid({
     onPopover,
     getNodeTasks = defaultStageNodeTasks,
     stacked = false,
+    cardClassName = '',
 }) {
     return (
         <div className={`${gridClassName} logistics-stage-grid-shell logistics-stage-grid-scroll`}>
@@ -65,6 +68,7 @@ export default function StageWorkGrid({
                     onPopover={onPopover}
                     getNodeTasks={getNodeTasks}
                     stacked={stacked}
+                    cardClassName={cardClassName}
                 />
             ))}
         </div>
