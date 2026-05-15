@@ -20,6 +20,27 @@ class AggTradeRawWriterDryRunVerifierTest {
     );
 
     @Test
+    void discardInFlightVerificationDiscardsAccumulatedWindowsButKeepsSummaries() {
+        when(jdbcTemplate.queryForObject(anyString(), any(org.springframework.jdbc.core.RowMapper.class),
+                any(), any(), any(), any()))
+                .thenReturn(new AggTradeRawWriterDbWindowStats(1, 200L, 200L, 1778410021000L, 1778410021000L));
+
+        store.accumulate(new AggTradeRawWriterKafkaWindowEvent(
+                "BTCUSDT", "SPOT", 1778410021000L, 200L, 0));
+        store.finalizeWindowsBefore(1778410035000L);
+        int summariesBeforeReset = store.snapshot().summaries().size();
+
+        store.accumulate(new AggTradeRawWriterKafkaWindowEvent(
+                "BTCUSDT", "SPOT", 1778410041000L, 201L, 0));
+
+        store.discardInFlightVerification();
+
+        // 두 번째 누적이 폐기되어 finalize 시 새 summary가 생성되지 않아야 함
+        store.finalizeWindowsBefore(1778410055000L);
+        assertThat(store.snapshot().summaries()).hasSize(summariesBeforeReset);
+    }
+
+    @Test
     void finalizesClosedWindowAndComparesKafkaAggregateWithDbWindow() {
         when(jdbcTemplate.queryForObject(anyString(), any(org.springframework.jdbc.core.RowMapper.class),
                 any(), any(), any(), any()))

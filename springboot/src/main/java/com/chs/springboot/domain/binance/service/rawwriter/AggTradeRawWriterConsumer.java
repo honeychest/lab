@@ -1,5 +1,6 @@
 package com.chs.springboot.domain.binance.service.rawwriter;
 
+import com.chs.springboot.global.redis.LeadershipChangedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -7,9 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataAccessException;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
 
@@ -25,24 +29,53 @@ public class AggTradeRawWriterConsumer {
 
     private static final String RAW_TOPIC = "market.aggtrade.raw";
     private static final String DLQ_TOPIC = "market.aggtrade.dlq";
+    static final String LISTENER_ID = "rawWriterListener";
 
     private final AggTradeRawWriterService writerService;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaListenerEndpointRegistry listenerRegistry;
+    private final AggTradeRawWriterDryRunVerifier verifier;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final boolean enabled;
 
     public AggTradeRawWriterConsumer(AggTradeRawWriterService writerService,
                                      KafkaTemplate<String, String> kafkaTemplate,
+                                     KafkaListenerEndpointRegistry listenerRegistry,
+                                     AggTradeRawWriterDryRunVerifier verifier,
                                      @Value("${binance.agg-trade.raw-writer.enabled:false}") boolean enabled) {
         this.writerService = writerService;
         this.kafkaTemplate = kafkaTemplate;
+        this.listenerRegistry = listenerRegistry;
+        this.verifier = verifier;
         this.enabled = enabled;
     }
 
+    @EventListener
+    public void onLeadershipChanged(LeadershipChangedEvent event) {
+        MessageListenerContainer container = listenerRegistry.getListenerContainer(LISTENER_ID);
+        if (container == null) {
+            return;
+        }
+        if (event.leader()) {
+            if (!container.isRunning()) {
+                container.start();
+                log.info("[AggTradeRawWriter] 리더 획득: consumer 시작");
+            }
+        } else {
+            if (container.isRunning()) {
+                container.stop();
+                verifier.discardInFlightVerification();
+                log.info("[AggTradeRawWriter] 리더 상실: consumer 정지");
+            }
+        }
+    }
+
     @KafkaListener(
+            id = LISTENER_ID,
             topics = RAW_TOPIC,
             groupId = "raw-writer",
-            containerFactory = "aggTradeRawWriterKafkaListenerContainerFactory"
+            containerFactory = "aggTradeRawWriterKafkaListenerContainerFactory",
+            autoStartup = "false"
     )
     public void consume(List<ConsumerRecord<String, String>> records, Acknowledgment ack) {
         if (!enabled || records == null || records.isEmpty()) {

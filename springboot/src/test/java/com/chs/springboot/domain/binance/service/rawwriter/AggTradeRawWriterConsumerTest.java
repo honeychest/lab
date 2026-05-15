@@ -1,9 +1,12 @@
 package com.chs.springboot.domain.binance.service.rawwriter;
 
+import com.chs.springboot.global.redis.LeadershipChangedEvent;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.SendResult;
 
@@ -22,8 +25,64 @@ class AggTradeRawWriterConsumerTest {
     private final AggTradeRawWriterService writerService = mock(AggTradeRawWriterService.class);
     @SuppressWarnings("unchecked")
     private final KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
-    private final AggTradeRawWriterConsumer consumer = new AggTradeRawWriterConsumer(writerService, kafkaTemplate, true);
+    private final KafkaListenerEndpointRegistry registry = mock(KafkaListenerEndpointRegistry.class);
+    private final AggTradeRawWriterDryRunVerifier verifier = mock(AggTradeRawWriterDryRunVerifier.class);
+    private final MessageListenerContainer container = mock(MessageListenerContainer.class);
+    private final AggTradeRawWriterConsumer consumer =
+            new AggTradeRawWriterConsumer(writerService, kafkaTemplate, registry, verifier, true);
     private final Acknowledgment ack = mock(Acknowledgment.class);
+
+    @Test
+    void startsListenerWhenBecomingLeaderAndContainerStopped() {
+        when(registry.getListenerContainer("rawWriterListener")).thenReturn(container);
+        when(container.isRunning()).thenReturn(false);
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", true));
+
+        verify(container).start();
+    }
+
+    @Test
+    void stopsListenerAndResetsVerifierWhenLosingLeadership() {
+        when(registry.getListenerContainer("rawWriterListener")).thenReturn(container);
+        when(container.isRunning()).thenReturn(true);
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", false));
+
+        verify(container).stop();
+        verify(verifier).discardInFlightVerification();
+    }
+
+    @Test
+    void doesNotStartListenerIfAlreadyRunning() {
+        when(registry.getListenerContainer("rawWriterListener")).thenReturn(container);
+        when(container.isRunning()).thenReturn(true);
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", true));
+
+        verify(container, never()).start();
+    }
+
+    @Test
+    void doesNotStopListenerOrResetVerifierIfAlreadyStopped() {
+        when(registry.getListenerContainer("rawWriterListener")).thenReturn(container);
+        when(container.isRunning()).thenReturn(false);
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", false));
+
+        verify(container, never()).stop();
+        verify(verifier, never()).discardInFlightVerification();
+    }
+
+    @Test
+    void ignoresLeadershipEventWhenListenerContainerMissing() {
+        when(registry.getListenerContainer("rawWriterListener")).thenReturn(null);
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", true));
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", false));
+
+        verify(verifier, never()).discardInFlightVerification();
+    }
 
     @Test
     void acknowledgesOffsetAfterWriterSuccess() {
@@ -77,4 +136,3 @@ class AggTradeRawWriterConsumerTest {
         return new ConsumerRecord<>("market.aggtrade.raw", 1, 7L, key, value);
     }
 }
-

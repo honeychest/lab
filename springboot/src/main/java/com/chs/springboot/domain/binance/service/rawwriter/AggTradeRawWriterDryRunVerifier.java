@@ -57,6 +57,10 @@ public class AggTradeRawWriterDryRunVerifier {
         return new AggTradeRawWriterSummaryResponse(enabled, dryRun, List.copyOf(new ArrayList<>(summaries)));
     }
 
+    public synchronized void discardInFlightVerification() {
+        openWindows.clear();
+    }
+
     public synchronized void accumulate(AggTradeRawWriterKafkaWindowEvent event) {
         long windowStart = windowStart(event.tradedAt());
         String key = event.symbol() + "|" + event.marketType() + "|" + windowStart;
