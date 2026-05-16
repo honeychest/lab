@@ -277,7 +277,7 @@ export default function SignalPage() {
                 style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(12, 1fr)',
-                    gridTemplateRows: '44px 1fr 0.6fr 440px',
+                    gridTemplateRows: '44px 1fr 0.6fr minmax(200px, 0.5fr)',
                     gap: '4px',
                     padding: '4px',
                     height: '100%',
@@ -341,8 +341,6 @@ export default function SignalPage() {
                 templateId={selectedTemplateId}
                 templateName={templates.find((t) => t.id === selectedTemplateId)?.name}
                 paletteLevel={templates.find((t) => t.id === selectedTemplateId)?.palette ?? 'MID'}
-                templates={templates}
-                onTemplateChange={setSelectedTemplateId}
             />
             </div>
             </div>

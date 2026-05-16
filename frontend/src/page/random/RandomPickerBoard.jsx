@@ -289,11 +289,12 @@ function RandomPickerBoard() {
             }
 
             var availableWidth = boardViewportRef.current.clientWidth - 28;
-            if (availableWidth <= 0) {
+            var availableHeight = boardViewportRef.current.clientHeight - 28;
+            if (availableWidth <= 0 || availableHeight <= 0) {
                 return;
             }
 
-            setBoardScale(Math.min(1, availableWidth / BOARD_WIDTH));
+            setBoardScale(Math.min(1, availableWidth / BOARD_WIDTH, availableHeight / BOARD_HEIGHT));
         }
 
         updateBoardScale();

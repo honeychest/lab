@@ -1,7 +1,7 @@
 /* [AGENT] MonitorPage 레이아웃 (B안: 메인 70% + 사이드바 30%) */
 .page {
   background: var(--monitor-bg);
-  min-height: calc(100vh - 56px);
+  min-height: 100%;
   padding: 18px;
   box-sizing: border-box;
   position: relative;
