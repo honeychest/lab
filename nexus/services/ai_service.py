@@ -19,8 +19,14 @@ logger = logging.getLogger(__name__)
 # ── URL / 콘텐츠 요약 ──────────────────────────────────────────────────────────
 
 async def summarize_url(url: str) -> dict:
-    prompt = _url_prompt(url)
-    return await model_runner.run_url_context(prompt, timeout=30.0)
+    from services import webpage_service
+    try:
+        content = await webpage_service.get_content(url)
+        prompt = _url_prompt_with_content(url, content)
+        return await model_runner.run(prompt, timeout=30.0)
+    except Exception as e:
+        logger.warning(f"[url] fetch 체인 전체 실패: {e} — Gemini UrlContext 폴백")
+        return await model_runner.run_url_context(_url_prompt_gemini(url), timeout=30.0)
 
 
 async def summarize_youtube(url: str) -> dict:
@@ -143,18 +149,24 @@ async def grade_writing(word: str, meaning_ko: str, question: str, answer: str) 
 
 # ── 프롬프트 빌더 ─────────────────────────────────────────────────────────────
 
-def _url_prompt(url: str) -> str:
-    return f"""보내준 링크를 분석해서 다음 작업을 진행해줘.
+def _url_prompt_gemini(url: str) -> str:
+    return f"""보내준 링크를 분석해서 한글로 요약해줘.
+설명/문서라면 기능·설치법·설정법·사용법·단축키 등을 정리해줘.
+응답 첫 줄을 반드시 "제목: (한 줄 핵심 주제)" 형식으로 시작해줘.
+링크: {url}"""
 
-영어로 된 내용인 경우에는 한글로 요약 정리를 해줘.
 
-해당 내용이 무언가를 설명해주는 내용이라면 기능에 대한 자세한 설명과 사용하기 위한 설치법, 설정법, 사용법, 작성법, 단축키 등을 텍스트로 정리해줘.
+def _url_prompt_with_content(url: str, content: str) -> str:
+    return f"""아래 웹페이지 내용을 분석해줘.
 
-해당 내용이 사이트라면 docs, api 등의 다른 카테고리까지 확인해서 설치법, 사용법 등에 대한 내용을 더 자세히 확인해줘.
-
+영어로 된 내용이면 한글로 요약해줘.
+설명/문서라면 기능·설치법·설정법·사용법·단축키 등을 텍스트로 정리해줘.
 응답 첫 줄을 반드시 "제목: (한 줄 핵심 주제)" 형식으로 시작해줘.
 
-링크: {url}"""
+링크: {url}
+
+내용:
+{content[:8000]}"""
 
 
 def _youtube_prompt() -> str:

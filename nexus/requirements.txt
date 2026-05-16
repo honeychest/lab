@@ -15,3 +15,7 @@ groq
 redis[asyncio]
 apscheduler
 mcp
+curl_cffi
+trafilatura
+httpx
+firecrawl-py

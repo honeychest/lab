@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: int  # 퀴즈 알림을 받을 텔레그램 chat_id
     NOTION_INBOX_DATABASE_ID: str  # 할일·아이디어 인박스 DB ID
     DLOG_ENABLED: bool = False  # DRAFT 로그 활성화 (로컬 개발용)
+    FIRECRAWL_API_KEY: str = ""
 
     class Config:
         env_file = ".env"
