@@ -3,8 +3,10 @@ package com.chs.springboot.global.admin.test.rawwriter;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaPartitionSnapshot;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaFailureSample;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryService;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetrySummary;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryWindow;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryWindowsResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTopicSnapshot;
@@ -177,6 +179,23 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 1778410010000L,
                 1778410020000L,
                 "db down",
+                new AggTradeRawWriterKafkaTelemetrySummary(
+                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 5, 1),
+                        100,
+                        1,
+                        1,
+                        0,
+                        1
+                ),
+                List.of(new AggTradeRawWriterKafkaFailureSample(
+                        1778410020000L,
+                        "INVALID",
+                        "BTCUSDT",
+                        "FUTURES",
+                        1,
+                        7L,
+                        "Missing payload.a"
+                )),
                 new AggTradeRawWriterKafkaTopicSnapshot(
                         "market.aggtrade.raw",
                         2,
@@ -202,6 +221,9 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.mode").value("DEBUG"))
                 .andExpect(jsonPath("$.listenerRunning").value(true))
                 .andExpect(jsonPath("$.consumerGroupId").value("raw-writer-local"))
+                .andExpect(jsonPath("$.summary.peakConsumedRecords").value(100))
+                .andExpect(jsonPath("$.summary.worstWindow.failedBatches").value(1))
+                .andExpect(jsonPath("$.recentFailures[0].failureType").value("INVALID"))
                 .andExpect(jsonPath("$.rawTopic.topic").value("market.aggtrade.raw"))
                 .andExpect(jsonPath("$.rawTopic.lagSum").value(100))
                 .andExpect(jsonPath("$.dlqTopic.latestOffsetSum").value(3))

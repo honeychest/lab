@@ -26,6 +26,8 @@ const EMPTY_SNAPSHOT = {
     lastSuccessAtMs: null,
     lastErrorAtMs: null,
     lastErrorMessage: null,
+    summary: null,
+    recentFailures: [],
     rawTopic: null,
     dlqTopic: null,
 };
@@ -76,6 +78,11 @@ function topicSummary(topic) {
     const latest = formatCount(topic.latestOffsetSum);
     const lag = topic.lagSum == null ? '-' : formatCount(topic.lagSum);
     return `partitions ${topic.partitionCount ?? '-'} / latest ${latest} / lag ${lag}`;
+}
+
+function describeFailure(sample) {
+    const where = `${sample.symbol ?? 'UNKNOWN'} / ${sample.marketType ?? 'UNKNOWN'} / p${sample.partition ?? '-'} / o${sample.offset ?? '-'}`;
+    return `${sample.failureType} - ${where}`;
 }
 
 function statusClass(row) {
@@ -222,6 +229,33 @@ export default function RawWriterTestPage() {
                 </div>
             </section>
 
+            <section className={styles.summaryGrid}>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak consumed</span>
+                    <strong>{formatCount(snapshot.summary?.peakConsumedRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak invalid</span>
+                    <strong>{formatCount(snapshot.summary?.peakInvalidRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak dlq</span>
+                    <strong>{formatCount(snapshot.summary?.peakDlqPublishedRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak db fail</span>
+                    <strong>{formatCount(snapshot.summary?.peakDbFailureRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak failed batch</span>
+                    <strong>{formatCount(snapshot.summary?.peakFailedBatches)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>worst bucket</span>
+                    <strong>{snapshot.summary?.worstWindow ? formatRange(snapshot.summary.worstWindow.bucketStartMs, snapshot.summary.worstWindow.bucketEndMs) : '-'}</strong>
+                </div>
+            </section>
+
             <section className={styles.topicGrid}>
                 <div className={styles.topicBox}>
                     <h2 className={styles.panelTitle}>Raw Topic</h2>
@@ -308,6 +342,50 @@ export default function RawWriterTestPage() {
                             </tbody>
                         </table>
                     )}
+                </div>
+            </section>
+
+            <section className={styles.partitionGrid}>
+                <div className={styles.partitionPanel}>
+                    <h2 className={styles.panelTitle}>Worst Bucket</h2>
+                    {snapshot.summary?.worstWindow ? (
+                        <div className={styles.helpBox}>
+                            <p className={styles.helpText}>{formatRange(snapshot.summary.worstWindow.bucketStartMs, snapshot.summary.worstWindow.bucketEndMs)}</p>
+                            <p className={styles.helpText}>consumed {formatCount(snapshot.summary.worstWindow.consumedRecords)} / success {formatCount(snapshot.summary.worstWindow.writeSuccessRecords)}</p>
+                            <p className={styles.helpText}>invalid {formatCount(snapshot.summary.worstWindow.invalidRecords)} / dlq {formatCount(snapshot.summary.worstWindow.dlqPublishedRecords)}</p>
+                            <p className={styles.helpText}>db fail {formatCount(snapshot.summary.worstWindow.dbFailureRecords)} / failed batch {formatCount(snapshot.summary.worstWindow.failedBatches)}</p>
+                        </div>
+                    ) : (
+                        <div className={styles.emptyBox}>아직 이상 구간이 없습니다.</div>
+                    )}
+                </div>
+
+                <div className={styles.partitionPanel}>
+                    <h2 className={styles.panelTitle}>Recent Failures</h2>
+                    <div className={styles.summaryTableWrap}>
+                        {snapshot.recentFailures?.length ? (
+                            <table className={styles.summaryTable}>
+                                <thead>
+                                    <tr>
+                                        <th>time</th>
+                                        <th>type / location</th>
+                                        <th>error</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {snapshot.recentFailures.map((sample, index) => (
+                                        <tr key={`${sample.occurredAtMs}-${index}`} className={styles.mismatchRow}>
+                                            <td>{formatTime(sample.occurredAtMs)}</td>
+                                            <td>{describeFailure(sample)}</td>
+                                            <td>{sample.errorMessage ?? '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className={styles.emptyBox}>최근 실패 샘플이 없습니다.</div>
+                        )}
+                    </div>
                 </div>
             </section>
 

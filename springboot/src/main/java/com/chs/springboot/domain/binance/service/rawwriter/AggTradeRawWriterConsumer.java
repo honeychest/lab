@@ -149,7 +149,8 @@ public class AggTradeRawWriterConsumer {
                         record.value()
                 )));
             } catch (InvalidAggTradeRawMessageException invalid) {
-                telemetryService.recordInvalidRecord();
+                String[] keyParts = splitKey(record.key());
+                telemetryService.recordInvalidRecord(keyParts[0], keyParts[1], record.partition(), record.offset(), invalid.getMessage());
                 if (!publishDlq(record, invalid)) {
                     return false;
                 }
@@ -167,16 +168,25 @@ public class AggTradeRawWriterConsumer {
     }
 
     private boolean publishDlq(ConsumerRecord<String, String> record, InvalidAggTradeRawMessageException error) {
+        String[] keyParts = splitKey(record.key());
         try {
             String dlqValue = buildDlqEnvelope(record, error);
             kafkaTemplate.send(DLQ_TOPIC, record.key(), dlqValue).join();
-            telemetryService.recordDlqPublished();
+            telemetryService.recordDlqPublished(keyParts[0], keyParts[1], record.partition(), record.offset(), error.getMessage());
             return true;
         } catch (Exception e) {
-            telemetryService.recordDlqPublishFailure(e.getMessage());
+            telemetryService.recordDlqPublishFailure(keyParts[0], keyParts[1], record.partition(), record.offset(), e.getMessage());
             log.error("[AggTradeRawWriter] DLQ publish 실패, offset commit 보류: {}", e.getMessage());
             return false;
         }
+    }
+
+    private String[] splitKey(String key) {
+        if (key == null || !key.contains("|")) {
+            return new String[]{"UNKNOWN", "UNKNOWN"};
+        }
+        String[] parts = key.split("\\|", 2);
+        return new String[]{parts[0], parts[1]};
     }
 
     private String buildDlqEnvelope(ConsumerRecord<String, String> record, InvalidAggTradeRawMessageException error)

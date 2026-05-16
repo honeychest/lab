@@ -19,6 +19,8 @@ public record AggTradeRawWriterKafkaTelemetryResponse(
         Long lastSuccessAtMs,
         Long lastErrorAtMs,
         String lastErrorMessage,
+        AggTradeRawWriterKafkaTelemetrySummary summary,
+        java.util.List<AggTradeRawWriterKafkaFailureSample> recentFailures,
         AggTradeRawWriterKafkaTopicSnapshot rawTopic,
         AggTradeRawWriterKafkaTopicSnapshot dlqTopic
 ) {

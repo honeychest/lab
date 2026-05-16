@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +31,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     private static final String DLQ_TOPIC = "market.aggtrade.dlq";
     private static final long BASE_BUCKET_MS = 60_000L;
     private static final long RETENTION_MS = 24L * 60L * 60L * 1000L;
+    private static final int MAX_FAILURE_SAMPLES = 50;
 
     private final KafkaPipelineSwitchboard switchboard;
     private final KafkaListenerEndpointRegistry listenerRegistry;
@@ -36,6 +39,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     private final String bootstrapServers;
 
     private final NavigableMap<Long, WindowAccumulator> buckets = new TreeMap<>();
+    private final Deque<AggTradeRawWriterKafkaFailureSample> recentFailures = new ArrayDeque<>();
 
     private long totalConsumedRecords;
     private long totalWriteSuccessRecords;
@@ -78,21 +82,27 @@ public class AggTradeRawWriterKafkaTelemetryService {
         cleanup(now);
     }
 
-    public synchronized void recordInvalidRecord() {
+    public synchronized void recordInvalidRecord(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
         long now = System.currentTimeMillis();
         totalInvalidRecords += 1;
         bucket(now).invalidRecords += 1;
+        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+                now, "INVALID", symbol, marketType, partition, offset, errorMessage
+        ));
         cleanup(now);
     }
 
-    public synchronized void recordDlqPublished() {
+    public synchronized void recordDlqPublished(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
         long now = System.currentTimeMillis();
         totalDlqPublishedRecords += 1;
         bucket(now).dlqPublishedRecords += 1;
+        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+                now, "DLQ_PUBLISHED", symbol, marketType, partition, offset, errorMessage
+        ));
         cleanup(now);
     }
 
-    public synchronized void recordDlqPublishFailure(String errorMessage) {
+    public synchronized void recordDlqPublishFailure(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
         long now = System.currentTimeMillis();
         totalDlqPublishFailureRecords += 1;
         totalFailedBatches += 1;
@@ -100,6 +110,9 @@ public class AggTradeRawWriterKafkaTelemetryService {
         lastErrorMessage = errorMessage;
         bucket(now).dlqPublishFailureRecords += 1;
         bucket(now).failedBatches += 1;
+        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+                now, "DLQ_PUBLISH_FAIL", symbol, marketType, partition, offset, errorMessage
+        ));
         cleanup(now);
     }
 
@@ -167,6 +180,8 @@ public class AggTradeRawWriterKafkaTelemetryService {
                     lastSuccessAtMs,
                     lastErrorAtMs,
                     lastErrorMessage,
+                    summarizeBuckets(),
+                    List.copyOf(recentFailures),
                     rawTopic,
                     dlqTopic
             );
@@ -253,6 +268,48 @@ public class AggTradeRawWriterKafkaTelemetryService {
     private void cleanup(long now) {
         long threshold = now - RETENTION_MS;
         buckets.headMap(threshold, false).clear();
+    }
+
+    private void addFailureSample(AggTradeRawWriterKafkaFailureSample sample) {
+        recentFailures.addFirst(sample);
+        while (recentFailures.size() > MAX_FAILURE_SAMPLES) {
+            recentFailures.removeLast();
+        }
+    }
+
+    private AggTradeRawWriterKafkaTelemetrySummary summarizeBuckets() {
+        AggTradeRawWriterKafkaTelemetryWindow worstWindow = null;
+        long worstScore = Long.MIN_VALUE;
+        long peakConsumed = 0L;
+        long peakInvalid = 0L;
+        long peakDlqPublished = 0L;
+        long peakDbFailure = 0L;
+        long peakFailedBatches = 0L;
+        for (Map.Entry<Long, WindowAccumulator> entry : buckets.entrySet()) {
+            AggTradeRawWriterKafkaTelemetryWindow window = entry.getValue().toWindow(entry.getKey(), entry.getKey() + BASE_BUCKET_MS);
+            peakConsumed = Math.max(peakConsumed, window.consumedRecords());
+            peakInvalid = Math.max(peakInvalid, window.invalidRecords());
+            peakDlqPublished = Math.max(peakDlqPublished, window.dlqPublishedRecords());
+            peakDbFailure = Math.max(peakDbFailure, window.dbFailureRecords());
+            peakFailedBatches = Math.max(peakFailedBatches, window.failedBatches());
+            long score = (window.failedBatches() * 1_000_000L)
+                    + (window.dbFailureRecords() * 10_000L)
+                    + (window.dlqPublishFailureRecords() * 10_000L)
+                    + (window.invalidRecords() * 100L)
+                    + window.dlqPublishedRecords();
+            if (score > worstScore && score > 0) {
+                worstScore = score;
+                worstWindow = window;
+            }
+        }
+        return new AggTradeRawWriterKafkaTelemetrySummary(
+                worstWindow,
+                peakConsumed,
+                peakInvalid,
+                peakDlqPublished,
+                peakDbFailure,
+                peakFailedBatches
+        );
     }
 
     private static final class WindowAccumulator {
