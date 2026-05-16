@@ -28,19 +28,22 @@ public class AggTradeRawWriterService {
     private final ObjectMapper objectMapper;
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
     private final boolean dryRun;
+    private final String targetTable;
 
     public AggTradeRawWriterService(JdbcTemplate jdbcTemplate,
                                     StringRedisTemplate redisTemplate,
                                     AggTradeCollectStatusRepository statusRepository,
                                     ObjectMapper objectMapper,
                                     AggTradeRawWriterDryRunVerifier dryRunVerifier,
-                                    @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun) {
+                                    @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun,
+                                    @Value("${binance.agg-trade.raw-writer.target-table:raw_agg_trade_test}") String targetTable) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.statusRepository = statusRepository;
         this.objectMapper = objectMapper;
         this.dryRunVerifier = dryRunVerifier;
         this.dryRun = dryRun;
+        this.targetTable = validateTargetTable(targetTable);
     }
 
     public void writeBatch(List<AggTradeRawWriterMessage> messages) {
@@ -68,7 +71,9 @@ public class AggTradeRawWriterService {
         }
 
         batchInsert(trades);
-        updateCheckpoints(trades);
+        if ("raw_agg_trade".equals(targetTable)) {
+            updateCheckpoints(trades);
+        }
     }
 
     private RawAggTrade parse(AggTradeRawWriterMessage message) {
@@ -179,7 +184,7 @@ public class AggTradeRawWriterService {
         if (trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT IGNORE INTO raw_agg_trade " +
+        String sql = "INSERT IGNORE INTO " + targetTable + " " +
                 "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6))";
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
@@ -202,6 +207,13 @@ public class AggTradeRawWriterService {
                 return trades.size();
             }
         });
+    }
+
+    private String validateTargetTable(String table) {
+        if ("raw_agg_trade".equals(table) || "raw_agg_trade_test".equals(table)) {
+            return table;
+        }
+        throw new IllegalArgumentException("Unsupported raw-writer target table: " + table);
     }
 
     private void updateCheckpoints(List<RawAggTrade> trades) {

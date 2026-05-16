@@ -2,6 +2,9 @@ package com.chs.springboot.global.admin.test.rawwriter;
 
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowCompareResponse;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowCompareRow;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,12 +27,14 @@ class AggTradeRawWriterTestControllerWebMvcTest {
 
     @Mock
     private AggTradeRawWriterDryRunVerifier summaryStore;
+    @Mock
+    private AggTradeRawWriterShadowVerifier shadowVerifier;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        AggTradeRawWriterTestController controller = new AggTradeRawWriterTestController(summaryStore);
+        AggTradeRawWriterTestController controller = new AggTradeRawWriterTestController(summaryStore, shadowVerifier);
         mockMvc = standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter())
                 .build();
@@ -64,5 +69,36 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.summaries[0].dbCount").value(412))
                 .andExpect(jsonPath("$.summaries[0].countMatched").value(true))
                 .andExpect(jsonPath("$.summaries[0].rangeMatched").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /shadow-comparison -> 운영 테이블과 shadow 테이블 비교 지표 반환")
+    void shadowComparison_returnsRawAndShadowTableComparison() throws Exception {
+        when(shadowVerifier.compareRecent(60)).thenReturn(new AggTradeRawWriterShadowCompareResponse(
+                60,
+                List.of(new AggTradeRawWriterShadowCompareRow(
+                        "BTCUSDT",
+                        "FUTURES",
+                        100,
+                        98,
+                        2,
+                        10L,
+                        109L,
+                        10L,
+                        107L,
+                        "CHECK"
+                ))
+        ));
+
+        mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/shadow-comparison")
+                        .param("minutes", "60"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.minutes").value(60))
+                .andExpect(jsonPath("$.rows[0].symbol").value("BTCUSDT"))
+                .andExpect(jsonPath("$.rows[0].marketType").value("FUTURES"))
+                .andExpect(jsonPath("$.rows[0].rawCount").value(100))
+                .andExpect(jsonPath("$.rows[0].shadowCount").value(98))
+                .andExpect(jsonPath("$.rows[0].countDelta").value(2))
+                .andExpect(jsonPath("$.rows[0].status").value("CHECK"));
     }
 }

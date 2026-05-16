@@ -1,11 +1,38 @@
 .page {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) minmax(220px, 0.8fr);
     gap: 14px;
     color: var(--monitor-text-primary);
     height: calc(100vh - 220px);
     min-height: 0;
     overflow: hidden;
+}
+
+.panelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.panelTitle {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.panelMeta {
+    margin: 4px 0 0;
+    color: var(--monitor-text-secondary);
+    font-size: 12px;
+}
+
+.shadowPanel {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
 }
 
 .header {
@@ -190,6 +217,34 @@
 
 .summaryTable th:nth-child(9),
 .summaryTable td:nth-child(9) {
+    width: 90px;
+}
+
+.shadowTable {
+    min-width: 980px;
+}
+
+.shadowTable th:nth-child(1),
+.shadowTable td:nth-child(1) {
+    width: 170px;
+}
+
+.shadowTable th:nth-child(2),
+.shadowTable td:nth-child(2),
+.shadowTable th:nth-child(3),
+.shadowTable td:nth-child(3),
+.shadowTable th:nth-child(4),
+.shadowTable td:nth-child(4) {
+    width: 110px;
+}
+
+.shadowTable th:nth-child(5),
+.shadowTable td:nth-child(5) {
+    width: 360px;
+}
+
+.shadowTable th:nth-child(6),
+.shadowTable td:nth-child(6) {
     width: 90px;
 }
 

@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -29,7 +30,8 @@ class AggTradeRawWriterServiceTest {
             statusRepository,
             new ObjectMapper(),
             dryRunVerifier,
-            true
+            true,
+            "raw_agg_trade_test"
     );
 
     @Test
@@ -84,7 +86,8 @@ class AggTradeRawWriterServiceTest {
                 statusRepository,
                 new ObjectMapper(),
                 writeSummaryStore,
-                false
+                false,
+                "raw_agg_trade"
         );
         org.mockito.ArgumentCaptor<org.springframework.jdbc.core.BatchPreparedStatementSetter> setterCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.jdbc.core.BatchPreparedStatementSetter.class);
@@ -112,6 +115,42 @@ class AggTradeRawWriterServiceTest {
         verify(ps).setLong(9, 1778410000000L);
         verify(valueOps).set("aggtrade:checkpoint:BTCUSDT:FUTURES", "123");
         verify(statusRepository).save(any());
+    }
+
+    @Test
+    void writeModeUsesConfiguredTargetTableForShadowWrite() {
+        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, false);
+        AggTradeRawWriterService writeService = new AggTradeRawWriterService(
+                jdbcTemplate,
+                redisTemplate,
+                statusRepository,
+                new ObjectMapper(),
+                writeSummaryStore,
+                false,
+                "raw_agg_trade_test"
+        );
+
+        writeService.writeBatch(List.of(validMessage()));
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).batchUpdate(sqlCaptor.capture(), org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.BatchPreparedStatementSetter.class));
+        assertThat(sqlCaptor.getValue()).contains("INSERT IGNORE INTO raw_agg_trade_test");
+        verify(redisTemplate, never()).opsForValue();
+        verify(statusRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnsupportedTargetTableName() {
+        assertThatThrownBy(() -> new AggTradeRawWriterService(
+                jdbcTemplate,
+                redisTemplate,
+                statusRepository,
+                new ObjectMapper(),
+                dryRunVerifier,
+                false,
+                "raw_agg_trade; DROP TABLE raw_agg_trade"
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported raw-writer target table");
     }
 
     private AggTradeRawWriterMessage validMessage() {

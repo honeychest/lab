@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { fetchRawWriterDryRunSummaries } from '@/api/adminTest/rawWriter.js';
+import { fetchRawWriterDryRunSummaries, fetchRawWriterShadowComparison } from '@/api/adminTest/rawWriter.js';
 import { logApiCall } from './shared/logApiCall.js';
 import styles from './RawWriterTestPage.module.css';
 
@@ -8,6 +8,11 @@ const EMPTY_SUMMARY = {
     enabled: null,
     dryRun: null,
     summaries: [],
+};
+
+const EMPTY_SHADOW = {
+    minutes: 60,
+    rows: [],
 };
 
 function asList(body) {
@@ -43,8 +48,11 @@ function formatTimeRange(min, max) {
 
 export default function RawWriterTestPage() {
     const [state, setState] = useState(EMPTY_SUMMARY);
+    const [shadow, setShadow] = useState(EMPTY_SHADOW);
     const [lastLog, setLastLog] = useState(null);
+    const [shadowLog, setShadowLog] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [shadowLoading, setShadowLoading] = useState(false);
 
     const handleRefresh = async () => {
         if (loading) return;
@@ -62,6 +70,23 @@ export default function RawWriterTestPage() {
             });
         }
         setLoading(false);
+    };
+
+    const handleShadowRefresh = async () => {
+        if (shadowLoading) return;
+        setShadowLoading(true);
+        const log = await logApiCall(
+            'GET /api/admin/test/agg-trade/raw-writer/shadow-comparison?minutes=60',
+            () => fetchRawWriterShadowComparison(60)
+        );
+        setShadowLog(log);
+        if (log.ok) {
+            setShadow({
+                minutes: log.responseBody?.minutes ?? 60,
+                rows: Array.isArray(log.responseBody?.rows) ? log.responseBody.rows : [],
+            });
+        }
+        setShadowLoading(false);
     };
 
     return (
@@ -152,6 +177,65 @@ export default function RawWriterTestPage() {
                         </tbody>
                     </table>
                 )}
+            </section>
+
+            <section className={styles.shadowPanel}>
+                <div className={styles.panelHeader}>
+                    <div>
+                        <h2 className={styles.panelTitle}>Shadow Compare</h2>
+                        <p className={styles.panelMeta}>
+                            {shadowLog ? `${shadowLog.statusCode ?? '-'} / ${shadowLog.durationMs}ms` : `last ${shadow.minutes}m`}
+                        </p>
+                    </div>
+                    <button className={styles.refreshButton} onClick={handleShadowRefresh} disabled={shadowLoading}>
+                        <RefreshCw size={16} />
+                        {shadowLoading ? '조회 중' : '비교'}
+                    </button>
+                </div>
+
+                {shadowLog && !shadowLog.ok && (
+                    <div className={styles.errorBox}>
+                        {shadowLog.errorMessage}
+                    </div>
+                )}
+
+                <div className={styles.summaryTableWrap}>
+                    {shadow.rows.length === 0 ? (
+                        <div className={styles.emptyBox}>shadow 비교 결과가 없습니다.</div>
+                    ) : (
+                        <table className={`${styles.summaryTable} ${styles.shadowTable}`}>
+                            <thead>
+                                <tr>
+                                    <th>symbol / market</th>
+                                    <th>raw count</th>
+                                    <th>shadow count</th>
+                                    <th>delta</th>
+                                    <th>aggTradeId raw / shadow</th>
+                                    <th>status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {shadow.rows.map((row, index) => (
+                                    <tr
+                                        key={`${row.symbol ?? '-'}-${row.marketType ?? '-'}-${index}`}
+                                        className={row.status === 'OK' ? styles.matchRow : styles.mismatchRow}
+                                    >
+                                        <td>{row.symbol ?? '-'} / {row.marketType ?? '-'}</td>
+                                        <td>{row.rawCount ?? 0}</td>
+                                        <td>{row.shadowCount ?? 0}</td>
+                                        <td>{row.countDelta ?? 0}</td>
+                                        <td>
+                                            {formatRange(row.rawMinAggTradeId, row.rawMaxAggTradeId)}
+                                            {' / '}
+                                            {formatRange(row.shadowMinAggTradeId, row.shadowMaxAggTradeId)}
+                                        </td>
+                                        <td>{row.status ?? 'CHECK'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </section>
         </div>
     );
