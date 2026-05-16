@@ -1,6 +1,6 @@
 .page {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) minmax(220px, 0.8fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     gap: 14px;
     color: var(--monitor-text-primary);
     height: calc(100vh - 220px);
@@ -116,7 +116,7 @@
 
 .statusGrid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
 }
 
