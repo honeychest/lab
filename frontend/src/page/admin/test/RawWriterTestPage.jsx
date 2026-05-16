@@ -87,7 +87,6 @@ function statusClass(row) {
 export default function RawWriterTestPage() {
     const [snapshot, setSnapshot] = useState(EMPTY_SNAPSHOT);
     const [windows, setWindows] = useState(EMPTY_WINDOWS);
-    const [snapshotLog, setSnapshotLog] = useState(null);
     const [windowsLog, setWindowsLog] = useState(null);
     const [loading, setLoading] = useState(false);
     const [selectedMinutes, setSelectedMinutes] = useState(60);
@@ -105,7 +104,6 @@ export default function RawWriterTestPage() {
                 () => fetchRawWriterKafkaObservabilityWindows(minutes, 60)
             ),
         ]);
-        setSnapshotLog(snapshotResult);
         setWindowsLog(windowsResult);
         if (snapshotResult.ok) {
             setSnapshot({
