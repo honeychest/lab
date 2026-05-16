@@ -4,7 +4,9 @@ import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSumm
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
 import com.chs.springboot.global.admin.test.shadow.TableShadowCompareResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowCompareRow;
+import com.chs.springboot.global.admin.test.shadow.TableShadowMultiCompareResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowProfile;
+import com.chs.springboot.global.admin.test.shadow.TableShadowWindowSummary;
 import com.chs.springboot.global.admin.test.shadow.TableShadowVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -107,5 +109,30 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.rows[0].shadowCount").value(98))
                 .andExpect(jsonPath("$.rows[0].countDelta").value(2))
                 .andExpect(jsonPath("$.rows[0].status").value("CHECK"));
+    }
+
+    @Test
+    @DisplayName("GET /shadow-comparison/windows -> 다중 시간창 비교 요약 반환")
+    void shadowComparisonWindows_returnsWindowSummaries() throws Exception {
+        when(shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, List.of(5, 15, 60)))
+                .thenReturn(new TableShadowMultiCompareResponse(
+                        "agg-trade-raw",
+                        List.of(
+                                new TableShadowWindowSummary(5, 4, 1, -1),
+                                new TableShadowWindowSummary(15, 4, 2, -3),
+                                new TableShadowWindowSummary(60, 4, 3, -6)
+                        )
+                ));
+
+        mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/shadow-comparison/windows")
+                        .param("minutes", "5,15,60"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profile").value("agg-trade-raw"))
+                .andExpect(jsonPath("$.windows[0].minutes").value(5))
+                .andExpect(jsonPath("$.windows[0].totalRows").value(4))
+                .andExpect(jsonPath("$.windows[0].checkRows").value(1))
+                .andExpect(jsonPath("$.windows[0].totalDelta").value(-1))
+                .andExpect(jsonPath("$.windows[2].minutes").value(60))
+                .andExpect(jsonPath("$.windows[2].checkRows").value(3));
     }
 }
