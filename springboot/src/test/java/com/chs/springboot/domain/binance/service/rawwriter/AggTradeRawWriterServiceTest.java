@@ -31,7 +31,7 @@ class AggTradeRawWriterServiceTest {
             new ObjectMapper(),
             dryRunVerifier,
             true,
-            "raw_agg_trade_test"
+            "dry-run"
     );
 
     @Test
@@ -87,7 +87,7 @@ class AggTradeRawWriterServiceTest {
                 new ObjectMapper(),
                 writeSummaryStore,
                 false,
-                "raw_agg_trade"
+                "live"
         );
         org.mockito.ArgumentCaptor<org.springframework.jdbc.core.BatchPreparedStatementSetter> setterCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.jdbc.core.BatchPreparedStatementSetter.class);
@@ -118,7 +118,7 @@ class AggTradeRawWriterServiceTest {
     }
 
     @Test
-    void writeModeUsesConfiguredTargetTableForShadowWrite() {
+    void shadowModeWritesToShadowTableWithoutCheckpointSideEffects() {
         AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, false);
         AggTradeRawWriterService writeService = new AggTradeRawWriterService(
                 jdbcTemplate,
@@ -127,7 +127,7 @@ class AggTradeRawWriterServiceTest {
                 new ObjectMapper(),
                 writeSummaryStore,
                 false,
-                "raw_agg_trade_test"
+                "shadow"
         );
 
         writeService.writeBatch(List.of(validMessage()));
@@ -140,7 +140,7 @@ class AggTradeRawWriterServiceTest {
     }
 
     @Test
-    void rejectsUnsupportedTargetTableName() {
+    void rejectsUnsupportedWriteMode() {
         assertThatThrownBy(() -> new AggTradeRawWriterService(
                 jdbcTemplate,
                 redisTemplate,
@@ -148,9 +148,9 @@ class AggTradeRawWriterServiceTest {
                 new ObjectMapper(),
                 dryRunVerifier,
                 false,
-                "raw_agg_trade; DROP TABLE raw_agg_trade"
+                "raw_agg_trade_test"
         )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported raw-writer target table");
+                .hasMessageContaining("Unsupported raw-writer write mode");
     }
 
     private AggTradeRawWriterMessage validMessage() {

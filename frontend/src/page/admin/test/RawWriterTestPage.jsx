@@ -225,9 +225,9 @@ export default function RawWriterTestPage() {
                                         <td>{row.shadowCount ?? 0}</td>
                                         <td>{row.countDelta ?? 0}</td>
                                         <td>
-                                            {formatRange(row.rawMinAggTradeId, row.rawMaxAggTradeId)}
+                                            {formatRange(row.rawMinSequence, row.rawMaxSequence)}
                                             {' / '}
-                                            {formatRange(row.shadowMinAggTradeId, row.shadowMaxAggTradeId)}
+                                            {formatRange(row.shadowMinSequence, row.shadowMaxSequence)}
                                         </td>
                                         <td>{row.status ?? 'CHECK'}</td>
                                     </tr>

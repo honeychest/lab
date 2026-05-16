@@ -28,7 +28,7 @@ public class AggTradeRawWriterService {
     private final ObjectMapper objectMapper;
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
     private final boolean dryRun;
-    private final String targetTable;
+    private final AggTradeRawWriterWriteMode writeMode;
 
     public AggTradeRawWriterService(JdbcTemplate jdbcTemplate,
                                     StringRedisTemplate redisTemplate,
@@ -36,14 +36,14 @@ public class AggTradeRawWriterService {
                                     ObjectMapper objectMapper,
                                     AggTradeRawWriterDryRunVerifier dryRunVerifier,
                                     @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun,
-                                    @Value("${binance.agg-trade.raw-writer.target-table:raw_agg_trade_test}") String targetTable) {
+                                    @Value("${binance.agg-trade.raw-writer.write-mode:dry-run}") String writeMode) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.statusRepository = statusRepository;
         this.objectMapper = objectMapper;
         this.dryRunVerifier = dryRunVerifier;
         this.dryRun = dryRun;
-        this.targetTable = validateTargetTable(targetTable);
+        this.writeMode = AggTradeRawWriterWriteMode.from(dryRun ? "dry-run" : writeMode);
     }
 
     public void writeBatch(List<AggTradeRawWriterMessage> messages) {
@@ -54,7 +54,7 @@ public class AggTradeRawWriterService {
                 .map(this::parse)
                 .toList();
 
-        if (dryRun) {
+        if (writeMode == AggTradeRawWriterWriteMode.DRY_RUN) {
             trades.forEach(trade -> dryRunVerifier.accumulate(new AggTradeRawWriterKafkaWindowEvent(
                     trade.getSymbol(),
                     trade.getMarketType(),
@@ -71,7 +71,7 @@ public class AggTradeRawWriterService {
         }
 
         batchInsert(trades);
-        if ("raw_agg_trade".equals(targetTable)) {
+        if (writeMode.updatesCheckpoint()) {
             updateCheckpoints(trades);
         }
     }
@@ -184,7 +184,7 @@ public class AggTradeRawWriterService {
         if (trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT IGNORE INTO " + targetTable + " " +
+        String sql = "INSERT IGNORE INTO " + writeMode.tableName() + " " +
                 "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6))";
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
@@ -207,13 +207,6 @@ public class AggTradeRawWriterService {
                 return trades.size();
             }
         });
-    }
-
-    private String validateTargetTable(String table) {
-        if ("raw_agg_trade".equals(table) || "raw_agg_trade_test".equals(table)) {
-            return table;
-        }
-        throw new IllegalArgumentException("Unsupported raw-writer target table: " + table);
     }
 
     private void updateCheckpoints(List<RawAggTrade> trades) {

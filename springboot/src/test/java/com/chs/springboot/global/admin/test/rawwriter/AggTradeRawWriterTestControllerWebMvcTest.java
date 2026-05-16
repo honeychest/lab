@@ -2,9 +2,10 @@ package com.chs.springboot.global.admin.test.rawwriter;
 
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
-import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowCompareResponse;
-import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowCompareRow;
-import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterShadowVerifier;
+import com.chs.springboot.global.admin.test.shadow.TableShadowCompareResponse;
+import com.chs.springboot.global.admin.test.shadow.TableShadowCompareRow;
+import com.chs.springboot.global.admin.test.shadow.TableShadowProfile;
+import com.chs.springboot.global.admin.test.shadow.TableShadowVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     @Mock
     private AggTradeRawWriterDryRunVerifier summaryStore;
     @Mock
-    private AggTradeRawWriterShadowVerifier shadowVerifier;
+    private TableShadowVerifier shadowVerifier;
 
     private MockMvc mockMvc;
 
@@ -74,9 +75,10 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     @Test
     @DisplayName("GET /shadow-comparison -> 운영 테이블과 shadow 테이블 비교 지표 반환")
     void shadowComparison_returnsRawAndShadowTableComparison() throws Exception {
-        when(shadowVerifier.compareRecent(60)).thenReturn(new AggTradeRawWriterShadowCompareResponse(
+        when(shadowVerifier.compareRecent(TableShadowProfile.AGG_TRADE_RAW, 60)).thenReturn(new TableShadowCompareResponse(
+                "agg-trade-raw",
                 60,
-                List.of(new AggTradeRawWriterShadowCompareRow(
+                List.of(new TableShadowCompareRow(
                         "BTCUSDT",
                         "FUTURES",
                         100,
@@ -93,6 +95,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
         mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/shadow-comparison")
                         .param("minutes", "60"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profile").value("agg-trade-raw"))
                 .andExpect(jsonPath("$.minutes").value(60))
                 .andExpect(jsonPath("$.rows[0].symbol").value("BTCUSDT"))
                 .andExpect(jsonPath("$.rows[0].marketType").value("FUTURES"))
