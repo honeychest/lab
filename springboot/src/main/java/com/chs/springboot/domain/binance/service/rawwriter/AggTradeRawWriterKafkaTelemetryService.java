@@ -5,6 +5,7 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.util.List;
 
 @Service
@@ -19,6 +20,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     private final KafkaPipelineSwitchboard switchboard;
     private final KafkaListenerEndpointRegistry listenerRegistry;
     private final AggTradeRawWriterKafkaOffsetInspector offsetInspector;
+    private final Clock clock;
     private final String consumerGroupId;
     private final String bootstrapServers;
 
@@ -43,24 +45,26 @@ public class AggTradeRawWriterKafkaTelemetryService {
             KafkaPipelineSwitchboard switchboard,
             KafkaListenerEndpointRegistry listenerRegistry,
             AggTradeRawWriterKafkaOffsetInspector offsetInspector,
+            Clock clock,
             @Value("${kafka.consumer.group-id:raw-writer}") String consumerGroupId,
             @Value("${spring.kafka.bootstrap-servers:kafka:9092}") String bootstrapServers
     ) {
         this.switchboard = switchboard;
         this.listenerRegistry = listenerRegistry;
         this.offsetInspector = offsetInspector;
+        this.clock = clock;
         this.consumerGroupId = consumerGroupId;
         this.bootstrapServers = bootstrapServers;
     }
 
     public synchronized void recordConsumed(int count) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalConsumedRecords += count;
         bucketStore.recordConsumed(now, count);
     }
 
     public synchronized void recordWriteSuccess(int count) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalWriteSuccessRecords += count;
         totalSuccessfulBatches += 1;
         lastSuccessAtMs = now;
@@ -68,7 +72,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized void recordInvalidRecord(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalInvalidRecords += 1;
         bucketStore.recordInvalid(now);
         failureSamples.add(new AggTradeRawWriterKafkaFailureSample(
@@ -77,7 +81,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized void recordDlqPublished(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalDlqPublishedRecords += 1;
         bucketStore.recordDlqPublished(now);
         failureSamples.add(new AggTradeRawWriterKafkaFailureSample(
@@ -86,7 +90,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized void recordDlqPublishFailure(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalDlqPublishFailureRecords += 1;
         totalFailedBatches += 1;
         lastErrorAtMs = now;
@@ -98,7 +102,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized void recordDbFailure(int count, String errorMessage) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalDbFailureRecords += count;
         totalFailedBatches += 1;
         lastErrorAtMs = now;
@@ -107,7 +111,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized void recordFailedBatch(String errorMessage) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         totalFailedBatches += 1;
         lastErrorAtMs = now;
         lastErrorMessage = errorMessage;
@@ -115,7 +119,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     }
 
     public synchronized AggTradeRawWriterKafkaTelemetryWindowsResponse windows(int minutes, int bucketSeconds) {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         long bucketMs = Math.max(60, bucketSeconds) * 1000L;
         List<AggTradeRawWriterKafkaTelemetryWindow> rows = bucketStore.windows(now, minutes, bucketSeconds);
         return new AggTradeRawWriterKafkaTelemetryWindowsResponse(minutes, (int) (bucketMs / 1000L), rows);

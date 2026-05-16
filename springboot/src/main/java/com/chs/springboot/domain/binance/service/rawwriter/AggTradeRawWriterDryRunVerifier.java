@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -32,9 +33,10 @@ public class AggTradeRawWriterDryRunVerifier {
     @Autowired
     public AggTradeRawWriterDryRunVerifier(
             JdbcTemplate jdbcTemplate,
-            KafkaPipelineSwitchboard switchboard
+            KafkaPipelineSwitchboard switchboard,
+            Clock clock
     ) {
-        this(jdbcTemplate, switchboard, System.currentTimeMillis());
+        this(jdbcTemplate, switchboard, clock.millis());
     }
 
     AggTradeRawWriterDryRunVerifier(JdbcTemplate jdbcTemplate,
