@@ -62,6 +62,7 @@ public class TableShadowVerifier {
                 SELECT %s AS symbol,
                        %s AS market_type,
                        COUNT(*) AS row_count,
+                       COUNT(DISTINCT %s) AS distinct_sequence_count,
                        MIN(%s) AS min_sequence,
                        MAX(%s) AS max_sequence
                 FROM %s
@@ -72,6 +73,7 @@ public class TableShadowVerifier {
                 """.formatted(
                 profile.symbolColumn(),
                 profile.marketTypeColumn(),
+                profile.sequenceColumn(),
                 profile.sequenceColumn(),
                 profile.sequenceColumn(),
                 tableName,
@@ -88,6 +90,7 @@ public class TableShadowVerifier {
                     rs.getString("symbol"),
                     rs.getString("market_type"),
                     rs.getLong("row_count"),
+                    rs.getLong("distinct_sequence_count"),
                     rs.getObject("min_sequence", Long.class),
                     rs.getObject("max_sequence", Long.class)
             );
@@ -101,6 +104,8 @@ public class TableShadowVerifier {
         String marketType = raw != null ? raw.marketType : shadow.marketType;
         long rawCount = raw != null ? raw.count : 0;
         long shadowCount = shadow != null ? shadow.count : 0;
+        long rawDistinctCount = raw != null ? raw.distinctSequenceCount : 0;
+        long shadowDistinctCount = shadow != null ? shadow.distinctSequenceCount : 0;
         boolean matched = rawCount == shadowCount
                 && equalsNullable(raw != null ? raw.minSequence : null, shadow != null ? shadow.minSequence : null)
                 && equalsNullable(raw != null ? raw.maxSequence : null, shadow != null ? shadow.maxSequence : null);
@@ -110,6 +115,10 @@ public class TableShadowVerifier {
                 rawCount,
                 shadowCount,
                 rawCount - shadowCount,
+                rawDistinctCount,
+                shadowDistinctCount,
+                Math.max(0, rawCount - rawDistinctCount),
+                Math.max(0, shadowCount - shadowDistinctCount),
                 raw != null ? raw.minSequence : null,
                 raw != null ? raw.maxSequence : null,
                 shadow != null ? shadow.minSequence : null,
@@ -126,6 +135,7 @@ public class TableShadowVerifier {
             String symbol,
             String marketType,
             long count,
+            long distinctSequenceCount,
             Long minSequence,
             Long maxSequence
     ) {

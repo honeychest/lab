@@ -328,7 +328,7 @@
 }
 
 .shadowTable {
-    min-width: 1220px;
+    min-width: 1500px;
 }
 
 .shadowTable th:nth-child(1),
@@ -357,12 +357,22 @@
 
 .shadowTable th:nth-child(7),
 .shadowTable td:nth-child(7) {
-    width: 360px;
+    width: 150px;
 }
 
 .shadowTable th:nth-child(8),
 .shadowTable td:nth-child(8) {
-    width: 210px;
+    width: 150px;
+}
+
+.shadowTable th:nth-child(9),
+.shadowTable td:nth-child(9) {
+    width: 360px;
+}
+
+.shadowTable th:nth-child(10),
+.shadowTable td:nth-child(10) {
+    width: 240px;
 }
 
 @media (max-width: 900px) {

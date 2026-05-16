@@ -91,6 +91,10 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                         100,
                         98,
                         2,
+                        95,
+                        94,
+                        5,
+                        4,
                         10L,
                         109L,
                         10L,
@@ -110,6 +114,10 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.rows[0].rawCount").value(100))
                 .andExpect(jsonPath("$.rows[0].shadowCount").value(98))
                 .andExpect(jsonPath("$.rows[0].countDelta").value(2))
+                .andExpect(jsonPath("$.rows[0].rawDistinctSequenceCount").value(95))
+                .andExpect(jsonPath("$.rows[0].shadowDistinctSequenceCount").value(94))
+                .andExpect(jsonPath("$.rows[0].rawDuplicateCount").value(5))
+                .andExpect(jsonPath("$.rows[0].shadowDuplicateCount").value(4))
                 .andExpect(jsonPath("$.rows[0].status").value("CHECK"));
     }
 

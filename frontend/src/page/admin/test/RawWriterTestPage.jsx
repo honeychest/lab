@@ -39,6 +39,18 @@ function describeShadowStatus(status, delta) {
     return '건수는 같지만 aggTradeId 범위 차이가 있어 확인이 필요합니다.';
 }
 
+function describeDistinctGap(row) {
+    const rawDistinct = row.rawDistinctSequenceCount ?? 0;
+    const shadowDistinct = row.shadowDistinctSequenceCount ?? 0;
+    if (rawDistinct === shadowDistinct) {
+        if ((row.rawDuplicateCount ?? 0) === (row.shadowDuplicateCount ?? 0)) {
+            return 'distinct aggTradeId 와 duplicate 규모가 같습니다.';
+        }
+        return `distinct aggTradeId 는 같고 duplicate 는 raw ${row.rawDuplicateCount ?? 0}, shadow ${row.shadowDuplicateCount ?? 0} 입니다.`;
+    }
+    return `distinct aggTradeId 가 raw ${rawDistinct}, shadow ${shadowDistinct} 로 다릅니다.`;
+}
+
 function toShadowKey(row) {
     return `${row.symbol ?? '-'}|${row.marketType ?? '-'}`;
 }
@@ -248,6 +260,8 @@ export default function RawWriterTestPage() {
                                     <th>delta</th>
                                     <th>prev delta</th>
                                     <th>drift</th>
+                                    <th>distinct raw / shadow</th>
+                                    <th>duplicate raw / shadow</th>
                                     <th>aggTradeId raw / shadow</th>
                                     <th>status</th>
                                 </tr>
@@ -267,6 +281,16 @@ export default function RawWriterTestPage() {
                                             <td>{formatDelta(previousRow?.countDelta)}</td>
                                             <td>{compareDriftLabel(row.countDelta ?? 0, previousRow?.countDelta)}</td>
                                             <td>
+                                                {row.rawDistinctSequenceCount ?? 0}
+                                                {' / '}
+                                                {row.shadowDistinctSequenceCount ?? 0}
+                                            </td>
+                                            <td>
+                                                {row.rawDuplicateCount ?? 0}
+                                                {' / '}
+                                                {row.shadowDuplicateCount ?? 0}
+                                            </td>
+                                            <td>
                                                 {formatRange(row.rawMinSequence, row.rawMaxSequence)}
                                                 {' / '}
                                                 {formatRange(row.shadowMinSequence, row.shadowMaxSequence)}
@@ -274,6 +298,7 @@ export default function RawWriterTestPage() {
                                             <td>
                                                 <div>{row.status ?? 'CHECK'}</div>
                                                 <div className={styles.cellHint}>{describeShadowStatus(row.status, row.countDelta)}</div>
+                                                <div className={styles.cellHint}>{describeDistinctGap(row)}</div>
                                             </td>
                                         </tr>
                                     );
