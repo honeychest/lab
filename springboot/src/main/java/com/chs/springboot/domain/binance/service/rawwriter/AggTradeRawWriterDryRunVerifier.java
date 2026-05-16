@@ -21,7 +21,6 @@ import java.util.UUID;
 public class AggTradeRawWriterDryRunVerifier {
 
     private static final int MAX_SUMMARIES = 50;          // 보관할 최대 summary 건수
-    private static final long WINDOW_MS = 10_000L;        // 윈도우 크기 (10초)
     private static final long FINALIZE_GRACE_MS = 5_000L; // 윈도우 마감 유예 시간 (5초)
 
     private final Deque<AggTradeRawWriterDryRunSummary> summaries = new ArrayDeque<>(); // 완료된 비교 결과 (최신순)
@@ -74,13 +73,13 @@ public class AggTradeRawWriterDryRunVerifier {
      * 윈도우 키: symbol|marketType|windowStart
      */
     public synchronized void accumulate(AggTradeRawWriterKafkaWindowEvent event) {
-        long windowStart = windowStart(event.tradedAt());
-        String key = event.symbol() + "|" + event.marketType() + "|" + windowStart;
+        KafkaWindow window = KafkaWindow.of(event.tradedAt(), KafkaWindow.RAW_WRITER_DRY_RUN_WINDOW_MS);
+        String key = event.symbol() + "|" + event.marketType() + "|" + window.startMs();
         openWindows.computeIfAbsent(key, ignored -> new KafkaWindowAccumulator(
                 event.symbol(),
                 event.marketType(),
-                windowStart,
-                windowStart + WINDOW_MS,
+                window.startMs(),
+                window.endMs(),
                 startedAtMs
         )).add(event);
     }
@@ -127,10 +126,6 @@ public class AggTradeRawWriterDryRunVerifier {
                 rs.getObject("min_traded_at", Long.class),
                 rs.getObject("max_traded_at", Long.class)
         ), symbol, marketType, startMs, endMs);
-    }
-
-    private long windowStart(long tradedAt) {
-        return tradedAt - (tradedAt % WINDOW_MS);
     }
 
     /**

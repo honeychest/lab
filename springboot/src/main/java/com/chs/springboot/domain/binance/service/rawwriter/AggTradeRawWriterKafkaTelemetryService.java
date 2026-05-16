@@ -1,45 +1,31 @@
 package com.chs.springboot.domain.binance.service.rawwriter;
 
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.ListOffsetsResult;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.admin.TopicDescription;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.ArrayDeque;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
 
 @Service
 public class AggTradeRawWriterKafkaTelemetryService {
 
     private static final String RAW_TOPIC = "market.aggtrade.raw";
     private static final String DLQ_TOPIC = "market.aggtrade.dlq";
-    private static final long BASE_BUCKET_MS = 60_000L;
+    private static final long BASE_BUCKET_MS = KafkaWindow.TELEMETRY_BUCKET_MS;
     private static final long RETENTION_MS = 24L * 60L * 60L * 1000L;
     private static final int MAX_FAILURE_SAMPLES = 50;
 
     private final KafkaPipelineSwitchboard switchboard;
     private final KafkaListenerEndpointRegistry listenerRegistry;
+    private final AggTradeRawWriterKafkaOffsetInspector offsetInspector;
     private final String consumerGroupId;
     private final String bootstrapServers;
 
-    private final NavigableMap<Long, WindowAccumulator> buckets = new TreeMap<>();
-    private final Deque<AggTradeRawWriterKafkaFailureSample> recentFailures = new ArrayDeque<>();
+    private final AggTradeRawWriterTelemetryBucketStore bucketStore =
+            new AggTradeRawWriterTelemetryBucketStore(BASE_BUCKET_MS, RETENTION_MS);
+    private final AggTradeRawWriterFailureSampleBuffer failureSamples =
+            new AggTradeRawWriterFailureSampleBuffer(MAX_FAILURE_SAMPLES);
 
     private long totalConsumedRecords;
     private long totalWriteSuccessRecords;
@@ -56,11 +42,13 @@ public class AggTradeRawWriterKafkaTelemetryService {
     public AggTradeRawWriterKafkaTelemetryService(
             KafkaPipelineSwitchboard switchboard,
             KafkaListenerEndpointRegistry listenerRegistry,
+            AggTradeRawWriterKafkaOffsetInspector offsetInspector,
             @Value("${kafka.consumer.group-id:raw-writer}") String consumerGroupId,
             @Value("${spring.kafka.bootstrap-servers:kafka:9092}") String bootstrapServers
     ) {
         this.switchboard = switchboard;
         this.listenerRegistry = listenerRegistry;
+        this.offsetInspector = offsetInspector;
         this.consumerGroupId = consumerGroupId;
         this.bootstrapServers = bootstrapServers;
     }
@@ -68,8 +56,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     public synchronized void recordConsumed(int count) {
         long now = System.currentTimeMillis();
         totalConsumedRecords += count;
-        bucket(now).consumedRecords += count;
-        cleanup(now);
+        bucketStore.recordConsumed(now, count);
     }
 
     public synchronized void recordWriteSuccess(int count) {
@@ -77,29 +64,25 @@ public class AggTradeRawWriterKafkaTelemetryService {
         totalWriteSuccessRecords += count;
         totalSuccessfulBatches += 1;
         lastSuccessAtMs = now;
-        bucket(now).writeSuccessRecords += count;
-        bucket(now).successfulBatches += 1;
-        cleanup(now);
+        bucketStore.recordWriteSuccess(now, count);
     }
 
     public synchronized void recordInvalidRecord(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
         long now = System.currentTimeMillis();
         totalInvalidRecords += 1;
-        bucket(now).invalidRecords += 1;
-        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+        bucketStore.recordInvalid(now);
+        failureSamples.add(new AggTradeRawWriterKafkaFailureSample(
                 now, "INVALID", symbol, marketType, partition, offset, errorMessage
         ));
-        cleanup(now);
     }
 
     public synchronized void recordDlqPublished(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
         long now = System.currentTimeMillis();
         totalDlqPublishedRecords += 1;
-        bucket(now).dlqPublishedRecords += 1;
-        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+        bucketStore.recordDlqPublished(now);
+        failureSamples.add(new AggTradeRawWriterKafkaFailureSample(
                 now, "DLQ_PUBLISHED", symbol, marketType, partition, offset, errorMessage
         ));
-        cleanup(now);
     }
 
     public synchronized void recordDlqPublishFailure(String symbol, String marketType, Integer partition, Long offset, String errorMessage) {
@@ -108,12 +91,10 @@ public class AggTradeRawWriterKafkaTelemetryService {
         totalFailedBatches += 1;
         lastErrorAtMs = now;
         lastErrorMessage = errorMessage;
-        bucket(now).dlqPublishFailureRecords += 1;
-        bucket(now).failedBatches += 1;
-        addFailureSample(new AggTradeRawWriterKafkaFailureSample(
+        bucketStore.recordDlqPublishFailure(now);
+        failureSamples.add(new AggTradeRawWriterKafkaFailureSample(
                 now, "DLQ_PUBLISH_FAIL", symbol, marketType, partition, offset, errorMessage
         ));
-        cleanup(now);
     }
 
     public synchronized void recordDbFailure(int count, String errorMessage) {
@@ -122,9 +103,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
         totalFailedBatches += 1;
         lastErrorAtMs = now;
         lastErrorMessage = errorMessage;
-        bucket(now).dbFailureRecords += count;
-        bucket(now).failedBatches += 1;
-        cleanup(now);
+        bucketStore.recordDbFailure(now, count);
     }
 
     public synchronized void recordFailedBatch(String errorMessage) {
@@ -132,24 +111,13 @@ public class AggTradeRawWriterKafkaTelemetryService {
         totalFailedBatches += 1;
         lastErrorAtMs = now;
         lastErrorMessage = errorMessage;
-        bucket(now).failedBatches += 1;
-        cleanup(now);
+        bucketStore.recordFailedBatch(now);
     }
 
     public synchronized AggTradeRawWriterKafkaTelemetryWindowsResponse windows(int minutes, int bucketSeconds) {
         long now = System.currentTimeMillis();
-        cleanup(now);
         long bucketMs = Math.max(60, bucketSeconds) * 1000L;
-        long fromMs = now - (minutes * 60_000L);
-        Map<Long, WindowAccumulator> merged = new LinkedHashMap<>();
-        for (Map.Entry<Long, WindowAccumulator> entry : buckets.tailMap(fromMs, true).entrySet()) {
-            long bucketStart = entry.getKey() - (entry.getKey() % bucketMs);
-            merged.computeIfAbsent(bucketStart, ignored -> new WindowAccumulator()).merge(entry.getValue());
-        }
-        List<AggTradeRawWriterKafkaTelemetryWindow> rows = merged.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> entry.getValue().toWindow(entry.getKey(), entry.getKey() + bucketMs))
-                .toList();
+        List<AggTradeRawWriterKafkaTelemetryWindow> rows = bucketStore.windows(now, minutes, bucketSeconds);
         return new AggTradeRawWriterKafkaTelemetryWindowsResponse(minutes, (int) (bucketMs / 1000L), rows);
     }
 
@@ -157,8 +125,8 @@ public class AggTradeRawWriterKafkaTelemetryService {
         KafkaPipelineExecutionPlan plan = switchboard.aggTradeRawWriterPlan();
         MessageListenerContainer container = listenerRegistry.getListenerContainer(AggTradeRawWriterConsumer.LISTENER_ID);
         boolean listenerRunning = container != null && container.isRunning();
-        AggTradeRawWriterKafkaTopicSnapshot rawTopic = loadTopicSnapshot(RAW_TOPIC, true);
-        AggTradeRawWriterKafkaTopicSnapshot dlqTopic = loadTopicSnapshot(DLQ_TOPIC, false);
+        AggTradeRawWriterKafkaTopicSnapshot rawTopic = offsetInspector.loadTopicSnapshot(RAW_TOPIC, consumerGroupId, true);
+        AggTradeRawWriterKafkaTopicSnapshot dlqTopic = offsetInspector.loadTopicSnapshot(DLQ_TOPIC, consumerGroupId, false);
 
         synchronized (this) {
             return new AggTradeRawWriterKafkaTelemetryResponse(
@@ -180,171 +148,10 @@ public class AggTradeRawWriterKafkaTelemetryService {
                     lastSuccessAtMs,
                     lastErrorAtMs,
                     lastErrorMessage,
-                    summarizeBuckets(),
-                    List.copyOf(recentFailures),
+                    bucketStore.summarize(),
+                    failureSamples.snapshot(),
                     rawTopic,
                     dlqTopic
-            );
-        }
-    }
-
-    private AggTradeRawWriterKafkaTopicSnapshot loadTopicSnapshot(String topic, boolean includeCommittedOffset) {
-        Map<String, Object> config = new HashMap<>();
-        config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, (int) Duration.ofSeconds(3).toMillis());
-        config.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, (int) Duration.ofSeconds(3).toMillis());
-
-        try (AdminClient adminClient = AdminClient.create(config)) {
-            TopicDescription topicDescription = adminClient.describeTopics(List.of(topic))
-                    .allTopicNames()
-                    .get()
-                    .get(topic);
-            List<TopicPartition> topicPartitions = topicDescription.partitions().stream()
-                    .map(partition -> new TopicPartition(topic, partition.partition()))
-                    .sorted(Comparator.comparingInt(TopicPartition::partition))
-                    .toList();
-
-            Map<TopicPartition, OffsetSpec> latestRequests = new LinkedHashMap<>();
-            topicPartitions.forEach(partition -> latestRequests.put(partition, OffsetSpec.latest()));
-            Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> latestOffsets = adminClient
-                    .listOffsets(latestRequests)
-                    .all()
-                    .get();
-
-            Map<TopicPartition, OffsetAndMetadata> committedOffsets = includeCommittedOffset
-                    ? adminClient.listConsumerGroupOffsets(consumerGroupId).partitionsToOffsetAndMetadata().get()
-                    : Map.of();
-
-            long latestOffsetSum = 0L;
-            long committedOffsetSum = 0L;
-            long lagSum = 0L;
-            List<AggTradeRawWriterKafkaPartitionSnapshot> partitions = new ArrayList<>();
-            for (TopicPartition partition : topicPartitions) {
-                long latestOffset = latestOffsets.get(partition).offset();
-                latestOffsetSum += latestOffset;
-                Long committedOffset = null;
-                Long lag = null;
-                if (includeCommittedOffset) {
-                    OffsetAndMetadata committed = committedOffsets.get(partition);
-                    committedOffset = committed != null ? committed.offset() : 0L;
-                    committedOffsetSum += committedOffset;
-                    lag = Math.max(0L, latestOffset - committedOffset);
-                    lagSum += lag;
-                }
-                partitions.add(new AggTradeRawWriterKafkaPartitionSnapshot(
-                        partition.partition(),
-                        latestOffset,
-                        committedOffset,
-                        lag
-                ));
-            }
-            return new AggTradeRawWriterKafkaTopicSnapshot(
-                    topic,
-                    topicPartitions.size(),
-                    latestOffsetSum,
-                    includeCommittedOffset ? committedOffsetSum : null,
-                    includeCommittedOffset ? lagSum : null,
-                    null,
-                    partitions
-            );
-        } catch (Exception e) {
-            return new AggTradeRawWriterKafkaTopicSnapshot(
-                    topic,
-                    null,
-                    null,
-                    null,
-                    null,
-                    e.getMessage(),
-                    List.of()
-            );
-        }
-    }
-
-    private WindowAccumulator bucket(long now) {
-        long bucketStart = now - (now % BASE_BUCKET_MS);
-        return buckets.computeIfAbsent(bucketStart, ignored -> new WindowAccumulator());
-    }
-
-    private void cleanup(long now) {
-        long threshold = now - RETENTION_MS;
-        buckets.headMap(threshold, false).clear();
-    }
-
-    private void addFailureSample(AggTradeRawWriterKafkaFailureSample sample) {
-        recentFailures.addFirst(sample);
-        while (recentFailures.size() > MAX_FAILURE_SAMPLES) {
-            recentFailures.removeLast();
-        }
-    }
-
-    private AggTradeRawWriterKafkaTelemetrySummary summarizeBuckets() {
-        AggTradeRawWriterKafkaTelemetryWindow worstWindow = null;
-        long worstScore = Long.MIN_VALUE;
-        long peakConsumed = 0L;
-        long peakInvalid = 0L;
-        long peakDlqPublished = 0L;
-        long peakDbFailure = 0L;
-        long peakFailedBatches = 0L;
-        for (Map.Entry<Long, WindowAccumulator> entry : buckets.entrySet()) {
-            AggTradeRawWriterKafkaTelemetryWindow window = entry.getValue().toWindow(entry.getKey(), entry.getKey() + BASE_BUCKET_MS);
-            peakConsumed = Math.max(peakConsumed, window.consumedRecords());
-            peakInvalid = Math.max(peakInvalid, window.invalidRecords());
-            peakDlqPublished = Math.max(peakDlqPublished, window.dlqPublishedRecords());
-            peakDbFailure = Math.max(peakDbFailure, window.dbFailureRecords());
-            peakFailedBatches = Math.max(peakFailedBatches, window.failedBatches());
-            long score = (window.failedBatches() * 1_000_000L)
-                    + (window.dbFailureRecords() * 10_000L)
-                    + (window.dlqPublishFailureRecords() * 10_000L)
-                    + (window.invalidRecords() * 100L)
-                    + window.dlqPublishedRecords();
-            if (score > worstScore && score > 0) {
-                worstScore = score;
-                worstWindow = window;
-            }
-        }
-        return new AggTradeRawWriterKafkaTelemetrySummary(
-                worstWindow,
-                peakConsumed,
-                peakInvalid,
-                peakDlqPublished,
-                peakDbFailure,
-                peakFailedBatches
-        );
-    }
-
-    private static final class WindowAccumulator {
-        private long consumedRecords;
-        private long writeSuccessRecords;
-        private long invalidRecords;
-        private long dlqPublishedRecords;
-        private long dlqPublishFailureRecords;
-        private long dbFailureRecords;
-        private long successfulBatches;
-        private long failedBatches;
-
-        private void merge(WindowAccumulator other) {
-            this.consumedRecords += other.consumedRecords;
-            this.writeSuccessRecords += other.writeSuccessRecords;
-            this.invalidRecords += other.invalidRecords;
-            this.dlqPublishedRecords += other.dlqPublishedRecords;
-            this.dlqPublishFailureRecords += other.dlqPublishFailureRecords;
-            this.dbFailureRecords += other.dbFailureRecords;
-            this.successfulBatches += other.successfulBatches;
-            this.failedBatches += other.failedBatches;
-        }
-
-        private AggTradeRawWriterKafkaTelemetryWindow toWindow(long bucketStartMs, long bucketEndMs) {
-            return new AggTradeRawWriterKafkaTelemetryWindow(
-                    bucketStartMs,
-                    bucketEndMs,
-                    consumedRecords,
-                    writeSuccessRecords,
-                    invalidRecords,
-                    dlqPublishedRecords,
-                    dlqPublishFailureRecords,
-                    dbFailureRecords,
-                    successfulBatches,
-                    failedBatches
             );
         }
     }

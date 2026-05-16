@@ -34,6 +34,7 @@ public class AggTradeRawWriterConsumer {
     private final AggTradeRawWriterDryRunVerifier verifier;
     private final KafkaPipelineSwitchboard switchboard;
     private final AggTradeRawWriterKafkaTelemetryService telemetryService;
+    private final AggTradeRawWriterBatchPartitioner batchPartitioner;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AggTradeRawWriterConsumer(AggTradeRawWriterService writerService,
@@ -41,13 +42,15 @@ public class AggTradeRawWriterConsumer {
                                      KafkaListenerEndpointRegistry listenerRegistry,
                                      AggTradeRawWriterDryRunVerifier verifier,
                                      KafkaPipelineSwitchboard switchboard,
-                                     AggTradeRawWriterKafkaTelemetryService telemetryService) {
+                                     AggTradeRawWriterKafkaTelemetryService telemetryService,
+                                     AggTradeRawWriterBatchPartitioner batchPartitioner) {
         this.writerService = writerService;
         this.kafkaTemplate = kafkaTemplate;
         this.listenerRegistry = listenerRegistry;
         this.verifier = verifier;
         this.switchboard = switchboard;
         this.telemetryService = telemetryService;
+        this.batchPartitioner = batchPartitioner;
     }
 
     /**
@@ -109,20 +112,34 @@ public class AggTradeRawWriterConsumer {
         }
         telemetryService.recordConsumed(records.size());
         try {
-            writerService.writeBatch(toMessages(records));
-            telemetryService.recordWriteSuccess(records.size());
-            ack.acknowledge();
-        } catch (InvalidAggTradeRawMessageException e) {
-            telemetryService.recordFailedBatch(e.getMessage());
-            if (retrySeparatelyAndDlqInvalid(records)) {
-                ack.acknowledge();
+            AggTradeRawWriterPartitionedBatch partitionedBatch = batchPartitioner.partition(toMessages(records));
+            if (partitionedBatch.hasInvalidMessages()) {
+                publishInvalidMessages(partitionedBatch.invalidMessages());
             }
+            if (partitionedBatch.hasValidMessages()) {
+                writerService.writeParsedBatch(partitionedBatch.validMessages());
+                telemetryService.recordWriteSuccess(partitionedBatch.validMessages().size());
+            }
+            ack.acknowledge();
         } catch (DataAccessException e) {
             telemetryService.recordDbFailure(records.size(), e.getMessage());
             log.error("[AggTradeRawWriter] DB 실패, offset commit 보류: {}", e.getMessage());
         } catch (Exception e) {
             telemetryService.recordFailedBatch(e.getMessage());
             log.error("[AggTradeRawWriter] 처리 실패, offset commit 보류", e);
+        }
+    }
+
+    private void publishInvalidMessages(List<AggTradeRawWriterInvalidMessage> invalidMessages) {
+        telemetryService.recordFailedBatch("invalid records=" + invalidMessages.size());
+        for (AggTradeRawWriterInvalidMessage invalidMessage : invalidMessages) {
+            AggTradeRawWriterMessage message = invalidMessage.message();
+            InvalidAggTradeRawMessageException error = invalidMessage.error();
+            AggTradeRecordKey key = AggTradeRecordKey.parseOrUnknown(message.key());
+            telemetryService.recordInvalidRecord(key.symbol(), key.marketType(), message.partition(), message.offset(), error.getMessage());
+            if (!publishDlq(message, error)) {
+                throw new IllegalStateException("DLQ publish failed");
+            }
         }
     }
 
@@ -138,65 +155,28 @@ public class AggTradeRawWriterConsumer {
                 .toList();
     }
 
-    private boolean retrySeparatelyAndDlqInvalid(List<ConsumerRecord<String, String>> records) {
-        for (ConsumerRecord<String, String> record : records) {
-            try {
-                writerService.writeBatch(List.of(new AggTradeRawWriterMessage(
-                        record.topic(),
-                        record.partition(),
-                        record.offset(),
-                        record.key(),
-                        record.value()
-                )));
-            } catch (InvalidAggTradeRawMessageException invalid) {
-                String[] keyParts = splitKey(record.key());
-                telemetryService.recordInvalidRecord(keyParts[0], keyParts[1], record.partition(), record.offset(), invalid.getMessage());
-                if (!publishDlq(record, invalid)) {
-                    return false;
-                }
-            } catch (DataAccessException e) {
-                telemetryService.recordDbFailure(1, e.getMessage());
-                log.error("[AggTradeRawWriter] invalid 분리 처리 중 DB 실패, offset commit 보류: {}", e.getMessage());
-                return false;
-            } catch (Exception e) {
-                telemetryService.recordFailedBatch(e.getMessage());
-                log.error("[AggTradeRawWriter] invalid 분리 처리 실패, offset commit 보류", e);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean publishDlq(ConsumerRecord<String, String> record, InvalidAggTradeRawMessageException error) {
-        String[] keyParts = splitKey(record.key());
+    private boolean publishDlq(AggTradeRawWriterMessage message, InvalidAggTradeRawMessageException error) {
+        AggTradeRecordKey key = AggTradeRecordKey.parseOrUnknown(message.key());
         try {
-            String dlqValue = buildDlqEnvelope(record, error);
-            kafkaTemplate.send(DLQ_TOPIC, record.key(), dlqValue).join();
-            telemetryService.recordDlqPublished(keyParts[0], keyParts[1], record.partition(), record.offset(), error.getMessage());
+            String dlqValue = buildDlqEnvelope(message, error);
+            kafkaTemplate.send(DLQ_TOPIC, message.key(), dlqValue).join();
+            telemetryService.recordDlqPublished(key.symbol(), key.marketType(), message.partition(), message.offset(), error.getMessage());
             return true;
         } catch (Exception e) {
-            telemetryService.recordDlqPublishFailure(keyParts[0], keyParts[1], record.partition(), record.offset(), e.getMessage());
+            telemetryService.recordDlqPublishFailure(key.symbol(), key.marketType(), message.partition(), message.offset(), e.getMessage());
             log.error("[AggTradeRawWriter] DLQ publish 실패, offset commit 보류: {}", e.getMessage());
             return false;
         }
     }
 
-    private String[] splitKey(String key) {
-        if (key == null || !key.contains("|")) {
-            return new String[]{"UNKNOWN", "UNKNOWN"};
-        }
-        String[] parts = key.split("\\|", 2);
-        return new String[]{parts[0], parts[1]};
-    }
-
-    private String buildDlqEnvelope(ConsumerRecord<String, String> record, InvalidAggTradeRawMessageException error)
+    private String buildDlqEnvelope(AggTradeRawWriterMessage message, InvalidAggTradeRawMessageException error)
             throws JsonProcessingException {
         Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("originalTopic", record.topic());
-        envelope.put("originalKey", record.key());
-        envelope.put("originalValue", record.value());
-        envelope.put("originalPartition", record.partition());
-        envelope.put("originalOffset", record.offset());
+        envelope.put("originalTopic", message.topic());
+        envelope.put("originalKey", message.key());
+        envelope.put("originalValue", message.value());
+        envelope.put("originalPartition", message.partition());
+        envelope.put("originalOffset", message.offset());
         envelope.put("errorType", "INVALID_MESSAGE");
         envelope.put("errorMessage", error.getMessage());
         envelope.put("failedAt", System.currentTimeMillis());

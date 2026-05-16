@@ -3,14 +3,11 @@ package com.chs.springboot.domain.binance.service.rawwriter;
 import com.chs.springboot.domain.binance.model.AggTradeCollectStatus;
 import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Comparator;
@@ -24,20 +21,20 @@ public class AggTradeRawWriterService {
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
     private final AggTradeCollectStatusRepository statusRepository;
-    private final ObjectMapper objectMapper;
+    private final AggTradeRawWriterBatchPartitioner batchPartitioner;
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
     private final KafkaPipelineSwitchboard switchboard;
 
     public AggTradeRawWriterService(JdbcTemplate jdbcTemplate,
                                     StringRedisTemplate redisTemplate,
                                     AggTradeCollectStatusRepository statusRepository,
-                                    ObjectMapper objectMapper,
+                                    AggTradeRawWriterBatchPartitioner batchPartitioner,
                                     AggTradeRawWriterDryRunVerifier dryRunVerifier,
                                     KafkaPipelineSwitchboard switchboard) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.statusRepository = statusRepository;
-        this.objectMapper = objectMapper;
+        this.batchPartitioner = batchPartitioner;
         this.dryRunVerifier = dryRunVerifier;
         this.switchboard = switchboard;
     }
@@ -61,8 +58,20 @@ public class AggTradeRawWriterService {
             return;
         }
         KafkaPipelineExecutionPlan plan = switchboard.aggTradeRawWriterPlan();
+        AggTradeRawWriterPartitionedBatch partitionedBatch = batchPartitioner.partition(messages);
+        if (partitionedBatch.hasInvalidMessages()) {
+            throw partitionedBatch.invalidMessages().get(0).error();
+        }
+        writeParsedBatch(partitionedBatch.validMessages(), plan);
+    }
+
+    public void writeParsedBatch(List<AggTradeRawWriterParsedMessage> messages) {
+        writeParsedBatch(messages, switchboard.aggTradeRawWriterPlan());
+    }
+
+    private void writeParsedBatch(List<AggTradeRawWriterParsedMessage> messages, KafkaPipelineExecutionPlan plan) {
         List<RawAggTrade> trades = messages.stream()
-                .map(this::parse)
+                .map(AggTradeRawWriterParsedMessage::trade)
                 .toList();
 
         if (!plan.enabled()) {
@@ -81,7 +90,10 @@ public class AggTradeRawWriterService {
                     .map(RawAggTrade::getTradedAt)
                     .max(Long::compareTo)
                     .orElse(0L);
-            dryRunVerifier.finalizeWindowsBefore(windowStart(latestTradedAt));
+            dryRunVerifier.finalizeWindowsBefore(KafkaWindow.startOf(
+                    latestTradedAt,
+                    KafkaWindow.RAW_WRITER_DRY_RUN_WINDOW_MS
+            ));
             return;
         }
 
@@ -89,102 +101,6 @@ public class AggTradeRawWriterService {
         if (plan.updateCheckpoint()) {
             updateCheckpoints(trades);
         }
-    }
-
-    private RawAggTrade parse(AggTradeRawWriterMessage message) {
-        try {
-            JsonNode envelope = objectMapper.readTree(message.value());
-            String symbol = requiredText(envelope, "symbol");
-            String marketType = requiredText(envelope, "marketType");
-            JsonNode payload = envelope.get("payload");
-            if (payload == null || !payload.isObject()) {
-                throw invalid("Missing payload");
-            }
-            validateKey(message.key(), symbol, marketType);
-
-            RawAggTrade trade = new RawAggTrade();
-            trade.setSymbol(symbol);
-            trade.setMarketType(marketType);
-            trade.setAggTradeId(requiredPositiveLong(payload, "a"));
-            trade.setPrice(requiredPositiveDecimal(payload, "p"));
-            trade.setQuantity(requiredPositiveDecimal(payload, "q"));
-            trade.setFirstTradeId(requiredLong(payload, "f"));
-            trade.setLastTradeId(requiredLong(payload, "l"));
-            trade.setIsBuyerMaker(requiredBoolean(payload, "m"));
-            trade.setTradedAt(requiredPositiveLong(payload, "T"));
-            return trade;
-        } catch (InvalidAggTradeRawMessageException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InvalidAggTradeRawMessageException("Invalid aggTrade raw message", e);
-        }
-    }
-
-    private void validateKey(String key, String symbol, String marketType) {
-        if (key == null || key.isBlank()) {
-            return;
-        }
-        String expected = symbol + "|" + marketType;
-        if (!expected.equals(key)) {
-            throw invalid("Key mismatch expected=" + expected + " actual=" + key);
-        }
-    }
-
-    private String requiredText(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || value.asText().isBlank()) {
-            throw invalid("Missing " + field);
-        }
-        return value.asText();
-    }
-
-    private long requiredLong(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || !value.canConvertToLong()) {
-            throw invalid("Missing " + field);
-        }
-        return value.asLong();
-    }
-
-    private long requiredPositiveLong(JsonNode node, String field) {
-        long value = requiredLong(node, field);
-        if (value <= 0) {
-            throw invalid(field + " must be positive");
-        }
-        return value;
-    }
-
-    private BigDecimal requiredPositiveDecimal(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || value.asText().isBlank()) {
-            throw invalid("Missing " + field);
-        }
-        BigDecimal decimal;
-        try {
-            decimal = new BigDecimal(value.asText());
-        } catch (NumberFormatException e) {
-            throw invalid(field + " must be decimal");
-        }
-        if (decimal.signum() <= 0) {
-            throw invalid(field + " must be positive");
-        }
-        return decimal;
-    }
-
-    private boolean requiredBoolean(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || !value.isBoolean()) {
-            throw invalid("Missing " + field);
-        }
-        return value.asBoolean();
-    }
-
-    private InvalidAggTradeRawMessageException invalid(String message) {
-        return new InvalidAggTradeRawMessageException(message);
-    }
-
-    private long windowStart(long tradedAt) {
-        return tradedAt - (tradedAt % 10_000L);
     }
 
     private Long min(List<RawAggTrade> trades, java.util.function.Function<RawAggTrade, Long> getter) {
@@ -238,15 +154,11 @@ public class AggTradeRawWriterService {
      * 기존 값보다 작은 id 는 무시 (offset 되감기/재처리시 checkpoint 후퇴 방지).
      */
     private void updateCheckpoints(List<RawAggTrade> trades) {
-        Map<String, List<RawAggTrade>> bySymbolMarket = trades.stream()
-                .collect(Collectors.groupingBy(t -> t.getSymbol() + ":" + t.getMarketType()));
+        Map<AggTradeRecordKey, List<RawAggTrade>> bySymbolMarket = trades.stream()
+                .collect(Collectors.groupingBy(t -> new AggTradeRecordKey(t.getSymbol(), t.getMarketType())));
         bySymbolMarket.forEach((key, group) -> {
-            String[] parts = key.split(":");
-            if (parts.length != 2) {
-                return;
-            }
-            String symbol = parts[0];
-            String marketType = parts[1];
+            String symbol = key.symbol();
+            String marketType = key.marketType();
             Long maxId = max(group, RawAggTrade::getAggTradeId);
             if (maxId == null) {
                 return;

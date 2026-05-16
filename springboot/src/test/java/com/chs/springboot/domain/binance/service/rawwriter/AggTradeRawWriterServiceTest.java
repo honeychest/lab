@@ -23,12 +23,13 @@ class AggTradeRawWriterServiceTest {
     private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
     private final AggTradeCollectStatusRepository statusRepository = mock(AggTradeCollectStatusRepository.class);
     private final KafkaPipelineSwitchboard switchboard = mock(KafkaPipelineSwitchboard.class);
+    private final AggTradeRawWriterBatchPartitioner batchPartitioner = batchPartitioner();
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, switchboard, 0L);
     private final AggTradeRawWriterService service = new AggTradeRawWriterService(
             jdbcTemplate,
             redisTemplate,
             statusRepository,
-            new ObjectMapper(),
+            batchPartitioner,
             dryRunVerifier,
             switchboard
     );
@@ -91,7 +92,7 @@ class AggTradeRawWriterServiceTest {
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
-                new ObjectMapper(),
+                batchPartitioner(),
                 writeSummaryStore,
                 liveSwitchboard
         );
@@ -133,7 +134,7 @@ class AggTradeRawWriterServiceTest {
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
-                new ObjectMapper(),
+                batchPartitioner(),
                 writeSummaryStore,
                 debugSwitchboard
         );
@@ -157,7 +158,7 @@ class AggTradeRawWriterServiceTest {
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
-                new ObjectMapper(),
+                batchPartitioner(),
                 offSummaryStore,
                 offSwitchboard
         );
@@ -193,5 +194,9 @@ class AggTradeRawWriterServiceTest {
                         }
                         """
         );
+    }
+
+    private AggTradeRawWriterBatchPartitioner batchPartitioner() {
+        return new AggTradeRawWriterBatchPartitioner(new AggTradeRawWriterMessageParser(new ObjectMapper()));
     }
 }
