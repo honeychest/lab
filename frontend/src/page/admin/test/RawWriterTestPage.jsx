@@ -148,33 +148,6 @@ export default function RawWriterTestPage() {
                 </button>
             </header>
 
-            <section className={styles.helpGrid}>
-                <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>무엇을 보는가</h2>
-                    <p className={styles.helpText}>
-                        이 화면은 DB 비교가 아니라 Kafka 신규 경로 자체를 봅니다. raw topic latest offset, consumer committed offset, lag, DLQ 적재량, 최근 시간별 처리량을 같이 봅니다.
-                    </p>
-                </div>
-                <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>핵심 판단</h2>
-                    <p className={styles.helpText}>
-                        lag 가 계속 누적되지 않고 회복되는지, invalid/DLQ 가 특정 시간대에 몰리는지, DB 실패 batch 가 생기는지 확인합니다.
-                    </p>
-                </div>
-                <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>DLQ 해석</h2>
-                    <p className={styles.helpText}>
-                        DLQ published 는 잘못된 메시지를 격리한 건수입니다. DLQ publish failure 가 생기면 offset commit 이 보류될 수 있으므로 바로 확인해야 합니다.
-                    </p>
-                </div>
-                <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>시간별 표 해석</h2>
-                    <p className={styles.helpText}>
-                        consumed 와 write success 가 비슷하고 failed batch 가 0 이면 정상입니다. invalid, DLQ, DB failure 가 보이면 그 시간대 로그와 같이 봅니다.
-                    </p>
-                </div>
-            </section>
-
             <section className={styles.statusGrid}>
                 <div className={styles.statusBox}>
                     <span className={styles.statusLabel}>mode</span>

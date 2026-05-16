@@ -1,11 +1,16 @@
 .page {
-    display: grid;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) minmax(0, 1fr);
-    gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     color: var(--monitor-text-primary);
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
+}
+
+.page strong {
+    font-size: 13px;
+    line-height: 1.2;
 }
 
 .header {
@@ -17,14 +22,14 @@
 
 .title {
     margin: 0;
-    font-size: 24px;
+    font-size: 18px;
     line-height: 1.2;
 }
 
 .subtitle {
-    margin: 6px 0 0;
+    margin: 4px 0 0;
     color: var(--monitor-text-secondary);
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .helpGrid,
@@ -62,16 +67,16 @@
 .statusBox,
 .metricBox,
 .topicBox {
-    padding: 14px;
+    padding: 6px 10px;
     display: grid;
-    gap: 6px;
+    gap: 2px;
 }
 
 .helpTitle,
 .panelTitle {
     margin: 0;
-    font-size: 13px;
-    line-height: 1.3;
+    font-size: 12px;
+    line-height: 1.2;
 }
 
 .helpText,
@@ -79,8 +84,8 @@
 .statusLabel {
     margin: 0;
     color: var(--monitor-text-secondary);
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 11px;
+    line-height: 1.35;
 }
 
 .statusLabel {
@@ -161,28 +166,29 @@
 
 .summaryTableWrap {
     min-height: 0;
-    height: 100%;
-    overflow: auto;
+    max-height: 360px;
+    overflow-y: auto;
+    overflow-x: hidden;
     border: 1px solid var(--monitor-border);
     background: var(--monitor-card-bg);
 }
 
 .summaryTable {
     width: 100%;
-    min-width: 980px;
     border-collapse: collapse;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .summaryTable th,
 .summaryTable td {
-    padding: 10px 12px;
+    padding: 4px 6px;
     border-bottom: 1px solid var(--monitor-border);
     border-right: 1px solid var(--monitor-border);
-    font-size: 12px;
+    font-size: 11px;
     text-align: left;
     vertical-align: middle;
     overflow-wrap: anywhere;
+    word-break: break-all;
 }
 
 .summaryTable th:last-child,
