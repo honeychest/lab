@@ -18,24 +18,37 @@ public class TableShadowVerifier {
     }
 
     public TableShadowCompareResponse compareRecent(TableShadowProfile profile, int minutes) {
+        return compareRecent(profile, minutes, 20);
+    }
+
+    public TableShadowCompareResponse compareRecent(TableShadowProfile profile, int minutes, int graceSeconds) {
         int safeMinutes = Math.max(1, Math.min(minutes, 24 * 60));
-        long sinceMs = System.currentTimeMillis() - safeMinutes * 60_000L;
-        Map<String, TableStats> rawStats = loadStats(profile, profile.rawTable(), sinceMs);
-        Map<String, TableStats> shadowStats = loadStats(profile, profile.shadowTable(), sinceMs);
+        int safeGraceSeconds = Math.max(0, Math.min(graceSeconds, 5 * 60));
+        long now = System.currentTimeMillis();
+        long sinceMs = now - safeMinutes * 60_000L;
+        long untilMs = now - safeGraceSeconds * 1_000L;
+        Map<String, TableStats> rawStats = loadStats(profile, profile.rawTable(), sinceMs, untilMs);
+        Map<String, TableStats> shadowStats = loadStats(profile, profile.shadowTable(), sinceMs, untilMs);
         Map<String, TableShadowCompareRow> rows = new LinkedHashMap<>();
 
         rawStats.forEach((key, raw) -> rows.put(key, toRow(raw, shadowStats.get(key))));
         shadowStats.forEach((key, shadow) -> rows.putIfAbsent(key, toRow(rawStats.get(key), shadow)));
 
-        return new TableShadowCompareResponse(profile.id(), safeMinutes, List.copyOf(rows.values()));
+        return new TableShadowCompareResponse(profile.id(), safeMinutes, safeGraceSeconds, List.copyOf(rows.values()));
     }
 
     public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList) {
+        return compareRecentWindows(profile, minutesList, 20);
+    }
+
+    public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList, int graceSeconds) {
+        int safeGraceSeconds = Math.max(0, Math.min(graceSeconds, 5 * 60));
         List<TableShadowWindowSummary> windows = minutesList.stream()
                 .distinct()
-                .map(minutes -> compareRecent(profile, minutes))
+                .map(minutes -> compareRecent(profile, minutes, safeGraceSeconds))
                 .map(response -> new TableShadowWindowSummary(
                         response.minutes(),
+                        response.graceSeconds(),
                         response.rows().size(),
                         (int) response.rows().stream().filter(row -> !"OK".equals(row.status())).count(),
                         response.rows().stream().mapToLong(TableShadowCompareRow::countDelta).sum()
@@ -44,7 +57,7 @@ public class TableShadowVerifier {
         return new TableShadowMultiCompareResponse(profile.id(), windows);
     }
 
-    private Map<String, TableStats> loadStats(TableShadowProfile profile, String tableName, long sinceMs) {
+    private Map<String, TableStats> loadStats(TableShadowProfile profile, String tableName, long sinceMs, long untilMs) {
         String sql = """
                 SELECT %s AS symbol,
                        %s AS market_type,
@@ -53,6 +66,7 @@ public class TableShadowVerifier {
                        MAX(%s) AS max_sequence
                 FROM %s
                 WHERE %s >= ?
+                  AND %s < ?
                 GROUP BY %s, %s
                 ORDER BY %s, %s
                 """.formatted(
@@ -61,6 +75,7 @@ public class TableShadowVerifier {
                 profile.sequenceColumn(),
                 profile.sequenceColumn(),
                 tableName,
+                profile.timeColumn(),
                 profile.timeColumn(),
                 profile.symbolColumn(),
                 profile.marketTypeColumn(),
@@ -77,7 +92,7 @@ public class TableShadowVerifier {
                     rs.getObject("max_sequence", Long.class)
             );
             stats.put(row.symbol + "|" + row.marketType, row);
-        }, sinceMs);
+        }, sinceMs, untilMs);
         return stats;
     }
 

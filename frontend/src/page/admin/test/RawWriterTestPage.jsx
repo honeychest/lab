@@ -12,11 +12,13 @@ const EMPTY_SUMMARY = {
 
 const EMPTY_SHADOW = {
     minutes: 60,
+    graceSeconds: 20,
     rows: [],
 };
 
 const EMPTY_WINDOWS = [];
 const MINUTE_PRESETS = [5, 15, 60, 180];
+const DEFAULT_GRACE_SECONDS = 20;
 
 function formatStatus(value) {
     if (value === true) return 'ON';
@@ -94,11 +96,11 @@ export default function RawWriterTestPage() {
         const [detailLog, windowsLog] = await Promise.all([
             logApiCall(
             `GET /api/admin/test/agg-trade/raw-writer/shadow-comparison?minutes=${minutes}`,
-            () => fetchRawWriterShadowComparison(minutes)
+            () => fetchRawWriterShadowComparison(minutes, DEFAULT_GRACE_SECONDS)
             ),
             logApiCall(
                 `GET /api/admin/test/agg-trade/raw-writer/shadow-comparison/windows?minutes=${MINUTE_PRESETS.join(',')}`,
-                () => fetchRawWriterShadowComparisonWindows(MINUTE_PRESETS)
+                () => fetchRawWriterShadowComparisonWindows(MINUTE_PRESETS, DEFAULT_GRACE_SECONDS)
             ),
         ]);
         setShadowLog(detailLog);
@@ -106,6 +108,7 @@ export default function RawWriterTestPage() {
             setPreviousShadow(shadow.rows);
             setShadow({
                 minutes: detailLog.responseBody?.minutes ?? minutes,
+                graceSeconds: detailLog.responseBody?.graceSeconds ?? DEFAULT_GRACE_SECONDS,
                 rows: Array.isArray(detailLog.responseBody?.rows) ? detailLog.responseBody.rows : [],
             });
         }
@@ -148,7 +151,7 @@ export default function RawWriterTestPage() {
                 <div className={styles.helpBox}>
                     <h2 className={styles.helpTitle}>시간창 판단</h2>
                     <p className={styles.helpText}>
-                        5분은 최근 추세, 15분은 단기 누적, 60분 이상은 drift 누적 여부 확인용입니다. 짧은 창과 긴 창을 같이 보면 일시적 경계 차이인지 누적 차이인지 구분하기 쉽습니다.
+                        5분은 최근 추세, 15분은 단기 누적, 60분 이상은 drift 누적 여부 확인용입니다. 비교는 최신 {DEFAULT_GRACE_SECONDS}초를 제외하고 계산합니다.
                     </p>
                 </div>
                 <div className={styles.helpBox}>
@@ -179,7 +182,7 @@ export default function RawWriterTestPage() {
                     <div>
                         <h2 className={styles.panelTitle}>Shadow Compare</h2>
                         <p className={styles.panelMeta}>
-                            {shadowLog ? `${shadowLog.statusCode ?? '-'} / ${shadowLog.durationMs}ms / last ${shadow.minutes}m` : `last ${shadow.minutes}m`}
+                            {shadowLog ? `${shadowLog.statusCode ?? '-'} / ${shadowLog.durationMs}ms / last ${shadow.minutes}m / grace ${shadow.graceSeconds}s` : `last ${shadow.minutes}m / grace ${shadow.graceSeconds}s`}
                         </p>
                     </div>
                     <div className={styles.compareControls}>

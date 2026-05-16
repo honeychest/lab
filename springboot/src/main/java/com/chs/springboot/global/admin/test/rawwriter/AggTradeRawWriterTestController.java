@@ -32,14 +32,16 @@ public class AggTradeRawWriterTestController {
 
     @GetMapping("/shadow-comparison")
     public TableShadowCompareResponse shadowComparison(
-            @RequestParam(defaultValue = "60") int minutes
+            @RequestParam(defaultValue = "60") int minutes,
+            @RequestParam(defaultValue = "20") int graceSeconds
     ) {
-        return shadowVerifier.compareRecent(TableShadowProfile.AGG_TRADE_RAW, minutes);
+        return shadowVerifier.compareRecent(TableShadowProfile.AGG_TRADE_RAW, minutes, graceSeconds);
     }
 
     @GetMapping("/shadow-comparison/windows")
     public TableShadowMultiCompareResponse shadowComparisonWindows(
-            @RequestParam(defaultValue = "5,15,60,180") String minutes
+            @RequestParam(defaultValue = "5,15,60,180") String minutes,
+            @RequestParam(defaultValue = "20") int graceSeconds
     ) {
         List<Integer> parsedMinutes;
         try {
@@ -51,6 +53,6 @@ public class AggTradeRawWriterTestController {
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "minutes must be a comma-separated list of integers");
         }
-        return shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, parsedMinutes);
+        return shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, parsedMinutes, graceSeconds);
     }
 }

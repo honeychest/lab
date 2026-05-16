@@ -81,9 +81,10 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     @Test
     @DisplayName("GET /shadow-comparison -> 운영 테이블과 shadow 테이블 비교 지표 반환")
     void shadowComparison_returnsRawAndShadowTableComparison() throws Exception {
-        when(shadowVerifier.compareRecent(TableShadowProfile.AGG_TRADE_RAW, 60)).thenReturn(new TableShadowCompareResponse(
+        when(shadowVerifier.compareRecent(TableShadowProfile.AGG_TRADE_RAW, 60, 20)).thenReturn(new TableShadowCompareResponse(
                 "agg-trade-raw",
                 60,
+                20,
                 List.of(new TableShadowCompareRow(
                         "BTCUSDT",
                         "FUTURES",
@@ -103,6 +104,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.profile").value("agg-trade-raw"))
                 .andExpect(jsonPath("$.minutes").value(60))
+                .andExpect(jsonPath("$.graceSeconds").value(20))
                 .andExpect(jsonPath("$.rows[0].symbol").value("BTCUSDT"))
                 .andExpect(jsonPath("$.rows[0].marketType").value("FUTURES"))
                 .andExpect(jsonPath("$.rows[0].rawCount").value(100))
@@ -114,13 +116,13 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     @Test
     @DisplayName("GET /shadow-comparison/windows -> 다중 시간창 비교 요약 반환")
     void shadowComparisonWindows_returnsWindowSummaries() throws Exception {
-        when(shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, List.of(5, 15, 60)))
+        when(shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, List.of(5, 15, 60), 20))
                 .thenReturn(new TableShadowMultiCompareResponse(
                         "agg-trade-raw",
                         List.of(
-                                new TableShadowWindowSummary(5, 4, 1, -1),
-                                new TableShadowWindowSummary(15, 4, 2, -3),
-                                new TableShadowWindowSummary(60, 4, 3, -6)
+                                new TableShadowWindowSummary(5, 20, 4, 1, -1),
+                                new TableShadowWindowSummary(15, 20, 4, 2, -3),
+                                new TableShadowWindowSummary(60, 20, 4, 3, -6)
                         )
                 ));
 
@@ -129,6 +131,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.profile").value("agg-trade-raw"))
                 .andExpect(jsonPath("$.windows[0].minutes").value(5))
+                .andExpect(jsonPath("$.windows[0].graceSeconds").value(20))
                 .andExpect(jsonPath("$.windows[0].totalRows").value(4))
                 .andExpect(jsonPath("$.windows[0].checkRows").value(1))
                 .andExpect(jsonPath("$.windows[0].totalDelta").value(-1))
