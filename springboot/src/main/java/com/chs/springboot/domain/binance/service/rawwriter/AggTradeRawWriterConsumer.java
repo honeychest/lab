@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataAccessException;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -22,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@ConditionalOnProperty(name = "binance.agg-trade.raw-writer.enabled", havingValue = "true")
 public class AggTradeRawWriterConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AggTradeRawWriterConsumer.class);
@@ -35,23 +32,34 @@ public class AggTradeRawWriterConsumer {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final KafkaListenerEndpointRegistry listenerRegistry;
     private final AggTradeRawWriterDryRunVerifier verifier;
+    private final KafkaPipelineSwitchboard switchboard;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final boolean enabled;
 
     public AggTradeRawWriterConsumer(AggTradeRawWriterService writerService,
                                      KafkaTemplate<String, String> kafkaTemplate,
                                      KafkaListenerEndpointRegistry listenerRegistry,
                                      AggTradeRawWriterDryRunVerifier verifier,
-                                     @Value("${binance.agg-trade.raw-writer.enabled:false}") boolean enabled) {
+                                     KafkaPipelineSwitchboard switchboard) {
         this.writerService = writerService;
         this.kafkaTemplate = kafkaTemplate;
         this.listenerRegistry = listenerRegistry;
         this.verifier = verifier;
-        this.enabled = enabled;
+        this.switchboard = switchboard;
     }
 
+    /**
+     * 리더십 변경 이벤트 핸들러.
+     * 같은 Kafka group 의 메시지를 여러 노드가 중복 consume 하지 못하도록
+     * 리더 노드에서만 listener container 를 start/stop 한다.
+     *
+     * <p>pipeline state 가 OFF(=enabled=false) 일 때는 리더가 되어도 container 를 띄우지 않는다.
+     * autoStartup=false 와 결합되어, OFF 상태에서는 어떤 노드도 메시지를 consume 하지 않음.</p>
+     */
     @EventListener
     public void onLeadershipChanged(LeadershipChangedEvent event) {
+        if (!switchboard.aggTradeRawWriterPlan().enabled()) {
+            return;
+        }
         MessageListenerContainer container = listenerRegistry.getListenerContainer(LISTENER_ID);
         if (container == null) {
             return;
@@ -70,15 +78,30 @@ public class AggTradeRawWriterConsumer {
         }
     }
 
+    /**
+     * Kafka 메시지 소비 entry point.
+     *
+     * <p>groupId 는 환경별 분리(prod=raw-writer, local=raw-writer-local) 가능하도록 외부화.
+     * 같은 토픽을 보더라도 group-id 가 다르면 offset 이 독립되어, 로컬 검증이 prod offset 을 선점하지 않음.</p>
+     *
+     * <p>autoStartup=false 이며 onLeadershipChanged 에서만 container 를 띄운다.</p>
+     *
+     * <p>에러 처리 정책:
+     * <ul>
+     *   <li>InvalidAggTradeRawMessageException : 배치 내 잘못된 레코드만 골라 DLQ 로 보낸 뒤 offset commit.</li>
+     *   <li>DataAccessException / 그 외 예외      : offset commit 보류 → 재시도 루프로 자동 재처리.</li>
+     * </ul>
+     * </p>
+     */
     @KafkaListener(
             id = LISTENER_ID,
             topics = RAW_TOPIC,
-            groupId = "raw-writer",
+            groupId = "${kafka.consumer.group-id:raw-writer}",
             containerFactory = "aggTradeRawWriterKafkaListenerContainerFactory",
             autoStartup = "false"
     )
     public void consume(List<ConsumerRecord<String, String>> records, Acknowledgment ack) {
-        if (!enabled || records == null || records.isEmpty()) {
+        if (!switchboard.aggTradeRawWriterPlan().enabled() || records == null || records.isEmpty()) {
             return;
         }
         try {

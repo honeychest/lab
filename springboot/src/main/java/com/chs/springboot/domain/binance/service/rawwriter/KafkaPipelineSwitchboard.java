@@ -1,0 +1,37 @@
+package com.chs.springboot.domain.binance.service.rawwriter;
+
+import org.springframework.stereotype.Component;
+
+/**
+ * Kafka raw-writer 파이프라인의 동작 상태를 결정하는 단일 진입점.
+ *
+ * <p>상태값은 properties 가 아닌 코드 상수로 관리한다.
+ * 이유: 운영 중 실수 토글(예: shadow 인 줄 알았는데 LIVE) 을 막고, 상태 전환을 PR 리뷰 흐름에 강제로 태우기 위함.
+ * 전환 절차: 상수 값을 수정 -> PR/리뷰 -> 재배포.</p>
+ *
+ * <p>승급 권장 순서: OFF -> DRY_RUN -> DEBUG(_test 테이블 적재 정합성 확인) -> LIVE.</p>
+ */
+@Component
+public class KafkaPipelineSwitchboard {
+
+    // aggTrade 파이프라인 현재 상태. LIVE 로 올리기 전에 반드시 DEBUG 단계에서 _test 테이블 무결성 확인 필요.
+    private static final KafkaPipelineState AGG_TRADE_STATE = KafkaPipelineState.DEBUG;
+
+    // LIVE 상태에서 INSERT 할 실 테이블.
+    private static final String AGG_TRADE_LIVE_TABLE = "raw_agg_trade";
+
+    // DEBUG(shadow) 상태에서 INSERT 할 검증용 테이블. 실 서비스 쿼리에서는 참조하지 않음.
+    private static final String AGG_TRADE_DEBUG_TABLE = "raw_agg_trade_test";
+
+    /**
+     * aggTrade raw-writer 가 따라야 할 현재 실행 플랜을 반환한다.
+     * Consumer / Service / DryRunVerifier 가 이 메서드만 호출해 동작을 결정한다.
+     */
+    public KafkaPipelineExecutionPlan aggTradeRawWriterPlan() {
+        return KafkaPipelineExecutionPlan.from(
+                AGG_TRADE_STATE,
+                AGG_TRADE_LIVE_TABLE,
+                AGG_TRADE_DEBUG_TABLE
+        );
+    }
+}

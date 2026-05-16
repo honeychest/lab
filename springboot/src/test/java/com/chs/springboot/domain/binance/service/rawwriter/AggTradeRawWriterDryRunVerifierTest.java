@@ -12,12 +12,17 @@ import static org.mockito.Mockito.when;
 class AggTradeRawWriterDryRunVerifierTest {
 
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+    private final KafkaPipelineSwitchboard switchboard = mock(KafkaPipelineSwitchboard.class);
     private final AggTradeRawWriterDryRunVerifier store = new AggTradeRawWriterDryRunVerifier(
             jdbcTemplate,
-            true,
-            true,
+            switchboard,
             1778410004000L
     );
+
+    AggTradeRawWriterDryRunVerifierTest() {
+        when(switchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.DRY_RUN, "raw_agg_trade", "raw_agg_trade_test"));
+    }
 
     @Test
     void discardInFlightVerificationDiscardsAccumulatedWindowsButKeepsSummaries() {

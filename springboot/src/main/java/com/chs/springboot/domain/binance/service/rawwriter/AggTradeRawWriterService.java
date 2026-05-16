@@ -5,7 +5,6 @@ import com.chs.springboot.domain.binance.model.RawAggTrade;
 import com.chs.springboot.domain.binance.repository.AggTradeCollectStatusRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,34 +26,50 @@ public class AggTradeRawWriterService {
     private final AggTradeCollectStatusRepository statusRepository;
     private final ObjectMapper objectMapper;
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
-    private final boolean dryRun;
-    private final AggTradeRawWriterWriteMode writeMode;
+    private final KafkaPipelineSwitchboard switchboard;
 
     public AggTradeRawWriterService(JdbcTemplate jdbcTemplate,
                                     StringRedisTemplate redisTemplate,
                                     AggTradeCollectStatusRepository statusRepository,
                                     ObjectMapper objectMapper,
                                     AggTradeRawWriterDryRunVerifier dryRunVerifier,
-                                    @Value("${binance.agg-trade.raw-writer.dry-run:true}") boolean dryRun,
-                                    @Value("${binance.agg-trade.raw-writer.write-mode:dry-run}") String writeMode) {
+                                    KafkaPipelineSwitchboard switchboard) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.statusRepository = statusRepository;
         this.objectMapper = objectMapper;
         this.dryRunVerifier = dryRunVerifier;
-        this.dryRun = dryRun;
-        this.writeMode = AggTradeRawWriterWriteMode.from(dryRun ? "dry-run" : writeMode);
+        this.switchboard = switchboard;
     }
 
+    /**
+     * Kafka consumer 로부터 받은 메시지 배치를 현재 pipeline state 에 따라 분기 처리한다.
+     *
+     * <p>분기 규칙:
+     * <ul>
+     *   <li>plan.enabled() == false (OFF)             : 아무것도 하지 않고 즉시 종료.</li>
+     *   <li>plan.dryRun() == true (DRY_RUN)           : DB 미터치. dryRunVerifier 에만 윈도우 누적.</li>
+     *   <li>그 외 (DEBUG / LIVE)                       : plan.targetTable() 에 batch INSERT.</li>
+     *   <li>plan.updateCheckpoint() == true (LIVE only): redis/status 테이블 checkpoint 갱신.</li>
+     * </ul>
+     *
+     * <p>주의: parse 는 enabled 여부와 무관하게 항상 수행한다. parse 실패(잘못된 메시지)는 plan 과 무관하게
+     * 항상 예외를 던져 컨슈머 쪽에서 dead-letter 처리하도록 두기 위함.</p>
+     */
     public void writeBatch(List<AggTradeRawWriterMessage> messages) {
         if (messages == null || messages.isEmpty()) {
             return;
         }
+        KafkaPipelineExecutionPlan plan = switchboard.aggTradeRawWriterPlan();
         List<RawAggTrade> trades = messages.stream()
                 .map(this::parse)
                 .toList();
 
-        if (writeMode == AggTradeRawWriterWriteMode.DRY_RUN) {
+        if (!plan.enabled()) {
+            return;
+        }
+
+        if (plan.dryRun()) {
             trades.forEach(trade -> dryRunVerifier.accumulate(new AggTradeRawWriterKafkaWindowEvent(
                     trade.getSymbol(),
                     trade.getMarketType(),
@@ -70,8 +85,8 @@ public class AggTradeRawWriterService {
             return;
         }
 
-        batchInsert(trades);
-        if (writeMode.updatesCheckpoint()) {
+        batchInsert(plan.targetTable(), trades);
+        if (plan.updateCheckpoint()) {
             updateCheckpoints(trades);
         }
     }
@@ -180,11 +195,17 @@ public class AggTradeRawWriterService {
         return trades.stream().map(getter).max(Comparator.naturalOrder()).orElse(null);
     }
 
-    private void batchInsert(List<RawAggTrade> trades) {
+    /**
+     * targetTable 에 trades 를 batch INSERT 한다.
+     * targetTable 은 plan 이 결정한 값(DEBUG=raw_agg_trade_test / LIVE=raw_agg_trade)으로,
+     * 외부 입력이 아닌 enum 매핑 결과라 SQL injection 위험 없음.
+     * INSERT IGNORE: agg_trade_id 중복 시 silent skip (재처리/오프셋 되감기 안전).
+     */
+    private void batchInsert(String targetTable, List<RawAggTrade> trades) {
         if (trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT IGNORE INTO " + writeMode.tableName() + " " +
+        String sql = "INSERT IGNORE INTO " + targetTable + " " +
                 "(symbol, market_type, agg_trade_id, price, quantity, first_trade_id, last_trade_id, is_buyer_maker, traded_at, saved_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(6))";
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
@@ -209,6 +230,13 @@ public class AggTradeRawWriterService {
         });
     }
 
+    /**
+     * LIVE 모드에서만 호출된다. symbol+marketType 별 최대 aggTradeId 를
+     * redis 와 status 테이블 양쪽에 기록한다.
+     * - redis 키: aggtrade:checkpoint:{symbol}:{marketType} (실시간 hot path 용)
+     * - status 테이블 lastStreamAggId : backfill/관제용 영속 저장
+     * 기존 값보다 작은 id 는 무시 (offset 되감기/재처리시 checkpoint 후퇴 방지).
+     */
     private void updateCheckpoints(List<RawAggTrade> trades) {
         Map<String, List<RawAggTrade>> bySymbolMarket = trades.stream()
                 .collect(Collectors.groupingBy(t -> t.getSymbol() + ":" + t.getMarketType()));

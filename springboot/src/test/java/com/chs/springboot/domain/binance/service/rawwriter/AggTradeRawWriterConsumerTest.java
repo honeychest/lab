@@ -27,10 +27,16 @@ class AggTradeRawWriterConsumerTest {
     private final KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
     private final KafkaListenerEndpointRegistry registry = mock(KafkaListenerEndpointRegistry.class);
     private final AggTradeRawWriterDryRunVerifier verifier = mock(AggTradeRawWriterDryRunVerifier.class);
+    private final KafkaPipelineSwitchboard switchboard = mock(KafkaPipelineSwitchboard.class);
     private final MessageListenerContainer container = mock(MessageListenerContainer.class);
     private final AggTradeRawWriterConsumer consumer =
-            new AggTradeRawWriterConsumer(writerService, kafkaTemplate, registry, verifier, true);
+            new AggTradeRawWriterConsumer(writerService, kafkaTemplate, registry, verifier, switchboard);
     private final Acknowledgment ack = mock(Acknowledgment.class);
+
+    AggTradeRawWriterConsumerTest() {
+        when(switchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.DEBUG, "raw_agg_trade", "raw_agg_trade_test"));
+    }
 
     @Test
     void startsListenerWhenBecomingLeaderAndContainerStopped() {
@@ -82,6 +88,16 @@ class AggTradeRawWriterConsumerTest {
         consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", false));
 
         verify(verifier, never()).discardInFlightVerification();
+    }
+
+    @Test
+    void ignoresLeadershipEventWhenPipelineDisabled() {
+        when(switchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.OFF, "raw_agg_trade", "raw_agg_trade_test"));
+
+        consumer.onLeadershipChanged(new LeadershipChangedEvent("SERVER1", true));
+
+        verify(registry, never()).getListenerContainer("rawWriterListener");
     }
 
     @Test

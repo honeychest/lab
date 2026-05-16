@@ -5,8 +5,10 @@ import { logApiCall } from './shared/logApiCall.js';
 import styles from './RawWriterTestPage.module.css';
 
 const EMPTY_SUMMARY = {
+    mode: null,
     enabled: null,
     dryRun: null,
+    targetTable: null,
     summaries: [],
 };
 
@@ -26,6 +28,18 @@ function formatStatus(value) {
     if (value === true) return 'ON';
     if (value === false) return 'OFF';
     return 'UNKNOWN';
+}
+
+function formatMode(mode) {
+    if (!mode) return 'UNKNOWN';
+    return String(mode).toUpperCase();
+}
+
+function getSummaryEmptyMessage(mode) {
+    if (mode === 'off') return 'raw-writer mode가 OFF 입니다. Kafka consume 이 비활성입니다.';
+    if (mode === 'debug') return '현재 mode=DEBUG 입니다. _test 테이블 적재 여부는 아래 Shadow Compare 를 확인하세요.';
+    if (mode === 'live') return '현재 mode=LIVE 입니다. dry-run summary를 쌓지 않습니다.';
+    return 'dry-run summary가 없습니다.';
 }
 
 function formatTime(value) {
@@ -64,8 +78,10 @@ export default function RawWriterTestPage() {
         setLastLog(log);
         if (log.ok) {
             setState({
+                mode: log.responseBody?.mode ?? null,
                 enabled: log.responseBody?.enabled ?? null,
                 dryRun: log.responseBody?.dryRun ?? null,
+                targetTable: log.responseBody?.targetTable ?? null,
                 summaries: asList(log.responseBody),
             });
         }
@@ -93,8 +109,8 @@ export default function RawWriterTestPage() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Raw Writer Dry-Run</h1>
-                    <p className={styles.subtitle}>Kafka consume 대상과 DB insert 후보를 실제 저장 없이 확인합니다.</p>
+                    <h1 className={styles.title}>Raw Writer</h1>
+                    <p className={styles.subtitle}>현재 mode 기준으로 Kafka consume 상태와 dry-run 또는 shadow 검증 결과를 확인합니다.</p>
                 </div>
                 <button className={styles.refreshButton} onClick={handleRefresh} disabled={loading}>
                     <RefreshCw size={16} />
@@ -104,12 +120,16 @@ export default function RawWriterTestPage() {
 
             <section className={styles.statusGrid}>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>raw-writer</span>
+                    <span className={styles.statusLabel}>mode</span>
+                    <strong>{formatMode(state.mode)}</strong>
+                </div>
+                <div className={styles.statusBox}>
+                    <span className={styles.statusLabel}>consume</span>
                     <strong>{formatStatus(state.enabled)}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>dry-run</span>
-                    <strong>{formatStatus(state.dryRun)}</strong>
+                    <span className={styles.statusLabel}>target</span>
+                    <strong>{state.targetTable ?? '-'}</strong>
                 </div>
                 <div className={styles.statusBox}>
                     <span className={styles.statusLabel}>last request</span>
@@ -125,7 +145,7 @@ export default function RawWriterTestPage() {
 
             <section className={styles.summaryTableWrap}>
                 {state.summaries.length === 0 ? (
-                    <div className={styles.emptyBox}>dry-run summary가 없습니다.</div>
+                    <div className={styles.emptyBox}>{getSummaryEmptyMessage(state.mode)}</div>
                 ) : (
                     <table className={styles.summaryTable}>
                         <thead>

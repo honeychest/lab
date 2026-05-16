@@ -10,7 +10,6 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -23,16 +22,21 @@ class AggTradeRawWriterServiceTest {
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
     private final AggTradeCollectStatusRepository statusRepository = mock(AggTradeCollectStatusRepository.class);
-    private final AggTradeRawWriterDryRunVerifier dryRunVerifier = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, true);
+    private final KafkaPipelineSwitchboard switchboard = mock(KafkaPipelineSwitchboard.class);
+    private final AggTradeRawWriterDryRunVerifier dryRunVerifier = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, switchboard, 0L);
     private final AggTradeRawWriterService service = new AggTradeRawWriterService(
             jdbcTemplate,
             redisTemplate,
             statusRepository,
             new ObjectMapper(),
             dryRunVerifier,
-            true,
-            "dry-run"
+            switchboard
     );
+
+    AggTradeRawWriterServiceTest() {
+        when(switchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.DRY_RUN, "raw_agg_trade", "raw_agg_trade_test"));
+    }
 
     @Test
     void dryRunRecordsInsertCandidateSummaryWithoutWritingDbOrCheckpoint() {
@@ -78,16 +82,18 @@ class AggTradeRawWriterServiceTest {
     }
 
     @Test
-    void writeModeUsesInsertIgnoreBatchSqlAndPreparedStatementBindings() throws Exception {
-        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, false);
+    void liveStateUsesInsertIgnoreBatchSqlAndPreparedStatementBindings() throws Exception {
+        KafkaPipelineSwitchboard liveSwitchboard = mock(KafkaPipelineSwitchboard.class);
+        when(liveSwitchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.LIVE, "raw_agg_trade", "raw_agg_trade_test"));
+        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, liveSwitchboard, 0L);
         AggTradeRawWriterService writeService = new AggTradeRawWriterService(
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
                 new ObjectMapper(),
                 writeSummaryStore,
-                false,
-                "live"
+                liveSwitchboard
         );
         org.mockito.ArgumentCaptor<org.springframework.jdbc.core.BatchPreparedStatementSetter> setterCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.jdbc.core.BatchPreparedStatementSetter.class);
@@ -118,16 +124,18 @@ class AggTradeRawWriterServiceTest {
     }
 
     @Test
-    void shadowModeWritesToShadowTableWithoutCheckpointSideEffects() {
-        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, true, false);
+    void debugStateWritesToTestTableWithoutCheckpointSideEffects() {
+        KafkaPipelineSwitchboard debugSwitchboard = mock(KafkaPipelineSwitchboard.class);
+        when(debugSwitchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.DEBUG, "raw_agg_trade", "raw_agg_trade_test"));
+        AggTradeRawWriterDryRunVerifier writeSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, debugSwitchboard, 0L);
         AggTradeRawWriterService writeService = new AggTradeRawWriterService(
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
                 new ObjectMapper(),
                 writeSummaryStore,
-                false,
-                "shadow"
+                debugSwitchboard
         );
 
         writeService.writeBatch(List.of(validMessage()));
@@ -140,17 +148,25 @@ class AggTradeRawWriterServiceTest {
     }
 
     @Test
-    void rejectsUnsupportedWriteMode() {
-        assertThatThrownBy(() -> new AggTradeRawWriterService(
+    void offStateSkipsDbInsertAndCheckpoint() {
+        KafkaPipelineSwitchboard offSwitchboard = mock(KafkaPipelineSwitchboard.class);
+        when(offSwitchboard.aggTradeRawWriterPlan())
+                .thenReturn(KafkaPipelineExecutionPlan.from(KafkaPipelineState.OFF, "raw_agg_trade", "raw_agg_trade_test"));
+        AggTradeRawWriterDryRunVerifier offSummaryStore = new AggTradeRawWriterDryRunVerifier(jdbcTemplate, offSwitchboard, 0L);
+        AggTradeRawWriterService offService = new AggTradeRawWriterService(
                 jdbcTemplate,
                 redisTemplate,
                 statusRepository,
                 new ObjectMapper(),
-                dryRunVerifier,
-                false,
-                "raw_agg_trade_test"
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported raw-writer write mode");
+                offSummaryStore,
+                offSwitchboard
+        );
+
+        offService.writeBatch(List.of(validMessage()));
+
+        verify(jdbcTemplate, never()).batchUpdate(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.BatchPreparedStatementSetter.class));
+        verify(redisTemplate, never()).opsForValue();
+        verify(statusRepository, never()).save(any());
     }
 
     private AggTradeRawWriterMessage validMessage() {

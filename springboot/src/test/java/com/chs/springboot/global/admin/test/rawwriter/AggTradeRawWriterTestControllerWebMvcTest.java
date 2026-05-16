@@ -45,15 +45,19 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     @DisplayName("GET /dry-run-summaries -> raw-writer 상태와 최근 dry-run summary 반환")
     void dryRunSummaries_returnsStateAndRecentSummaries() throws Exception {
         when(summaryStore.snapshot()).thenReturn(new AggTradeRawWriterSummaryResponse(
+                "dry-run",
                 true,
                 true,
+                null,
                 List.of()
         ));
 
         mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/dry-run-summaries"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode").value("dry-run"))
                 .andExpect(jsonPath("$.enabled").value(true))
                 .andExpect(jsonPath("$.dryRun").value(true))
+                .andExpect(jsonPath("$.targetTable").doesNotExist())
                 .andExpect(jsonPath("$.summaries").isArray());
     }
 
