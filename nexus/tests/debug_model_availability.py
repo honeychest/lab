@@ -113,7 +113,7 @@ async def call_lmstudio(client: AsyncOpenAI, model: str, prompt: str) -> dict:
             client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                #extra_body={"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 2048}},
+                #extra_body={"chat_template_kwargs": {"enable_thinking": False, "thinking_budget": 512}},
             ),
             timeout=LMSTUDIO_TIMEOUT,
         )
