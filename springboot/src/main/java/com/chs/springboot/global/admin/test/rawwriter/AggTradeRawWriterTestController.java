@@ -2,6 +2,9 @@ package com.chs.springboot.global.admin.test.rawwriter;
 
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryResponse;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryService;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryWindowsResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowCompareResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowMultiCompareResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowProfile;
@@ -24,6 +27,7 @@ public class AggTradeRawWriterTestController {
 
     private final AggTradeRawWriterDryRunVerifier dryRunVerifier;
     private final TableShadowVerifier shadowVerifier;
+    private final AggTradeRawWriterKafkaTelemetryService telemetryService;
 
     @GetMapping("/dry-run-summaries")
     public AggTradeRawWriterSummaryResponse dryRunSummaries() {
@@ -54,5 +58,18 @@ public class AggTradeRawWriterTestController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "minutes must be a comma-separated list of integers");
         }
         return shadowVerifier.compareRecentWindows(TableShadowProfile.AGG_TRADE_RAW, parsedMinutes, graceSeconds);
+    }
+
+    @GetMapping("/kafka-observability")
+    public AggTradeRawWriterKafkaTelemetryResponse kafkaObservability() {
+        return telemetryService.snapshot();
+    }
+
+    @GetMapping("/kafka-observability/windows")
+    public AggTradeRawWriterKafkaTelemetryWindowsResponse kafkaObservabilityWindows(
+            @RequestParam(defaultValue = "60") int minutes,
+            @RequestParam(defaultValue = "60") int bucketSeconds
+    ) {
+        return telemetryService.windows(minutes, bucketSeconds);
     }
 }

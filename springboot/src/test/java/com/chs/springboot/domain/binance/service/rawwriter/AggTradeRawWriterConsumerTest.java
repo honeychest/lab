@@ -28,9 +28,10 @@ class AggTradeRawWriterConsumerTest {
     private final KafkaListenerEndpointRegistry registry = mock(KafkaListenerEndpointRegistry.class);
     private final AggTradeRawWriterDryRunVerifier verifier = mock(AggTradeRawWriterDryRunVerifier.class);
     private final KafkaPipelineSwitchboard switchboard = mock(KafkaPipelineSwitchboard.class);
+    private final AggTradeRawWriterKafkaTelemetryService telemetryService = mock(AggTradeRawWriterKafkaTelemetryService.class);
     private final MessageListenerContainer container = mock(MessageListenerContainer.class);
     private final AggTradeRawWriterConsumer consumer =
-            new AggTradeRawWriterConsumer(writerService, kafkaTemplate, registry, verifier, switchboard);
+            new AggTradeRawWriterConsumer(writerService, kafkaTemplate, registry, verifier, switchboard, telemetryService);
     private final Acknowledgment ack = mock(Acknowledgment.class);
 
     AggTradeRawWriterConsumerTest() {
@@ -104,7 +105,9 @@ class AggTradeRawWriterConsumerTest {
     void acknowledgesOffsetAfterWriterSuccess() {
         consumer.consume(List.of(record("BTCUSDT|FUTURES", "{}")), ack);
 
+        verify(telemetryService).recordConsumed(1);
         verify(writerService).writeBatch(org.mockito.ArgumentMatchers.anyList());
+        verify(telemetryService).recordWriteSuccess(1);
         verify(ack).acknowledge();
         verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
     }
@@ -116,6 +119,7 @@ class AggTradeRawWriterConsumerTest {
 
         consumer.consume(List.of(record("BTCUSDT|FUTURES", "{}")), ack);
 
+        verify(telemetryService).recordDbFailure(eq(1), anyString());
         verify(ack, never()).acknowledge();
         verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
     }
@@ -130,6 +134,8 @@ class AggTradeRawWriterConsumerTest {
 
         consumer.consume(List.of(record("BTCUSDT|FUTURES", "{bad-json")), ack);
 
+        verify(telemetryService).recordInvalidRecord();
+        verify(telemetryService).recordDlqPublished();
         verify(kafkaTemplate).send(eq("market.aggtrade.dlq"), eq("BTCUSDT|FUTURES"), org.mockito.ArgumentMatchers.contains("Missing payload.a"));
         verify(ack).acknowledge();
     }
@@ -145,6 +151,7 @@ class AggTradeRawWriterConsumerTest {
 
         consumer.consume(List.of(record("BTCUSDT|FUTURES", "{bad-json")), ack);
 
+        verify(telemetryService).recordDlqPublishFailure(anyString());
         verify(ack, never()).acknowledge();
     }
 

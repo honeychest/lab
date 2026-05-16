@@ -1,11 +1,122 @@
 .page {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) minmax(0, 1fr);
     gap: 14px;
     color: var(--monitor-text-primary);
     height: calc(100vh - 220px);
     min-height: 0;
     overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.title {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin: 6px 0 0;
+    color: var(--monitor-text-secondary);
+    font-size: 13px;
+}
+
+.helpGrid,
+.statusGrid,
+.summaryGrid,
+.topicGrid,
+.partitionGrid {
+    display: grid;
+    gap: 10px;
+}
+
+.helpGrid,
+.topicGrid,
+.partitionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.statusGrid,
+.summaryGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.helpBox,
+.statusBox,
+.metricBox,
+.topicBox,
+.telemetryPanel,
+.partitionPanel {
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-card-bg);
+    min-height: 0;
+}
+
+.helpBox,
+.statusBox,
+.metricBox,
+.topicBox {
+    padding: 14px;
+    display: grid;
+    gap: 6px;
+}
+
+.helpTitle,
+.panelTitle {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.helpText,
+.panelMeta,
+.statusLabel {
+    margin: 0;
+    color: var(--monitor-text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.statusLabel {
+    text-transform: uppercase;
+}
+
+.errorText {
+    margin: 0;
+    color: #ff9b9b;
+    font-size: 12px;
+}
+
+.refreshButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 124px;
+    justify-content: center;
+    padding: 10px 14px;
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-primary);
+    color: #fff;
+    cursor: pointer;
+}
+
+.refreshButton:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.telemetryPanel,
+.partitionPanel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
 }
 
 .panelHeader {
@@ -48,177 +159,17 @@
     color: #fff;
 }
 
-.minuteInput {
-    width: 84px;
-    padding: 9px 10px;
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-card-bg);
-    color: var(--monitor-text-primary);
-}
-
-.panelTitle {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.2;
-    letter-spacing: 0;
-}
-
-.panelMeta {
-    margin: 4px 0 0;
-    color: var(--monitor-text-secondary);
-    font-size: 12px;
-}
-
-.shadowPanel {
-    min-height: 0;
-    display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-    gap: 10px;
-}
-
-.header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.title {
-    margin: 0;
-    font-size: 24px;
-    line-height: 1.2;
-    letter-spacing: 0;
-}
-
-.subtitle {
-    margin: 6px 0 0;
-    color: var(--monitor-text-secondary);
-    font-size: 13px;
-}
-
-.refreshButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 112px;
-    justify-content: center;
-    padding: 10px 14px;
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-primary);
-    color: #fff;
-    cursor: pointer;
-}
-
-.refreshButton:disabled {
-    cursor: wait;
-    opacity: 0.55;
-}
-
-.statusGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.compareSummary {
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-card-bg);
-    padding: 12px 14px;
-    display: grid;
-    gap: 4px;
-}
-
-.windowGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.windowBox {
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-card-bg);
-    padding: 12px 14px;
-    display: grid;
-    gap: 6px;
-}
-
-.windowTitle {
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.windowMetric {
-    color: var(--monitor-text-secondary);
-    font-size: 12px;
-}
-
-.helpGrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.helpBox {
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-card-bg);
-    padding: 14px;
-    display: grid;
-    gap: 6px;
-}
-
-.helpTitle {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.3;
-}
-
-.helpText {
-    margin: 0;
-    color: var(--monitor-text-secondary);
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.statusBox {
-    border: 1px solid var(--monitor-border);
-    background: var(--monitor-card-bg);
-    padding: 14px;
-    display: grid;
-    gap: 6px;
-}
-
-.statusLabel {
-    color: var(--monitor-text-secondary);
-    font-size: 12px;
-    text-transform: uppercase;
-}
-
-.errorBox,
-.emptyBox {
-    border: 1px solid var(--monitor-border);
-    background: rgba(255, 80, 80, 0.1);
-    color: var(--monitor-text-primary);
-    padding: 14px;
-    font-size: 13px;
-}
-
-.emptyBox {
-    background: var(--monitor-card-bg);
-    color: var(--monitor-text-secondary);
-}
-
 .summaryTableWrap {
     min-height: 0;
     height: 100%;
-    overflow-y: auto;
+    overflow: auto;
     border: 1px solid var(--monitor-border);
     background: var(--monitor-card-bg);
-    overflow-x: auto;
 }
 
 .summaryTable {
     width: 100%;
-    min-width: 1480px;
+    min-width: 980px;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -232,13 +183,6 @@
     text-align: left;
     vertical-align: middle;
     overflow-wrap: anywhere;
-}
-
-.cellHint {
-    margin-top: 4px;
-    color: var(--monitor-text-secondary);
-    font-size: 11px;
-    line-height: 1.4;
 }
 
 .summaryTable th:last-child,
@@ -282,118 +226,31 @@
     font-weight: 800;
 }
 
-.summaryTable th:nth-child(1),
-.summaryTable td:nth-child(1) {
-    width: 110px;
+.emptyBox {
+    border: 1px solid var(--monitor-border);
+    background: var(--monitor-card-bg);
+    color: var(--monitor-text-secondary);
+    padding: 14px;
+    font-size: 13px;
 }
 
-.summaryTable th:nth-child(2),
-.summaryTable td:nth-child(2) {
-    width: 250px;
-}
-
-.summaryTable th:nth-child(3),
-.summaryTable td:nth-child(3) {
-    width: 160px;
-}
-
-.summaryTable th:nth-child(4),
-.summaryTable td:nth-child(4) {
-    width: 100px;
-}
-
-.summaryTable th:nth-child(5),
-.summaryTable td:nth-child(5) {
-    width: 90px;
-}
-
-.summaryTable th:nth-child(6),
-.summaryTable td:nth-child(6) {
-    width: 270px;
-}
-
-.summaryTable th:nth-child(7),
-.summaryTable td:nth-child(7) {
-    width: 360px;
-}
-
-.summaryTable th:nth-child(8),
-.summaryTable td:nth-child(8) {
-    width: 70px;
-}
-
-.summaryTable th:nth-child(9),
-.summaryTable td:nth-child(9) {
-    width: 90px;
-}
-
-.shadowTable {
-    min-width: 1500px;
-}
-
-.shadowTable th:nth-child(1),
-.shadowTable td:nth-child(1) {
-    width: 170px;
-}
-
-.shadowTable th:nth-child(2),
-.shadowTable td:nth-child(2),
-.shadowTable th:nth-child(3),
-.shadowTable td:nth-child(3),
-.shadowTable th:nth-child(4),
-.shadowTable td:nth-child(4) {
-    width: 110px;
-}
-
-.shadowTable th:nth-child(5),
-.shadowTable td:nth-child(5) {
-    width: 110px;
-}
-
-.shadowTable th:nth-child(6),
-.shadowTable td:nth-child(6) {
-    width: 150px;
-}
-
-.shadowTable th:nth-child(7),
-.shadowTable td:nth-child(7) {
-    width: 150px;
-}
-
-.shadowTable th:nth-child(8),
-.shadowTable td:nth-child(8) {
-    width: 150px;
-}
-
-.shadowTable th:nth-child(9),
-.shadowTable td:nth-child(9) {
-    width: 360px;
-}
-
-.shadowTable th:nth-child(10),
-.shadowTable td:nth-child(10) {
-    width: 240px;
+@media (max-width: 1200px) {
+    .statusGrid,
+    .summaryGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 900px) {
-    .header {
-        display: grid;
-    }
-
+    .header,
     .panelHeader,
-    .compareControls {
-        display: grid;
-        justify-content: stretch;
-    }
-
+    .compareControls,
     .helpGrid,
     .statusGrid,
-    .windowGrid {
+    .summaryGrid,
+    .topicGrid,
+    .partitionGrid {
+        display: grid;
         grid-template-columns: 1fr;
-    }
-
-    .summaryTableWrap {
-        height: 100%;
-        overflow-y: auto;
     }
 }

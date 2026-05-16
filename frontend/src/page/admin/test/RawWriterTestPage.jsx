@@ -1,175 +1,171 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { fetchRawWriterDryRunSummaries, fetchRawWriterShadowComparison, fetchRawWriterShadowComparisonWindows } from '@/api/adminTest/rawWriter.js';
+import {
+    fetchRawWriterKafkaObservability,
+    fetchRawWriterKafkaObservabilityWindows,
+} from '@/api/adminTest/rawWriter.js';
 import { logApiCall } from './shared/logApiCall.js';
 import styles from './RawWriterTestPage.module.css';
 
-const EMPTY_SUMMARY = {
+const EMPTY_SNAPSHOT = {
     mode: null,
-    enabled: null,
+    enabled: false,
+    dryRun: false,
     targetTable: null,
+    listenerRunning: false,
+    consumerGroupId: null,
+    bootstrapServers: null,
+    totalConsumedRecords: 0,
+    totalWriteSuccessRecords: 0,
+    totalInvalidRecords: 0,
+    totalDlqPublishedRecords: 0,
+    totalDlqPublishFailureRecords: 0,
+    totalDbFailureRecords: 0,
+    totalSuccessfulBatches: 0,
+    totalFailedBatches: 0,
+    lastSuccessAtMs: null,
+    lastErrorAtMs: null,
+    lastErrorMessage: null,
+    rawTopic: null,
+    dlqTopic: null,
 };
 
-const EMPTY_SHADOW = {
+const EMPTY_WINDOWS = {
     minutes: 60,
-    graceSeconds: 20,
-    rows: [],
+    bucketSeconds: 60,
+    windows: [],
 };
 
-const EMPTY_WINDOWS = [];
-const MINUTE_PRESETS = [5, 15, 60, 180];
-const DEFAULT_GRACE_SECONDS = 20;
-
-function formatStatus(value) {
-    if (value === true) return 'ON';
-    if (value === false) return 'OFF';
-    return 'UNKNOWN';
-}
+const MINUTE_PRESETS = [15, 60, 180, 720];
 
 function formatMode(mode) {
-    if (!mode) return 'UNKNOWN';
-    return String(mode).toUpperCase();
+    return mode ? String(mode).toUpperCase() : 'UNKNOWN';
 }
 
-function describeShadowStatus(status, delta) {
-    if (status === 'OK') return 'raw 와 shadow 가 현재 범위에서 일치합니다.';
-    if (delta == null) return '차이가 있어 확인이 필요합니다.';
-    if (delta > 0) return `shadow 가 raw 보다 ${delta}건 부족합니다.`;
-    if (delta < 0) return `shadow 가 raw 보다 ${Math.abs(delta)}건 더 많습니다.`;
-    return '건수는 같지만 aggTradeId 범위 차이가 있어 확인이 필요합니다.';
+function formatFlag(value) {
+    return value ? 'ON' : 'OFF';
 }
 
-function describeDistinctGap(row) {
-    const rawDistinct = row.rawDistinctSequenceCount ?? 0;
-    const shadowDistinct = row.shadowDistinctSequenceCount ?? 0;
-    if (rawDistinct === shadowDistinct) {
-        if ((row.rawDuplicateCount ?? 0) === (row.shadowDuplicateCount ?? 0)) {
-            return 'distinct aggTradeId 와 duplicate 규모가 같습니다.';
-        }
-        return `distinct aggTradeId 는 같고 duplicate 는 raw ${row.rawDuplicateCount ?? 0}, shadow ${row.shadowDuplicateCount ?? 0} 입니다.`;
-    }
-    return `distinct aggTradeId 가 raw ${rawDistinct}, shadow ${shadowDistinct} 로 다릅니다.`;
-}
-
-function toShadowKey(row) {
-    return `${row.symbol ?? '-'}|${row.marketType ?? '-'}`;
-}
-
-function formatDelta(value) {
+function formatCount(value) {
     if (value == null) return '-';
-    if (value > 0) return `+${value}`;
-    return String(value);
+    return new Intl.NumberFormat('ko-KR').format(value);
 }
 
-function compareDriftLabel(current, previous) {
-    if (previous == null) return '첫 비교';
-    const drift = current - previous;
-    if (drift === 0) return '변화 없음';
-    if (drift > 0) return `이전보다 +${drift}`;
-    return `이전보다 ${drift}`;
+function formatTime(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('ko-KR', { hour12: false });
 }
 
-function formatRange(min, max) {
-    if (min == null && max == null) return '-';
-    if (min === max) return String(min ?? max ?? '-');
-    return `${min ?? '-'} ~ ${max ?? '-'}`;
+function formatRange(startMs, endMs) {
+    return `${formatTime(startMs)} ~ ${formatTime(endMs)}`;
+}
+
+function describeBucket(row) {
+    if ((row.failedBatches ?? 0) > 0) {
+        return `실패 batch ${row.failedBatches}회, DB 실패 ${row.dbFailureRecords ?? 0}, DLQ 실패 ${row.dlqPublishFailureRecords ?? 0}`;
+    }
+    if ((row.invalidRecords ?? 0) > 0 || (row.dlqPublishedRecords ?? 0) > 0) {
+        return `invalid ${row.invalidRecords ?? 0}, DLQ ${row.dlqPublishedRecords ?? 0}`;
+    }
+    return '정상 처리 구간';
+}
+
+function topicSummary(topic) {
+    if (!topic) return '-';
+    if (topic.errorMessage) return topic.errorMessage;
+    const latest = formatCount(topic.latestOffsetSum);
+    const lag = topic.lagSum == null ? '-' : formatCount(topic.lagSum);
+    return `partitions ${topic.partitionCount ?? '-'} / latest ${latest} / lag ${lag}`;
+}
+
+function statusClass(row) {
+    if ((row.failedBatches ?? 0) > 0) return styles.mismatchRow;
+    if ((row.invalidRecords ?? 0) > 0 || (row.dlqPublishedRecords ?? 0) > 0) return styles.partialRow;
+    return styles.matchRow;
 }
 
 export default function RawWriterTestPage() {
-    const [state, setState] = useState(EMPTY_SUMMARY);
-    const [shadow, setShadow] = useState(EMPTY_SHADOW);
-    const [windowSummary, setWindowSummary] = useState(EMPTY_WINDOWS);
-    const [previousShadow, setPreviousShadow] = useState(null);
-    const [shadowLog, setShadowLog] = useState(null);
+    const [snapshot, setSnapshot] = useState(EMPTY_SNAPSHOT);
+    const [windows, setWindows] = useState(EMPTY_WINDOWS);
+    const [snapshotLog, setSnapshotLog] = useState(null);
+    const [windowsLog, setWindowsLog] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [shadowLoading, setShadowLoading] = useState(false);
-    const [compareMinutes, setCompareMinutes] = useState(60);
+    const [selectedMinutes, setSelectedMinutes] = useState(60);
 
-    const handleRefresh = async () => {
+    const loadTelemetry = async (minutes = selectedMinutes) => {
         if (loading) return;
         setLoading(true);
-        const log = await logApiCall(
-            'GET /api/admin/test/agg-trade/raw-writer/dry-run-summaries',
-            fetchRawWriterDryRunSummaries
-        );
-        if (log.ok) {
-            setState({
-                mode: log.responseBody?.mode ?? null,
-                enabled: log.responseBody?.enabled ?? null,
-                targetTable: log.responseBody?.targetTable ?? null,
+        const [snapshotResult, windowsResult] = await Promise.all([
+            logApiCall(
+                'GET /api/admin/test/agg-trade/raw-writer/kafka-observability',
+                fetchRawWriterKafkaObservability
+            ),
+            logApiCall(
+                `GET /api/admin/test/agg-trade/raw-writer/kafka-observability/windows?minutes=${minutes}&bucketSeconds=60`,
+                () => fetchRawWriterKafkaObservabilityWindows(minutes, 60)
+            ),
+        ]);
+        setSnapshotLog(snapshotResult);
+        setWindowsLog(windowsResult);
+        if (snapshotResult.ok) {
+            setSnapshot({
+                ...EMPTY_SNAPSHOT,
+                ...snapshotResult.responseBody,
+            });
+        }
+        if (windowsResult.ok) {
+            setWindows({
+                minutes: windowsResult.responseBody?.minutes ?? minutes,
+                bucketSeconds: windowsResult.responseBody?.bucketSeconds ?? 60,
+                windows: Array.isArray(windowsResult.responseBody?.windows) ? windowsResult.responseBody.windows : [],
             });
         }
         setLoading(false);
     };
 
-    const handleShadowRefresh = async (minutes = compareMinutes) => {
-        if (shadowLoading) return;
-        setShadowLoading(true);
-        const [detailLog, windowsLog] = await Promise.all([
-            logApiCall(
-            `GET /api/admin/test/agg-trade/raw-writer/shadow-comparison?minutes=${minutes}`,
-            () => fetchRawWriterShadowComparison(minutes, DEFAULT_GRACE_SECONDS)
-            ),
-            logApiCall(
-                `GET /api/admin/test/agg-trade/raw-writer/shadow-comparison/windows?minutes=${MINUTE_PRESETS.join(',')}`,
-                () => fetchRawWriterShadowComparisonWindows(MINUTE_PRESETS, DEFAULT_GRACE_SECONDS)
-            ),
-        ]);
-        setShadowLog(detailLog);
-        if (detailLog.ok) {
-            setPreviousShadow(shadow.rows);
-            setShadow({
-                minutes: detailLog.responseBody?.minutes ?? minutes,
-                graceSeconds: detailLog.responseBody?.graceSeconds ?? DEFAULT_GRACE_SECONDS,
-                rows: Array.isArray(detailLog.responseBody?.rows) ? detailLog.responseBody.rows : [],
-            });
-        }
-        if (windowsLog.ok) {
-            setWindowSummary(Array.isArray(windowsLog.responseBody?.windows) ? windowsLog.responseBody.windows : []);
-        }
-        setShadowLoading(false);
-    };
-
     useEffect(() => {
-        handleRefresh();
-        handleShadowRefresh(compareMinutes);
+        loadTelemetry(selectedMinutes);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const previousRowMap = new Map((previousShadow ?? []).map((row) => [toShadowKey(row), row]));
 
     return (
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Raw Writer</h1>
-                    <p className={styles.subtitle}>현재 mode 기준으로 target table 상태를 보고, 아래 비교 영역에서 raw 와 shadow 차이가 유지되는지 시간창별로 확인합니다.</p>
+                    <h1 className={styles.title}>Raw Writer Kafka Telemetry</h1>
+                    <p className={styles.subtitle}>
+                        legacy raw 비교 대신 Kafka topic, consumer lag, DLQ, 시간별 처리량을 직접 봅니다.
+                    </p>
                 </div>
+                <button className={styles.refreshButton} onClick={() => loadTelemetry(selectedMinutes)} disabled={loading}>
+                    <RefreshCw size={16} />
+                    {loading ? '조회 중' : 'Kafka 재조회'}
+                </button>
             </header>
 
             <section className={styles.helpGrid}>
                 <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>이 화면에서 보는 것</h2>
+                    <h2 className={styles.helpTitle}>무엇을 보는가</h2>
                     <p className={styles.helpText}>
-                        위 영역은 현재 파이프라인 상태만 보여줍니다. 실제 판단은 아래 Shadow Compare 에서 최근 시간창 기준 raw 운영 테이블과 현재 target table 을 비교해서 합니다.
+                        이 화면은 DB 비교가 아니라 Kafka 신규 경로 자체를 봅니다. raw topic latest offset, consumer committed offset, lag, DLQ 적재량, 최근 시간별 처리량을 같이 봅니다.
                     </p>
                 </div>
                 <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>비교 버튼 역할</h2>
+                    <h2 className={styles.helpTitle}>핵심 판단</h2>
                     <p className={styles.helpText}>
-                        선택한 시간창 상세 비교와 5/15/60/180분 요약 비교를 같이 다시 호출합니다. 첫 비교 이후 다시 누르면 이전 비교와 현재 비교의 delta 변화도 같이 볼 수 있습니다.
+                        lag 가 계속 누적되지 않고 회복되는지, invalid/DLQ 가 특정 시간대에 몰리는지, DB 실패 batch 가 생기는지 확인합니다.
                     </p>
                 </div>
                 <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>시간창 판단</h2>
+                    <h2 className={styles.helpTitle}>DLQ 해석</h2>
                     <p className={styles.helpText}>
-                        5분은 최근 추세, 15분은 단기 누적, 60분 이상은 drift 누적 여부 확인용입니다. 비교는 최신 {DEFAULT_GRACE_SECONDS}초를 제외하고 계산합니다.
+                        DLQ published 는 잘못된 메시지를 격리한 건수입니다. DLQ publish failure 가 생기면 offset commit 이 보류될 수 있으므로 바로 확인해야 합니다.
                     </p>
                 </div>
                 <div className={styles.helpBox}>
-                    <h2 className={styles.helpTitle}>판단 기준</h2>
+                    <h2 className={styles.helpTitle}>시간별 표 해석</h2>
                     <p className={styles.helpText}>
-                        `OK` 는 raw 와 shadow 가 현재 범위에서 일치합니다. `CHECK` 는 건수 차이 또는 aggTradeId 범위 차이가 있다는 뜻입니다. delta 가 양수면 shadow 부족, 음수면 shadow 과다입니다.
+                        consumed 와 write success 가 비슷하고 failed batch 가 0 이면 정상입니다. invalid, DLQ, DB failure 가 보이면 그 시간대 로그와 같이 봅니다.
                     </p>
                 </div>
             </section>
@@ -177,24 +173,81 @@ export default function RawWriterTestPage() {
             <section className={styles.statusGrid}>
                 <div className={styles.statusBox}>
                     <span className={styles.statusLabel}>mode</span>
-                    <strong>{formatMode(state.mode)}</strong>
+                    <strong>{formatMode(snapshot.mode)}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>consume</span>
-                    <strong>{formatStatus(state.enabled)}</strong>
+                    <span className={styles.statusLabel}>listener</span>
+                    <strong>{formatFlag(snapshot.listenerRunning)}</strong>
                 </div>
                 <div className={styles.statusBox}>
                     <span className={styles.statusLabel}>target</span>
-                    <strong>{state.targetTable ?? '-'}</strong>
+                    <strong>{snapshot.targetTable ?? '-'}</strong>
+                </div>
+                <div className={styles.statusBox}>
+                    <span className={styles.statusLabel}>group</span>
+                    <strong>{snapshot.consumerGroupId ?? '-'}</strong>
+                </div>
+                <div className={styles.statusBox}>
+                    <span className={styles.statusLabel}>raw lag</span>
+                    <strong>{formatCount(snapshot.rawTopic?.lagSum)}</strong>
+                </div>
+                <div className={styles.statusBox}>
+                    <span className={styles.statusLabel}>dlq total</span>
+                    <strong>{formatCount(snapshot.dlqTopic?.latestOffsetSum)}</strong>
                 </div>
             </section>
 
-            <section className={styles.shadowPanel}>
+            <section className={styles.summaryGrid}>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>consumed</span>
+                    <strong>{formatCount(snapshot.totalConsumedRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>write success</span>
+                    <strong>{formatCount(snapshot.totalWriteSuccessRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>invalid</span>
+                    <strong>{formatCount(snapshot.totalInvalidRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>dlq published</span>
+                    <strong>{formatCount(snapshot.totalDlqPublishedRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>db failure</span>
+                    <strong>{formatCount(snapshot.totalDbFailureRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>failed batch</span>
+                    <strong>{formatCount(snapshot.totalFailedBatches)}</strong>
+                </div>
+            </section>
+
+            <section className={styles.topicGrid}>
+                <div className={styles.topicBox}>
+                    <h2 className={styles.panelTitle}>Raw Topic</h2>
+                    <p className={styles.panelMeta}>{topicSummary(snapshot.rawTopic)}</p>
+                    <p className={styles.helpText}>bootstrap {snapshot.bootstrapServers ?? '-'}</p>
+                </div>
+                <div className={styles.topicBox}>
+                    <h2 className={styles.panelTitle}>DLQ Topic</h2>
+                    <p className={styles.panelMeta}>{topicSummary(snapshot.dlqTopic)}</p>
+                    <p className={styles.helpText}>
+                        last success {formatTime(snapshot.lastSuccessAtMs)} / last error {formatTime(snapshot.lastErrorAtMs)}
+                    </p>
+                    {snapshot.lastErrorMessage && (
+                        <p className={styles.errorText}>{snapshot.lastErrorMessage}</p>
+                    )}
+                </div>
+            </section>
+
+            <section className={styles.telemetryPanel}>
                 <div className={styles.panelHeader}>
                     <div>
-                        <h2 className={styles.panelTitle}>Shadow Compare</h2>
+                        <h2 className={styles.panelTitle}>시간별 Kafka 처리량</h2>
                         <p className={styles.panelMeta}>
-                            {shadowLog ? `${shadowLog.statusCode ?? '-'} / ${shadowLog.durationMs}ms / last ${shadow.minutes}m / grace ${shadow.graceSeconds}s` : `last ${shadow.minutes}m / grace ${shadow.graceSeconds}s`}
+                            {windowsLog ? `${windowsLog.statusCode ?? '-'} / ${windowsLog.durationMs}ms / ${windows.minutes}m / ${windows.bucketSeconds}s bucket` : `${windows.minutes}m / ${windows.bucketSeconds}s bucket`}
                         </p>
                     </div>
                     <div className={styles.compareControls}>
@@ -203,109 +256,114 @@ export default function RawWriterTestPage() {
                                 <button
                                     key={minutes}
                                     type="button"
-                                    className={`${styles.segmentButton} ${compareMinutes === minutes ? styles.segmentButtonActive : ''}`}
-                                    onClick={() => setCompareMinutes(minutes)}
-                                    disabled={shadowLoading}
+                                    className={`${styles.segmentButton} ${selectedMinutes === minutes ? styles.segmentButtonActive : ''}`}
+                                    onClick={() => setSelectedMinutes(minutes)}
+                                    disabled={loading}
                                 >
                                     {minutes}m
                                 </button>
                             ))}
                         </div>
-                        <input
-                            className={styles.minuteInput}
-                            type="number"
-                            min="1"
-                            max="1440"
-                            value={compareMinutes}
-                            onChange={(event) => setCompareMinutes(Math.max(1, Math.min(1440, Number(event.target.value) || 1)))}
-                        />
-                        <button className={styles.refreshButton} onClick={() => handleShadowRefresh(compareMinutes)} disabled={shadowLoading}>
+                        <button className={styles.refreshButton} onClick={() => loadTelemetry(selectedMinutes)} disabled={loading}>
                             <RefreshCw size={16} />
-                            {shadowLoading ? '조회 중' : `${compareMinutes}분 비교`}
+                            {loading ? '조회 중' : `${selectedMinutes}분 상세`}
                         </button>
                     </div>
                 </div>
 
-                <div className={styles.compareSummary}>
-                    <div className={styles.helpText}>추천 사용법: 5m, 15m, 60m 순서로 비교해서 delta 가 늘어나는지 확인합니다.</div>
-                    <div className={styles.helpText}>현재 표는 직전 비교 결과와의 delta 변화도 같이 보여줍니다.</div>
-                </div>
-
-                <div className={styles.windowGrid}>
-                    {windowSummary.map((entry) => (
-                        <div key={entry.minutes} className={styles.windowBox}>
-                            <div className={styles.windowTitle}>{entry.minutes}m</div>
-                            <div className={styles.windowMetric}>CHECK {entry.checkRows} / {entry.totalRows}</div>
-                            <div className={styles.windowMetric}>total delta {formatDelta(entry.totalDelta)}</div>
-                        </div>
-                    ))}
-                </div>
-
-                {shadowLog && !shadowLog.ok && (
-                    <div className={styles.errorBox}>
-                        {shadowLog.errorMessage}
-                    </div>
-                )}
-
                 <div className={styles.summaryTableWrap}>
-                {shadow.rows.length === 0 ? (
-                    <div className={styles.emptyBox}>shadow 비교 결과가 없습니다.</div>
-                ) : (
-                    <table className={`${styles.summaryTable} ${styles.shadowTable}`}>
+                    {windows.windows.length === 0 ? (
+                        <div className={styles.emptyBox}>Kafka 시간별 데이터가 아직 없습니다.</div>
+                    ) : (
+                        <table className={styles.summaryTable}>
                             <thead>
                                 <tr>
-                                    <th>symbol / market</th>
-                                    <th>raw count</th>
-                                    <th>shadow count</th>
-                                    <th>delta</th>
-                                    <th>prev delta</th>
-                                    <th>drift</th>
-                                    <th>distinct raw / shadow</th>
-                                    <th>duplicate raw / shadow</th>
-                                    <th>aggTradeId raw / shadow</th>
+                                    <th>time bucket</th>
+                                    <th>consumed</th>
+                                    <th>write success</th>
+                                    <th>invalid</th>
+                                    <th>dlq published</th>
+                                    <th>dlq publish fail</th>
+                                    <th>db failure</th>
+                                    <th>success batch</th>
+                                    <th>failed batch</th>
                                     <th>status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {shadow.rows.map((row, index) => {
-                                    const previousRow = previousRowMap.get(toShadowKey(row));
-                                    return (
-                                        <tr
-                                            key={`${row.symbol ?? '-'}-${row.marketType ?? '-'}-${index}`}
-                                            className={row.status === 'OK' ? styles.matchRow : styles.mismatchRow}
-                                        >
-                                            <td>{row.symbol ?? '-'} / {row.marketType ?? '-'}</td>
-                                            <td>{row.rawCount ?? 0}</td>
-                                            <td>{row.shadowCount ?? 0}</td>
-                                            <td>{formatDelta(row.countDelta ?? 0)}</td>
-                                            <td>{formatDelta(previousRow?.countDelta)}</td>
-                                            <td>{compareDriftLabel(row.countDelta ?? 0, previousRow?.countDelta)}</td>
-                                            <td>
-                                                {row.rawDistinctSequenceCount ?? 0}
-                                                {' / '}
-                                                {row.shadowDistinctSequenceCount ?? 0}
-                                            </td>
-                                            <td>
-                                                {row.rawDuplicateCount ?? 0}
-                                                {' / '}
-                                                {row.shadowDuplicateCount ?? 0}
-                                            </td>
-                                            <td>
-                                                {formatRange(row.rawMinSequence, row.rawMaxSequence)}
-                                                {' / '}
-                                                {formatRange(row.shadowMinSequence, row.shadowMaxSequence)}
-                                            </td>
-                                            <td>
-                                                <div>{row.status ?? 'CHECK'}</div>
-                                                <div className={styles.cellHint}>{describeShadowStatus(row.status, row.countDelta)}</div>
-                                                <div className={styles.cellHint}>{describeDistinctGap(row)}</div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {windows.windows.map((row) => (
+                                    <tr key={row.bucketStartMs} className={statusClass(row)}>
+                                        <td>{formatRange(row.bucketStartMs, row.bucketEndMs)}</td>
+                                        <td>{formatCount(row.consumedRecords)}</td>
+                                        <td>{formatCount(row.writeSuccessRecords)}</td>
+                                        <td>{formatCount(row.invalidRecords)}</td>
+                                        <td>{formatCount(row.dlqPublishedRecords)}</td>
+                                        <td>{formatCount(row.dlqPublishFailureRecords)}</td>
+                                        <td>{formatCount(row.dbFailureRecords)}</td>
+                                        <td>{formatCount(row.successfulBatches)}</td>
+                                        <td>{formatCount(row.failedBatches)}</td>
+                                        <td>
+                                            <div>{describeBucket(row)}</div>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     )}
+                </div>
+            </section>
+
+            <section className={styles.partitionGrid}>
+                <div className={styles.partitionPanel}>
+                    <h2 className={styles.panelTitle}>Raw Topic Partitions</h2>
+                    <div className={styles.summaryTableWrap}>
+                        <table className={styles.summaryTable}>
+                            <thead>
+                                <tr>
+                                    <th>partition</th>
+                                    <th>latest</th>
+                                    <th>committed</th>
+                                    <th>lag</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(snapshot.rawTopic?.partitions ?? []).map((row) => (
+                                    <tr key={`raw-${row.partition}`}>
+                                        <td>{row.partition}</td>
+                                        <td>{formatCount(row.latestOffset)}</td>
+                                        <td>{formatCount(row.committedOffset)}</td>
+                                        <td>{formatCount(row.lag)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className={styles.partitionPanel}>
+                    <h2 className={styles.panelTitle}>DLQ Topic Partitions</h2>
+                    <div className={styles.summaryTableWrap}>
+                        <table className={styles.summaryTable}>
+                            <thead>
+                                <tr>
+                                    <th>partition</th>
+                                    <th>latest</th>
+                                    <th>committed</th>
+                                    <th>lag</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(snapshot.dlqTopic?.partitions ?? []).map((row) => (
+                                    <tr key={`dlq-${row.partition}`}>
+                                        <td>{row.partition}</td>
+                                        <td>{formatCount(row.latestOffset)}</td>
+                                        <td>{formatCount(row.committedOffset)}</td>
+                                        <td>{formatCount(row.lag)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
         </div>

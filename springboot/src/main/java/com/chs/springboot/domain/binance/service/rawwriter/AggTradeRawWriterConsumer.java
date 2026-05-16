@@ -33,18 +33,21 @@ public class AggTradeRawWriterConsumer {
     private final KafkaListenerEndpointRegistry listenerRegistry;
     private final AggTradeRawWriterDryRunVerifier verifier;
     private final KafkaPipelineSwitchboard switchboard;
+    private final AggTradeRawWriterKafkaTelemetryService telemetryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AggTradeRawWriterConsumer(AggTradeRawWriterService writerService,
                                      KafkaTemplate<String, String> kafkaTemplate,
                                      KafkaListenerEndpointRegistry listenerRegistry,
                                      AggTradeRawWriterDryRunVerifier verifier,
-                                     KafkaPipelineSwitchboard switchboard) {
+                                     KafkaPipelineSwitchboard switchboard,
+                                     AggTradeRawWriterKafkaTelemetryService telemetryService) {
         this.writerService = writerService;
         this.kafkaTemplate = kafkaTemplate;
         this.listenerRegistry = listenerRegistry;
         this.verifier = verifier;
         this.switchboard = switchboard;
+        this.telemetryService = telemetryService;
     }
 
     /**
@@ -104,16 +107,21 @@ public class AggTradeRawWriterConsumer {
         if (!switchboard.aggTradeRawWriterPlan().enabled() || records == null || records.isEmpty()) {
             return;
         }
+        telemetryService.recordConsumed(records.size());
         try {
             writerService.writeBatch(toMessages(records));
+            telemetryService.recordWriteSuccess(records.size());
             ack.acknowledge();
         } catch (InvalidAggTradeRawMessageException e) {
+            telemetryService.recordFailedBatch(e.getMessage());
             if (retrySeparatelyAndDlqInvalid(records)) {
                 ack.acknowledge();
             }
         } catch (DataAccessException e) {
+            telemetryService.recordDbFailure(records.size(), e.getMessage());
             log.error("[AggTradeRawWriter] DB 실패, offset commit 보류: {}", e.getMessage());
         } catch (Exception e) {
+            telemetryService.recordFailedBatch(e.getMessage());
             log.error("[AggTradeRawWriter] 처리 실패, offset commit 보류", e);
         }
     }
@@ -141,13 +149,16 @@ public class AggTradeRawWriterConsumer {
                         record.value()
                 )));
             } catch (InvalidAggTradeRawMessageException invalid) {
+                telemetryService.recordInvalidRecord();
                 if (!publishDlq(record, invalid)) {
                     return false;
                 }
             } catch (DataAccessException e) {
+                telemetryService.recordDbFailure(1, e.getMessage());
                 log.error("[AggTradeRawWriter] invalid 분리 처리 중 DB 실패, offset commit 보류: {}", e.getMessage());
                 return false;
             } catch (Exception e) {
+                telemetryService.recordFailedBatch(e.getMessage());
                 log.error("[AggTradeRawWriter] invalid 분리 처리 실패, offset commit 보류", e);
                 return false;
             }
@@ -159,8 +170,10 @@ public class AggTradeRawWriterConsumer {
         try {
             String dlqValue = buildDlqEnvelope(record, error);
             kafkaTemplate.send(DLQ_TOPIC, record.key(), dlqValue).join();
+            telemetryService.recordDlqPublished();
             return true;
         } catch (Exception e) {
+            telemetryService.recordDlqPublishFailure(e.getMessage());
             log.error("[AggTradeRawWriter] DLQ publish 실패, offset commit 보류: {}", e.getMessage());
             return false;
         }

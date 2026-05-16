@@ -2,6 +2,12 @@ package com.chs.springboot.global.admin.test.rawwriter;
 
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterSummaryResponse;
 import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterDryRunVerifier;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaPartitionSnapshot;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryResponse;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryService;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryWindow;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTelemetryWindowsResponse;
+import com.chs.springboot.domain.binance.service.rawwriter.AggTradeRawWriterKafkaTopicSnapshot;
 import com.chs.springboot.global.admin.test.shadow.TableShadowCompareResponse;
 import com.chs.springboot.global.admin.test.shadow.TableShadowCompareRow;
 import com.chs.springboot.global.admin.test.shadow.TableShadowMultiCompareResponse;
@@ -32,12 +38,14 @@ class AggTradeRawWriterTestControllerWebMvcTest {
     private AggTradeRawWriterDryRunVerifier summaryStore;
     @Mock
     private TableShadowVerifier shadowVerifier;
+    @Mock
+    private AggTradeRawWriterKafkaTelemetryService telemetryService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        AggTradeRawWriterTestController controller = new AggTradeRawWriterTestController(summaryStore, shadowVerifier);
+        AggTradeRawWriterTestController controller = new AggTradeRawWriterTestController(summaryStore, shadowVerifier, telemetryService);
         mockMvc = standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter())
                 .build();
@@ -145,5 +153,79 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.windows[0].totalDelta").value(-1))
                 .andExpect(jsonPath("$.windows[2].minutes").value(60))
                 .andExpect(jsonPath("$.windows[2].checkRows").value(3));
+    }
+
+    @Test
+    @DisplayName("GET /kafka-observability -> Kafka lag/DLQ/처리량 요약 반환")
+    void kafkaObservability_returnsKafkaTelemetrySummary() throws Exception {
+        when(telemetryService.snapshot()).thenReturn(new AggTradeRawWriterKafkaTelemetryResponse(
+                "DEBUG",
+                true,
+                false,
+                "raw_agg_trade_test",
+                true,
+                "raw-writer-local",
+                "localhost:9094",
+                1200,
+                1195,
+                3,
+                3,
+                0,
+                2,
+                12,
+                2,
+                1778410010000L,
+                1778410020000L,
+                "db down",
+                new AggTradeRawWriterKafkaTopicSnapshot(
+                        "market.aggtrade.raw",
+                        2,
+                        5000L,
+                        4900L,
+                        100L,
+                        null,
+                        List.of(new AggTradeRawWriterKafkaPartitionSnapshot(0, 2500L, 2450L, 50L))
+                ),
+                new AggTradeRawWriterKafkaTopicSnapshot(
+                        "market.aggtrade.dlq",
+                        1,
+                        3L,
+                        null,
+                        null,
+                        null,
+                        List.of(new AggTradeRawWriterKafkaPartitionSnapshot(0, 3L, null, null))
+                )
+        ));
+
+        mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/kafka-observability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode").value("DEBUG"))
+                .andExpect(jsonPath("$.listenerRunning").value(true))
+                .andExpect(jsonPath("$.consumerGroupId").value("raw-writer-local"))
+                .andExpect(jsonPath("$.rawTopic.topic").value("market.aggtrade.raw"))
+                .andExpect(jsonPath("$.rawTopic.lagSum").value(100))
+                .andExpect(jsonPath("$.dlqTopic.latestOffsetSum").value(3))
+                .andExpect(jsonPath("$.totalInvalidRecords").value(3));
+    }
+
+    @Test
+    @DisplayName("GET /kafka-observability/windows -> 시간 버킷별 Kafka 처리량 반환")
+    void kafkaObservabilityWindows_returnsKafkaTelemetryWindows() throws Exception {
+        when(telemetryService.windows(60, 60)).thenReturn(new AggTradeRawWriterKafkaTelemetryWindowsResponse(
+                60,
+                60,
+                List.of(
+                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 5, 1)
+                )
+        ));
+
+        mockMvc.perform(get("/api/admin/test/agg-trade/raw-writer/kafka-observability/windows")
+                        .param("minutes", "60")
+                        .param("bucketSeconds", "60"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.minutes").value(60))
+                .andExpect(jsonPath("$.bucketSeconds").value(60))
+                .andExpect(jsonPath("$.windows[0].consumedRecords").value(100))
+                .andExpect(jsonPath("$.windows[0].dlqPublishedRecords").value(1));
     }
 }
