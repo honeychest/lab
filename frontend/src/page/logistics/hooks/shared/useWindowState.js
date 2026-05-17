@@ -17,6 +17,19 @@ export default function useWindowState() {
         return () => mq.removeEventListener('change', handler);
     }, []);
 
+    useEffect(() => {
+        const meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) return;
+        const original = meta.getAttribute('content');
+        meta.setAttribute(
+            'content',
+            desktopView ? 'width=1024' : 'width=device-width, initial-scale=1.0'
+        );
+        return () => {
+            meta.setAttribute('content', original);
+        };
+    }, [desktopView]);
+
     const handleDesktopViewOpen = () => {
         localStorage.setItem(DESKTOP_VIEW_STORAGE_KEY, 'true');
         setDesktopView(true);

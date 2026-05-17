@@ -116,6 +116,14 @@
 }
 
 @media (max-width: 1024px) {
+  html:has(.logistics-shell.logistics-desktop-forced),
+  body:has(.logistics-shell.logistics-desktop-forced),
+  #root:has(.logistics-shell.logistics-desktop-forced) {
+    width: auto;
+    height: auto;
+    overflow: auto;
+  }
+
   .logistics-shell.logistics-desktop-forced {
     width: 1280px;
     min-width: 1280px;
@@ -158,7 +166,7 @@
   }
 
   .logistics-desktop-forced .logistics-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
   }
 
   .logistics-desktop-forced .logistics-grid-4 {
@@ -193,7 +201,7 @@
   }
 
   .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
   }
 
   .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-5 {
@@ -202,5 +210,21 @@
 
   .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-7 {
     grid-template-columns: repeat(7, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-work-node--oms-mobile-title .logistics-work-node-top {
+    flex-wrap: wrap;
+  }
+
+  .logistics-desktop-forced .logistics-work-node--oms-mobile-title .logistics-work-node-title {
+    flex: 1 1 180px;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .logistics-desktop-forced .logistics-work-node--oms-mobile-title .logistics-work-node-top-meta {
+    justify-content: flex-start;
+    width: 100%;
   }
 }
