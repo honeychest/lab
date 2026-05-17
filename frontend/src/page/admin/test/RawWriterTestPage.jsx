@@ -137,7 +137,7 @@ export default function RawWriterTestPage() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Raw Writer Kafka Telemetry</h1>
+                    <h1 className={styles.title}>Raw Writer Kafka Telemetry(Kafka 적재기 텔레메트리 - 소비/적재/실패 현황)</h1>
                     <p className={styles.subtitle}>
                         legacy raw 비교 대신 Kafka topic, consumer lag, DLQ, 시간별 처리량을 직접 봅니다.
                     </p>
@@ -150,96 +150,96 @@ export default function RawWriterTestPage() {
 
             <section className={styles.statusGrid}>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>mode</span>
+                    <span className={styles.statusLabel}>mode(파이프라인 실행 모드 OFF/DRY_RUN/DEBUG/LIVE)</span>
                     <strong>{formatMode(snapshot.mode)}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>listener</span>
+                    <span className={styles.statusLabel}>listener(Kafka consumer 컨테이너 가동 여부)</span>
                     <strong>{formatFlag(snapshot.listenerRunning)}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>target</span>
+                    <span className={styles.statusLabel}>target(insert 대상 테이블명)</span>
                     <strong>{snapshot.targetTable ?? '-'}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>group</span>
+                    <span className={styles.statusLabel}>group(Kafka consumer group id)</span>
                     <strong>{snapshot.consumerGroupId ?? '-'}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>raw lag</span>
+                    <span className={styles.statusLabel}>raw lag(raw 토픽에서 아직 안 읽은 메시지 수)</span>
                     <strong>{formatCount(snapshot.rawTopic?.lagSum)}</strong>
                 </div>
                 <div className={styles.statusBox}>
-                    <span className={styles.statusLabel}>dlq total</span>
+                    <span className={styles.statusLabel}>dlq total(DLQ 토픽 누적 발행 수)</span>
                     <strong>{formatCount(snapshot.dlqTopic?.latestOffsetSum)}</strong>
                 </div>
             </section>
 
             <section className={styles.summaryGrid}>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>consumed</span>
+                    <span className={styles.statusLabel}>consumed(raw 토픽에서 읽어서 처리 시도한 총 수)</span>
                     <strong>{formatCount(snapshot.totalConsumedRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>write success</span>
+                    <span className={styles.statusLabel}>write success(DB insert까지 성공한 수)</span>
                     <strong>{formatCount(snapshot.totalWriteSuccessRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>invalid</span>
+                    <span className={styles.statusLabel}>invalid(parse 실패한 잘못된 메시지 수)</span>
                     <strong>{formatCount(snapshot.totalInvalidRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>dlq published</span>
+                    <span className={styles.statusLabel}>dlq published(invalid 메시지를 DLQ로 보낸 수)</span>
                     <strong>{formatCount(snapshot.totalDlqPublishedRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>db failure</span>
+                    <span className={styles.statusLabel}>db failure(DB 예외 발생해서 offset commit 보류된 레코드 수, 다음 polling에서 재시도)</span>
                     <strong>{formatCount(snapshot.totalDbFailureRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>failed batch</span>
+                    <span className={styles.statusLabel}>failed batch(배치 단위 실패 횟수)</span>
                     <strong>{formatCount(snapshot.totalFailedBatches)}</strong>
                 </div>
             </section>
 
             <section className={styles.summaryGrid}>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>peak consumed</span>
+                    <span className={styles.statusLabel}>peak consumed(1분 bucket 중 최대 소비량)</span>
                     <strong>{formatCount(snapshot.summary?.peakConsumedRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>peak invalid</span>
+                    <span className={styles.statusLabel}>peak invalid(1분 bucket 중 최대 invalid 발생량)</span>
                     <strong>{formatCount(snapshot.summary?.peakInvalidRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>peak dlq</span>
+                    <span className={styles.statusLabel}>peak dlq(1분 bucket 중 최대 DLQ 발행량)</span>
                     <strong>{formatCount(snapshot.summary?.peakDlqPublishedRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>peak db fail</span>
+                    <span className={styles.statusLabel}>peak db fail(1분 bucket 중 최대 DB 실패량)</span>
                     <strong>{formatCount(snapshot.summary?.peakDbFailureRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>peak failed batch</span>
+                    <span className={styles.statusLabel}>peak failed batch(1분 bucket 중 최대 배치 실패 횟수)</span>
                     <strong>{formatCount(snapshot.summary?.peakFailedBatches)}</strong>
                 </div>
                 <div className={styles.metricBox}>
-                    <span className={styles.statusLabel}>worst bucket</span>
+                    <span className={styles.statusLabel}>worst bucket(failed batch·DB 실패 점수 가장 높은 구간)</span>
                     <strong>{snapshot.summary?.worstWindow ? formatRange(snapshot.summary.worstWindow.bucketStartMs, snapshot.summary.worstWindow.bucketEndMs) : '-'}</strong>
                 </div>
             </section>
 
             <section className={styles.topicGrid}>
                 <div className={styles.topicBox}>
-                    <h2 className={styles.panelTitle}>Raw Topic</h2>
+                    <h2 className={styles.panelTitle}>Raw Topic(수집기가 발행하는 원본 aggTrade 토픽)</h2>
                     <p className={styles.panelMeta}>{topicSummary(snapshot.rawTopic)}</p>
-                    <p className={styles.helpText}>bootstrap {snapshot.bootstrapServers ?? '-'}</p>
+                    <p className={styles.helpText}>bootstrap(Kafka 브로커 접속 주소) {snapshot.bootstrapServers ?? '-'}</p>
                 </div>
                 <div className={styles.topicBox}>
-                    <h2 className={styles.panelTitle}>DLQ Topic</h2>
+                    <h2 className={styles.panelTitle}>DLQ Topic(Dead Letter Queue - 처리 실패 메시지 격리 토픽)</h2>
                     <p className={styles.panelMeta}>{topicSummary(snapshot.dlqTopic)}</p>
                     <p className={styles.helpText}>
-                        last success {formatTime(snapshot.lastSuccessAtMs)} / last error {formatTime(snapshot.lastErrorAtMs)}
+                        last success(마지막 batch 성공 시각) {formatTime(snapshot.lastSuccessAtMs)} / last error(마지막 실패 시각) {formatTime(snapshot.lastErrorAtMs)}
                     </p>
                     {snapshot.lastErrorMessage && (
                         <p className={styles.errorText}>{snapshot.lastErrorMessage}</p>
@@ -283,16 +283,16 @@ export default function RawWriterTestPage() {
                         <table className={styles.summaryTable}>
                             <thead>
                                 <tr>
-                                    <th>time bucket</th>
-                                    <th>consumed</th>
-                                    <th>write success</th>
-                                    <th>invalid</th>
-                                    <th>dlq published</th>
-                                    <th>dlq publish fail</th>
-                                    <th>db failure</th>
-                                    <th>success batch</th>
-                                    <th>failed batch</th>
-                                    <th>status</th>
+                                    <th>time bucket(1분 단위 구간)</th>
+                                    <th>consumed(해당 구간 소비량)</th>
+                                    <th>write success(해당 구간 DB 성공 수)</th>
+                                    <th>invalid(해당 구간 잘못된 메시지)</th>
+                                    <th>dlq published(해당 구간 DLQ 발행)</th>
+                                    <th>dlq publish fail(DLQ 발행 자체 실패)</th>
+                                    <th>db failure(해당 구간 DB 실패)</th>
+                                    <th>success batch(성공한 배치 수)</th>
+                                    <th>failed batch(실패한 배치 수)</th>
+                                    <th>status(해당 구간 상태 요약)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -320,7 +320,7 @@ export default function RawWriterTestPage() {
 
             <section className={styles.partitionGrid}>
                 <div className={styles.partitionPanel}>
-                    <h2 className={styles.panelTitle}>Worst Bucket</h2>
+                    <h2 className={styles.panelTitle}>Worst Bucket(가장 문제 많았던 1분 구간 상세)</h2>
                     {snapshot.summary?.worstWindow ? (
                         <div className={styles.helpBox}>
                             <p className={styles.helpText}>{formatRange(snapshot.summary.worstWindow.bucketStartMs, snapshot.summary.worstWindow.bucketEndMs)}</p>
@@ -334,15 +334,15 @@ export default function RawWriterTestPage() {
                 </div>
 
                 <div className={styles.partitionPanel}>
-                    <h2 className={styles.panelTitle}>Recent Failures</h2>
+                    <h2 className={styles.panelTitle}>Recent Failures(최근 실패 샘플 목록)</h2>
                     <div className={styles.summaryTableWrap}>
                         {snapshot.recentFailures?.length ? (
                             <table className={styles.summaryTable}>
                                 <thead>
                                     <tr>
-                                        <th>time</th>
-                                        <th>type / location</th>
-                                        <th>error</th>
+                                        <th>time(발생 시각)</th>
+                                        <th>type / location(실패 종류 - symbol/market/partition/offset)</th>
+                                        <th>error(에러 메시지)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -364,15 +364,15 @@ export default function RawWriterTestPage() {
 
             <section className={styles.partitionGrid}>
                 <div className={styles.partitionPanel}>
-                    <h2 className={styles.panelTitle}>Raw Topic Partitions</h2>
+                    <h2 className={styles.panelTitle}>Raw Topic Partitions(raw 토픽 파티션별 offset 상세)</h2>
                     <div className={styles.summaryTableWrap}>
                         <table className={styles.summaryTable}>
                             <thead>
                                 <tr>
-                                    <th>partition</th>
-                                    <th>latest</th>
-                                    <th>committed</th>
-                                    <th>lag</th>
+                                    <th>partition(파티션 번호)</th>
+                                    <th>latest(토픽 최신 offset)</th>
+                                    <th>committed(consumer가 commit한 offset)</th>
+                                    <th>lag(latest - committed, 미처리 수)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -390,15 +390,15 @@ export default function RawWriterTestPage() {
                 </div>
 
                 <div className={styles.partitionPanel}>
-                    <h2 className={styles.panelTitle}>DLQ Topic Partitions</h2>
+                    <h2 className={styles.panelTitle}>DLQ Topic Partitions(DLQ 토픽 파티션별 offset 상세)</h2>
                     <div className={styles.summaryTableWrap}>
                         <table className={styles.summaryTable}>
                             <thead>
                                 <tr>
-                                    <th>partition</th>
-                                    <th>latest</th>
-                                    <th>committed</th>
-                                    <th>lag</th>
+                                    <th>partition(파티션 번호)</th>
+                                    <th>latest(토픽 최신 offset)</th>
+                                    <th>committed(consumer가 commit한 offset)</th>
+                                    <th>lag(latest - committed, 미처리 수)</th>
                                 </tr>
                             </thead>
                             <tbody>
