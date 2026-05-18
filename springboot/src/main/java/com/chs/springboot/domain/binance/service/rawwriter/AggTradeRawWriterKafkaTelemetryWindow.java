@@ -9,6 +9,7 @@ public record AggTradeRawWriterKafkaTelemetryWindow(
         long dlqPublishedRecords,
         long dlqPublishFailureRecords,
         long dbFailureRecords,
+        long retrySuccessRecords,
         long successfulBatches,
         long failedBatches
 ) {

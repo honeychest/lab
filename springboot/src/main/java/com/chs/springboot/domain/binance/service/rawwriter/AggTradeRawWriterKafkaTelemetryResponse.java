@@ -14,6 +14,7 @@ public record AggTradeRawWriterKafkaTelemetryResponse(
         long totalDlqPublishedRecords,
         long totalDlqPublishFailureRecords,
         long totalDbFailureRecords,
+        long totalRetrySuccessRecords,
         long totalSuccessfulBatches,
         long totalFailedBatches,
         Long lastSuccessAtMs,

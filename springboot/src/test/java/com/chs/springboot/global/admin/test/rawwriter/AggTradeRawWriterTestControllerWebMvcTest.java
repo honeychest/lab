@@ -174,17 +174,19 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 3,
                 0,
                 2,
+                1,
                 12,
                 2,
                 1778410010000L,
                 1778410020000L,
                 "db down",
                 new AggTradeRawWriterKafkaTelemetrySummary(
-                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 5, 1),
+                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 1, 5, 1),
                         100,
                         1,
                         1,
                         0,
+                        1,
                         1
                 ),
                 List.of(new AggTradeRawWriterKafkaFailureSample(
@@ -227,7 +229,9 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.rawTopic.topic").value("market.aggtrade.raw"))
                 .andExpect(jsonPath("$.rawTopic.lagSum").value(100))
                 .andExpect(jsonPath("$.dlqTopic.latestOffsetSum").value(3))
-                .andExpect(jsonPath("$.totalInvalidRecords").value(3));
+                .andExpect(jsonPath("$.totalInvalidRecords").value(3))
+                .andExpect(jsonPath("$.totalRetrySuccessRecords").value(1))
+                .andExpect(jsonPath("$.summary.peakRetrySuccessRecords").value(1));
     }
 
     @Test
@@ -237,7 +241,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 60,
                 60,
                 List.of(
-                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 5, 1)
+                        new AggTradeRawWriterKafkaTelemetryWindow(1778410000000L, 1778410060000L, 100, 99, 1, 1, 0, 0, 1, 5, 1)
                 )
         ));
 
@@ -248,6 +252,7 @@ class AggTradeRawWriterTestControllerWebMvcTest {
                 .andExpect(jsonPath("$.minutes").value(60))
                 .andExpect(jsonPath("$.bucketSeconds").value(60))
                 .andExpect(jsonPath("$.windows[0].consumedRecords").value(100))
-                .andExpect(jsonPath("$.windows[0].dlqPublishedRecords").value(1));
+                .andExpect(jsonPath("$.windows[0].dlqPublishedRecords").value(1))
+                .andExpect(jsonPath("$.windows[0].retrySuccessRecords").value(1));
     }
 }

@@ -127,6 +127,21 @@ class AggTradeRawWriterConsumerTest {
     }
 
     @Test
+    void recordsRetrySuccessWhenPreviouslyFailedOffsetIsAcknowledged() {
+        org.mockito.Mockito.doThrow(new DataAccessResourceFailureException("db down"))
+                .doNothing()
+                .when(writerService).writeParsedBatch(org.mockito.ArgumentMatchers.anyList());
+        List<ConsumerRecord<String, String>> records = List.of(record("BTCUSDT|FUTURES", validJson()));
+
+        consumer.consume(records, ack);
+        consumer.consume(records, ack);
+
+        verify(telemetryService).recordDbFailure(eq(1), anyString());
+        verify(telemetryService).recordRetrySuccess(1);
+        verify(ack).acknowledge();
+    }
+
+    @Test
     void sendsInvalidMessageToDlqThenAcknowledges() {
         CompletableFuture<SendResult<String, String>> dlqSent = CompletableFuture.completedFuture(null);
         when(kafkaTemplate.send(eq("market.aggtrade.dlq"), eq("BTCUSDT|FUTURES"), anyString()))

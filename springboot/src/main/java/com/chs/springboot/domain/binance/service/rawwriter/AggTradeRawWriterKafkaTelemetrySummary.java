@@ -6,6 +6,7 @@ public record AggTradeRawWriterKafkaTelemetrySummary(
         long peakInvalidRecords,
         long peakDlqPublishedRecords,
         long peakDbFailureRecords,
+        long peakRetrySuccessRecords,
         long peakFailedBatches
 ) {
 }

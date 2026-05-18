@@ -21,6 +21,7 @@ const EMPTY_SNAPSHOT = {
     totalDlqPublishedRecords: 0,
     totalDlqPublishFailureRecords: 0,
     totalDbFailureRecords: 0,
+    totalRetrySuccessRecords: 0,
     totalSuccessfulBatches: 0,
     totalFailedBatches: 0,
     lastSuccessAtMs: null,
@@ -64,7 +65,10 @@ function formatRange(startMs, endMs) {
 
 function describeBucket(row) {
     if ((row.failedBatches ?? 0) > 0) {
-        return `실패 batch ${row.failedBatches}회, DB 실패 ${row.dbFailureRecords ?? 0}, DLQ 실패 ${row.dlqPublishFailureRecords ?? 0}`;
+        return `실패 batch ${row.failedBatches}회, DB 실패 ${row.dbFailureRecords ?? 0}, retry 성공 ${row.retrySuccessRecords ?? 0}`;
+    }
+    if ((row.retrySuccessRecords ?? 0) > 0) {
+        return `재시도 성공 ${row.retrySuccessRecords}건`;
     }
     if ((row.invalidRecords ?? 0) > 0 || (row.dlqPublishedRecords ?? 0) > 0) {
         return `invalid ${row.invalidRecords ?? 0}, DLQ ${row.dlqPublishedRecords ?? 0}`;
@@ -197,6 +201,10 @@ export default function RawWriterTestPage() {
                     <strong>{formatCount(snapshot.totalDbFailureRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>retry success(이전 실패 offset이 재처리 후 commit된 수)</span>
+                    <strong>{formatCount(snapshot.totalRetrySuccessRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
                     <span className={styles.statusLabel}>failed batch(배치 단위 실패 횟수)</span>
                     <strong>{formatCount(snapshot.totalFailedBatches)}</strong>
                 </div>
@@ -218,6 +226,10 @@ export default function RawWriterTestPage() {
                 <div className={styles.metricBox}>
                     <span className={styles.statusLabel}>peak db fail(1분 bucket 중 최대 DB 실패량)</span>
                     <strong>{formatCount(snapshot.summary?.peakDbFailureRecords)}</strong>
+                </div>
+                <div className={styles.metricBox}>
+                    <span className={styles.statusLabel}>peak retry success(1분 bucket 중 최대 재시도 성공량)</span>
+                    <strong>{formatCount(snapshot.summary?.peakRetrySuccessRecords)}</strong>
                 </div>
                 <div className={styles.metricBox}>
                     <span className={styles.statusLabel}>peak failed batch(1분 bucket 중 최대 배치 실패 횟수)</span>
@@ -290,6 +302,7 @@ export default function RawWriterTestPage() {
                                     <th>dlq published(해당 구간 DLQ 발행)</th>
                                     <th>dlq publish fail(DLQ 발행 자체 실패)</th>
                                     <th>db failure(해당 구간 DB 실패)</th>
+                                    <th>retry success(재시도 후 commit)</th>
                                     <th>success batch(성공한 배치 수)</th>
                                     <th>failed batch(실패한 배치 수)</th>
                                     <th>status(해당 구간 상태 요약)</th>
@@ -305,6 +318,7 @@ export default function RawWriterTestPage() {
                                         <td>{formatCount(row.dlqPublishedRecords)}</td>
                                         <td>{formatCount(row.dlqPublishFailureRecords)}</td>
                                         <td>{formatCount(row.dbFailureRecords)}</td>
+                                        <td>{formatCount(row.retrySuccessRecords)}</td>
                                         <td>{formatCount(row.successfulBatches)}</td>
                                         <td>{formatCount(row.failedBatches)}</td>
                                         <td>
@@ -326,7 +340,8 @@ export default function RawWriterTestPage() {
                             <p className={styles.helpText}>{formatRange(snapshot.summary.worstWindow.bucketStartMs, snapshot.summary.worstWindow.bucketEndMs)}</p>
                             <p className={styles.helpText}>consumed {formatCount(snapshot.summary.worstWindow.consumedRecords)} / success {formatCount(snapshot.summary.worstWindow.writeSuccessRecords)}</p>
                             <p className={styles.helpText}>invalid {formatCount(snapshot.summary.worstWindow.invalidRecords)} / dlq {formatCount(snapshot.summary.worstWindow.dlqPublishedRecords)}</p>
-                            <p className={styles.helpText}>db fail {formatCount(snapshot.summary.worstWindow.dbFailureRecords)} / failed batch {formatCount(snapshot.summary.worstWindow.failedBatches)}</p>
+                            <p className={styles.helpText}>db fail {formatCount(snapshot.summary.worstWindow.dbFailureRecords)} / retry success {formatCount(snapshot.summary.worstWindow.retrySuccessRecords)}</p>
+                            <p className={styles.helpText}>failed batch {formatCount(snapshot.summary.worstWindow.failedBatches)}</p>
                         </div>
                     ) : (
                         <div className={styles.emptyBox}>아직 이상 구간이 없습니다.</div>

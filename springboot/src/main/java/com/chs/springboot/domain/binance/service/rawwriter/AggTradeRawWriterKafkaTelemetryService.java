@@ -35,6 +35,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
     private long totalDlqPublishedRecords;
     private long totalDlqPublishFailureRecords;
     private long totalDbFailureRecords;
+    private long totalRetrySuccessRecords;
     private long totalSuccessfulBatches;
     private long totalFailedBatches;
     private Long lastSuccessAtMs;
@@ -110,6 +111,12 @@ public class AggTradeRawWriterKafkaTelemetryService {
         bucketStore.recordDbFailure(now, count);
     }
 
+    public synchronized void recordRetrySuccess(int count) {
+        long now = clock.millis();
+        totalRetrySuccessRecords += count;
+        bucketStore.recordRetrySuccess(now, count);
+    }
+
     public synchronized void recordFailedBatch(String errorMessage) {
         long now = clock.millis();
         totalFailedBatches += 1;
@@ -147,6 +154,7 @@ public class AggTradeRawWriterKafkaTelemetryService {
                     totalDlqPublishedRecords,
                     totalDlqPublishFailureRecords,
                     totalDbFailureRecords,
+                    totalRetrySuccessRecords,
                     totalSuccessfulBatches,
                     totalFailedBatches,
                     lastSuccessAtMs,

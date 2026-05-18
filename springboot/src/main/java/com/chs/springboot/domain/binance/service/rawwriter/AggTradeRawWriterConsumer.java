@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AggTradeRawWriterConsumer {
@@ -36,6 +38,7 @@ public class AggTradeRawWriterConsumer {
     private final AggTradeRawWriterKafkaTelemetryService telemetryService;
     private final AggTradeRawWriterBatchPartitioner batchPartitioner;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Set<String> failedRecordKeys = ConcurrentHashMap.newKeySet();
 
     public AggTradeRawWriterConsumer(AggTradeRawWriterService writerService,
                                      KafkaTemplate<String, String> kafkaTemplate,
@@ -120,11 +123,17 @@ public class AggTradeRawWriterConsumer {
                 writerService.writeParsedBatch(partitionedBatch.validMessages());
                 telemetryService.recordWriteSuccess(partitionedBatch.validMessages().size());
             }
+            int retrySuccessRecords = drainRetrySuccessRecords(records);
+            if (retrySuccessRecords > 0) {
+                telemetryService.recordRetrySuccess(retrySuccessRecords);
+            }
             ack.acknowledge();
         } catch (DataAccessException e) {
+            rememberFailedRecords(records);
             telemetryService.recordDbFailure(records.size(), e.getMessage());
             log.error("[AggTradeRawWriter] DB 실패, offset commit 보류: {}", e.getMessage());
         } catch (Exception e) {
+            rememberFailedRecords(records);
             telemetryService.recordFailedBatch(e.getMessage());
             log.error("[AggTradeRawWriter] 처리 실패, offset commit 보류", e);
         }
@@ -167,6 +176,24 @@ public class AggTradeRawWriterConsumer {
             log.error("[AggTradeRawWriter] DLQ publish 실패, offset commit 보류: {}", e.getMessage());
             return false;
         }
+    }
+
+    private void rememberFailedRecords(List<ConsumerRecord<String, String>> records) {
+        records.forEach(record -> failedRecordKeys.add(recordKey(record)));
+    }
+
+    private int drainRetrySuccessRecords(List<ConsumerRecord<String, String>> records) {
+        int retrySuccessRecords = 0;
+        for (ConsumerRecord<String, String> record : records) {
+            if (failedRecordKeys.remove(recordKey(record))) {
+                retrySuccessRecords += 1;
+            }
+        }
+        return retrySuccessRecords;
+    }
+
+    private String recordKey(ConsumerRecord<String, String> record) {
+        return record.topic() + ":" + record.partition() + ":" + record.offset();
     }
 
     private String buildDlqEnvelope(AggTradeRawWriterMessage message, InvalidAggTradeRawMessageException error)

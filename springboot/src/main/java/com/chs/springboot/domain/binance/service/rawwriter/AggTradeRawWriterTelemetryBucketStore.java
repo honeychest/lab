@@ -53,6 +53,11 @@ final class AggTradeRawWriterTelemetryBucketStore {
         cleanup(now);
     }
 
+    void recordRetrySuccess(long now, int count) {
+        bucket(now).retrySuccessRecords += count;
+        cleanup(now);
+    }
+
     void recordFailedBatch(long now) {
         bucket(now).failedBatches += 1;
         cleanup(now);
@@ -80,6 +85,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
         long peakInvalid = 0L;
         long peakDlqPublished = 0L;
         long peakDbFailure = 0L;
+        long peakRetrySuccess = 0L;
         long peakFailedBatches = 0L;
         for (Map.Entry<Long, WindowAccumulator> entry : buckets.entrySet()) {
             AggTradeRawWriterKafkaTelemetryWindow window = entry.getValue().toWindow(
@@ -90,6 +96,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
             peakInvalid = Math.max(peakInvalid, window.invalidRecords());
             peakDlqPublished = Math.max(peakDlqPublished, window.dlqPublishedRecords());
             peakDbFailure = Math.max(peakDbFailure, window.dbFailureRecords());
+            peakRetrySuccess = Math.max(peakRetrySuccess, window.retrySuccessRecords());
             peakFailedBatches = Math.max(peakFailedBatches, window.failedBatches());
             long score = (window.failedBatches() * 1_000_000L)
                     + (window.dbFailureRecords() * 10_000L)
@@ -107,6 +114,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
                 peakInvalid,
                 peakDlqPublished,
                 peakDbFailure,
+                peakRetrySuccess,
                 peakFailedBatches
         );
     }
@@ -128,6 +136,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
         private long dlqPublishedRecords;
         private long dlqPublishFailureRecords;
         private long dbFailureRecords;
+        private long retrySuccessRecords;
         private long successfulBatches;
         private long failedBatches;
 
@@ -138,6 +147,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
             this.dlqPublishedRecords += other.dlqPublishedRecords;
             this.dlqPublishFailureRecords += other.dlqPublishFailureRecords;
             this.dbFailureRecords += other.dbFailureRecords;
+            this.retrySuccessRecords += other.retrySuccessRecords;
             this.successfulBatches += other.successfulBatches;
             this.failedBatches += other.failedBatches;
         }
@@ -152,6 +162,7 @@ final class AggTradeRawWriterTelemetryBucketStore {
                     dlqPublishedRecords,
                     dlqPublishFailureRecords,
                     dbFailureRecords,
+                    retrySuccessRecords,
                     successfulBatches,
                     failedBatches
             );
