@@ -13,8 +13,8 @@ function stageWorkIndex(task) {
     return Math.min(nodes.length - 1, Math.max(0, rawIndex));
 }
 
-function getWmsNodeTasks(tasks, _stage, nodeIndex) {
-    return tasks.filter(task => stageWorkIndex(task) === nodeIndex);
+function getWmsNodeTasks(tasks, stage, nodeIndex) {
+    return tasks.filter(task => task.currentStage === stage && stageWorkIndex(task) === nodeIndex);
 }
 
 export default function WmsStageGrid({ tasks, focusedTaskId, onPopover }) {

@@ -1,4 +1,6 @@
 .logistics-side-panel {
+  position: relative;
+  z-index: 2;
   width: 30%;
   min-width: 320px;
   max-width: 420px;
@@ -20,7 +22,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .logistics-side-scroll {
@@ -42,6 +44,10 @@
   height: 28px;
   border-radius: 999px;
   z-index: 5;
+}
+
+.logistics-panel-toggle:hover {
+  transform: translateY(calc(-50% - 1px));
 }
 
 .logistics-side-section {

@@ -1,24 +1,39 @@
 .logistics-tabbar {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(220px, 2fr) minmax(0, 5fr) minmax(0, 2fr);
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 10px 18px 12px;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
   border-bottom: 1px solid var(--dark-border);
   background: rgba(11, 17, 30, 0.9);
+}
+
+.logistics-tabbar > * {
+  flex: 0 0 auto;
 }
 
 .logistics-tab-list {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-  overflow-x: auto;
+  gap: 18px;
   position: relative;
   z-index: 3;
+}
+
+.logistics-tab-group-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logistics-tab-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .logistics-tab-btn {
@@ -37,7 +52,7 @@
   color: var(--dark-text-primary);
   border-color: rgba(5, 142, 217, 0.45);
   background: linear-gradient(135deg, rgba(5, 142, 217, 0.18), rgba(5, 142, 217, 0.06));
-  box-shadow: 0 12px 24px rgba(5, 142, 217, 0.18);
+  box-shadow: 0 4px 12px rgba(5, 142, 217, 0.16);
 }
 
 .logistics-tab-focus-summary {
@@ -48,6 +63,7 @@
   gap: 14px;
   width: fit-content;
   min-width: 0;
+  flex: 0 0 auto;
   min-height: 48px;
   padding: 7px 14px;
   border-radius: 16px;
@@ -63,13 +79,21 @@
 .logistics-tab-actions {
   display: flex;
   align-items: center;
-  justify-self: end;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: max-content;
+  margin-left: auto;
+}
+
+.logistics-tab-actions > button {
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .logistics-tab-focus-summary.is-empty {
-  width: 90%;
+  width: 800px;
   grid-template-columns: 1fr;
   color: var(--dark-text-secondary);
 }

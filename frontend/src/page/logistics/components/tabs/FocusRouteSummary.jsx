@@ -2,10 +2,12 @@ import { Fragment, useEffect, useState } from 'react';
 import { emitter } from '@/domain/logistics/common/emitter';
 import { getFocusedTaskId } from '@/store/focusStore';
 import { getTaskById } from '@/store/taskStore';
-import { INBOUND_STAGES, PIPELINE_STAGES, STAGE_DOMAIN, STAGE_LABELS } from '@/domain/logistics/common/stages';
+import { INBOUND_STAGES, PIPELINE_STAGES, EOS_PIPELINE, STAGE_DOMAIN, STAGE_LABELS } from '@/domain/logistics/common/stages';
 
 function getFocusStages(task) {
-    return task?.type === 'INBOUND' ? INBOUND_STAGES : PIPELINE_STAGES;
+    if (task?.type === 'INBOUND') return INBOUND_STAGES;
+    if (task?.type === 'EOS') return EOS_PIPELINE;
+    return PIPELINE_STAGES;
 }
 
 function getRouteClusters(task, stages) {
@@ -13,6 +15,14 @@ function getRouteClusters(task, stages) {
         return [
             { key: 'OMS_GATE', label: 'OMS', stages: ['INBOUND_RECEIVED'] },
             { key: 'WMS_INBOUND', label: 'WMS', stages: stages.filter(stage => stage !== 'INBOUND_RECEIVED') },
+            { key: 'COMPLETE', label: '완료', stages: ['__COMPLETE__'] },
+        ];
+    }
+
+    if (task?.type === 'EOS') {
+        return [
+            { key: 'EOS', label: 'EOS', stages: stages.filter(stage => STAGE_DOMAIN[stage] === 'EOS') },
+            { key: 'WMS', label: 'WMS', stages: stages.filter(stage => STAGE_DOMAIN[stage] === 'WMS') },
             { key: 'COMPLETE', label: '완료', stages: ['__COMPLETE__'] },
         ];
     }
@@ -56,10 +66,7 @@ function routeNodeState(task, stages, currentIdx, stage) {
 }
 
 function RouteCluster({ task, stages, currentIdx, cluster }) {
-    const isCompleteCluster = cluster.key === 'COMPLETE';
-    const wrapStyle = isCompleteCluster
-        ? { flex: '0 0 auto' }
-        : { flex: `${cluster.stages.length} 1 0` };
+    const wrapStyle = { flex: '0 0 auto' };
     const clusterStyle = clusterTemplate(cluster);
 
     return (

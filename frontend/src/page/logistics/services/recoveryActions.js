@@ -3,13 +3,17 @@ import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
 import { patchTask } from '@/store/taskStore';
 import { removeTask, resumeTask, seedTickState } from '@/scheduler/tickLoop';
-import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, PIPELINE_STAGES, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
+import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, QMS_WORK_NODE_TICKS, EOS_WORK_NODE_TICKS, PIPELINE_STAGES, EOS_PIPELINE, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey, getInitialQmsStageWorkNodeKey, getInitialEosStageWorkNodeKey, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
 import { getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
 import { buildInjectedFailureEvent } from '../utils/eventHelpers';
 import generateUUID from '@/shared/lib/generateUUID';
 
 function previousStage(stage) {
-    const stages = stage.startsWith('INBOUND_') ? INBOUND_STAGES : PIPELINE_STAGES;
+    const stages = stage.startsWith('INBOUND_')
+        ? INBOUND_STAGES
+        : stage.startsWith('EOS_')
+            ? EOS_PIPELINE
+            : PIPELINE_STAGES;
     const index = stages.indexOf(stage);
     if (index <= 0) return stage;
     return stages[index - 1];
@@ -75,16 +79,20 @@ export async function performRecoveryAction(task, action) {
             : task.currentStage);
     const isOmsStage = targetStage.startsWith('OMS_');
     const isWmsStage = targetStage.startsWith('WMS_');
+    const isQmsStage = targetStage.startsWith('QMS_');
     const isTmsStage = targetStage.startsWith('TMS_');
+    const isEosStage = targetStage.startsWith('EOS_');
     const isSameStage = targetStage === task.currentStage;
-    const targetReceiveNodeKey = (isOmsStage || isTmsStage || isWmsStage)
+    const targetReceiveNodeKey = (isOmsStage || isTmsStage || isWmsStage || isQmsStage || isEosStage)
         ? isSameStage
             ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
-            : (action.nextReceiveNodeKey ?? (isTmsStage ? getInitialTmsStageWorkNodeKey(targetStage) : isWmsStage ? getInitialWmsStageWorkNodeKey(targetStage) : undefined))
+            : (action.nextReceiveNodeKey ?? (isTmsStage ? getInitialTmsStageWorkNodeKey(targetStage) : isWmsStage ? getInitialWmsStageWorkNodeKey(targetStage) : isQmsStage ? getInitialQmsStageWorkNodeKey(targetStage) : isEosStage ? getInitialEosStageWorkNodeKey(targetStage) : undefined))
         : undefined;
     const targetTicks = isOmsStage ? OMS_RECEIVE_NODE_TICKS
         : isWmsStage ? WMS_WORK_NODE_TICKS
+        : isQmsStage ? QMS_WORK_NODE_TICKS
         : isTmsStage ? TMS_WORK_NODE_TICKS
+        : isEosStage ? EOS_WORK_NODE_TICKS
         : task.ticksTarget;
 
     await patchTask(task.taskId, {

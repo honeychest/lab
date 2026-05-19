@@ -152,26 +152,37 @@
 .logistics-grid-2,
 .logistics-grid-4,
 .logistics-grid-5,
+.logistics-grid-6,
 .logistics-grid-7 {
   display: grid;
   gap: 12px;
+  align-items: stretch;
 }
 
 .logistics-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.logistics-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.logistics-grid-4 { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
-.logistics-grid-5 { grid-template-columns: repeat(5, minmax(180px, 1fr)); }
-.logistics-grid-7 { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
+.logistics-grid-3 { grid-template-columns: repeat(3, minmax(280px, 1fr)); min-width: calc(3 * 280px + 2 * 12px); }
+.logistics-grid-4 { grid-template-columns: repeat(4, minmax(180px, 1fr)); min-width: calc(4 * 180px + 3 * 12px); }
+.logistics-grid-5 { grid-template-columns: repeat(5, minmax(180px, 1fr)); min-width: calc(5 * 180px + 4 * 12px); }
+.logistics-grid-6 { grid-template-columns: repeat(6, minmax(180px, 1fr)); min-width: calc(6 * 180px + 5 * 12px); }
+.logistics-grid-7 { grid-template-columns: repeat(7, minmax(180px, 1fr)); min-width: calc(7 * 180px + 6 * 12px); }
 
+/* scroll wrapper: flex 아이템으로 축소 허용, 가로 스크롤 제공 */
 .logistics-stage-grid-shell {
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  align-items: stretch;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
-.logistics-stage-grid-scroll {
-  overflow-x: auto;
+/* 내부 grid는 shell 높이를 채우도록 */
+.logistics-stage-grid-shell > .logistics-grid-2,
+.logistics-stage-grid-shell > .logistics-grid-3,
+.logistics-stage-grid-shell > .logistics-grid-4,
+.logistics-stage-grid-shell > .logistics-grid-5,
+.logistics-stage-grid-shell > .logistics-grid-6,
+.logistics-stage-grid-shell > .logistics-grid-7 {
+  height: 100%;
 }
 
 .logistics-stage-grid-shell > .logistics-lane {
@@ -184,7 +195,6 @@
   border-radius: 18px;
   padding: 14px;
   min-height: 220px;
-  min-width: 0;
   max-height: 100%;
   overflow: hidden;
 }
@@ -219,6 +229,19 @@
 
 .logistics-work-lane {
   min-height: 0;
+}
+
+.logistics-grid-3 .logistics-work-lane {
+  min-width: 280px;
+}
+
+.logistics-grid-7 .logistics-work-lane {
+  overflow: hidden;
+}
+
+.logistics-grid-7 .logistics-receive-workflow {
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .logistics-receive-workflow {
@@ -300,7 +323,6 @@
 .logistics-work-node-body {
   position: relative;
   overflow: hidden;
-  min-width: 0;
   min-height: 64px;
   padding: 10px;
   border-radius: 12px;
@@ -371,10 +393,22 @@
   position: relative;
 }
 
+.logistics-work-node--oms-mobile-title .logistics-work-node-title {
+  min-width: 80px;
+}
+
+.logistics-work-node--oms-mobile-title .logistics-work-node-body {
+  min-width: 230px;
+}
+
 
 .logistics-work-node--stacked .logistics-work-node-top {
   flex-direction: column;
   gap: 6px;
+}
+
+.logistics-work-node--stacked {
+  min-height: auto;
 }
 
 .logistics-work-node--stacked .logistics-work-node-top-meta {
@@ -389,6 +423,78 @@
 
 .logistics-work-node--stacked .logistics-work-node-title {
   width: 100%;
+}
+
+.logistics-qms-stage-grid .logistics-receive-workflow {
+  gap: 8px;
+}
+
+.logistics-work-node--qms-compact {
+  min-height: 82px;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-body {
+  min-height: 72px;
+  padding: 8px;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-top {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-title {
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-top-meta {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: 18px 24px;
+  gap: 4px;
+  justify-content: stretch;
+  width: 100%;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-count {
+  justify-self: center;
+  min-width: 24px;
+  width: auto;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-status {
+  min-width: 0;
+  min-height: 22px;
+  padding: 3px 6px;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.logistics-work-node--qms-compact .logistics-work-node-status span,
+.logistics-work-node--qms-compact .logistics-work-node-status strong {
+  font-size: 11px;
+}
+
+.logistics-work-node--qms-compact.has-failure .logistics-work-node-body {
+  border-color: rgba(235, 81, 96, 0.54);
+  background:
+    linear-gradient(135deg, rgba(235, 81, 96, 0.12), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025);
 }
 
 .logistics-work-node-count {
@@ -1149,4 +1255,63 @@
   letter-spacing: 0.08em;
   background: rgba(255, 255, 255, 0.02);
 }
+
+/* WMS 입/출고 모드 swap */
+.logistics-wms-grid-swap {
+  animation: logistics-wms-grid-swap-in 200ms ease-out;
+}
+
+@keyframes logistics-wms-grid-swap-in {
+  from { opacity: 0.35; transform: translateY(4px); }
+  to   { opacity: 1;    transform: translateY(0); }
+}
+
+.logistics-wms-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dark-text-neutral, #cfd6e0);
+  transition: background 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out;
+  animation: logistics-wms-mode-badge-pulse 400ms ease-out;
+}
+
+.logistics-wms-mode-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.logistics-wms-mode-badge-ref {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.logistics-wms-mode-badge--outbound {
+  color: #6ee7a8;
+  border-color: rgba(110, 231, 168, 0.32);
+  background: rgba(110, 231, 168, 0.08);
+}
+
+.logistics-wms-mode-badge--inbound {
+  color: #7cb8ff;
+  border-color: rgba(124, 184, 255, 0.32);
+  background: rgba(124, 184, 255, 0.08);
+}
+
+@keyframes logistics-wms-mode-badge-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 0.7; }
+  60%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); opacity: 1; }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); opacity: 1; }
+}
+
 

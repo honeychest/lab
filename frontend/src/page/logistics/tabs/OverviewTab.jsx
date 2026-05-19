@@ -1,8 +1,10 @@
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import {
+    EOS_STAGES,
     OMS_STAGES,
     INBOUND_STAGES,
     WMS_OUT_STAGES,
+    QMS_STAGES,
     TMS_STAGES,
     STAGE_LABELS,
 } from '@/domain/logistics/common/stages';
@@ -74,8 +76,10 @@ export default function OverviewTab() {
     const { tasks, eventCount } = useLogisticsSnapshot();
 
     const axisCards = [
+        buildAxisCard(tasks, 'EOS', EOS_STAGES, '수요예측, 발주점, 공급사 송신'),
         buildAxisCard(tasks, 'OMS', OMS_STAGES, '접수, 검증, WMS 이관 진입'),
         buildAxisCard(tasks, 'WMS', [...INBOUND_STAGES, ...WMS_OUT_STAGES], '입고 보조축 + 출고 주 흐름'),
+        buildAxisCard(tasks, 'QMS', QMS_STAGES, '검사 요청, 샘플, 판정, 출고승인'),
         buildAxisCard(tasks, 'TMS', TMS_STAGES, '배차, 상차, 배송, 인도'),
     ];
 
@@ -83,9 +87,9 @@ export default function OverviewTab() {
         <section className="logistics-tab-shell">
             <div className="logistics-tab-header">
                 <div>
-                    <h2 className="logistics-tab-title">3축 개요</h2>
+                    <h2 className="logistics-tab-title">축별 개요</h2>
                     <p className="logistics-tab-copy" style={{ display: 'block' }}>
-                        전체 흐름 요약보다 어디가 막히는지 먼저 읽는 탭. 축별 적체, 실패, 집중 단계를 바로 본다.
+                        전체 흐름 요약보다 어디가 막히는지 먼저 읽는 탭. 진입축(EOS·OMS)·처리축(WMS·QMS·TMS)별 적체, 실패, 집중 단계를 바로 본다.
                     </p>
                 </div>
                 <div className="logistics-tab-actions">
@@ -94,7 +98,7 @@ export default function OverviewTab() {
                 </div>
             </div>
 
-            <div className="logistics-grid-3">
+            <div className="logistics-grid-5">
                 {axisCards.map(card => (
                     <article key={card.domain} className="logistics-overview-card logistics-axis-card">
                         <div className="logistics-overview-title">

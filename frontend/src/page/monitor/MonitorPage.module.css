@@ -1,11 +1,14 @@
 /* [AGENT] MonitorPage 레이아웃 (B안: 메인 70% + 사이드바 30%) */
 .page {
   background: var(--monitor-bg);
-  min-height: 100%;
+  height: 100%;
   padding: 18px;
   box-sizing: border-box;
   position: relative;
-  overflow-x: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) minmax(180px, 32%);
+  gap: 10px;
+  overflow: hidden;
 }
 
 .waitOverlay {
@@ -128,11 +131,14 @@
 
 .grid {
   max-width: 1180px;
+  width: 100%;
+  min-height: 0;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 16px;
   align-items: start;
+  overflow: hidden;
 }
 
 .main {
@@ -140,6 +146,23 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 24, 39, 0.16) transparent;
+}
+
+.main::-webkit-scrollbar {
+  width: 5px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main::-webkit-scrollbar-thumb {
+  background: rgba(17, 24, 39, 0.16);
+  border-radius: 999px;
 }
 
 .gauges {
@@ -150,6 +173,7 @@
 
 .topRow {
   max-width: 1180px;
+  width: 100%;
   margin: 0 auto 10px;
 }
 
@@ -157,7 +181,24 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 24, 39, 0.16) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(17, 24, 39, 0.16);
+  border-radius: 999px;
 }
 
 .sideCard {
@@ -223,7 +264,14 @@
 
 .alertBottom {
   max-width: 1180px;
-  margin: 16px auto 0;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.alertBottom > section {
+  height: 100%;
 }
 
 
@@ -607,11 +655,20 @@
 }
 
 @media (max-width: 768px) {
+  .page {
+    display: block;
+    overflow-y: auto;
+  }
   .grid {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
   .gauges {
     grid-template-columns: 1fr;
+  }
+  .main {
+    height: auto;
+    overflow: visible;
   }
   .sidebar {
     display: none;

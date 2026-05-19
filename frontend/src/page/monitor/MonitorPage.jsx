@@ -354,9 +354,9 @@ export default function MonitorPage() {
                                 </div>*/}
 
                             </div>
-                            <NewsFeed />
-                        </aside>
-                    )}
+                        <NewsFeed />
+                    </aside>
+                )}
                 </div>
 
                 <div className={styles.alertBottom}>

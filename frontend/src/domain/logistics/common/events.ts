@@ -85,6 +85,45 @@ export type WmsWorkNodeKey =
     | 'audit-close'
     | 'order-close';
 
+export type QmsWorkNodeKey =
+    | 'request-ingest'
+    | 'batch-lookup'
+    | 'policy-match'
+    | 'inspection-type-classify'
+    | 'priority-set'
+    | 'audit-init'
+    | 'next-queue'
+    | 'plan-build'
+    | 'aql-calc'
+    | 'sample-pick'
+    | 'sample-tag'
+    | 'sample-register'
+    | 'inspector-assign'
+    | 'tool-prepare'
+    | 'tool-calibrate'
+    | 'visual-check'
+    | 'weight-check'
+    | 'label-check'
+    | 'function-test'
+    | 'package-integrity'
+    | 'evidence-capture'
+    | 'result-record'
+    | 'criteria-load'
+    | 'criteria-apply'
+    | 'defect-classify'
+    | 'judgment-decide'
+    | 'hold-route'
+    | 'fail-route'
+    | 'judgment-publish'
+    | 'audit-log'
+    | 'release-doc-build'
+    | 'cert-attach'
+    | 'traceability-link'
+    | 'event-envelope'
+    | 'tms-handoff'
+    | 'handoff-watch'
+    | 'close-quality';
+
 export type InboundStage =
     | 'INBOUND_RECEIVED'
     | 'INBOUND_VALIDATED'
@@ -101,6 +140,41 @@ export type WmsOutStage =
     | 'WMS_DELIVERING'
     | 'WMS_COMPLETED';
 
+export type QmsStage =
+    | 'QMS_REQUESTED'
+    | 'QMS_SAMPLING'
+    | 'QMS_INSPECTING'
+    | 'QMS_JUDGED'
+    | 'QMS_RELEASED';
+
+export type EosStage =
+    | 'EOS_FORECASTED'
+    | 'EOS_REORDER_TRIGGERED'
+    | 'EOS_SUPPLIER_SELECTED'
+    | 'EOS_PO_ISSUED'
+    | 'EOS_PO_DISPATCHED'
+    | 'EOS_PO_CONFIRMED';
+
+export type EosWorkNodeKey =
+    | 'demand-collect'
+    | 'forecast-calc'
+    | 'forecast-publish'
+    | 'stock-check'
+    | 'reorder-evaluate'
+    | 'reorder-trigger'
+    | 'supplier-lookup'
+    | 'supplier-score'
+    | 'supplier-decide'
+    | 'po-build'
+    | 'po-approve'
+    | 'po-issue'
+    | 'channel-prepare'
+    | 'po-send'
+    | 'send-ack'
+    | 'confirm-wait'
+    | 'confirm-record'
+    | 'handoff-inbound';
+
 export type TmsStage =
     | 'TMS_REQUESTED'
     | 'TMS_VEHICLE_ASSIGNED'
@@ -108,9 +182,9 @@ export type TmsStage =
     | 'TMS_DELIVERING'
     | 'TMS_DELIVERED';
 
-export type TaskStage = OmsStage | InboundStage | WmsOutStage | TmsStage;
+export type TaskStage = OmsStage | InboundStage | WmsOutStage | QmsStage | TmsStage | EosStage;
 
-export type TaskType = 'ORDER' | 'INBOUND';
+export type TaskType = 'ORDER' | 'INBOUND' | 'EOS';
 
 export interface LogisticsTask {
     taskId: string;
@@ -121,7 +195,7 @@ export interface LogisticsTask {
     quantity: number;
     destination: string;
     currentStage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
     status: TaskStatus;
     actor: string;
     sourceChannel?: 'operator' | 'owner' | 'auto' | 'bulk';
@@ -138,11 +212,11 @@ export interface LogisticsTask {
     failureReason?: string;
     failureCode?: string;
     failureLabel?: string;
-    failureDomain?: 'OMS' | 'WMS' | 'TMS' | 'stream';
+    failureDomain?: 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'stream';
     failureType?: 'business' | 'system' | 'external' | 'capacity' | 'data';
     failureRecoverable?: boolean;
-    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey;
-    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey }>;
+    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
+    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey }>;
     failureResumePolicy?: 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
     simulationGlobalFailureRate?: number;
     simulationStageOverrides?: Partial<Record<TaskStage, number>>;

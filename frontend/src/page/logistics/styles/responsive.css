@@ -177,6 +177,10 @@
     grid-template-columns: repeat(5, minmax(180px, 1fr));
   }
 
+  .logistics-desktop-forced .logistics-grid-6 {
+    grid-template-columns: repeat(6, minmax(180px, 1fr));
+  }
+
   .logistics-desktop-forced .logistics-grid-7 {
     grid-template-columns: repeat(7, minmax(180px, 1fr));
   }
@@ -206,6 +210,10 @@
 
   .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-5 {
     grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-6 {
+    grid-template-columns: repeat(6, minmax(180px, 1fr));
   }
 
   .logistics-desktop-forced .logistics-stage-grid-shell.logistics-grid-7 {

@@ -11,8 +11,9 @@ function StageWorkLane({
     getNodeTasks,
     stacked,
     cardClassName,
+    taskTypes,
 }) {
-    const stageTasks = tasksForStage(tasks, stage);
+    const stageTasks = tasksForStage(tasks, stage, taskTypes);
 
     return (
         <article className="logistics-lane logistics-work-lane">
@@ -55,22 +56,27 @@ export default function StageWorkGrid({
     getNodeTasks = defaultStageNodeTasks,
     stacked = false,
     cardClassName = '',
+    shellStyle,
+    taskTypes,
 }) {
     return (
-        <div className={`${gridClassName} logistics-stage-grid-shell logistics-stage-grid-scroll`}>
-            {stages.map(stage => (
-                <StageWorkLane
-                    key={stage}
-                    stage={stage}
-                    tasks={tasks}
-                    stageNodes={workNodesByStage[stage] ?? []}
-                    focusedTaskId={focusedTaskId}
-                    onPopover={onPopover}
-                    getNodeTasks={getNodeTasks}
-                    stacked={stacked}
-                    cardClassName={cardClassName}
-                />
-            ))}
+        <div className="logistics-stage-grid-shell">
+            <div className={gridClassName} style={shellStyle}>
+                {stages.map(stage => (
+                    <StageWorkLane
+                        key={stage}
+                        stage={stage}
+                        tasks={tasks}
+                        stageNodes={workNodesByStage[stage] ?? []}
+                        focusedTaskId={focusedTaskId}
+                        onPopover={onPopover}
+                        getNodeTasks={getNodeTasks}
+                        stacked={stacked}
+                        cardClassName={cardClassName}
+                        taskTypes={taskTypes}
+                    />
+                ))}
+            </div>
         </div>
     );
 }

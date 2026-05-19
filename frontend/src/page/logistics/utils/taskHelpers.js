@@ -1,7 +1,7 @@
 // 작업 계산 관련 함수들
 
-export function tasksForStage(tasks, stage) {
-    return tasks.filter(task => task.type === 'ORDER' && task.currentStage === stage);
+export function tasksForStage(tasks, stage, allowedTypes = ['ORDER']) {
+    return tasks.filter(task => allowedTypes.includes(task.type) && task.currentStage === stage);
 }
 
 export function progressPercent(task) {

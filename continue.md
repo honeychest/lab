@@ -1,82 +1,47 @@
-# Continue — Kafka Event Pipeline Prep
+# Logistics 도메인 — 남은 작업
 
-다음 세션에서 바로 이어갈 작업:
+> 갱신: 2026-05-19
 
-## 현재 결정
+## 도메인 모델 (전제)
 
-- Kafka는 앱 compose가 아니라 인프라 compose에 둔다.
-- 서버 인프라 compose 위치: `/home/ubuntu/docker-compose.yml`
-- 로컬 인프라 compose 원본: `chs/server/docker-infra.yml`
-- 서버 앱 compose 위치: `/home/ubuntu/project/home/springboot/docker-compose.yml`
-- 로컬 앱 compose 원본: `chs/server/springboot/docker-compose.yml`
-- 서버 프로젝트 루트: `/home/ubuntu/project/home`
-- 서버 접속 표기: `ubuntu@devcontext.duckdns.org`
+- WMS = 창고 중심. **OMS = 출고 trigger**(재고 감소), **EOS = 입고 trigger**(재고 증가).
+- `EOS_PIPELINE = EOS_STAGES + INBOUND_STAGES` — 발주 후 실물이 와서 INBOUND로 입고되는 한 흐름.
 
-## 현재 변경 상태
+---
 
-로컬 파일 기준:
+## 1. 리팩토링 (먼저)
 
-- `chs/server/docker-infra.yml`
-  - Kafka 서비스 추가됨.
-  - `apache/kafka:3.8.1`
-  - 단일 노드 KRaft 모드.
-  - memory `1536M`, heap `-Xms512m -Xmx512m`.
-  - `kafka-data:/var/lib/kafka/data`.
-- `chs/server/springboot/docker-compose.yml`
-  - Kafka 서비스는 제거됨.
-  - 앱 공통 환경변수에 `KAFKA_BOOTSTRAP_SERVERS: kafka:9092`만 있음.
-- `springboot/build.gradle`
-  - `implementation 'org.springframework.kafka:spring-kafka'` 추가됨.
-- `springboot/src/main/resources/application.properties`
-  - `spring.kafka.*` 기본 설정 추가됨.
+INBOUND부터 분리해 queue 패턴 검증 → 통과 시 OMS/WMS/QMS/TMS/EOS 점진 마이그레이션.
 
-## 문서 위치
+| 단계 | 작업 | 산출 |
+|---|---|---|
+| 1 | (완료) in-memory queue 추상 | `frontend/src/domain/logistics/common/queue.ts` |
+| 2 | `domain/inbound/` 모듈 + `subscribe('inbound.*')` consumer | 신규 폴더 |
+| 3 | consumer에서 work node 진행 로직 (출고 `advanceWmsWorkNode` 참고) | consumer 안 |
+| 4 | `tickLoop`의 INBOUND 분기 제거 (`tickLoop.ts:135-142` 등) | tickLoop 슬림 |
+| 5 | `events.ts`에 `InboundWorkNodeKey` union 추가 | 타입 안전 |
+| 6 | 검증 후 다른 5도메인 마이그레이션 | 점진 |
 
-기준 문서 폴더:
+**원칙**: queue 1개. routing key + consumer 경계로 도메인 분리. routing key 규칙 `<domain>.<event>`.
 
-```text
-obsidian/20. Project/kafka-event-pipeline-prep
-```
+---
 
-우선 읽을 문서:
+## 2. 리팩토링 후 — WMS 입고 완료 처리 보강
 
-1. `README.md`
-2. `02-server-kafka-setup-runbook.md`
-3. `03-application-refactor-plan.md`
-4. `04-operational-notes.md`
+출고(`WMS_COMPLETED`)는 work node 3개(`stock-confirm`/`audit-close`/`order-close`)로 마무리하는데 입고(`INBOUND_COMPLETED`)는 finalStage라 도달 즉시 `status='completed'`로 마감 → 마무리 절차 패스.
 
-## 다음 작업 순서
+**INBOUND_COMPLETED에 추가할 마무리 work node 3종**:
+- `stock-apply-confirm` — 재고 반영 확정 (출고 stock-confirm 대응)
+- `audit-close` — 입고 감사 로그
+- `eos-close-handoff` — EOS측 "입고 완결" 통보 (출고 order-close 대응)
 
-1. 로컬 compose 정합성 확인
-   - `docker compose -f chs/server/docker-infra.yml config --services`
-   - `docker compose --project-directory springboot -f chs/server/springboot/docker-compose.yml config --services`
-   - 기대:
-     - infra: `db`, `kafka`, `rabbitmq`, `redis`
-     - app: `app1`, `app2`, `nexus`
+**구현 위치**: 리팩토링으로 분리된 `domain/inbound/` consumer 안. tickLoop에 평행 코드 추가 금지 (모놀리식 심화).
 
-2. 문서가 실제 파일과 맞는지 확인
-   - `02-server-kafka-setup-runbook.md`의 경로와 명령이 위 결정과 맞는지 점검.
-   - `chs/`는 `.gitignore` 대상이므로 compose 변경은 Git pull이 아니라 서버 대상 파일로 직접 복사해야 함.
+**부수 점검**: `failures.ts`에 INBOUND_COMPLETED 단계 실패 매핑 있는지.
 
-3. 필요하면 서버 반영 전 커밋 또는 scp 전략 결정
-   - Git 반영이면 `/home/ubuntu/project/home`에서 `git pull`.
-   - compose 파일은 서버 `/home/ubuntu/docker-compose.yml`, `/home/ubuntu/project/home/springboot/docker-compose.yml`에 별도 반영.
-   - 서버 접속/복사/compose 실행/topic 생성/smoke test는 사용자가 수동 진행.
+---
 
-4. 서버 Kafka 준비
-   - runbook의 `0. 로컬 변경 파일과 서버 반영 위치`부터 진행.
-   - Kafka topic:
-     - `market.aggtrade.raw`
-     - `market.aggtrade.dlq`
+## 3. 그 외
 
-5. 서버 Kafka smoke test 완료 후 앱 코드 전환 시작
-   - `AggTradeStreamService`에 Kafka producer 추가.
-   - 초기에는 기존 `storageService.enqueue(...)` 유지 + Kafka publish dual-write.
-   - 그 다음 `raw-writer` consumer 구현.
-
-## 주의
-
-- Kafka 브로커 정의를 앱 compose에 다시 넣지 말 것.
-- Redis는 원천 이벤트 보관 용도가 아니라 current metrics/cache 용도.
-- OpenSearch/Loki/Grafana 등 분석도구는 AWS 8GB 환경에서는 보류.
-- `9094`는 host debug용이다. AWS 보안그룹에 public open 하지 말 것.
+- queue snapshot UI 패널 (디버그/관측용, 작은 floating panel)
+- `InboundStageGrid` 마운트 완료 (WmsTab에서 focused task 기준 입/출고 자동 swap). 추가 시각화 필요 시 여기 추가
