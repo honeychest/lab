@@ -14,7 +14,7 @@ export interface LogisticEvent {
     idempotencyKey: string;
 }
 
-export type TaskStatus = 'active' | 'paused' | 'failed' | 'completed' | 'cancelled';
+export type TaskStatus = 'active' | 'paused' | 'failed' | 'completed' | 'cancelled' | 'disposed' | 'returned';
 
 export type OmsStage =
     | 'OMS_RECEIVED'
@@ -78,12 +78,8 @@ export type WmsWorkNodeKey =
     | 'dock-assign'
     | 'dispatch-check'
     | 'tms-request'
-    | 'tms-sync'
-    | 'delay-watch'
-    | 'delivery-result'
     | 'stock-confirm'
-    | 'audit-close'
-    | 'order-close';
+    | 'audit-close';
 
 export type QmsWorkNodeKey =
     | 'request-ingest'
@@ -127,9 +123,28 @@ export type QmsWorkNodeKey =
 export type InboundStage =
     | 'INBOUND_RECEIVED'
     | 'INBOUND_VALIDATED'
+    | 'INBOUND_QC'
     | 'INBOUND_ZONE_ASSIGNED'
     | 'INBOUND_STORED'
     | 'INBOUND_COMPLETED';
+
+export type InboundWorkNodeKey =
+    | 'handoff-receive'
+    | 'task-register'
+    | 'item-verify'
+    | 'quantity-verify'
+    | 'visual-check'
+    | 'label-check'
+    | 'certificate-check'
+    | 'defect-decision'
+    | 'zone-pick'
+    | 'location-allocate'
+    | 'physical-store'
+    | 'stock-apply'
+    | 'stock-apply-confirm'
+    | 'audit-close'
+    | 'eos-close-handoff'
+    | 'handoff-close';
 
 export type WmsOutStage =
     | 'WMS_RECEIVED'
@@ -137,7 +152,6 @@ export type WmsOutStage =
     | 'WMS_PICKING'
     | 'WMS_PACKED'
     | 'WMS_DISPATCHED'
-    | 'WMS_DELIVERING'
     | 'WMS_COMPLETED';
 
 export type QmsStage =
@@ -182,7 +196,20 @@ export type TmsStage =
     | 'TMS_DELIVERING'
     | 'TMS_DELIVERED';
 
-export type TaskStage = OmsStage | InboundStage | WmsOutStage | QmsStage | TmsStage | EosStage;
+export type AftStage =
+    | 'AFT_BILLING'
+    | 'AFT_CLOSED';
+
+export type AftWorkNodeKey =
+    | 'oms-close-request'
+    | 'billing-calc'
+    | 'billing-issue'
+    | 'return-intake'
+    | 'cs-receive'
+    | 'settle-confirm'
+    | 'order-close';
+
+export type TaskStage = OmsStage | InboundStage | WmsOutStage | QmsStage | TmsStage | EosStage | AftStage;
 
 export type TaskType = 'ORDER' | 'INBOUND' | 'EOS';
 
@@ -195,7 +222,7 @@ export interface LogisticsTask {
     quantity: number;
     destination: string;
     currentStage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey | InboundWorkNodeKey | AftWorkNodeKey;
     status: TaskStatus;
     actor: string;
     sourceChannel?: 'operator' | 'owner' | 'auto' | 'bulk';
@@ -212,11 +239,11 @@ export interface LogisticsTask {
     failureReason?: string;
     failureCode?: string;
     failureLabel?: string;
-    failureDomain?: 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'stream';
+    failureDomain?: 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EOS' | 'INBOUND' | 'AFT' | 'stream';
     failureType?: 'business' | 'system' | 'external' | 'capacity' | 'data';
     failureRecoverable?: boolean;
-    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
-    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey }>;
+    failureReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey | InboundWorkNodeKey | AftWorkNodeKey;
+    failureActions?: Array<{ id: string; label: string; nextStage?: TaskStage; nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey | InboundWorkNodeKey | AftWorkNodeKey }>;
     failureResumePolicy?: 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
     simulationGlobalFailureRate?: number;
     simulationStageOverrides?: Partial<Record<TaskStage, number>>;

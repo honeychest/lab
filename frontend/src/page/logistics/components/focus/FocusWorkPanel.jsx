@@ -14,25 +14,6 @@ function DetailItem({ label, value, tone }) {
     );
 }
 
-function RoutingInfoButton({ onInfoOpen }) {
-    return (
-        <button
-            type="button"
-            className="logistics-meta-pill logistics-health-btn"
-            onClick={() => onInfoOpen?.({
-                title: 'Routing key 규칙',
-                summary: '이벤트 메시지 이름을 일관되게 만들기 위한 규칙입니다.',
-                bullets: [
-                    '형식: {aggregate}.{verb}.{past-tense}',
-                    '예: order.received, shipment.dispatched',
-                    '전체 로그 필터와 흐름 추적에 사용',
-                ],
-            })}
-        >
-            Routing key 규칙
-        </button>
-    );
-}
 
 function EventStorePill({ eventCount }) {
     return (
@@ -45,7 +26,7 @@ function EventStorePill({ eventCount }) {
     );
 }
 
-function FocusWorkHeader({ title, nodeDescription, eventCount, latest, onInfoOpen }) {
+function FocusWorkHeader({ title, nodeDescription, eventCount, latest }) {
     return (
         <div className="logistics-work-head">
             <div>
@@ -60,7 +41,6 @@ function FocusWorkHeader({ title, nodeDescription, eventCount, latest, onInfoOpe
                 )}
             </div>
             <div className="logistics-work-head-meta">
-                <RoutingInfoButton onInfoOpen={onInfoOpen} />
                 <EventStorePill eventCount={eventCount} />
                 {latest && (
                     <span className="logistics-meta-pill">

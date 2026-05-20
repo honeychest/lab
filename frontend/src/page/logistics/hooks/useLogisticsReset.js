@@ -3,18 +3,16 @@ import { clearAllTasks } from '@/store/taskStore';
 import { clearEventStore } from '@/store/eventStore';
 import { appendAuditEvent } from '@/store/auditStore';
 import { resetFocusState } from '@/store/focusStore';
-import { stopAutoOmsOrders } from '../services/omsSimulation';
 import { TAB_STORAGE_KEY } from '../constants';
 
 export default function useLogisticsReset({
     setActiveTab,
-    setAutoMode,
+    resetModes,
     closeSettings,
 }) {
     const handleProgressReset = async () => {
         dtag(2, ['logistics', 'reset', 'event'], '진행 데이터 리셋과 이벤트 저장소 초기화 블록');
-        stopAutoOmsOrders();
-        setAutoMode(false);
+        resetModes();
         await appendAuditEvent('audit.reset.performed', {
             scope: 'partial',
         }, {
@@ -31,8 +29,7 @@ export default function useLogisticsReset({
 
     const handleFullReset = async () => {
         dtag(2, ['logistics', 'reset', 'audit'], '전체 초기화 확인 절차와 감사 로그 연결 블록');
-        stopAutoOmsOrders();
-        setAutoMode(false);
+        resetModes();
         localStorage.removeItem(TAB_STORAGE_KEY);
         setActiveTab('overview');
         await appendAuditEvent('audit.reset.performed', {

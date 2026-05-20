@@ -1,18 +1,151 @@
 .logistics-tabbar {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 18px 12px;
-  overflow-x: auto;
-  overflow-y: visible;
-  border-bottom: 1px solid var(--dark-border);
-  background: rgba(11, 17, 30, 0.9);
+  --logistics-tabbar-ui-scale: 1.22;
 }
 
-.logistics-tabbar > * {
-  flex: 0 0 auto;
+.logistics-tabbar {
+  display: contents;
+}
+
+.logistics-tabbar-row {
+  display: contents;
+}
+
+.logistics-tabbar-row-compact {
+  display: contents;
+}
+
+.logistics-tabbar-nav {
+  grid-area: nav;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  overflow: visible;
+}
+
+.logistics-system-map-panel {
+  justify-content: center;
+  grid-area: map;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  align-self: stretch;
+  height: 100%;
+  padding: 10px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+}
+
+/* === 두 레인 노선도 === */
+.logistics-two-lane-map {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: fit-content;
+  flex-shrink: 0;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.logistics-route-lane {
+  margin: 5px 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.3;
+  transition: opacity 200ms;
+}
+
+.logistics-route-lane.is-active {
+  opacity: 1;
+}
+
+.logistics-lane-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--dark-text-secondary);
+  width: 70px;
+  flex-shrink: 0;
+  text-align: right;
+  letter-spacing: 0.1em;
+}
+
+
+button.logistics-domain-cluster {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+button.logistics-domain-cluster:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.logistics-cluster-dots {
+  display: flex;
+  align-items: center;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-cluster.is-tab-active {
+  border-color: rgba(5, 142, 217, 0.35);
+  border-bottom: none;
+  background: rgba(5, 142, 217, 0.08);
+}
+
+.logistics-domain-cluster.is-tab-active .logistics-domain-label {
+  color: var(--dark-accent, #058ed9);
+}
+
+/* 사용 안 함 */
+.logistics-domain-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--dark-text-neutral, #9aa3b2);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 44px;
+  line-height: 1;
+  margin: 3px 6px;
+  transform: scale(var(--logistics-tabbar-ui-scale));
+  transform-origin: center center;
+  transition: background 160ms, border-color 160ms, color 160ms, box-shadow 200ms, transform 120ms;
+}
+
+.logistics-domain-chip:hover {
+  transform: scale(calc(var(--logistics-tabbar-ui-scale) + 0.04));
+  color: var(--dark-text-primary, #fff);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.logistics-domain-chip.is-on-route {
+  color: var(--dark-text-primary, #fff);
+  border-color: rgba(5, 142, 217, 0.28);
+  background: linear-gradient(135deg, rgba(5, 142, 217, 0.1), rgba(5, 142, 217, 0.04));
+}
+
+.logistics-domain-chip.is-route-current {
+  border-color: rgba(5, 142, 217, 0.68);
+  background: linear-gradient(135deg, rgba(5, 142, 217, 0.22), rgba(5, 142, 217, 0.08));
+  box-shadow:
+    0 0 0 1px rgba(5, 142, 217, 0.28),
+    0 0 10px rgba(5, 142, 217, 0.18);
+}
+
+.logistics-domain-chip.is-tab-active {
+  outline: 1px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 1px;
 }
 
 .logistics-tab-list {
@@ -41,18 +174,27 @@
   background: rgba(255, 255, 255, 0.03);
   color: var(--dark-text-neutral);
   border-radius: 999px;
-  padding: 10px 14px;
+  min-height: 26px;
+  padding: 4px 10px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  line-height: 1;
+  margin: 2px 10px;
+  transform: scale(var(--logistics-tabbar-ui-scale));
+  transform-origin: left center;
 }
 
 .logistics-tab-btn.active {
   color: var(--dark-text-primary);
-  border-color: rgba(5, 142, 217, 0.45);
-  background: linear-gradient(135deg, rgba(5, 142, 217, 0.18), rgba(5, 142, 217, 0.06));
-  box-shadow: 0 4px 12px rgba(5, 142, 217, 0.16);
+  border-color: rgba(5, 142, 217, 0.3);
+  background: linear-gradient(135deg, rgba(5, 142, 217, 0.12), rgba(5, 142, 217, 0.04));
+  box-shadow: none;
+}
+
+.logistics-tab-btn:hover {
+  transform: scale(calc(var(--logistics-tabbar-ui-scale) + 0.04));
 }
 
 .logistics-tab-focus-summary {
@@ -77,19 +219,39 @@
 }
 
 .logistics-tab-actions {
+  grid-area: actions;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 4px;
   flex-wrap: nowrap;
-  white-space: nowrap;
-  min-width: max-content;
-  margin-left: auto;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
+  overflow: visible;
 }
 
 .logistics-tab-actions > button {
   white-space: nowrap;
   flex: 0 0 auto;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 11px;
+  line-height: 1;
+  margin: 2px 5px;
+  transform: scale(var(--logistics-tabbar-ui-scale));
+  transform-origin: right center;
+}
+
+.logistics-tab-actions > button:hover {
+  transform: translateY(-1px) scale(calc(var(--logistics-tabbar-ui-scale) + 0.04));
+}
+
+.logistics-tab-actions > button.logistics-outline-btn.is-pressed {
+  transform: translateY(1px) scale(var(--logistics-tabbar-ui-scale));
+}
+
+.logistics-tab-actions > button.logistics-run-btn {
+  min-width: 126px;
 }
 
 .logistics-tab-focus-summary.is-empty {
@@ -172,8 +334,8 @@
   line-height: 0px;
   max-width: 48px;
   color: var(--dark-text-secondary);
-  font-size: 10px;
-  font-weight: 900;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: 0.08em;
 }
 
@@ -276,5 +438,110 @@
   100% {
     background-position: 0 0, 30px 0;
   }
+}
+
+/* === 두 레인 노선도 — 레인 컨텍스트 오버라이드 (파일 끝, 고우선순위) === */
+.logistics-route-lane .logistics-route-strip-compact {
+  width: fit-content;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact {
+  align-items: flex-start;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 5px 12px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.logistics-route-lane .logistics-route-strip-compact > .logistics-route-arrow {
+  margin-top: 6px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-cluster.is-complete-cluster {
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 0 4px;
+  background: transparent;
+  border: none;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-label {
+  margin-top: 10px;
+  max-width: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-label::before,
+.logistics-route-lane .logistics-route-strip-compact .logistics-domain-label::after {
+  content: "";
+  flex: 1 1 0;
+  min-width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-route-node {
+  width: 13px;
+  height: 13px;
+  min-width: 13px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-route-step {
+  width: 13px;
+  min-width: 13px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-stage-dot {
+  width: 13px;
+  height: 13px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-route-arrow {
+  width: 28px;
+}
+
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-route-node.is-current::before {
+  width: 13px;
+  height: 13px;
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-stage-dot.is-check {
+  position: relative;
+  transform: scale(1.18);
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.28),
+    0 0 10px rgba(16, 185, 129, 0.32);
+}
+
+.logistics-route-lane .logistics-route-strip-compact .logistics-stage-dot.is-check::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 7px;
+  font-weight: 900;
+  color: rgba(5, 20, 38, 0.88);
+  line-height: 1;
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
 }
 

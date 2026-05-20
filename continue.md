@@ -1,47 +1,88 @@
-# Logistics 도메인 — 남은 작업
+# Logistics UI 리팩토링 — 작업 목록
 
 > 갱신: 2026-05-19
 
-## 도메인 모델 (전제)
+## 현재 진단
 
-- WMS = 창고 중심. **OMS = 출고 trigger**(재고 감소), **EOS = 입고 trigger**(재고 증가).
-- `EOS_PIPELINE = EOS_STAGES + INBOUND_STAGES` — 발주 후 실물이 와서 INBOUND로 입고되는 한 흐름.
+- 점수: `6.8/10`
+- 문제 요약: 헤더/탭바에 강조가 몰려 있고, 페이지 타이틀·KPI·경로 맵·액션 버튼의 위계가 서로 경쟁함
 
----
+## 작업 목록
 
-## 1. 리팩토링 (먼저)
+### 1. 헤더 위계 재정리 — 완료
 
-INBOUND부터 분리해 queue 패턴 검증 → 통과 시 OMS/WMS/QMS/TMS/EOS 점진 마이그레이션.
+**문제**
 
-| 단계 | 작업 | 산출 |
-|---|---|---|
-| 1 | (완료) in-memory queue 추상 | `frontend/src/domain/logistics/common/queue.ts` |
-| 2 | `domain/inbound/` 모듈 + `subscribe('inbound.*')` consumer | 신규 폴더 |
-| 3 | consumer에서 work node 진행 로직 (출고 `advanceWmsWorkNode` 참고) | consumer 안 |
-| 4 | `tickLoop`의 INBOUND 분기 제거 (`tickLoop.ts:135-142` 등) | tickLoop 슬림 |
-| 5 | `events.ts`에 `InboundWorkNodeKey` union 추가 | 타입 안전 |
-| 6 | 검증 후 다른 5도메인 마이그레이션 | 점진 |
+- 페이지 제목이 KPI 카드 그리드 안에 섞여 있음
+- 타이틀, 설명, KPI 수치가 같은 시각 규칙을 사용해서 첫 화면 계층이 흐림
+- `LogisticsHeader.jsx`에 인라인 스타일이 남아 있음
 
-**원칙**: queue 1개. routing key + consumer 경계로 도메인 분리. routing key 규칙 `<domain>.<event>`.
+**작업**
 
----
+- 페이지 타이틀/설명 블록을 KPI 그리드와 분리
+- KPI 카드는 `오더`, `처리중`, `실패` 3개만 남기고 동일한 카드 규칙 적용
+- 헤더 spacing, type scale, card padding을 공용 클래스 기준으로 정리
 
-## 2. 리팩토링 후 — WMS 입고 완료 처리 보강
+**완료 기준**
 
-출고(`WMS_COMPLETED`)는 work node 3개(`stock-confirm`/`audit-close`/`order-close`)로 마무리하는데 입고(`INBOUND_COMPLETED`)는 finalStage라 도달 즉시 `status='completed'`로 마감 → 마무리 절차 패스.
-
-**INBOUND_COMPLETED에 추가할 마무리 work node 3종**:
-- `stock-apply-confirm` — 재고 반영 확정 (출고 stock-confirm 대응)
-- `audit-close` — 입고 감사 로그
-- `eos-close-handoff` — EOS측 "입고 완결" 통보 (출고 order-close 대응)
-
-**구현 위치**: 리팩토링으로 분리된 `domain/inbound/` consumer 안. tickLoop에 평행 코드 추가 금지 (모놀리식 심화).
-
-**부수 점검**: `failures.ts`에 INBOUND_COMPLETED 단계 실패 매핑 있는지.
+- 제목과 KPI가 한눈에 다른 레벨로 읽힘
+- `LogisticsHeader.jsx` 인라인 스타일 제거
+- `npm run build` 통과
 
 ---
 
-## 3. 그 외
+### 2. 탭바 2단 구조화 — 완료
 
-- queue snapshot UI 패널 (디버그/관측용, 작은 floating panel)
-- `InboundStageGrid` 마운트 완료 (WmsTab에서 focused task 기준 입/출고 자동 swap). 추가 시각화 필요 시 여기 추가
+**문제**
+
+- `Overview`, 시스템 맵, 포커스 메타, 액션 버튼이 한 줄 컨테이너에서 경쟁
+- 현재 작업 경로보다 컨트롤 바 자체가 더 강하게 보일 가능성이 큼
+
+**작업**
+
+- 상단: 탭/실행 컨트롤
+- 하단: 선택 task 경로 맵 + 포커스 메타
+- `min-height`, `min-width`, glow 강도 재조정
+
+---
+
+### 3. 강조 체계 축소 — 완료
+
+**문제**
+
+- active/current/pressed/failure/scan/comet 효과가 동시에 많음
+- 색과 광원으로만 상태를 구분하려는 경향이 강함
+
+**작업**
+
+- `current`만 강한 강조 유지
+- `on-route`, `active`, `pressed`는 한 단계씩 약화
+- 실패 상태 pulse/glow 강도 축소
+
+---
+
+### 4. 콘텐츠 spacing scale 재정리 — 완료
+
+**문제**
+
+- 헤더, 지원 스트립, 카드, 레인 간의 그룹 간격 차이가 약함
+- 섹션 구분이 배경/보더에 비해 spacing으로 잘 드러나지 않음
+
+**작업**
+
+- 섹션 간격은 `24/32px`, 내부 요소는 `8/12/16px` 중심으로 재조정
+- 레인 헤더와 카드 스택 사이 간격 정리
+
+---
+
+### 5. 오버레이/사이드 패널 depth 정리 — 완료
+
+**문제**
+
+- 메인 화면과 패널/오버레이의 elevation 차이가 충분히 체계적이지 않음
+- 로그/설정/우측 패널이 같은 무게로 느껴질 수 있음
+
+**작업**
+
+- 패널, 팝오버, 모달 shadow 단계 분리
+- border 대비와 backdrop 농도 재조정

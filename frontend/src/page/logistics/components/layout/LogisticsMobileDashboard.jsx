@@ -69,8 +69,11 @@ export default function LogisticsMobileDashboard({
                 </section>
 
                 <section className="logistics-mobile-tab-actions" aria-label="물류 작업">
-                    <button className={autoMode ? 'logistics-primary-btn' : 'logistics-outline-btn'} onClick={onAutoToggle}>
-                        {autoMode ? '⏸ 시뮬레이션 정지 (진행 중)' : '▶ 시뮬레이션 시작'}
+                    <button
+                        className={`logistics-run-btn${autoMode ? ' is-running' : ''}`}
+                        onClick={onAutoToggle}
+                    >
+                        {autoMode ? '■ 자동주문 정지' : '▶ 시뮬레이션 시작'}
                     </button>
                     <button className="logistics-secondary-btn" onClick={onSettingsOpen}>⚙ 설정</button>
                     {retentionFull && (

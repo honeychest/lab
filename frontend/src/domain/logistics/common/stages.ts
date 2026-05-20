@@ -1,4 +1,4 @@
-import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, QmsStage, TmsStage, EosStage, OmsReceiveNodeKey, TmsWorkNodeKey, WmsWorkNodeKey, QmsWorkNodeKey, EosWorkNodeKey } from './events';
+import type { LogisticsTask, TaskStage, OmsStage, InboundStage, WmsOutStage, QmsStage, TmsStage, EosStage, AftStage, OmsReceiveNodeKey, TmsWorkNodeKey, WmsWorkNodeKey, QmsWorkNodeKey, EosWorkNodeKey, AftWorkNodeKey } from './events';
 
 export const OMS_STAGES: OmsStage[] = [
     'OMS_RECEIVED',
@@ -19,12 +19,14 @@ export type OmsReceiveWorkNode = {
 };
 
 // 1 tick = 100ms. 모든 단계/세부 노드가 같은 기준 시간을 참조한다.
-export const LOGISTICS_STAGE_TICKS = 30;
+export const LOGISTICS_STAGE_TICKS = 10;
 export const OMS_RECEIVE_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 export const TMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 export const WMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 export const QMS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 export const EOS_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
+export const INBOUND_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
+export const AFT_WORK_NODE_TICKS = LOGISTICS_STAGE_TICKS;
 
 export const OMS_RECEIVE_WORK_NODES: OmsReceiveWorkNode[] = [
     {
@@ -698,15 +700,9 @@ export const WMS_STAGE_WORK_NODES: Record<WmsOutStage, WmsWorkNode[]> = {
         { key: 'dispatch-check', label: '출하 검수', description: '도크로 옮긴 박스가 실제로 보내려던 박스가 맞는지(개수·라벨) 마지막으로 한 번 더 확인합니다.' },
         { key: 'tms-request', label: 'TMS 요청', description: '운송 시스템(TMS)에 "이 박스 가져갈 차량을 보내달라"고 배차를 요청하는 단계입니다.' },
     ],
-    WMS_DELIVERING: [
-        { key: 'tms-sync', label: 'TMS 상태 수신', description: '운송 시스템(TMS)으로부터 차량의 현재 위치와 배송 진행 상태를 실시간으로 받아오는 단계입니다.' },
-        { key: 'delay-watch', label: '지연 감지', description: '예정 시간보다 늦어지는 배송을 자동으로 발견해 경고를 띄우는 단계입니다.' },
-        { key: 'delivery-result', label: '인도 결과 대기', description: '"고객이 잘 받았다"는 최종 인도 확인 신호가 운송 시스템에서 도착하기를 기다리는 단계입니다.' },
-    ],
     WMS_COMPLETED: [
-        { key: 'stock-confirm', label: '재고 차감 확정', description: '예약 상태였던 재고를 "실제로 나갔다"로 바꿔, 창고 재고 숫자를 줄이는 단계입니다.' },
-        { key: 'audit-close', label: '감사 로그 저장', description: '나중에 누가 언제 무엇을 내보냈는지 추적할 수 있도록, 이번 출고 기록 전체를 감사 로그로 저장하는 단계입니다.' },
-        { key: 'order-close', label: '주문 종료 연계', description: 'OMS(주문 시스템)에 "이 주문은 출고가 끝났다"고 알려, 주문을 완결 처리하도록 연결하는 단계입니다.' },
+        { key: 'stock-confirm', label: '재고 차감 확정', description: '도크 인계(WMS_DISPATCHED) 시점에 예약해둔 재고를 "실제로 출고됨"으로 확정해 가용 재고 숫자를 차감하는 단계입니다.' },
+        { key: 'audit-close', label: 'WMS 감사 로그 저장', description: '이번 출고의 입고·할당·피킹·패킹·출하 전 과정을 감사 로그로 닫아 추적 기록을 확정하는 단계입니다.' },
     ],
 };
 
@@ -732,6 +728,40 @@ export type LogisticsStageWorkNode = {
     description?: string;
 };
 
+export type AftWorkNode = { key: string; label: string; description?: string };
+
+export const AFT_STAGE_WORK_NODES: Record<AftStage, AftWorkNode[]> = {
+    AFT_BILLING: [
+        { key: 'oms-close-request', label: 'OMS 주문완결 요청', description: '배송 완료 이벤트를 받아 OMS에 주문완결 처리를 요청합니다.' },
+        { key: 'billing-calc',      label: '대금·배송비 산출',  description: '주문 금액과 실배송비를 대조해 최종 청구액을 산출합니다.' },
+        { key: 'billing-issue',     label: '청구서 발행',       description: '화주에게 발행할 청구서를 생성하고 전송합니다.' },
+        { key: 'return-intake',     label: '반품 접수',         description: '고객 반품 요청이 있는 경우 반품 흐름을 개시합니다.' },
+    ],
+    AFT_CLOSED: [
+        { key: 'cs-receive',    label: 'CS 접수·처리',   description: '배송 관련 고객 문의·불만을 접수하고 처리합니다.' },
+        { key: 'settle-confirm', label: '정산 확정',     description: '청구·반품 처리 결과를 종합해 정산을 최종 확정합니다.' },
+        { key: 'order-close',   label: '주문 최종 종결', description: '모든 후처리가 완료된 주문의 감사 로그를 닫고 종결 이벤트를 발행합니다.' },
+    ],
+};
+
+export const AFT_STAGES: AftStage[] = ['AFT_BILLING', 'AFT_CLOSED'];
+
+export function getInitialAftStageWorkNodeKey(stage: AftStage): string {
+    return AFT_STAGE_WORK_NODES[stage][0].key;
+}
+
+export function getNextAftStageWorkNodeKey(stage: AftStage, key?: string): string | null {
+    const nodes = AFT_STAGE_WORK_NODES[stage];
+    const idx = nodes.findIndex(n => n.key === key);
+    const safeIdx = idx >= 0 ? idx : 0;
+    return nodes[safeIdx + 1]?.key ?? null;
+}
+
+export function getAftStageWorkNodeLabel(stage: AftStage, key?: string): string {
+    const nodes = AFT_STAGE_WORK_NODES[stage];
+    return nodes.find(n => n.key === key)?.label ?? nodes[0].label;
+}
+
 export function getStageWorkNodes(stage: TaskStage): LogisticsStageWorkNode[] {
     return [
         ...(OMS_STAGE_WORK_NODES[stage as OmsStage] ?? []),
@@ -739,12 +769,15 @@ export function getStageWorkNodes(stage: TaskStage): LogisticsStageWorkNode[] {
         ...(QMS_STAGE_WORK_NODES[stage as QmsStage] ?? []),
         ...(TMS_STAGE_WORK_NODES[stage as TmsStage] ?? []),
         ...(EOS_STAGE_WORK_NODES[stage as EosStage] ?? []),
+        ...(INBOUND_STAGE_WORK_NODES[stage as InboundStage] ?? []),
+        ...(AFT_STAGE_WORK_NODES[stage as AftStage] ?? []),
     ];
 }
 
 export const INBOUND_STAGES: InboundStage[] = [
     'INBOUND_RECEIVED',
     'INBOUND_VALIDATED',
+    'INBOUND_QC',
     'INBOUND_ZONE_ASSIGNED',
     'INBOUND_STORED',
     'INBOUND_COMPLETED',
@@ -765,6 +798,12 @@ export const INBOUND_STAGE_WORK_NODES: Record<InboundStage, InboundWorkNode[]> =
         { key: 'item-verify', label: '품목 확인', description: '발주서와 실제 입고 품목이 일치하는지 확인합니다.' },
         { key: 'quantity-verify', label: '수량 확인', description: '요청 수량과 실제 입고 수량을 대조합니다.' },
     ],
+    INBOUND_QC: [
+        { key: 'visual-check', label: '외관 검사', description: '입고 상품의 파손·오염·변형을 육안으로 확인합니다.' },
+        { key: 'label-check', label: '라벨 검사', description: '발주서 품목·수량과 실물 라벨이 일치하는지 확인합니다.' },
+        { key: 'certificate-check', label: '성적서 확인', description: '공급사 품질 성적서·원산지 증명서 등 필수 서류를 점검합니다.' },
+        { key: 'defect-decision', label: '불량 판정', description: '검사 항목 결과를 종합해 합격·반품·폐기 중 하나로 최종 결정합니다.' },
+    ],
     INBOUND_ZONE_ASSIGNED: [
         { key: 'zone-pick', label: '보관 Zone 선택', description: '품목 특성(상온/냉장/대형)에 맞춰 보관 위치를 결정합니다.' },
         { key: 'location-allocate', label: '위치 할당', description: 'Zone 내부의 구체적인 선반/슬롯을 배정합니다.' },
@@ -774,6 +813,9 @@ export const INBOUND_STAGE_WORK_NODES: Record<InboundStage, InboundWorkNode[]> =
         { key: 'stock-apply', label: '재고 반영', description: '입고 수량을 가용 재고에 더해 출고 가능 상태로 만듭니다.' },
     ],
     INBOUND_COMPLETED: [
+        { key: 'stock-apply-confirm', label: '재고 반영 확정', description: '입고 수량이 가용 재고에 정상 반영됐는지 최종 확인합니다.' },
+        { key: 'audit-close', label: '입고 감사 로그', description: '입고 전 과정의 감사 로그를 닫고 추적 기록을 확정합니다.' },
+        { key: 'eos-close-handoff', label: 'EOS 입고 완결 통보', description: 'EOS 측에 입고 완결을 통보해 발주 사이클을 종료합니다.' },
         { key: 'handoff-close', label: '입고 종료', description: '입고 흐름을 닫고 후속 출고/QMS 흐름이 참조 가능하도록 마무리합니다.' },
     ],
 };
@@ -800,7 +842,6 @@ export const WMS_OUT_STAGES: WmsOutStage[] = [
     'WMS_PICKING',
     'WMS_PACKED',
     'WMS_DISPATCHED',
-    'WMS_DELIVERING',
     'WMS_COMPLETED',
 ];
 
@@ -829,11 +870,15 @@ export const TMS_STAGES: TmsStage[] = [
     'TMS_DELIVERED',
 ];
 
+// ORDER 태스크 파이프라인: 피킹·패킹 → QMS 검수 → WMS 출하완료 → TMS 배송 → AFT 정산·종결
+// 재고차감: WMS_DISPATCHED(도크 인계) 시점. WMS_COMPLETED = WMS 업무 종료 확정. AFT = 배송 후 정산·CS·종결.
 export const PIPELINE_STAGES: TaskStage[] = [
     ...OMS_STAGES,
-    ...WMS_OUT_STAGES,
+    'WMS_RECEIVED', 'WMS_ALLOCATED', 'WMS_PICKING', 'WMS_PACKED',
     ...QMS_STAGES,
+    'WMS_DISPATCHED', 'WMS_COMPLETED',
     ...TMS_STAGES,
+    ...AFT_STAGES,
 ];
 
 export const EOS_PIPELINE: TaskStage[] = [
@@ -841,7 +886,7 @@ export const EOS_PIPELINE: TaskStage[] = [
     ...INBOUND_STAGES,
 ];
 
-export const FINAL_STAGE: TaskStage = 'TMS_DELIVERED';
+export const FINAL_STAGE: TaskStage = 'AFT_CLOSED';
 export const INBOUND_FINAL_STAGE: TaskStage = 'INBOUND_COMPLETED';
 
 export const STAGE_LABELS: Record<TaskStage, string> = {
@@ -850,6 +895,7 @@ export const STAGE_LABELS: Record<TaskStage, string> = {
     OMS_WMS_REQUESTED:     'WMS 전송',
     INBOUND_RECEIVED:      '등록',
     INBOUND_VALIDATED:     '유효성',
+    INBOUND_QC:            'IQC',
     INBOUND_ZONE_ASSIGNED: 'Zone',
     INBOUND_STORED:        '반영',
     INBOUND_COMPLETED:     '완료',
@@ -858,8 +904,7 @@ export const STAGE_LABELS: Record<TaskStage, string> = {
     WMS_PICKING:           '피킹',
     WMS_PACKED:            '패킹',
     WMS_DISPATCHED:        '출하',
-    WMS_DELIVERING:        '운송',
-    WMS_COMPLETED:         '완료',
+    WMS_COMPLETED:         '출하완료',
     QMS_REQUESTED:        '검사요청',
     QMS_SAMPLING:         '샘플추출',
     QMS_INSPECTING:       '검사진행',
@@ -876,6 +921,8 @@ export const STAGE_LABELS: Record<TaskStage, string> = {
     EOS_PO_ISSUED:          '발주서발행',
     EOS_PO_DISPATCHED:      '공급사송신',
     EOS_PO_CONFIRMED:       '수신확인',
+    AFT_BILLING: '정산처리',
+    AFT_CLOSED:  '주문종결',
 };
 
 export type StageGuidance = {
@@ -921,6 +968,13 @@ export const STAGE_GUIDANCE: Record<TaskStage, StageGuidance> = {
         meaning: '입고 품목과 수량, 화주 정보를 점검해 잘못된 재고 반영을 막습니다.',
         watch: '검증 오류를 놓치면 Zone 배정과 재고 수량이 모두 틀어질 수 있습니다.',
         next: '실패 원인이 데이터 문제인지 운영자 승인 문제인지 먼저 구분합니다.',
+    },
+    INBOUND_QC: {
+        title: '입고 품질 검수(IQC)',
+        summary: '입고 상품의 외관·라벨·서류를 검사해 재고 반영 전 불량을 차단하는 상태입니다.',
+        meaning: '외관 파손, 라벨 불일치, 성적서 누락을 걸러내 창고 내 불량 재고 유입을 막습니다.',
+        watch: '검수 실패 시 반품/폐기 처리가 명확히 이어져야 재고 오염을 막을 수 있습니다.',
+        next: '합격 판정이 나면 Zone 배정으로 진행하고, 불합격이면 반품·폐기 조치가 따르는지 확인합니다.',
     },
     INBOUND_ZONE_ASSIGNED: {
         title: '보관 Zone 배정',
@@ -978,18 +1032,11 @@ export const STAGE_GUIDANCE: Record<TaskStage, StageGuidance> = {
         watch: 'TMS 요청이 실패하면 창고 작업은 끝났지만 운송이 시작되지 않은 상태가 됩니다.',
         next: '배차 요청 이벤트가 생기고 TMS 카드가 이어지는지 확인합니다.',
     },
-    WMS_DELIVERING: {
-        title: '운송 연동 대기',
-        summary: 'WMS 관점에서 TMS 운송 결과를 기다리는 상태입니다.',
-        meaning: '상품은 창고를 떠났고, WMS는 운송 진행과 인도 완료 신호를 받아 최종 종료합니다.',
-        watch: '이 단계가 길어지면 창고 문제가 아니라 운송 지연으로 읽어야 합니다.',
-        next: 'TMS 운송 이벤트와 인도 완료 이벤트가 이어지는지 확인합니다.',
-    },
     WMS_COMPLETED: {
-        title: 'WMS 출고 종료',
-        summary: '창고 관점의 출고 처리가 끝난 상태입니다.',
-        meaning: 'WMS가 필요한 출고 처리를 모두 마치고 이력과 목록 조회 대상으로 넘깁니다.',
-        watch: '완료 후에도 카드가 오래 남으면 진행 중 작업과 섞여 병목처럼 보일 수 있습니다.',
+        title: 'WMS 출하 완료',
+        summary: '도크 인계 후 재고 차감을 확정하고 WMS 업무를 종료하는 상태입니다.',
+        meaning: 'WMS_DISPATCHED에서 캐리어에 넘긴 시점을 기준으로 예약 재고를 실차감 확정하고, WMS 감사 로그를 닫습니다. 이후 TMS가 배송을 담당합니다.',
+        watch: '재고 차감 확정 실패 시 재고 숫자가 틀어지므로 즉시 보정이 필요합니다.',
         next: '전체 로그나 목록 탭에서 필요할 때만 다시 확인합니다.',
     },
     QMS_REQUESTED: {
@@ -1058,9 +1105,9 @@ export const STAGE_GUIDANCE: Record<TaskStage, StageGuidance> = {
     TMS_DELIVERED: {
         title: '인도 완료',
         summary: '고객 또는 목적지에 상품 인도가 끝난 상태입니다.',
-        meaning: 'TMS 운송이 종료되고 전체 주문 흐름도 완료 상태로 닫힙니다.',
-        watch: '인도 실패나 수취 거부가 있었다면 반품 흐름으로 분기될 수 있습니다.',
-        next: '완료 이력과 전체 로그에서 주문 흐름이 정상 종료됐는지 확인합니다.',
+        meaning: 'TMS 운송이 종료된 시점입니다. 이 신호를 받아 AFT 정산 흐름(대금 청구·주문 종결)이 시작됩니다.',
+        watch: '인도 실패나 수취 거부가 있었다면 AFT 반품 접수 흐름으로 분기될 수 있습니다.',
+        next: 'AFT_BILLING 정산 처리가 이어지는지 확인합니다.',
     },
     EOS_FORECASTED: {
         title: '수요예측 완료',
@@ -1104,14 +1151,29 @@ export const STAGE_GUIDANCE: Record<TaskStage, StageGuidance> = {
         watch: '수신확인이 길어지면 공급사 거부 가능성을 검토해야 합니다.',
         next: '같은 task가 INBOUND_RECEIVED로 전이되어 WMS 입고 흐름이 시작되는지 확인합니다.',
     },
+    AFT_BILLING: {
+        title: '배송 후 정산 처리',
+        summary: 'TMS 배송 완료 후 대금 청구와 OMS 주문완결을 처리하는 상태입니다.',
+        meaning: '배송이 확인된 주문에 대해 배송비·대금을 산출하고 청구서를 화주에게 발행합니다.',
+        watch: '산출 오류나 OMS 연동 실패 시 정산이 지연되어 미결 주문이 누적될 수 있습니다.',
+        next: '청구서 발행이 완료되면 종결 단계로 진행하는지 확인합니다.',
+    },
+    AFT_CLOSED: {
+        title: '주문 최종 종결',
+        summary: '정산과 CS 처리를 마치고 주문을 완전히 닫는 상태입니다.',
+        meaning: '모든 후처리가 완료된 주문의 감사 로그를 닫고 최종 종결 이벤트를 발행합니다.',
+        watch: '종결 처리 실패 시 열린 주문이 잔존해 정산 리포트가 불일치할 수 있습니다.',
+        next: '주문 종결 이벤트가 발행되고 task가 completed 상태로 전환되는지 확인합니다.',
+    },
 };
 
-export const STAGE_DOMAIN: Record<TaskStage, 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EOS'> = {
+export const STAGE_DOMAIN: Record<TaskStage, 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EOS' | 'AFT'> = {
     OMS_RECEIVED:         'OMS',
     OMS_VALIDATED:        'OMS',
     OMS_WMS_REQUESTED:    'OMS',
     INBOUND_RECEIVED:     'WMS',
     INBOUND_VALIDATED:    'WMS',
+    INBOUND_QC:           'WMS',
     INBOUND_ZONE_ASSIGNED:'WMS',
     INBOUND_STORED:       'WMS',
     INBOUND_COMPLETED:    'WMS',
@@ -1120,7 +1182,6 @@ export const STAGE_DOMAIN: Record<TaskStage, 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EO
     WMS_PICKING:          'WMS',
     WMS_PACKED:           'WMS',
     WMS_DISPATCHED:       'WMS',
-    WMS_DELIVERING:       'WMS',
     WMS_COMPLETED:        'WMS',
     QMS_REQUESTED:        'QMS',
     QMS_SAMPLING:         'QMS',
@@ -1138,6 +1199,8 @@ export const STAGE_DOMAIN: Record<TaskStage, 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EO
     EOS_PO_ISSUED:          'EOS',
     EOS_PO_DISPATCHED:      'EOS',
     EOS_PO_CONFIRMED:       'EOS',
+    AFT_BILLING: 'AFT',
+    AFT_CLOSED:  'AFT',
 };
 
 // Routing Key 맵 — {aggregate}.{verb}.{past-tense}
@@ -1147,6 +1210,7 @@ export const STAGE_ROUTING_KEY: Record<TaskStage, string> = {
     OMS_WMS_REQUESTED:    'order.wms.requested',
     INBOUND_RECEIVED:     'inbound.received',
     INBOUND_VALIDATED:    'inbound.validated',
+    INBOUND_QC:           'inbound.qc.inspected',
     INBOUND_ZONE_ASSIGNED:'inbound.zone.assigned',
     INBOUND_STORED:       'inbound.stored',
     INBOUND_COMPLETED:    'inbound.completed',
@@ -1155,7 +1219,6 @@ export const STAGE_ROUTING_KEY: Record<TaskStage, string> = {
     WMS_PICKING:          'shipment.picking.started',
     WMS_PACKED:           'shipment.packed',
     WMS_DISPATCHED:       'shipment.dispatched',
-    WMS_DELIVERING:       'shipment.delivering',
     WMS_COMPLETED:        'shipment.completed',
     QMS_REQUESTED:        'quality.requested',
     QMS_SAMPLING:         'quality.sampling.started',
@@ -1173,6 +1236,8 @@ export const STAGE_ROUTING_KEY: Record<TaskStage, string> = {
     EOS_PO_ISSUED:          'eos.po.issued',
     EOS_PO_DISPATCHED:      'eos.po.dispatched',
     EOS_PO_CONFIRMED:       'eos.po.confirmed',
+    AFT_BILLING: 'aft.billing.started',
+    AFT_CLOSED:  'aft.order.closed',
 };
 
 export function getStageTicks(stage?: TaskStage): number {
@@ -1190,7 +1255,7 @@ export function getPipelineStagesForTask(task: Pick<LogisticsTask, 'type'>): Tas
 }
 
 export function getFinalStageForTask(task: Pick<LogisticsTask, 'type'>): TaskStage {
-    return task.type === 'INBOUND' ? INBOUND_FINAL_STAGE : FINAL_STAGE;
+    return task.type === 'INBOUND' || task.type === 'EOS' ? INBOUND_FINAL_STAGE : FINAL_STAGE;
 }
 
 export function getWorkNodeDescription(stage: TaskStage, nodeKey?: string): string | undefined {

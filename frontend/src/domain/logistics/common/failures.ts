@@ -1,4 +1,4 @@
-import type { LogisticsTask, OmsReceiveNodeKey, QmsWorkNodeKey, TmsWorkNodeKey, WmsWorkNodeKey, EosWorkNodeKey, TaskStage } from './events';
+import type { LogisticsTask, OmsReceiveNodeKey, QmsWorkNodeKey, TmsWorkNodeKey, WmsWorkNodeKey, EosWorkNodeKey, InboundWorkNodeKey, AftWorkNodeKey, TaskStage } from './events';
 
 export type FailureType = 'business' | 'system' | 'external' | 'capacity' | 'data';
 export type ResumePolicy = 'retry_current_stage' | 'rollback_previous_stage' | 'manual_review' | 'cancel_only';
@@ -28,22 +28,25 @@ export type FailureActionId =
     | 'reprint_label'
     | 'escalate_judgment'
     | 'return_to_supplier'
-    | 'dispose';
+    | 'dispose'
+    | 'retry_confirm'
+    | 'retry_handoff'
+    | 'skip_handoff';
 
 export interface FailureAction {
     id: FailureActionId;
     label: string;
     nextStage?: TaskStage;
-    nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
+    nextReceiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey | InboundWorkNodeKey | AftWorkNodeKey;
 }
 
 export interface FailureDefinition {
     code: string;
     label: string;
-    domain: 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EOS' | 'stream';
+    domain: 'OMS' | 'WMS' | 'QMS' | 'TMS' | 'EOS' | 'INBOUND' | 'AFT' | 'stream';
     type: FailureType;
     stage: TaskStage;
-    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey;
+    receiveNodeKey?: OmsReceiveNodeKey | TmsWorkNodeKey | WmsWorkNodeKey | QmsWorkNodeKey | EosWorkNodeKey | InboundWorkNodeKey | AftWorkNodeKey;
     recoverable: boolean;
     resumePolicy: ResumePolicy;
     summary: string;
@@ -359,6 +362,69 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             ],
         },
     ],
+    INBOUND_QC: [
+        {
+            code: 'INBOUND_QC_VISUAL_FAIL',
+            label: '외관 불량',
+            domain: 'INBOUND',
+            type: 'business',
+            stage: 'INBOUND_QC',
+            receiveNodeKey: 'visual-check',
+            recoverable: true,
+            resumePolicy: 'manual_review',
+            summary: '입고 상품 외관에 파손·오염·변형이 발견되어 검수에서 보류되었습니다.',
+            actions: [
+                { id: 'quarantine_batch', label: '불량 격리 후 재검수', nextStage: 'INBOUND_QC' },
+                { id: 'return_to_supplier', label: '공급사 반품' },
+                { id: 'cancel_order', label: '입고 요청 반려' },
+            ],
+        },
+        {
+            code: 'INBOUND_QC_LABEL_MISMATCH',
+            label: '라벨 불일치',
+            domain: 'INBOUND',
+            type: 'data',
+            stage: 'INBOUND_QC',
+            receiveNodeKey: 'label-check',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '발주서 품목·수량과 실물 라벨이 일치하지 않습니다.',
+            actions: [
+                { id: 'retry_validation', label: '라벨 재확인 후 재검수', nextStage: 'INBOUND_QC' },
+                { id: 'return_to_supplier', label: '공급사 반품' },
+            ],
+        },
+        {
+            code: 'INBOUND_QC_CERT_MISSING',
+            label: '성적서 누락',
+            domain: 'INBOUND',
+            type: 'data',
+            stage: 'INBOUND_QC',
+            receiveNodeKey: 'certificate-check',
+            recoverable: true,
+            resumePolicy: 'manual_review',
+            summary: '품질 성적서 또는 원산지 증명서 등 필수 서류가 누락되었습니다.',
+            actions: [
+                { id: 'retry_validation', label: '서류 재제출 후 재검수', nextStage: 'INBOUND_QC' },
+                { id: 'cancel_order', label: '입고 요청 반려' },
+            ],
+        },
+        {
+            code: 'INBOUND_QC_DEFECT_REJECT',
+            label: '불량 판정 반품',
+            domain: 'INBOUND',
+            type: 'business',
+            stage: 'INBOUND_QC',
+            receiveNodeKey: 'defect-decision',
+            recoverable: false,
+            resumePolicy: 'cancel_only',
+            summary: '검수 결과 불량 판정이 내려져 재고 반영 없이 반품 또는 폐기 처리됩니다.',
+            actions: [
+                { id: 'return_to_supplier', label: '공급사 반품' },
+                { id: 'dispose', label: '폐기 처리' },
+            ],
+        },
+    ],
     INBOUND_ZONE_ASSIGNED: [
         {
             code: 'INBOUND_ZONE_CAPACITY_SHORTAGE',
@@ -391,7 +457,35 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             ],
         },
     ],
-    INBOUND_COMPLETED: [],
+    INBOUND_COMPLETED: [
+        {
+            code: 'INBOUND_STOCK_CONFIRM_FAILED',
+            label: '재고 반영 확정 실패',
+            domain: 'INBOUND',
+            type: 'system',
+            stage: 'INBOUND_COMPLETED',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '재고 반영 최종 확정 중 오류가 발생했습니다.',
+            actions: [
+                { id: 'retry_confirm', label: '재고 반영 재시도', nextStage: 'INBOUND_COMPLETED' },
+            ],
+        },
+        {
+            code: 'INBOUND_EOS_HANDOFF_FAILED',
+            label: 'EOS 통보 실패',
+            domain: 'INBOUND',
+            type: 'external',
+            stage: 'INBOUND_COMPLETED',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: 'EOS 측 입고 완결 통보가 실패했습니다.',
+            actions: [
+                { id: 'retry_handoff', label: 'EOS 재통보', nextStage: 'INBOUND_COMPLETED' },
+                { id: 'skip_handoff', label: '통보 건너뜀 (수동 처리)' },
+            ],
+        },
+    ],
     WMS_RECEIVED: [
         {
             code: 'WMS_RECEIPT_MISMATCH',
@@ -673,53 +767,6 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
             ],
         },
     ],
-    WMS_DELIVERING: [
-        {
-            code: 'WMS_HANDOFF_DELAY',
-            label: '운송 인계 지연',
-            domain: 'WMS',
-            type: 'external',
-            stage: 'WMS_DELIVERING',
-            receiveNodeKey: 'tms-sync',
-            recoverable: true,
-            resumePolicy: 'retry_current_stage',
-            summary: '창고에서 운송사로의 인계가 지연되고 있습니다.',
-            actions: [
-                { id: 'redispatch', label: '운송사 재인계', nextStage: 'WMS_DISPATCHED', nextReceiveNodeKey: 'tms-request' },
-                { id: 'notify_customer', label: '지연 안내' },
-            ],
-        },
-        {
-            code: 'WMS_DELIVERY_DELAYED',
-            label: '배송 지연 감지',
-            domain: 'WMS',
-            type: 'external',
-            stage: 'WMS_DELIVERING',
-            receiveNodeKey: 'delay-watch',
-            recoverable: true,
-            resumePolicy: 'retry_current_stage',
-            summary: '예정 시간을 초과한 배송 지연이 감지되었습니다.',
-            actions: [
-                { id: 'notify_customer', label: '지연 안내' },
-                { id: 'redispatch', label: '재배송 요청', nextStage: 'WMS_DELIVERING' },
-            ],
-        },
-        {
-            code: 'WMS_DELIVERY_RESULT_MISSING',
-            label: '인도 결과 미수신',
-            domain: 'WMS',
-            type: 'external',
-            stage: 'WMS_DELIVERING',
-            receiveNodeKey: 'delivery-result',
-            recoverable: true,
-            resumePolicy: 'retry_current_stage',
-            summary: '운송 시스템으로부터 인도 완료 신호를 받지 못했습니다.',
-            actions: [
-                { id: 'replay_event', label: '인도 결과 재조회', nextStage: 'WMS_DELIVERING', nextReceiveNodeKey: 'tms-sync' },
-                { id: 'notify_customer', label: '배송 상태 안내' },
-            ],
-        },
-    ],
     WMS_COMPLETED: [],
     QMS_REQUESTED: [
         { code: 'QMS_REQUEST_INGEST_FAILED', label: '검사 요청 수신 실패', domain: 'QMS', type: 'system', stage: 'QMS_REQUESTED', receiveNodeKey: 'request-ingest', recoverable: true, resumePolicy: 'retry_current_stage', summary: 'WMS 패킹완료 이벤트를 수신하지 못했거나 메시지 파싱에 실패했습니다.', actions: [{ id: 'replay_event', label: 'WMS 이벤트 재수신', nextStage: 'QMS_REQUESTED', nextReceiveNodeKey: 'request-ingest' }, { id: 'cancel_order', label: '검사 요청 취소' }] },
@@ -757,7 +804,7 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
         { code: 'QMS_TOOL_ZERO_OFFSET_ERROR', label: '계측 도구 영점 오류', domain: 'QMS', type: 'system', stage: 'QMS_INSPECTING', receiveNodeKey: 'tool-calibrate', recoverable: true, resumePolicy: 'retry_current_stage', summary: '계측 도구의 영점이 허용 오차를 벗어나 측정 결과를 신뢰할 수 없습니다.', actions: [{ id: 'recalibrate_tool', label: '영점 재조정 후 재확인', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'tool-calibrate' }, { id: 'notify_customer', label: '장비 담당자 점검 요청' }] },
         { code: 'QMS_TOOL_HARDWARE_FAULT', label: '계측 도구 하드웨어 오류', domain: 'QMS', type: 'system', stage: 'QMS_INSPECTING', receiveNodeKey: 'tool-calibrate', recoverable: true, resumePolicy: 'manual_review', summary: '계측 장비 자체 오류로 정상 가동이 불가능합니다.', actions: [{ id: 'recalibrate_tool', label: '대체 장비로 교체 후 재시작', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'tool-calibrate' }, { id: 'notify_customer', label: '장비 수리·교체 요청' }] },
         { code: 'QMS_VISUAL_DEFECT_DETECTED', label: '외관 불량 발견', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'visual-check', recoverable: true, resumePolicy: 'manual_review', summary: '샘플에서 파손·긁힘·찌그러짐 등 외관 결함이 발견되었습니다.', actions: [{ id: 'reinspect', label: '결함 범위 재확인 후 판정 위임', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'result-record' }, { id: 'quarantine_batch', label: '배치 격리 후 전수 검사 요청' }, { id: 'cancel_order', label: '심각 결함 시 주문 취소' }, { id: 'dispose', label: '심각 결함 확정 시 폐기' }] },
-        { code: 'QMS_VISUAL_CONTAMINATION', label: '외관 오염 발견', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'visual-check', recoverable: true, resumePolicy: 'manual_review', summary: '샘플 표면에 이물질·오염이 발견되어 출고 기준에 미달합니다.', actions: [{ id: 'reinspect', label: '오염 정도 재확인', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'result-record' }, { id: 'repack', label: '재포장·재세척 후 재검사', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'visual-check' }, { id: 'quarantine_batch', label: '배치 격리' }] },
+        { code: 'QMS_VISUAL_CONTAMINATION', label: '외관 오염 발견', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'visual-check', recoverable: true, resumePolicy: 'manual_review', summary: '샘플 표면에 이물질·오염이 발견되어 출고 기준에 미달합니다.', actions: [{ id: 'reinspect', label: '오염 정도 재확인', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'result-record' }, { id: 'repack', label: '재포장·재세척 후 재검사', nextStage: 'WMS_PACKED', nextReceiveNodeKey: 'box-select' }, { id: 'quarantine_batch', label: '배치 격리' }] },
         { code: 'QMS_VISUAL_COLOR_MISMATCH', label: '색상·형상 불일치', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'visual-check', recoverable: true, resumePolicy: 'manual_review', summary: '샘플 색상 또는 형상이 주문 스펙과 다릅니다.', actions: [{ id: 'reinspect', label: '전체 배치 색상 재확인', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'visual-check' }, { id: 'quarantine_batch', label: '배치 격리 후 OMS 확인 요청' }, { id: 'return_to_supplier', label: '색상 불일치 공급사 반품' }] },
         { code: 'QMS_WEIGHT_OUT_OF_RANGE', label: '중량 기준 이탈', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'weight-check', recoverable: true, resumePolicy: 'manual_review', summary: '실측 중량이 기준값 허용 오차를 벗어났습니다.', actions: [{ id: 'reinspect', label: '재측정 후 판정 위임', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'weight-check' }, { id: 'recalibrate_tool', label: '저울 재검교정 후 재측정', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'tool-calibrate' }, { id: 'quarantine_batch', label: '배치 격리 후 수동 검토' }] },
         { code: 'QMS_WEIGHT_UNDERFLOW', label: '결품 의심', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'weight-check', recoverable: true, resumePolicy: 'manual_review', summary: '실측 중량이 기준보다 현저히 낮아 내용물 부족·누락이 의심됩니다.', actions: [{ id: 'reinspect', label: '내용물 개봉 확인 후 재측정', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'weight-check' }, { id: 'quarantine_batch', label: '배치 격리 후 전수 확인' }, { id: 'cancel_order', label: '결품 확인 시 주문 취소' }] },
@@ -766,9 +813,9 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
         { code: 'QMS_LABEL_MISSING', label: '라벨 누락', domain: 'QMS', type: 'data', stage: 'QMS_INSPECTING', receiveNodeKey: 'label-check', recoverable: true, resumePolicy: 'manual_review', summary: '운송장 또는 상품 라벨이 부착되어 있지 않습니다.', actions: [{ id: 'reprint_label', label: '라벨 신규 출력·부착', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'label-check' }, { id: 'quarantine_batch', label: '배치 격리 후 WMS 확인' }] },
         { code: 'QMS_FUNCTION_TEST_FAILED', label: '기능 불량', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'function-test', recoverable: true, resumePolicy: 'manual_review', summary: '전원·동작·핵심 기능 점검에서 불량이 발견되었습니다.', actions: [{ id: 'reinspect', label: '추가 샘플로 재검사', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'function-test' }, { id: 'quarantine_batch', label: '배치 격리 후 제조사 확인 요청' }, { id: 'cancel_order', label: '기능 불량 확정 시 주문 취소' }, { id: 'return_to_supplier', label: '기능 불량 확정 시 공급사 반품' }] },
         { code: 'QMS_FUNCTION_SPEC_UNDERPERFORM', label: '기능 스펙 미달', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'function-test', recoverable: true, resumePolicy: 'manual_review', summary: '핵심 스펙 수치가 제품 사양 허용 범위보다 낮게 측정되었습니다.', actions: [{ id: 'reinspect', label: '전수 스펙 재측정', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'function-test' }, { id: 'quarantine_batch', label: '배치 격리 후 공급사 클레임' }, { id: 'return_to_supplier', label: '스펙 미달 공급사 클레임 반품' }] },
-        { code: 'QMS_PACKAGE_DAMAGED', label: '포장 파손', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'manual_review', summary: '외부 박스 또는 내부 포장이 파손되어 배송 중 상품 손상 위험이 있습니다.', actions: [{ id: 'repack', label: '재포장 후 재검사', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'package-integrity' }, { id: 'quarantine_batch', label: '파손 심각 시 격리' }, { id: 'cancel_order', label: '재포장 불가 시 주문 취소' }] },
-        { code: 'QMS_CUSHION_MATERIAL_MISSING', label: '완충재 누락', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'retry_current_stage', summary: '내부 완충재가 누락되어 배송 충격 보호가 불충분합니다.', actions: [{ id: 'repack', label: '완충재 보충 후 재포장·재검사', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'package-integrity' }, { id: 'notify_customer', label: 'WMS 패킹팀 확인 요청' }] },
-        { code: 'QMS_SEAL_BROKEN', label: '밀봉 불량', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'retry_current_stage', summary: '테이프·밀봉재가 제대로 부착되지 않아 배송 중 개봉 위험이 있습니다.', actions: [{ id: 'repack', label: '재밀봉 후 재검사', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'package-integrity' }, { id: 'notify_customer', label: 'WMS 패킹팀 확인 요청' }] },
+        { code: 'QMS_PACKAGE_DAMAGED', label: '포장 파손', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'manual_review', summary: '외부 박스 또는 내부 포장이 파손되어 배송 중 상품 손상 위험이 있습니다.', actions: [{ id: 'repack', label: '재포장 후 재검사', nextStage: 'WMS_PACKED', nextReceiveNodeKey: 'box-select' }, { id: 'quarantine_batch', label: '파손 심각 시 격리' }, { id: 'cancel_order', label: '재포장 불가 시 주문 취소' }] },
+        { code: 'QMS_CUSHION_MATERIAL_MISSING', label: '완충재 누락', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'retry_current_stage', summary: '내부 완충재가 누락되어 배송 충격 보호가 불충분합니다.', actions: [{ id: 'repack', label: '완충재 보충 후 재포장·재검사', nextStage: 'WMS_PACKED', nextReceiveNodeKey: 'box-select' }, { id: 'notify_customer', label: 'WMS 패킹팀 확인 요청' }] },
+        { code: 'QMS_SEAL_BROKEN', label: '밀봉 불량', domain: 'QMS', type: 'business', stage: 'QMS_INSPECTING', receiveNodeKey: 'package-integrity', recoverable: true, resumePolicy: 'retry_current_stage', summary: '테이프·밀봉재가 제대로 부착되지 않아 배송 중 개봉 위험이 있습니다.', actions: [{ id: 'repack', label: '재밀봉 후 재검사', nextStage: 'WMS_PACKED', nextReceiveNodeKey: 'box-select' }, { id: 'notify_customer', label: 'WMS 패킹팀 확인 요청' }] },
         { code: 'QMS_EVIDENCE_UPLOAD_FAILED', label: '검사 증빙 업로드 실패', domain: 'QMS', type: 'system', stage: 'QMS_INSPECTING', receiveNodeKey: 'evidence-capture', recoverable: true, resumePolicy: 'retry_current_stage', summary: '검사 사진·측정값을 감사 시스템에 업로드하지 못했습니다.', actions: [{ id: 'replay_event', label: '증빙 재업로드', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'evidence-capture' }, { id: 'notify_customer', label: '스토리지 시스템 점검 요청' }] },
         { code: 'QMS_EVIDENCE_INCOMPLETE', label: '검사 증빙 미완료', domain: 'QMS', type: 'data', stage: 'QMS_INSPECTING', receiveNodeKey: 'evidence-capture', recoverable: true, resumePolicy: 'manual_review', summary: '필수 검사 항목의 사진 또는 측정값이 누락되어 증빙이 불완전합니다.', actions: [{ id: 'reinspect', label: '누락 항목 보완 촬영 후 재업로드', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'evidence-capture' }, { id: 'notify_customer', label: '검사자 보완 요청' }] },
         { code: 'QMS_RESULT_RECORD_FAILED', label: '검사 결과 기록 실패', domain: 'QMS', type: 'system', stage: 'QMS_INSPECTING', receiveNodeKey: 'result-record', recoverable: true, resumePolicy: 'retry_current_stage', summary: '시스템 오류로 검사 완료 레코드를 생성하지 못했습니다.', actions: [{ id: 'replay_event', label: '결과 기록 재시도', nextStage: 'QMS_INSPECTING', nextReceiveNodeKey: 'result-record' }, { id: 'cancel_order', label: '기록 불가 시 검사 취소' }] },
@@ -1032,6 +1079,15 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
         { code: 'EOS_CONFIRM_TIMEOUT', label: '수신확인 응답 타임아웃', domain: 'EOS', type: 'external', stage: 'EOS_PO_CONFIRMED', receiveNodeKey: 'confirm-wait', recoverable: true, resumePolicy: 'manual_review', summary: '공급사가 수신확인을 지정 기한 내에 회신하지 않았습니다.', actions: [{ id: 'replay_event', label: '확인 요청 재발송', nextStage: 'EOS_PO_CONFIRMED', nextReceiveNodeKey: 'confirm-wait' }, { id: 'notify_customer', label: '공급사 담당자 연락' }] },
         { code: 'EOS_HANDOFF_INBOUND_FAILED', label: 'WMS 입고 핸드오프 실패', domain: 'EOS', type: 'system', stage: 'EOS_PO_CONFIRMED', receiveNodeKey: 'handoff-inbound', recoverable: true, resumePolicy: 'retry_current_stage', summary: 'task의 INBOUND_RECEIVED 전이에 실패해 입고 흐름이 시작되지 않았습니다.', actions: [{ id: 'replay_event', label: '핸드오프 재시도', nextStage: 'EOS_PO_CONFIRMED', nextReceiveNodeKey: 'handoff-inbound' }, { id: 'notify_customer', label: 'WMS 담당자 확인 요청' }] },
     ],
+    AFT_BILLING: [
+        { code: 'AFT_OMS_CLOSE_FAILED', label: 'OMS 주문완결 요청 실패', domain: 'AFT', type: 'system', stage: 'AFT_BILLING', receiveNodeKey: 'oms-close-request', recoverable: true, resumePolicy: 'retry_current_stage', summary: 'TMS 배송 완료 후 OMS 주문완결 처리 요청이 실패했습니다.', actions: [{ id: 'replay_event', label: 'OMS 완결 요청 재시도', nextStage: 'AFT_BILLING', nextReceiveNodeKey: 'oms-close-request' }, { id: 'notify_customer', label: 'OMS 담당자 확인 요청' }] },
+        { code: 'AFT_BILLING_CALC_ERROR', label: '대금 산출 오류', domain: 'AFT', type: 'data', stage: 'AFT_BILLING', receiveNodeKey: 'billing-calc', recoverable: true, resumePolicy: 'manual_review', summary: '주문 금액 또는 실배송비 데이터 불일치로 청구액 산출에 실패했습니다.', actions: [{ id: 'retry_validation', label: '데이터 재확인 후 재산출', nextStage: 'AFT_BILLING', nextReceiveNodeKey: 'billing-calc' }, { id: 'notify_customer', label: '정산 담당자 수동 처리 요청' }] },
+        { code: 'AFT_BILLING_ISSUE_FAILED', label: '청구서 발행 실패', domain: 'AFT', type: 'system', stage: 'AFT_BILLING', receiveNodeKey: 'billing-issue', recoverable: true, resumePolicy: 'retry_current_stage', summary: '시스템 오류로 화주에게 청구서를 발행하지 못했습니다.', actions: [{ id: 'replay_event', label: '청구서 재발행', nextStage: 'AFT_BILLING', nextReceiveNodeKey: 'billing-issue' }, { id: 'notify_customer', label: '청구 시스템 점검 요청' }] },
+    ],
+    AFT_CLOSED: [
+        { code: 'AFT_SETTLE_CONFIRM_FAILED', label: '정산 확정 실패', domain: 'AFT', type: 'system', stage: 'AFT_CLOSED', receiveNodeKey: 'settle-confirm', recoverable: true, resumePolicy: 'retry_current_stage', summary: '청구·반품 처리 결과 종합 중 오류가 발생해 정산을 확정하지 못했습니다.', actions: [{ id: 'retry_confirm', label: '정산 확정 재시도', nextStage: 'AFT_CLOSED', nextReceiveNodeKey: 'settle-confirm' }, { id: 'notify_customer', label: '정산 담당자 확인 요청' }] },
+        { code: 'AFT_ORDER_CLOSE_FAILED', label: '주문 종결 실패', domain: 'AFT', type: 'system', stage: 'AFT_CLOSED', receiveNodeKey: 'order-close', recoverable: true, resumePolicy: 'retry_current_stage', summary: '시스템 오류로 주문 종결 이벤트를 발행하지 못했습니다.', actions: [{ id: 'replay_event', label: '종결 이벤트 재발행', nextStage: 'AFT_CLOSED', nextReceiveNodeKey: 'order-close' }, { id: 'notify_customer', label: '운영팀 수동 종결 처리 요청' }] },
+    ],
 };
 
 export function pickFailureForStage(stage: TaskStage): FailureDefinition | null {
@@ -1052,7 +1108,7 @@ export function hasFailureCandidates(stage: TaskStage): boolean {
 
 export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: string): FailureDefinition[] {
     const candidates = FAILURE_CATALOG[stage] ?? [];
-    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_') || stage.startsWith('WMS_') || stage.startsWith('QMS_');
+    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_') || stage.startsWith('WMS_') || stage.startsWith('QMS_') || stage.startsWith('AFT_');
     if (!isWorkNodeStage || !receiveNodeKey) return candidates;
     return candidates.filter(item => item.receiveNodeKey === receiveNodeKey);
 }

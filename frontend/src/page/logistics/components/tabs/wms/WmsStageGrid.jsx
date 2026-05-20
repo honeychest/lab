@@ -17,11 +17,11 @@ function getWmsNodeTasks(tasks, stage, nodeIndex) {
     return tasks.filter(task => task.currentStage === stage && stageWorkIndex(task) === nodeIndex);
 }
 
-export default function WmsStageGrid({ tasks, focusedTaskId, onPopover }) {
+export default function WmsStageGrid({ tasks, focusedTaskId, onPopover, stages = WMS_STAGES }) {
     return (
         <StageWorkGrid
-            gridClassName="logistics-grid-7"
-            stages={WMS_STAGES}
+            gridClassName={`logistics-grid-${stages.length}`}
+            stages={stages}
             workNodesByStage={WMS_STAGE_WORK_NODES}
             tasks={tasks}
             focusedTaskId={focusedTaskId}

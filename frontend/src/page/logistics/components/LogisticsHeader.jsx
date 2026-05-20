@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Header from '@/shared/ui/layout/Header.jsx';
 import TaskListPopover from './TaskListPopover';
 
 export default function LogisticsHeader({ snapshot }) {
@@ -7,42 +6,50 @@ export default function LogisticsHeader({ snapshot }) {
     const [activePopover, setActivePopover] = useState(null);
 
     const failureTone = kpi.failed > 0 ? 'var(--dark-status-error)' : 'var(--dark-text-primary)';
+    const orderClickable = kpi.orders > 0;
+    const processingClickable = kpi.processing > 0;
+    const failedClickable = kpi.failed > 0;
 
     return (
         <>
-            <Header />
             <header className="logistics-header">
-                <div className="logistics-kpi-strip">
-                    <div className="logistics-kpi-card" style={{ border: 'none', background: 'transparent' }}>
-                        <div className="logistics-kpi-value">물류 프로세스 관제 (업무분석용/백엔드미구현)</div>
+                <div className="logistics-header-intro">
+                    <div className="logistics-header-title-row">
+                        <h1 className="logistics-header-title">물류 프로세스 관제</h1>
                     </div>
-                    <button
-                        type="button"
-                        className="logistics-kpi-card"
-                        style={{ cursor: kpi.orders > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
-                        onClick={() => kpi.orders > 0 && setActivePopover('orders')}
-                    >
-                        <div className="logistics-kpi-label">오더</div>
-                        <div className="logistics-kpi-value">{kpi.orders}</div>
-                    </button>
-                    <button
-                        type="button"
-                        className="logistics-kpi-card"
-                        style={{ cursor: kpi.processing > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
-                        onClick={() => kpi.processing > 0 && setActivePopover('processing')}
-                    >
-                        <div className="logistics-kpi-label">처리중</div>
-                        <div className="logistics-kpi-value">{kpi.processing}</div>
-                    </button>
-                    <button
-                        type="button"
-                        className="logistics-kpi-card"
-                        style={{ cursor: kpi.failed > 0 ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}
-                        onClick={() => kpi.failed > 0 && setActivePopover('failed')}
-                    >
-                        <div className="logistics-kpi-label">실패</div>
-                        <div className="logistics-kpi-value" style={{ color: failureTone }}>{kpi.failed}</div>
-                    </button>
+                    <div className="logistics-header-subtitle">(업무분석용/백엔드미구현)</div>
+                </div>
+
+                <div
+                    className="logistics-header-right"
+                    style={{ gridArea: 'kpis', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end' }}
+                >
+                    <div className="logistics-kpi-strip logistics-kpi-strip-compact" style={{ gridArea: 'auto' }}>
+                        <button
+                            type="button"
+                            className={`logistics-kpi-card logistics-kpi-card-button${orderClickable ? ' is-clickable' : ''}`}
+                            onClick={() => orderClickable && setActivePopover('orders')}
+                        >
+                            <div className="logistics-kpi-label">오더</div>
+                            <div className="logistics-kpi-value">{kpi.orders}</div>
+                        </button>
+                        <button
+                            type="button"
+                            className={`logistics-kpi-card logistics-kpi-card-button${processingClickable ? ' is-clickable' : ''}`}
+                            onClick={() => processingClickable && setActivePopover('processing')}
+                        >
+                            <div className="logistics-kpi-label">처리중</div>
+                            <div className="logistics-kpi-value">{kpi.processing}</div>
+                        </button>
+                        <button
+                            type="button"
+                            className={`logistics-kpi-card logistics-kpi-card-button${failedClickable ? ' is-clickable' : ''}`}
+                            onClick={() => failedClickable && setActivePopover('failed')}
+                        >
+                            <div className="logistics-kpi-label">실패</div>
+                            <div className="logistics-kpi-value" style={{ color: failureTone }}>{kpi.failed}</div>
+                        </button>
+                    </div>
                 </div>
             </header>
 

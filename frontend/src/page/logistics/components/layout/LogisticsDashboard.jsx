@@ -5,7 +5,9 @@ import RightPanel from '../RightPanel';
 import InfoOverlay from '../InfoOverlay';
 import SettingsOverlay from '../SettingsOverlay';
 import LogOverlay from '../LogOverlay';
+import QueueSnapshotPanel from '../QueueSnapshotPanel';
 import { DesktopViewResetButton } from '@/shared/ui/DesktopViewGate.jsx';
+import Header from '@/shared/ui/layout/Header.jsx';
 
 export default function LogisticsDashboard(props) {
     const {
@@ -50,22 +52,27 @@ export default function LogisticsDashboard(props) {
             {narrowScreen && desktopView && (
                 <DesktopViewResetButton label="모바일로 보기" onClick={onDesktopViewClose} fixed />
             )}
-            <LogisticsHeader
-                snapshot={headerSnapshot}
-                onInfoOpen={onInfoOpen}
-            />
-            <TabBar
-                activeTab={activeTab}
-                onTabChange={onTabChange}
-                autoMode={autoMode}
-                onAutoToggle={onAutoToggle}
-                onSettingsOpen={onSettingsOpen}
-                onLogOpen={onLogOpen}
-                logOpening={logOpen && logScope === 'all'}
-                retentionFull={headerSnapshot.retentionFull}
-                onRetentionClear={headerSnapshot.handleRetentionClear}
-            />
-            <FocusArea onInfoOpen={onInfoOpen} />
+            <Header />
+            <div className="logistics-upper-section">
+                <div className="logistics-topband logistics-visual-panel logistics-stage-learning-panel">
+                    <LogisticsHeader
+                        snapshot={headerSnapshot}
+                        onInfoOpen={onInfoOpen}
+                    />
+                    <TabBar
+                        activeTab={activeTab}
+                        onTabChange={onTabChange}
+                        autoMode={autoMode}
+                        onAutoToggle={onAutoToggle}
+                        onSettingsOpen={onSettingsOpen}
+                        onLogOpen={onLogOpen}
+                        logOpening={logOpen && logScope === 'all'}
+                        retentionFull={headerSnapshot.retentionFull}
+                        onRetentionClear={headerSnapshot.handleRetentionClear}
+                    />
+                </div>
+                <FocusArea onInfoOpen={onInfoOpen} />
+            </div>
 
             <div className="logistics-body">
                 <main className="logistics-main">
@@ -120,6 +127,8 @@ export default function LogisticsDashboard(props) {
                 bullets={infoOverlay?.bullets}
                 onClose={onInfoClose}
             />
+
+            <QueueSnapshotPanel />
         </div>
     );
 }

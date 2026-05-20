@@ -3,8 +3,16 @@ import LogisticsDashboard from './components/layout/LogisticsDashboard';
 import LogisticsMobileDashboard from './components/layout/LogisticsMobileDashboard';
 import LogisticsOverlays from './components/layout/LogisticsOverlays';
 import { dlog, dtag } from '@/global/chs';
-import { startTickLoop, stopTickLoop } from '@/scheduler/tickLoop';
+import { stopTickLoop } from '@/scheduler/tickLoop';
+import { startOmsConsumer, stopOmsConsumer } from '@/domain/logistics/oms/consumer';
+import { startWmsConsumer, stopWmsConsumer } from '@/domain/logistics/wms/consumer';
+import { startQmsConsumer, stopQmsConsumer } from '@/domain/logistics/qms/consumer';
+import { startTmsConsumer, stopTmsConsumer } from '@/domain/logistics/tms/consumer';
+import { startEosConsumer, stopEosConsumer } from '@/domain/logistics/eos/consumer';
+import { startInboundConsumer, stopInboundConsumer } from '@/domain/logistics/inbound/consumer';
+import { startAftConsumer, stopAftConsumer } from '@/domain/logistics/aft/consumer';
 import { stopAutoOmsOrders } from './services/omsSimulation';
+import { stopAutoEosTasks } from './services/eosSimulation';
 import { TAB_MAP, OverviewTab } from './constants';
 import useTabState from './hooks/shared/useTabState';
 import useWindowState from './hooks/shared/useWindowState';
@@ -40,7 +48,7 @@ export default function LogisticsLayout() {
         toggleAdvanced,
     } = useSettingsPanel();
     const { logOpen, setLogOpen, logScope, setLogScope, logSnapshot, visibleEvents } = useLogPanel();
-    const { autoMode, setAutoMode, handleAutoToggle } = useAutoMode();
+    const { autoMode, handleAutoToggle, resetModes } = useAutoMode();
     const {
         simulationSettings,
         setSimulationSettings,
@@ -51,7 +59,7 @@ export default function LogisticsLayout() {
     } = useSimulationSettings();
     const { handleProgressReset, handleFullReset } = useLogisticsReset({
         setActiveTab,
-        setAutoMode,
+        resetModes,
         closeSettings: handleSettingsClose,
     });
     const headerSnapshot = useLogisticsHeaderSnapshot();
@@ -73,11 +81,25 @@ export default function LogisticsLayout() {
 
     useEffect(() => {
         dtag(1, ['logistics', 'scheduler', 'ui'], '진행 스케줄러 라이프사이클 블록 (REQ-T2-070)');
-        startTickLoop();
-        dlog(1, 'LogisticsLayout.tickLoop — 화면 진입 시 진행 스케줄러 활성화');
+        startOmsConsumer();
+        startWmsConsumer();
+        startQmsConsumer();
+        startTmsConsumer();
+        startEosConsumer();
+        startInboundConsumer();
+        startAftConsumer();
+        dlog(1, 'LogisticsLayout.tickLoop — 화면 진입 시 7개 도메인 consumer 활성화, 시뮬레이션은 수동 시작');
         return () => {
             stopTickLoop();
+            stopOmsConsumer();
+            stopWmsConsumer();
+            stopQmsConsumer();
+            stopTmsConsumer();
+            stopEosConsumer();
+            stopInboundConsumer();
+            stopAftConsumer();
             stopAutoOmsOrders();
+            stopAutoEosTasks();
         };
     }, []);
 

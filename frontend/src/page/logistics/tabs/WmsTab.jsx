@@ -6,13 +6,18 @@ import { dlog } from '@/global/chs';
 import { INBOUND_STAGES } from '@/domain/logistics/common/stages';
 import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
-import { WMS_SUPPORT_FLOWS } from '../constants';
+import { WMS_SUPPORT_FLOWS, WMS_PICK_STAGES, WMS_SHIP_STAGES } from '../constants';
 import WmsStageGrid from '../components/tabs/wms/WmsStageGrid';
 import InboundStageGrid from '../components/tabs/wms/InboundStageGrid';
 
 const INBOUND_STAGE_SET = new Set(INBOUND_STAGES);
 
-export default function WmsTab({ onInfoOpen }) {
+const VARIANT_STAGES = {
+    'wms-1': WMS_PICK_STAGES,
+    'wms-2': WMS_SHIP_STAGES,
+};
+
+export default function WmsTab({ onInfoOpen, forcedMode = null, variant = null, title = 'WMS 흐름' }) {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);
@@ -27,7 +32,7 @@ export default function WmsTab({ onInfoOpen }) {
         [tasks, focusedTaskId],
     );
 
-    const mode = focusedTask && INBOUND_STAGE_SET.has(focusedTask.currentStage) ? 'inbound' : 'outbound';
+    const mode = forcedMode ?? (focusedTask && INBOUND_STAGE_SET.has(focusedTask.currentStage) ? 'inbound' : 'outbound');
 
     const openNodeTaskPopover = (event, stage, node, status, nodeTasks) => {
         event.stopPropagation();
@@ -49,17 +54,7 @@ export default function WmsTab({ onInfoOpen }) {
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <div className={`logistics-wms-mode-badge logistics-wms-mode-badge--${mode}`} aria-live="polite">
-                <span className="logistics-wms-mode-badge-dot" />
-                <span className="logistics-wms-mode-badge-text">
-                    {mode === 'inbound' ? 'WMS · 입고' : 'WMS · 출고'}
-                </span>
-                {mode === 'inbound' && focusedTask && (
-                    <span className="logistics-wms-mode-badge-ref">{focusedTask.taskId}</span>
-                )}
-            </div>
-
-            <SupportFlowStrip title="WMS 흐름" flows={WMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
+            <SupportFlowStrip title={title} flows={WMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
 
             <div key={mode} className="logistics-wms-grid-swap">
                 {mode === 'inbound' ? (
@@ -73,6 +68,7 @@ export default function WmsTab({ onInfoOpen }) {
                         tasks={tasks}
                         focusedTaskId={focusedTaskId}
                         onPopover={openNodeTaskPopover}
+                        stages={VARIANT_STAGES[variant]}
                     />
                 )}
             </div>

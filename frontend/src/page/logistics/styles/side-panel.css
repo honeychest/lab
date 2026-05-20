@@ -1,10 +1,10 @@
 .logistics-side-panel {
   position: relative;
-  z-index: 2;
+  z-index: 12;
   width: 30%;
   min-width: 320px;
   max-width: 420px;
-  padding: 18px 18px 18px 0;
+  padding: 24px 24px 24px 0;
   min-height: 0;
   transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
 }
@@ -23,13 +23,21 @@
   display: flex;
   flex-direction: column;
   overflow: visible;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(20, 27, 45, 0.96), rgba(14, 20, 35, 0.94));
+  box-shadow:
+    0 16px 32px rgba(3, 8, 18, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
 }
 
 .logistics-side-scroll {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
@@ -43,7 +51,8 @@
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  z-index: 5;
+  z-index: 16;
+  box-shadow: 0 8px 18px rgba(3, 8, 18, 0.28);
 }
 
 .logistics-panel-toggle:hover {
@@ -52,7 +61,12 @@
 
 .logistics-side-section {
   border-radius: 18px;
-  padding: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.012)),
+    rgba(9, 14, 25, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .logistics-side-section.grow {
@@ -66,7 +80,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .logistics-task-meta {
@@ -79,29 +93,29 @@
 .logistics-button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .logistics-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .logistics-settings-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .logistics-settings-card {
-  padding: 14px;
+  padding: 16px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.024);
 }
 
 .logistics-settings-note {
