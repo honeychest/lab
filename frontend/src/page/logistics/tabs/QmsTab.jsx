@@ -5,7 +5,7 @@ import { setFocus } from '@/store/focusStore';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import QmsStageGrid from '../components/tabs/qms/QmsStageGrid';
 
-export default function QmsTab({ onInfoOpen }) {
+export default function QmsTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);

@@ -16,7 +16,7 @@ const VARIANT_STAGES = {
     'wms-2': WMS_SHIP_STAGES,
 };
 
-export default function WmsTab({ onInfoOpen, forcedMode = null, variant = null, title = 'WMS 흐름' }) {
+export default function WmsTab({ forcedMode = null, variant = null }) {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);

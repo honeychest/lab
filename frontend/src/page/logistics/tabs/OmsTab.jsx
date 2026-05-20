@@ -5,7 +5,7 @@ import { setFocus } from '@/store/focusStore';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import OmsStageGrid from '../components/tabs/oms/OmsStageGrid';
 
-export default function OmsTab({ onInfoOpen }) {
+export default function OmsTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);

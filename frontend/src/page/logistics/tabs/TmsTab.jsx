@@ -5,7 +5,7 @@ import { setFocus } from '@/store/focusStore';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import TmsStageGrid from '../components/tabs/tms/TmsStageGrid';
 
-export default function TmsTab({ onInfoOpen }) {
+export default function TmsTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);

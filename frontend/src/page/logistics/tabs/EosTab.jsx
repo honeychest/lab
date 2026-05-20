@@ -5,7 +5,7 @@ import { setFocus } from '@/store/focusStore';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import EosStageGrid from '../components/tabs/eos/EosStageGrid';
 
-export default function EosTab({ onInfoOpen }) {
+export default function EosTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);

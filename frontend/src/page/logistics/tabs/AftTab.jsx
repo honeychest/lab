@@ -5,7 +5,7 @@ import { setFocus } from '@/store/focusStore';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import AftStageGrid from '../components/tabs/aft/AftStageGrid';
 
-export default function AftTab({ onInfoOpen }) {
+export default function AftTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
     const [taskPopover, setTaskPopover] = useState(null);
