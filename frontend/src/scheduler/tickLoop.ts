@@ -333,3 +333,12 @@ export function stopTickLoop(): void {
 export function isTickLoopRunning(): boolean {
     return _intervalId !== null;
 }
+
+export async function resumeIfNeeded(): Promise<boolean> {
+    if (_intervalId !== null) return false;
+    const active = await getActiveTasks();
+    if (active.length === 0) return false;
+    startTickLoop();
+    dlog(1, `tickLoop.resumeIfNeeded — 새로고침 후 active 태스크 ${active.length}건 감지, tick loop 자동 재개`);
+    return true;
+}

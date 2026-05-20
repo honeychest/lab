@@ -1,13 +1,20 @@
+import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
+import TaskListPopover from '../components/TaskListPopover';
+import { STAGE_DOMAIN } from '@/domain/logistics/common/stages';
+import { setFocus } from '@/store/focusStore';
 import {
     EOS_STAGES,
     OMS_STAGES,
     INBOUND_STAGES,
-    WMS_OUT_STAGES,
     QMS_STAGES,
     TMS_STAGES,
+    AFT_STAGES,
     STAGE_LABELS,
 } from '@/domain/logistics/common/stages';
+
+const WMS_OUT_PHASE_1 = ['WMS_RECEIVED', 'WMS_ALLOCATED', 'WMS_PICKING', 'WMS_PACKED'];
+const WMS_OUT_PHASE_2 = ['WMS_DISPATCHED', 'WMS_COMPLETED'];
 
 function stageCount(tasks, stage) {
     return tasks.filter(task => task.currentStage === stage).length;
@@ -37,10 +44,10 @@ function failedCount(tasks) {
 function buildAxisCard(tasks, domain, stages, caption) {
     const scopedTasks = domainTasks(tasks, stages);
     const hotspot = hottestStage(scopedTasks, stages);
+    const activeTasks = scopedTasks.filter(task => task.status === 'active');
+    const pausedFailedTasks = scopedTasks.filter(task => task.status === 'paused' || task.status === 'failed');
     const failed = failedCount(scopedTasks);
     const paused = stalledCount(scopedTasks);
-    const active = scopedTasks.filter(task => task.status === 'active').length;
-    const load = scopedTasks.length;
 
     let riskTone = 'normal';
     let riskLabel = '정상';
@@ -61,8 +68,9 @@ function buildAxisCard(tasks, domain, stages, caption) {
     return {
         domain,
         caption,
-        load,
-        active,
+        activeTasks,
+        pausedFailedTasks,
+        active: activeTasks.length,
         hotspot,
         failed,
         paused,
@@ -72,75 +80,105 @@ function buildAxisCard(tasks, domain, stages, caption) {
     };
 }
 
-export default function OverviewTab() {
-    const { tasks, eventCount } = useLogisticsSnapshot();
+function stageToTab(task) {
+    const stage = task.currentStage;
+    const domain = STAGE_DOMAIN[stage];
+    if (domain === 'WMS') {
+        if (INBOUND_STAGES.includes(stage)) return 'inbound';
+        if (WMS_OUT_PHASE_2.includes(stage)) return 'wms-2';
+        return 'wms-1';
+    }
+    if (domain === 'OMS') return 'oms';
+    if (domain === 'QMS') return 'qms';
+    if (domain === 'TMS') return 'tms';
+    if (domain === 'EOS') return 'eos';
+    if (domain === 'AFT') return 'aft';
+    return 'list';
+}
+
+export default function OverviewTab({ onTabChange }) {
+    const { tasks } = useLogisticsSnapshot();
+    const [popover, setPopover] = useState(null);
 
     const axisCards = [
-        buildAxisCard(tasks, 'EOS', EOS_STAGES, '수요예측, 발주점, 공급사 송신'),
-        buildAxisCard(tasks, 'OMS', OMS_STAGES, '접수, 검증, WMS 이관 진입'),
-        buildAxisCard(tasks, 'WMS', [...INBOUND_STAGES, ...WMS_OUT_STAGES], '입고 보조축 + 출고 주 흐름'),
-        buildAxisCard(tasks, 'QMS', QMS_STAGES, '검사 요청, 샘플, 판정, 출고승인'),
-        buildAxisCard(tasks, 'TMS', TMS_STAGES, '배차, 상차, 배송, 인도'),
+        buildAxisCard(tasks, 'EOS', EOS_STAGES, '수요예측·발주·송신'),
+        buildAxisCard(tasks, 'INBOUND', INBOUND_STAGES, '입고 접수·검수·적치'),
+        buildAxisCard(tasks, 'OMS', OMS_STAGES, '주문 접수·검증·WMS 이관'),
+        buildAxisCard(tasks, 'WMS-1', WMS_OUT_PHASE_1, '할당·피킹·패킹'),
+        buildAxisCard(tasks, 'QMS', QMS_STAGES, '검사·샘플·판정·출고승인'),
+        buildAxisCard(tasks, 'WMS-2', WMS_OUT_PHASE_2, '도크 인계·출고 종료'),
+        buildAxisCard(tasks, 'TMS', TMS_STAGES, '배차·상차·배송·인도'),
+        buildAxisCard(tasks, 'AFT', AFT_STAGES, '정산·CS·종결'),
     ];
 
     return (
         <section className="logistics-tab-shell">
             <div className="logistics-tab-header">
                 <div>
-                    <h2 className="logistics-tab-title">축별 개요</h2>
+                    <h2 className="logistics-tab-title">작업 진행 개요</h2>
                     <p className="logistics-tab-copy" style={{ display: 'block' }}>
                         전체 흐름 요약보다 어디가 막히는지 먼저 읽는 탭. 진입축(EOS·OMS)·처리축(WMS·QMS·TMS)별 적체, 실패, 집중 단계를 바로 본다.
                     </p>
                 </div>
                 <div className="logistics-tab-actions">
-                    <span className="logistics-meta-pill">Event {eventCount}</span>
                     <span className="logistics-meta-pill">Task {tasks.length}</span>
                 </div>
             </div>
 
-            <div className="logistics-grid-5">
+            <div className="logistics-grid-8">
                 {axisCards.map(card => (
-                    <article key={card.domain} className="logistics-overview-card logistics-axis-card">
+                    <article key={card.domain} className="logistics-overview-card logistics-axis-card logistics-axis-card--compact">
                         <div className="logistics-overview-title">
-                            <div>
-                                <div className="logistics-overview-domain">{card.domain}</div>
-                                <div className="logistics-axis-caption">{card.caption}</div>
-                            </div>
-                            <span className={`logistics-status-chip ${card.riskTone === 'danger' ? 'failed' : card.riskTone === 'warn' ? 'active' : 'completed'}`}>
+                            <div className="logistics-overview-domain">{card.domain}</div>
+                            <span
+                                className={`logistics-status-chip ${card.riskTone === 'danger' ? 'failed' : card.riskTone === 'warn' ? 'active' : 'completed'}`}
+                                title={card.riskText}
+                            >
                                 {card.riskLabel}
                             </span>
                         </div>
+                        <div className="logistics-axis-caption" title={card.caption}>{card.caption}</div>
 
                         <div className="logistics-axis-metrics">
-                            <div className="logistics-axis-metric">
-                                <span className="logistics-axis-label">적재량</span>
-                                <strong>{card.load}</strong>
-                            </div>
-                            <div className="logistics-axis-metric">
+                            <button
+                                type="button"
+                                className="logistics-axis-metric logistics-axis-metric-btn"
+                                onClick={() => card.active > 0 && setPopover({ title: `${card.domain} 진행중`, tasks: card.activeTasks, variant: 'processing' })}
+                            >
                                 <span className="logistics-axis-label">진행중</span>
                                 <strong>{card.active}</strong>
-                            </div>
-                            <div className="logistics-axis-metric">
+                            </button>
+                            <button
+                                type="button"
+                                className="logistics-axis-metric logistics-axis-metric-btn"
+                                onClick={() => (card.paused + card.failed) > 0 && setPopover({ title: `${card.domain} 멈춤/실패`, tasks: card.pausedFailedTasks, variant: 'failed' })}
+                            >
                                 <span className="logistics-axis-label">멈춤/실패</span>
                                 <strong>{card.paused + card.failed}</strong>
-                            </div>
+                            </button>
                         </div>
 
-                        <div className="logistics-axis-summary">
-                            <div className="logistics-axis-line">
-                                <span className="logistics-axis-line-label">병목 단계</span>
-                                <span className="logistics-axis-line-value">
-                                    {STAGE_LABELS[card.hotspot.stage]} {card.hotspot.count}건
-                                </span>
-                            </div>
-                            <div className="logistics-axis-line">
-                                <span className="logistics-axis-line-label">리스크</span>
-                                <span className="logistics-axis-line-value">{card.riskText}</span>
-                            </div>
+                        <div className="logistics-axis-hotspot" title={`${STAGE_LABELS[card.hotspot.stage]} ${card.hotspot.count}건`}>
+                            병목 <strong>{STAGE_LABELS[card.hotspot.stage]}</strong> {card.hotspot.count}건
                         </div>
                     </article>
                 ))}
             </div>
+
+            {popover && (
+                <TaskListPopover
+                    title={popover.title}
+                    tasks={popover.tasks}
+                    emptyMessage="해당 작업 없음"
+                    variant={popover.variant}
+                    onClose={() => setPopover(null)}
+                    onTaskSelect={task => {
+                        setFocus(task.taskId);
+                        onTabChange?.(stageToTab(task));
+                        setPopover(null);
+                    }}
+                />
+            )}
 
             {tasks.length === 0 && (
                 <div className="logistics-empty-card" style={{ marginTop: '14px' }}>

@@ -29,6 +29,7 @@ public class UpbitPriceWebSocketHandler extends TextWebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> sessionCodes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> lastTickerByCode = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -40,6 +41,24 @@ public class UpbitPriceWebSocketHandler extends TextWebSocketHandler {
         sessionCodes.put(session.getId(), requestedCodes);
 
         log.info("[UpbitWS] connected: {} (total={}, codes={})", session.getId(), sessions.size(), requestedCodes);
+
+        sendCachedSnapshots(safeSession, requestedCodes);
+    }
+
+    private void sendCachedSnapshots(WebSocketSession session, Set<String> requestedCodes) {
+        if (!session.isOpen()) return;
+
+        Set<String> targets = requestedCodes.isEmpty() ? lastTickerByCode.keySet() : requestedCodes;
+        for (String code : targets) {
+            String cached = lastTickerByCode.get(code);
+            if (cached == null) continue;
+            try {
+                session.sendMessage(new TextMessage(cached));
+            } catch (Exception e) {
+                log.error("[UpbitWS] snapshot send failed ({}, code={}): {}", session.getId(), code, e.getMessage());
+                return;
+            }
+        }
     }
 
     @Override
@@ -64,6 +83,8 @@ public class UpbitPriceWebSocketHandler extends TextWebSocketHandler {
     public void broadcastPrice(String json) {
         String code = extractCode(json);
         if (code == null) return;
+
+        lastTickerByCode.put(code, json);
 
         sessions.forEach((id, session) -> {
             try {

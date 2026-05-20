@@ -1,0 +1,30 @@
+/* Analysis 페이지 — 조건 그룹 (dashed border 블록) */
+
+.analysis-cg {
+  border:         1px dashed var(--dark-input-border);
+  border-radius:  6px;
+  padding:        8px;
+  display:        flex;
+  flex-direction: column;
+  gap:            6px;
+}
+
+.analysis-cg__header {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+}
+
+.analysis-cg__title {
+  font-size: 0.75rem;
+  color:     var(--dark-text-muted);
+}
+
+.analysis-cg__spacer {
+  flex: 1;
+}
+
+.analysis-cg__add-unit {
+  align-self: flex-start;
+  padding:    3px 8px;
+}

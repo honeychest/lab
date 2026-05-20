@@ -1,4 +1,5 @@
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/shadcn/input-otp.js';
+import { Button } from '@/shared/ui/shadcn/button';
 
 function TradePageHeader({ symbol, onOpenPanel }) {
     return (
@@ -16,12 +17,16 @@ function TradePageHeader({ symbol, onOpenPanel }) {
                     </InputOTPGroup>
                 </InputOTP>
             </div>
-            <button
+            <Button
+                id="btn-open-panel"
+                data-testid="btn-open-panel"
+                variant="ghost"
+                size="sm"
                 onClick={onOpenPanel}
-                className="absolute right-0 bg-transparent text-xs text-[var(--dark-text-secondary)] hover:text-[var(--dark-text-neutral)] border border-[var(--dark-btn-bg)] rounded px-3 py-1.5 transition-colors"
+                className="absolute right-0 bg-transparent text-xs text-[var(--dark-text-secondary)] hover:text-[var(--dark-text-neutral)] border border-[var(--dark-btn-bg)] rounded px-3 py-1.5 transition-colors h-auto"
             >
                 조회
-            </button>
+            </Button>
         </div>
     );
 }

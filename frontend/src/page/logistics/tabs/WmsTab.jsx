@@ -4,9 +4,8 @@ import useFocusedTaskId from '../hooks/useFocusedTaskId';
 import { setFocus } from '@/store/focusStore';
 import { dlog } from '@/global/chs';
 import { INBOUND_STAGES } from '@/domain/logistics/common/stages';
-import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
-import { WMS_SUPPORT_FLOWS, WMS_PICK_STAGES, WMS_SHIP_STAGES } from '../constants';
+import { WMS_PICK_STAGES, WMS_SHIP_STAGES } from '../constants';
 import WmsStageGrid from '../components/tabs/wms/WmsStageGrid';
 import InboundStageGrid from '../components/tabs/wms/InboundStageGrid';
 
@@ -54,8 +53,6 @@ export default function WmsTab({ onInfoOpen, forcedMode = null, variant = null, 
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip title={title} flows={WMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
-
             <div key={mode} className="logistics-wms-grid-swap">
                 {mode === 'inbound' ? (
                     <InboundStageGrid

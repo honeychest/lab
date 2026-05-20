@@ -58,6 +58,8 @@ export default function LogisticsDashboard(props) {
                     <LogisticsHeader
                         snapshot={headerSnapshot}
                         onInfoOpen={onInfoOpen}
+                        activeTab={activeTab}
+                        onTabChange={onTabChange}
                     />
                     <TabBar
                         activeTab={activeTab}
@@ -67,8 +69,6 @@ export default function LogisticsDashboard(props) {
                         onSettingsOpen={onSettingsOpen}
                         onLogOpen={onLogOpen}
                         logOpening={logOpen && logScope === 'all'}
-                        retentionFull={headerSnapshot.retentionFull}
-                        onRetentionClear={headerSnapshot.handleRetentionClear}
                     />
                 </div>
                 <FocusArea onInfoOpen={onInfoOpen} />
@@ -76,7 +76,7 @@ export default function LogisticsDashboard(props) {
 
             <div className="logistics-body">
                 <main className="logistics-main">
-                    <TabContent onInfoOpen={onInfoOpen} />
+                    <TabContent onInfoOpen={onInfoOpen} onTabChange={onTabChange} />
                 </main>
 
                 {!rightPanelOpen && (

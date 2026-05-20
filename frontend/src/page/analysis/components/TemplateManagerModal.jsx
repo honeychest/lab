@@ -1,17 +1,6 @@
 // [AGENT] T4-ANALYSIS: 템플릿 관리 팝업 — 목록/불러오기/이름변경/삭제
 import { useEffect, useRef, useState } from 'react';
 
-const rowBtn = {
-  background:   'var(--dark-btn-secondary)',
-  border:       '1px solid var(--dark-input-border)',
-  borderRadius: '4px',
-  color:        'var(--dark-text-muted)',
-  fontSize:     '11px',
-  padding:      '3px 8px',
-  cursor:       'pointer',
-  fontFamily:   "'Pretendard', sans-serif",
-};
-
 function TemplateRow({ template, onLoad, onRename, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [name, setName]       = useState(template.name);
@@ -28,45 +17,22 @@ function TemplateRow({ template, onLoad, onRename, onDelete }) {
   };
 
   return (
-    <div style={{
-      display:     'flex',
-      alignItems:  'center',
-      gap:         '8px',
-      padding:     '8px 0',
-      borderBottom: '1px solid var(--dark-input-border)',
-    }}>
+    <div className="analysis-modal-row">
       {editing ? (
         <input
           ref={inputRef}
+          className="analysis-input analysis-input--focus-strong analysis-modal-row__edit"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setName(template.name); setEditing(false); } }}
           onBlur={commitRename}
-          style={{
-            flex:         1,
-            background:   'var(--dark-input-bg)',
-            border:       '1px solid var(--dark-border-subtle)',
-            borderRadius: '4px',
-            color:        'var(--dark-input-text)',
-            fontSize:     '13px',
-            padding:      '3px 8px',
-            outline:      'none',
-            fontFamily:   "'Pretendard', sans-serif",
-          }}
         />
       ) : (
-        <span style={{
-          flex:       1,
-          fontSize:   '13px',
-          color:      'var(--dark-text-primary)',
-          fontFamily: "'Pretendard', sans-serif",
-        }}>
-          {template.name}
-        </span>
+        <span className="analysis-modal-row__name">{template.name}</span>
       )}
-      <button onClick={() => { onLoad(template); }} style={rowBtn}>불러오기</button>
-      <button onClick={() => setEditing(true)} style={rowBtn}>이름변경</button>
-      <button onClick={() => onDelete(template.id)} style={{ ...rowBtn, color: 'var(--dark-error)', borderColor: 'rgba(255,59,92,0.3)' }}>삭제</button>
+      <button onClick={() => { onLoad(template); }} className="analysis-modal-row__btn">불러오기</button>
+      <button onClick={() => setEditing(true)} className="analysis-modal-row__btn">이름변경</button>
+      <button onClick={() => onDelete(template.id)} className="analysis-modal-row__btn analysis-modal-row__btn--delete">삭제</button>
     </div>
   );
 }
@@ -81,67 +47,22 @@ export default function TemplateManagerModal({ templates, onClose, onLoad, onRen
   return (
     <div
       onClick={onClose}
-      style={{
-        position:   'fixed',
-        inset:      0,
-        background: 'var(--dark-overlay-bg)',
-        zIndex:     100,
-        display:    'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className="analysis-modal-backdrop analysis-modal-backdrop--manager"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width:        '420px',
-          maxHeight:    '60vh',
-          background:   'var(--dark-modal-bg)',
-          borderRadius: '10px',
-          border:       '1px solid var(--dark-input-border)',
-          display:      'flex',
-          flexDirection: 'column',
-          overflow:     'hidden',
-        }}
-      >
+      <div onClick={(e) => e.stopPropagation()} className="analysis-modal">
         {/* 헤더 */}
-        <div style={{
-          display:    'flex',
-          alignItems: 'center',
-          padding:    '14px 16px',
-          borderBottom: '1px solid var(--dark-input-border)',
-          flexShrink: 0,
-        }}>
-          <span style={{ flex: 1, fontSize: '1rem', color: 'var(--dark-input-text)', fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>
-            템플릿 관리
-          </span>
+        <div className="analysis-modal__header">
+          <span className="analysis-modal__title">템플릿 관리</span>
           <button
             onClick={onClose}
-            style={{
-              background:  'transparent',
-              border:      'none',
-              color:       'var(--dark-text-muted)',
-              fontSize:    '18px',
-              cursor:      'pointer',
-              lineHeight:  1,
-              padding:     '0 2px',
-              fontFamily:  "'Pretendard', sans-serif",
-            }}
+            className="analysis-btn--icon analysis-modal__close"
           >×</button>
         </div>
 
         {/* 목록 */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+        <div className="analysis-modal__body">
           {templates.length === 0 ? (
-            <div style={{
-              padding:    '24px 0',
-              textAlign:  'center',
-              fontSize:   '13px',
-              color:      'var(--dark-text-muted)',
-              fontFamily: "'Pretendard', sans-serif",
-            }}>
-              저장된 템플릿이 없습니다.
-            </div>
+            <div className="analysis-modal__empty">저장된 템플릿이 없습니다.</div>
           ) : (
             templates.map((t) => (
               <TemplateRow

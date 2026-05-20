@@ -33,6 +33,7 @@ import {
     formatUsdDiff as fmtDiff,
 } from '../../model/display/binanceTickerDisplayModel.js';
 import TickerSkeletonBox from './shared/TickerSkeletonBox.tsx';
+import styles from './BinanceTicker.module.css';
 
 /**
  * 이 컴포넌트에서 "표시할 수 있는" ticker 필드 요약
@@ -148,41 +149,32 @@ interface BinanceTickerProps {
 function BinanceTickerSkeleton() {
     return (
         <div>
-            {/* @keyframes shimmer CSS 주입 */}
             {/* 고가 라인: fontSize 12px → line-height ≈ 18px */}
-            <div style={{ marginBottom: '8px' }}>
+            <div className={styles.skeletonHighLine}>
                 <TickerSkeletonBox width="160px" height="18px" injectKeyframes />
             </div>
 
             {/* 현재가 영역: fontSize 40px monospace → line-height ≈ 48px */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <div className={styles.skeletonPriceRow}>
                 <TickerSkeletonBox width="200px" height="48px" borderRadius="8px" />
                 <TickerSkeletonBox width="220px" height="48px" borderRadius="8px" />
             </div>
 
             {/* 변동액/변동률 행: fontSize 16px → line-height ≈ 20px */}
-            <div style={{ display: 'flex', gap: '14px', marginBottom: '8px' }}>
+            <div className={styles.skeletonChangeRow}>
                 <TickerSkeletonBox width="80px" height="20px" />
                 <TickerSkeletonBox width="60px" height="20px" />
             </div>
 
             {/* 저가 라인: fontSize 12px → line-height ≈ 18px */}
-            <div style={{ marginBottom: '20px' }}>
+            <div className={styles.skeletonLowLine}>
                 <TickerSkeletonBox width="160px" height="18px" />
             </div>
 
-            {/* 정보 박스 그리드 (4개)
-                실제 InfoBox: label fontSize 11px(≈14px) + marginBottom 4px + value fontSize 14px(≈17px)
-                패딩 12px top/bottom 동일하게 맞춤 */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {/* 정보 박스 그리드 (4개) */}
+            <div className={styles.skeletonInfoGrid}>
                 {[1, 2, 3, 4].map((i) => (
-                    <div key={i} style={{
-                        background: 'var(--dark-border)',
-                        borderRadius: '10px',
-                        padding: '12px 16px',
-                        flex: '1 1 120px',
-                        minWidth: '120px',
-                    }}>
+                    <div key={i} className={styles.skeletonInfoItem}>
                         <TickerSkeletonBox width="60px" height="14px" style={{ marginBottom: '4px' }} />
                         <TickerSkeletonBox width="80px" height="17px" />
                     </div>
@@ -190,7 +182,7 @@ function BinanceTickerSkeleton() {
             </div>
 
             {/* 집계 기간 라인: fontSize 11px → line-height ≈ 14px */}
-            <div style={{ marginTop: '12px' }}>
+            <div className={styles.skeletonPeriod}>
                 <TickerSkeletonBox width="280px" height="14px" />
             </div>
         </div>
@@ -215,21 +207,9 @@ function BinanceTickerSkeleton() {
  */
 function InfoBox({ label, value, color = '#94a3b8' }: InfoBoxProps) {
     return (
-        <div style={{
-            background: 'var(--dark-border)',
-            borderRadius: '10px',
-            padding: '12px 16px',
-            minWidth: '120px',
-            flex: '1 1 120px',          // flex-grow: 1, flex-shrink: 1, 최소 120px
-        }}>
-            {/* 라벨: 항목명, 흐린 회색으로 작게 표시 */}
-            <div style={{ color: 'var(--dark-text-secondary)', fontSize: '11px', marginBottom: '4px', fontWeight: '600', letterSpacing: '0.5px' }}>
-                {label}
-            </div>
-            {/* 값: props로 받은 color 적용 */}
-            <div style={{ color, fontSize: '14px', fontWeight: '700', fontFamily: 'monospace' }}>
-                {value}
-            </div>
+        <div className={styles.infoBox}>
+            <div className={styles.infoLabel}>{label}</div>
+            <div className={styles.infoValue} style={{ color }}>{value}</div>
         </div>
     );
 }
@@ -287,190 +267,96 @@ function BinanceTicker({ ticker, upbitTicker, usdtKrwTicker, pairLabel }: Binanc
 
     return (
         <div>
-            {/* 24시간 고가: 실시간 시세 블록 위에 배치 (현재가와의 차이 함께 표시) */}
-            <div style={{ marginBottom: '8px', fontSize: '12px', color: 'var(--dark-text-muted)' }}>
-                <span style={{ marginRight: '6px' }}>24H 고가</span>
-                <span style={{ color: '#2ecc71', fontWeight: 700, fontFamily: 'monospace' }}>
-                    {fmt(ticker.h)}
-                </span>
-                <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
-                    ({fmtDiff(highDiffFromCurrent)})
-                </span>
+            {/* 24시간 고가 */}
+            <div className={styles.highLine}>
+                <span className={styles.highLowLabel}>24H 고가</span>
+                <span className={styles.highValue}>{fmt(ticker.h)}</span>
+                <span className={styles.diffValue}>({fmtDiff(highDiffFromCurrent)})</span>
             </div>
 
-            {/* ── 3열 가격 그리드 ─────────────────────────────────── */}
-            {/*
-              레이아웃:
-                좌 | 중(프리미엄, 양 행 span) | 우
-              ──────────────────────────────────────────────────
-              [바이낸스 USD 가격]  [프리미엄]  [USD×USDT 환율기준 KRW]
-              [바이낸스 등락]                  [업비트 KRW]
-              ──────────────────────────────────────────────────
-              TODO: USD×USDT, 프리미엄 — 현재는 디자인 확인용 플레이스홀더.
-                    실데이터 연동은 KRW-USDT WebSocket 구현 후 진행.
-            */}
-            {/*
-              overflowX: 'auto' — $100,000+ 같은 넓은 숫자가 들어와도
-              카드 레이아웃이 밀리지 않고 가로 스크롤로 처리됨.
-            */}
-            <div style={{ overflowX: 'auto' }}>
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'auto 150px auto', // 중간 열 고정폭 → 오른쪽 열 안 밀림
-                gridTemplateRows: 'auto auto',
-                columnGap: '28px',
-                rowGap: '8px',
-                alignItems: 'center',
-                marginBottom: '8px',
-                minWidth: 'max-content', // 숫자가 길어져도 열이 찌그러지지 않음
-            }}>
+            {/* ── 3열 가격 그리드 ── */}
+            <div className={styles.priceGridWrapper}>
+                <div className={styles.priceGrid}>
 
-                {/* ── 좌상: 바이낸스 USD 현재가 ── */}
-                <span style={{
-                    gridColumn: 1, gridRow: 1,
-                    color: 'var(--dark-accent-gold)', fontSize: '40px', fontWeight: '800',
-                    fontFamily: 'monospace', letterSpacing: '-1px',
-                }}>
-                    {fmt(ticker.c)}
-                </span>
+                    {/* 좌상: 바이낸스 USD 현재가 */}
+                    <span className={styles.usdPrice}>{fmt(ticker.c)}</span>
 
-                {/* ── 중앙: 프리미엄 차이 (양 행 span) ── */}
-                {/*
-                  업비트 KRW - (바이낸스 USD × USDT 환율) = 김치 프리미엄
-                  양수 = 업비트가 비쌈(프리미엄), 음수 = 업비트가 쌈(역프리미엄)
-                  TODO: 실데이터 연동 후 색상도 동적으로 변경 (양수 초록 / 음수 빨강)
-                */}
-                <div style={{
-                    gridColumn: 2, gridRow: '1 / 3',
-                    textAlign: 'center',
-                    padding: '10px 20px',
-                    borderLeft: '1px solid var(--dark-border)',
-                    borderRight: '1px solid var(--dark-border)',
-                    alignSelf: 'stretch',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    gap: '4px',
-                }}>
-                    {/* 라벨 */}
-                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '1px' }}>
-                        프리미엄
+                    {/* 중앙: 프리미엄 (양 행 span) */}
+                    <div className={styles.premiumCell}>
+                        <div className={styles.premiumLabel}>프리미엄</div>
+                        {premium !== null ? (
+                            <div className={styles.premiumAmount} style={{ color: premiumColor }}>
+                                {premiumSign}{fmtPremiumAbs(premium)}
+                            </div>
+                        ) : (
+                            <TickerSkeletonBox width="120px" height="20px" borderRadius="4px" />
+                        )}
+                        {premiumRate !== null ? (
+                            <div className={styles.premiumRate} style={{ color: premiumColor }}>
+                                {premiumSign}{premiumRate.toFixed(2)}%
+                            </div>
+                        ) : (
+                            <TickerSkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
+                        )}
                     </div>
-                    {/* KRW 차이금액: 두 데이터 수신 완료 후 표시, 대기 중 스켈레톤 */}
-                    {premium !== null ? (
-                        <div style={{ color: premiumColor, fontSize: '17px', fontWeight: 800, fontFamily: 'monospace' }}>
-                            {premiumSign}{fmtPremiumAbs(premium)}
-                        </div>
-                    ) : (
-                        <TickerSkeletonBox width="120px" height="20px" borderRadius="4px" />
-                    )}
-                    {/* 퍼센트 */}
-                    {premiumRate !== null ? (
-                        <div style={{ color: premiumColor, fontSize: '12px', fontWeight: 700 }}>
-                            {premiumSign}{premiumRate.toFixed(2)}%
-                        </div>
-                    ) : (
-                        <TickerSkeletonBox width="60px" height="14px" borderRadius="4px" style={{ marginTop: '2px' }} />
-                    )}
-                </div>
 
-                {/* ── 우상: USD × USDT 환율기준 KRW ── */}
-                <div style={{ gridColumn: 3, gridRow: 1, textAlign: 'right' }}>
-                    {/* 라벨 */}
-                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
-                        USD × USDT
-                    </div>
-                    {/* 환율기준 KRW: usdtKrwTicker 수신 완료 후 표시 */}
-                    {calcKrw !== null ? (
-                        <span style={{ color: '#94a3b8', fontSize: '36px', fontWeight: 800, fontFamily: 'monospace' }}>
-                            {fmtKrw(calcKrw)}
-                        </span>
-                    ) : (
-                        <TickerSkeletonBox width="200px" height="42px" borderRadius="8px" />
-                    )}
-                </div>
-
-                {/* ── 좌하: 바이낸스 등락금액 + 등락률 ── */}
-                <div style={{ gridColumn: 1, gridRow: 2, display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <span style={{ color, fontSize: '16px', fontWeight: '700', fontFamily: 'monospace' }}>
-                        {sign}{parseFloat(ticker.p).toFixed(2)}
-                    </span>
-                    <span style={{ color, fontSize: '14px', fontWeight: '600' }}>
-                        ({sign}{parseFloat(ticker.P).toFixed(2)}%)
-                    </span>
-                </div>
-
-                {/* ── 우하: 업비트 실제 KRW ── */}
-                <div style={{ gridColumn: 3, gridRow: 2, textAlign: 'right' }}>
-                    {/* 라벨 */}
-                    <div style={{ color: 'var(--dark-text-secondary)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '2px' }}>
-                        UPBIT
-                    </div>
-                    {/* 업비트 KRW 현재가 */}
-                    {hasUpbitMarket && (
-                        hasUpbitData ? (
-                            <span style={{ color: '#22c55e', fontSize: '36px', fontWeight: 800, fontFamily: 'monospace' }}>
-                                {fmtKrw(upbitTradePrice)}
-                            </span>
+                    {/* 우상: USD × USDT 환율기준 KRW */}
+                    <div className={styles.krwUpperCell}>
+                        <div className={styles.krwLabel}>USD × USDT</div>
+                        {calcKrw !== null ? (
+                            <span className={styles.calcKrwPrice}>{fmtKrw(calcKrw)}</span>
                         ) : (
                             <TickerSkeletonBox width="200px" height="42px" borderRadius="8px" />
-                        )
-                    )}
+                        )}
+                    </div>
+
+                    {/* 좌하: 바이낸스 등락금액 + 등락률 */}
+                    <div className={styles.changeCell}>
+                        <span className={styles.changeAmount} style={{ color }}>
+                            {sign}{parseFloat(ticker.p).toFixed(2)}
+                        </span>
+                        <span className={styles.changeRate} style={{ color }}>
+                            ({sign}{parseFloat(ticker.P).toFixed(2)}%)
+                        </span>
+                    </div>
+
+                    {/* 우하: 업비트 실제 KRW */}
+                    <div className={styles.upbitCell}>
+                        <div className={styles.upbitLabel}>UPBIT</div>
+                        {hasUpbitMarket && (
+                            hasUpbitData ? (
+                                <span className={styles.upbitPrice}>{fmtKrw(upbitTradePrice)}</span>
+                            ) : (
+                                <TickerSkeletonBox width="200px" height="42px" borderRadius="8px" />
+                            )
+                        )}
+                    </div>
                 </div>
             </div>
-            </div>{/* overflowX 래퍼 닫기 */}
 
-            {/* 24시간 저가: 실시간 시세 블록 바로 아래에 배치 (현재가와의 차이 함께 표시) */}
-            <div style={{ marginBottom: '20px', fontSize: '12px', color: 'var(--dark-text-muted)' }}>
-                <span style={{ marginRight: '6px' }}>24H 저가</span>
-                <span style={{ color: '#e74c3c', fontWeight: 700, fontFamily: 'monospace' }}>
-                    {fmt(ticker.l)}
-                </span>
-                <span style={{ marginLeft: '8px', fontSize: '11px', color: '#a5b4fc' }}>
-                    ({fmtDiff(lowDiffFromCurrent)})
-                </span>
+            {/* 24시간 저가 */}
+            <div className={styles.lowLine}>
+                <span className={styles.highLowLabel}>24H 저가</span>
+                <span className={styles.lowValue}>{fmt(ticker.l)}</span>
+                <span className={styles.diffValue}>({fmtDiff(lowDiffFromCurrent)})</span>
             </div>
 
-            {/* ── 정보 박스 그리드 ───────────────────────────────── */}
-            {/*
-              display: flex + flexWrap: wrap 조합:
-              화면 넓이에 따라 자동으로 줄 바꿈.
-              jQuery로 수동으로 반응형 처리하던 것을 CSS flex로 자동화.
-            */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-
-                {/* 이전 종가: 어제 마지막 가격 (ticker.x)
-                    prev close = 이 값 기준으로 변동액/변동률이 계산됨 */}
+            {/* ── 정보 박스 그리드 ── */}
+            <div className={styles.infoGrid}>
                 <InfoBox label="전일 종가"        value={fmt(ticker.x)} />
-
-                {/* 거래량: 24시간 동안 거래된 BTC 수량 (ticker.v)
-                    예: "12345.678" BTC = 약 12,345 비트코인이 거래됨 */}
                 <InfoBox label="거래량 (24H Vol)" value={fmtVol(ticker.v)} />
-
-                {/* 거래대금: 24시간 동안 거래된 USDT 금액 (ticker.q)
-                    거래량(BTC 수량) × 평균가 ≒ 거래대금(USDT 금액)
-                    표시 형식: 억 단위로 나누어 읽기 쉽게 */}
                 <InfoBox
                     label="거래대금 (Quote Vol)"
                     value={'$' + (parseFloat(ticker.q) / 1e9).toFixed(2) + 'B'}
                 />
-                {/* 1e9 = 10억. 거래대금이 보통 수십억 달러이므로 'B(illion)' 단위로 표시 */}
-
-                {/* 체결 횟수: 24시간 동안 총 몇 번 거래가 발생했는지 (ticker.n)
-                    숫자 타입이므로 toLocaleString으로 천단위 콤마 추가 */}
                 <InfoBox
                     label="체결 횟수 (Trades)"
                     value={ticker.n.toLocaleString('en-US') + ' 건'}
                 />
             </div>
 
-            {/* ── 통계 기간 표시 ──────────────────────────────────── */}
-            {/*
-              ticker.O = 통계 시작 Unix ms → Date 변환 → 시간 문자열
-              ticker.C = 통계 종료 Unix ms → Date 변환 → 시간 문자열
-              이 두 값은 항상 24시간 간격임.
-            */}
-            <div style={{ marginTop: '12px', color: 'var(--dark-text-secondary)', fontSize: '11px' }}>
+            {/* 집계 기간 */}
+            <div className={styles.period}>
                 집계 기간: {new Date(ticker.O).toLocaleString('ko-KR')} ~ {new Date(ticker.C).toLocaleString('ko-KR')}
             </div>
         </div>

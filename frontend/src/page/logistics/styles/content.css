@@ -65,96 +65,13 @@
   flex-wrap: wrap;
 }
 
-.logistics-support-strip {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background:
-    linear-gradient(135deg, rgba(5, 142, 217, 0.08), rgba(250, 159, 66, 0.035)),
-    rgba(255, 255, 255, 0.02);
-}
-
-.logistics-support-label {
-  flex: 0 0 auto;
-  color: var(--dark-text-neutral);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.logistics-support-items {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.logistics-support-chip {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(5, 142, 217, 0.2);
-  background: rgba(255, 255, 255, 0.028);
-  color: var(--dark-text-primary);
-  cursor: pointer;
-  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
-}
-
-.logistics-support-chip:hover {
-  transform: translateY(-1px);
-  border-color: rgba(5, 142, 217, 0.42);
-  background: rgba(5, 142, 217, 0.1);
-}
-
-.logistics-support-chip.variant-action {
-  border-color: rgba(5, 142, 217, 0.36);
-  background:
-    linear-gradient(135deg, rgba(5, 142, 217, 0.16), rgba(16, 185, 129, 0.055)),
-    rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
-}
-
-.logistics-support-chip.variant-action:hover {
-  border-color: rgba(5, 142, 217, 0.58);
-  background:
-    linear-gradient(135deg, rgba(5, 142, 217, 0.22), rgba(16, 185, 129, 0.085)),
-    rgba(255, 255, 255, 0.04);
-}
-
-.logistics-support-chip:disabled {
-  cursor: wait;
-  opacity: 0.62;
-  transform: none;
-}
-
-.logistics-support-chip-title {
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.logistics-support-chip-meta {
-  color: var(--dark-text-secondary);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
 .logistics-grid-3,
 .logistics-grid-2,
 .logistics-grid-4,
 .logistics-grid-5,
 .logistics-grid-6,
-.logistics-grid-7 {
+.logistics-grid-7,
+.logistics-grid-8 {
   display: grid;
   gap: 16px;
   align-items: stretch;
@@ -166,6 +83,7 @@
 .logistics-grid-5 { grid-template-columns: repeat(5, minmax(180px, 1fr)); min-width: calc(5 * 180px + 4 * 12px); }
 .logistics-grid-6 { grid-template-columns: repeat(6, minmax(180px, 1fr)); min-width: calc(6 * 180px + 5 * 12px); }
 .logistics-grid-7 { grid-template-columns: repeat(7, minmax(180px, 1fr)); min-width: calc(7 * 180px + 6 * 12px); }
+.logistics-grid-8 { grid-template-columns: repeat(4, minmax(160px, 1fr)); }
 
 /* scroll wrapper: flex 아이템으로 축소 허용, 가로 스크롤 제공 */
 .logistics-stage-grid-shell {
@@ -1124,15 +1042,24 @@
   gap: 16px;
 }
 
+.logistics-axis-card .logistics-axis-summary {
+  margin-top: auto;
+}
+
 .logistics-axis-caption {
   margin-top: 4px;
+  margin-bottom: 12px;
   color: var(--dark-text-secondary);
   font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .logistics-axis-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1143,8 +1070,24 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
+.logistics-axis-metric-btn {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.logistics-axis-metric-btn:hover {
+  border-color: rgba(5, 142, 217, 0.35);
+  background: rgba(5, 142, 217, 0.08);
+}
+
 .logistics-axis-metric strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
   margin-top: 6px;
   font-size: 20px;
   letter-spacing: -0.03em;
@@ -1152,12 +1095,61 @@
 
 .logistics-axis-label {
   color: var(--dark-text-neutral);
-  font-size: 11px;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .logistics-axis-summary {
   display: grid;
   gap: 12px;
+}
+
+/* compact variant — 8 카드 2행 배치 시 한 행 내부 콘텐츠 압축 */
+.logistics-axis-card--compact {
+  padding: 14px;
+  gap: 10px;
+}
+
+.logistics-axis-card--compact .logistics-axis-caption {
+  margin-top: 0;
+  margin-bottom: 6px;
+  -webkit-line-clamp: 1;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.logistics-axis-card--compact .logistics-axis-metrics {
+  gap: 8px;
+}
+
+.logistics-axis-card--compact .logistics-axis-metric {
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.logistics-axis-card--compact .logistics-axis-metric strong {
+  margin-top: 2px;
+  font-size: 17px;
+}
+
+.logistics-axis-card--compact .logistics-axis-label {
+  font-size: 10px;
+}
+
+.logistics-axis-hotspot {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--dark-text-neutral);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logistics-axis-hotspot strong {
+  color: var(--dark-text-primary);
+  font-weight: 600;
 }
 
 .logistics-axis-line {
@@ -1173,6 +1165,7 @@
   color: var(--dark-text-neutral);
   font-size: 11px;
   flex: 0 0 auto;
+  min-width: 46px;
 }
 
 .logistics-axis-line-value {
@@ -1185,13 +1178,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .logistics-overview-domain {
-  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
   font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--dark-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logistics-overview-title > .logistics-status-chip {
+  flex: 0 0 auto;
 }
 
 .logistics-overview-flow {
@@ -1226,9 +1230,24 @@
   overflow: hidden;
 }
 
+/* tab-shell fill 모드: 부모 높이를 채우고, 내부 list-shell에서만 스크롤 */
+.logistics-tab-shell--fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.logistics-tab-shell--fill .logistics-list-shell {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .logistics-list-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .logistics-list-table th,
@@ -1237,6 +1256,14 @@
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 12px;
+}
+
+.logistics-list-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgb(20, 27, 45);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .logistics-list-row {

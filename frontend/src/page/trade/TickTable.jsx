@@ -9,8 +9,7 @@ import {
 } from '@/shared/ui/shadcn/table.js';
 import { Badge } from '@/shared/ui/shadcn/badge.js';
 import { formatWithComma } from '@/shared/lib/utils.js';
-
-const formatQty = (v) => (v != null ? parseFloat(v).toFixed(4) : '—');
+import { formatQty } from './model/tradeDisplayModel.js';
 
 /** @param {{ ticks: { price: string, quantity: string, isBuyerMaker: boolean, marketType: string }[], isConnecting: boolean }} props */
 export default function TickTable({ ticks, isConnecting }) {

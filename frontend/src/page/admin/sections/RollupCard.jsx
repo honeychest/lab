@@ -10,8 +10,8 @@ export default function RollupCard({ rollup }) {
                 <div className={styles.subtitle}>1s → 1m → 5m 수동 실행</div>
             </div>
             <div className={styles.inlineRow}>
-                <input className={styles.input} type="datetime-local" value={rFrom} onChange={e => setRFrom(e.target.value)} style={{ flex: 1 }} />
-                <input className={styles.input} type="datetime-local" value={rTo} onChange={e => setRTo(e.target.value)} style={{ flex: 1 }} />
+                <input className={`${styles.input} ${styles.inputFlex}`} type="datetime-local" value={rFrom} onChange={e => setRFrom(e.target.value)} />
+                <input className={`${styles.input} ${styles.inputFlex}`} type="datetime-local" value={rTo} onChange={e => setRTo(e.target.value)} />
                 <button
                     type="button"
                     className={`${styles.btn} ${styles.btnActive}`}
@@ -22,7 +22,7 @@ export default function RollupCard({ rollup }) {
                 </button>
             </div>
             {rResult && (
-                <div className={styles.desc} style={{ color: rResult.ok ? 'var(--monitor-gauge-ok)' : 'var(--monitor-severity-critical)' }}>
+                <div className={`${styles.desc} ${rResult.ok ? styles.success : styles.error}`}>
                     {rResult.ok
                         ? `완료 — 1m: ${fmtNum(rResult.inserted1m)}건, 5m: ${fmtNum(rResult.inserted5m)}건`
                         : rResult.message}

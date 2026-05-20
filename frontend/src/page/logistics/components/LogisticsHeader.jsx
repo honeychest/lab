@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import TaskListPopover from './TaskListPopover';
 
-export default function LogisticsHeader({ snapshot }) {
+export default function LogisticsHeader({ snapshot, activeTab, onTabChange }) {
     const { kpi, allTaskList, processingTaskList, failedTaskList } = snapshot;
     const [activePopover, setActivePopover] = useState(null);
 
@@ -16,8 +16,24 @@ export default function LogisticsHeader({ snapshot }) {
                 <div className="logistics-header-intro">
                     <div className="logistics-header-title-row">
                         <h1 className="logistics-header-title">물류 프로세스 관제</h1>
+                        <div className="logistics-header-subtitle">(업무분석용/백엔드미구현)</div>
                     </div>
-                    <div className="logistics-header-subtitle">(업무분석용/백엔드미구현)</div>
+                    <div className="logistics-header-tab-nav">
+                        <button
+                            type="button"
+                            className={`logistics-tab-btn${activeTab === 'overview' ? ' active' : ''}`}
+                            onClick={() => onTabChange?.('overview')}
+                        >
+                            Overview
+                        </button>
+                        <button
+                            type="button"
+                            className={`logistics-tab-btn${activeTab === 'list' ? ' active' : ''}`}
+                            onClick={() => onTabChange?.('list')}
+                        >
+                            전체 작업
+                        </button>
+                    </div>
                 </div>
 
                 <div

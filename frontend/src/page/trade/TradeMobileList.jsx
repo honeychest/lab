@@ -1,5 +1,6 @@
 import { Badge } from '@/shared/ui/shadcn/badge.js';
 import { Skeleton } from '@/shared/ui/shadcn/skeleton.js';
+import { Button } from '@/shared/ui/shadcn/button';
 import {
     formatTime,
     formatPrice,
@@ -7,6 +8,7 @@ import {
     formatValue,
     getElapsed,
 } from './model/tradeDisplayModel.js';
+import styles from './TradePage.module.css';
 
 function TradeMobileList({
     trades,
@@ -15,7 +17,6 @@ function TradeMobileList({
     loadMoreError,
     onRetryLoadMore,
     loadMoreRef,
-    styles,
 }) {
     return (
         <>
@@ -88,12 +89,16 @@ function TradeMobileList({
 
             {loadMoreError && (
                 <div className="flex justify-center py-3">
-                    <button
+                    <Button
+                        id="btn-retry-load-more"
+                        data-testid="btn-retry-load-more"
+                        variant="ghost"
+                        size="sm"
                         onClick={onRetryLoadMore}
-                        className="text-xs text-[var(--dark-text-neutral)] border border-[var(--dark-border-strong)] rounded-lg px-4 py-2 hover:bg-[var(--dark-border)]"
+                        className="text-xs text-[var(--dark-text-neutral)] border border-[var(--dark-border-strong)] rounded-lg px-4 py-2 hover:bg-[var(--dark-border)] h-auto"
                     >
                         다시 시도
-                    </button>
+                    </Button>
                 </div>
             )}
 

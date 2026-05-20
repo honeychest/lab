@@ -4,8 +4,9 @@
  */
 
 const blockStyle = {
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(0,0,0,0.18)',
+    border: '1px solid var(--monitor-border)',
+    background: 'var(--monitor-sidebar-bg)',
+    color: 'var(--monitor-text-primary)',
     padding: '14px',
     overflow: 'auto',
     whiteSpace: 'pre-wrap',

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '@/api/apiClient.js';
 import Layout                from '../../shared/ui/layout/Layout.jsx';
 import '../../styles/themes/theme-dark.css';
+import './AnalysisPage.css';
 import { usePageTheme } from '@/app/context/useTheme.js';
 import ControlBar            from './components/ControlBar.jsx';
 import MainChart             from './components/MainChart.jsx';
@@ -291,23 +292,11 @@ export default function AnalysisPage() {
   const paletteLevel = conditionTree.palette ?? 'MID';
   const [theme] = usePageTheme('analysis');
   const themeClass = theme !== 'dark' ? `theme-${theme}` : '';
+  const rootClassName = ['analysis-page', themeClass].filter(Boolean).join(' ');
 
   return (
     <Layout>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; }
-      `}</style>
-
-      <div className={themeClass || undefined} style={{
-        display:         'flex',
-        flexDirection:   'column',
-        height:          '100%',
-        backgroundColor: 'var(--dark-bg)',
-        padding:         '4px',
-        gap:             '4px',
-        overflow:        'hidden',
-      }}>
+      <div className={rootClassName}>
         {showMobileBlocked ? (
           <DesktopViewGate
             message="데스크톱 화면에서만 분석 페이지를 사용할 수 있습니다."
@@ -333,20 +322,12 @@ export default function AnalysisPage() {
         />
 
         {/* 본문 */}
-        <div style={{ flex: 1, display: 'flex', gap: '4px', overflow: 'hidden', minHeight: 0 }}>
+        <div className="analysis-main">
           {/* 좌측 영역: 메인 차트 + 조건 필터 (가로 50%) */}
-          <div style={{
-            flexBasis:     '50%',
-            maxWidth:      '50%',
-            minWidth:      0,
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           '8px',
-            overflow:      'hidden',
-          }}>
+          <div className="analysis-left">
             {/* 상단: 메인 차트, 하단: 조건 빌더 (세로 50% / 50%) */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <div className="analysis-left-top">
+              <div className="analysis-chart-slot">
                 <MainChart
                   klineData={klineData}
                   matchedIndices={matchedIndices}
@@ -360,19 +341,11 @@ export default function AnalysisPage() {
                 />
               </div>
 
-              <div style={{
-                flex:         1,
-                minHeight:    0,
-                background:   'var(--dark-card-bg)',
-                borderRadius: '10px',
-                border:       '1px solid var(--dark-input-border)',
-                padding:      '10px 12px',
-                overflowY:    'auto',
-              }}>
+              <div className="analysis-card analysis-cb-slot">
                 <ConditionBuilder
                   conditionTree={conditionTree}
                   onTreeChange={handleTreeChange}
-                onSave={handleSaveClick}
+                  onSave={handleSaveClick}
                   onReset={handleReset}
                   detectionError={detectionError}
                 />
@@ -380,13 +353,7 @@ export default function AnalysisPage() {
             </div>
 
             {/* 템플릿 바 (하단 고정) */}
-            <div style={{
-              background:   'var(--dark-card-bg)',
-              borderRadius: '10px',
-              border:       '1px solid var(--dark-input-border)',
-              padding:      '8px 12px',
-              flexShrink:   0,
-            }}>
+            <div className="analysis-card analysis-tb-slot">
               <TemplateBar
                 templates={templates}
                 selectedId={selectedId}
@@ -401,7 +368,7 @@ export default function AnalysisPage() {
           </div>
 
           {/* 우측 사례 패널: 나머지 가로 영역 전체 사용 */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="analysis-right">
             <CasesPanel
               klineData={klineData}
               matchedIndices={matchedIndices}

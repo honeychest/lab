@@ -86,9 +86,9 @@ body:has(.logistics-mobile-gate),
   grid-template-rows: 56px 56px;
   grid-template-areas:
     "intro map kpis"
-    "nav map actions";
+    "intro map actions";
   column-gap: 16px;
-  row-gap: 2px;
+  row-gap: 0;
   align-items: stretch;
   padding: 14px 16px;
   margin: 8px 12px 0;
@@ -110,11 +110,11 @@ body:has(.logistics-mobile-gate),
 .logistics-header-intro {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  height: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
   min-width: 0;
   grid-area: intro;
+  padding: 2px 0 6px;
 }
 
 .logistics-header-title {
@@ -132,10 +132,31 @@ body:has(.logistics-mobile-gate),
   margin-top: 6px;
 }
 
-.logistics-header-title-row {
+.logistics-dev-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 159, 66, 0.4);
+  background: rgba(250, 159, 66, 0.1);
+  color: var(--dark-accent-gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.logistics-header-tab-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logistics-header-title-row {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
   flex-wrap: nowrap;
   flex-direction: column;
@@ -255,14 +276,14 @@ body:has(.logistics-mobile-gate),
 }
 
 .logistics-run-btn {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(5, 142, 217, 0.5);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-    rgba(12, 19, 33, 0.88);
-  color: var(--dark-text-primary);
+    linear-gradient(135deg, rgba(5, 142, 217, 0.88), rgba(32, 110, 214, 0.82));
+  color: #eef7ff;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 20px rgba(0, 0, 0, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 18px rgba(5, 142, 217, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .logistics-run-btn.is-running {
@@ -315,7 +336,7 @@ body:has(.logistics-mobile-gate),
 
 .logistics-kpi-strip-compact {
   grid-area: kpis;
-  grid-template-columns: repeat(3, minmax(84px, 96px));
+  grid-template-columns: repeat(3, minmax(80px, 100px));
   gap: 6px;
   align-self: stretch;
   justify-content: end;
@@ -338,12 +359,12 @@ body:has(.logistics-mobile-gate),
 
 .logistics-kpi-card {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
   min-height: 100%;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 11px;
 }
 
@@ -507,4 +528,5 @@ body:has(.logistics-mobile-gate),
   background: rgba(235, 81, 96, 0.12);
   color: var(--dark-status-error);
 }
+
 

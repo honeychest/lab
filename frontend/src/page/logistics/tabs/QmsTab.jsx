@@ -2,9 +2,7 @@ import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
 import { setFocus } from '@/store/focusStore';
-import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
-import { QMS_SUPPORT_FLOWS } from '../constants';
 import QmsStageGrid from '../components/tabs/qms/QmsStageGrid';
 
 export default function QmsTab({ onInfoOpen }) {
@@ -33,8 +31,6 @@ export default function QmsTab({ onInfoOpen }) {
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip title="QMS 흐름" flows={QMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
-
             <QmsStageGrid
                 tasks={tasks}
                 focusedTaskId={focusedTaskId}

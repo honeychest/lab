@@ -47,24 +47,9 @@ export default function CaseCard({ matchIndex, klineData, paletteLevel = 'MID', 
   })() : '';
 
   return (
-    <div style={{
-      padding:         '6px 8px',
-      borderRadius:    '6px',
-      background:      'var(--dark-surface-bg)',
-      border:          '1px solid var(--dark-input-border)',
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             '4px',
-      flexShrink:      0,
-    }}>
-      <div style={{
-        fontSize:   '11px',
-        color:      'var(--dark-text-muted)',
-        fontFamily: "'Pretendard', sans-serif",
-      }}>
-        {dateStr}
-      </div>
-      <div style={{ height: '100px' }}>
+    <div className="analysis-surface analysis-case-card">
+      <div className="analysis-case-card__time">{dateStr}</div>
+      <div className="analysis-case-card__chart">
         <MiniChart candles={candles} highlights={highlights} symbol={symbol} />
       </div>
     </div>

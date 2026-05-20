@@ -1,0 +1,18 @@
+/* Analysis 페이지 — 공통 기본 (font-family / box-sizing / keyframes) */
+
+.analysis-page,
+.analysis-page *,
+.analysis-modal-backdrop,
+.analysis-modal-backdrop *,
+.analysis-toast,
+.analysis-toast * {
+  box-sizing: border-box;
+}
+
+.analysis-page {
+  font-family: 'Pretendard', sans-serif;
+}
+
+@keyframes analysis-spin {
+  to { transform: rotate(360deg); }
+}

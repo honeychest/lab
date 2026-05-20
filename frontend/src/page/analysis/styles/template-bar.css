@@ -1,0 +1,39 @@
+/* Analysis 페이지 — 템플릿 바 (드롭다운/저장/관리, 저장 입력 모드) */
+
+.analysis-tb {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+}
+
+.analysis-tb__label {
+  font-size:   0.81rem;
+  color:       var(--dark-text-muted);
+  flex-shrink: 0;
+}
+
+.analysis-tb__select {
+  flex: 1;
+}
+
+.analysis-tb__prompt-stack {
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+  flex:           1;
+}
+
+.analysis-tb__prompt {
+  font-size: 0.81rem;
+  color:     var(--dark-text-muted);
+}
+
+.analysis-tb__hint {
+  font-size: 0.75rem;
+  color:     var(--dark-text-muted);
+}
+
+.analysis-tb__input {
+  flex:      1.2;
+  padding:   5px 10px;
+}

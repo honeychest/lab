@@ -2,7 +2,6 @@ import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
 import { setFocus } from '@/store/focusStore';
-import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
 import AftStageGrid from '../components/tabs/aft/AftStageGrid';
 
@@ -32,8 +31,6 @@ export default function AftTab({ onInfoOpen }) {
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip title="AFT 정산·종결 흐름" flows={[]} onInfoOpen={onInfoOpen} />
-
             <AftStageGrid
                 tasks={tasks}
                 focusedTaskId={focusedTaskId}

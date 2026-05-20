@@ -36,10 +36,10 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
             {activeKey && <p className={styles.desc}>{activeCheck?.desc}{' · '}최대 20건 표시</p>}
 
             {loading && <div className={styles.muted}>조회 중...</div>}
-            {!loading && error && <div className={styles.muted} style={{ color: 'var(--monitor-severity-critical)' }}>{error}</div>}
+            {!loading && error && <div className={`${styles.muted} ${styles.error}`}>{error}</div>}
             {!loading && !error && rows === null && <div className={styles.muted}>버튼을 클릭하면 누락 구간을 조회합니다.</div>}
             {!loading && !error && rows !== null && rows.length === 0 && (
-                <div className={styles.muted} style={{ color: 'var(--monitor-gauge-ok)' }}>✓ 누락 없음</div>
+                <div className={`${styles.muted} ${styles.success}`}>✓ 누락 없음</div>
             )}
 
             {!loading && !error && rows !== null && rows.length > 0 && (
@@ -48,7 +48,7 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
                         <thead>
                             <tr>
                                 {showCheckbox && (
-                                    <th className={styles.th} style={{ width: '32px' }}>
+                                    <th className={`${styles.th} ${styles.colCheckbox}`}>
                                         <input type="checkbox" checked={allChecked} onChange={toggleAll} />
                                     </th>
                                 )}
@@ -59,7 +59,7 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
                             {rows.map((row, i) => (
                                 <tr key={i} className={i % 2 === 1 ? styles.trOdd : ''}>
                                     {showCheckbox && (
-                                        <td className={styles.td} style={{ width: '32px' }}>
+                                        <td className={`${styles.td} ${styles.colCheckbox}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedRows.has(i)}
@@ -83,14 +83,13 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
                 <div className={styles.actions}>
                     <button
                         type="button"
-                        className={`${styles.btn} ${selectedRows.size > 0 ? styles.btnActive : ''}`}
+                        className={`${styles.btn} ${selectedRows.size > 0 ? styles.btnActive : ''} ${(selectedRows.size === 0 || collectLoading) ? styles.btnDisabled : ''}`}
                         onClick={handleBulkCollect}
                         disabled={selectedRows.size === 0 || collectLoading}
-                        style={{ opacity: selectedRows.size === 0 || collectLoading ? 0.6 : 1 }}
                     >
                         {collectLoading ? '요청 중...' : `선택 수집 (${selectedRows.size}건)`}
                     </button>
-                    {collectError && <div className={styles.muted} style={{ color: 'var(--monitor-severity-critical)' }}>{collectError}</div>}
+                    {collectError && <div className={`${styles.muted} ${styles.error}`}>{collectError}</div>}
                 </div>
             )}
         </div>

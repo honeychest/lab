@@ -22,3 +22,4 @@ export const fmtTime = ms => ms != null ? new Date(Number(ms)).toLocaleTimeStrin
 export const fmtDateTime = ms => ms != null ? new Date(Number(ms)).toLocaleString() : '—';
 
 export const statusColor = (s) => ({ RUNNING: '#60a5fa', DONE: '#4ade80', ERROR: '#ef4444' }[s] ?? '#94a3b8');
+export const statusClass = (s) => ({ RUNNING: 'statusRunning', DONE: 'statusDone', ERROR: 'statusError' }[s] ?? 'statusDefault');

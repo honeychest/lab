@@ -3,7 +3,6 @@ import BinanceTickerMobile from '../../../domain/binance/ui/ticker/BinanceTicker
 import { BINANCE_MARKETS } from '../../../domain/binance/model/market/binanceMarketSelection.js';
 import { formatUsdtRateLabel } from '../model/binanceTickerCardView.js';
 import { getCoinTabTone } from '../model/binanceTickerCardStyles.js';
-import pageStyles from '../BinancePage.module.css';
 import styles from './BinanceTickerCard.module.css';
 
 function BinanceTickerCard({
@@ -19,10 +18,8 @@ function BinanceTickerCard({
 }) {
     return (
         <div className={styles.card}>
-            <div
-                className={`${pageStyles.tickerHeaderRow} ${styles.headerRow}`}
-            >
-                <div className={pageStyles.coinTabsScroll}>
+            <div className={styles.headerRow}>
+                <div className={styles.coinTabsScroll}>
                     {BINANCE_MARKETS.map((coin) => {
                         const isActive = coin.symbol === selectedSymbol;
                         const tone = getCoinTabTone(isActive);
@@ -30,7 +27,7 @@ function BinanceTickerCard({
                             <button
                                 key={coin.symbol}
                                 type="button"
-                                className={`${pageStyles.coinTab} ${styles.coinTab}`}
+                                className={styles.coinTab}
                                 onClick={() => onSelectSymbol(coin.symbol)}
                                 style={{
                                     border: tone.border,
@@ -45,13 +42,11 @@ function BinanceTickerCard({
                     })}
                 </div>
 
-                <div
-                    className={`${pageStyles.liveStatusBlock} ${styles.statusBlock}`}
-                >
+                <div className={styles.statusBlock}>
                     <div className={styles.statusRow}>
                         <span
                             key={ticker ? String(ticker.E) : 'no-ticker'}
-                            className={`${styles.liveDot} ${liveStatus.blink ? pageStyles.liveDotBlink : ''}`}
+                            className={`${styles.liveDot} ${liveStatus.blink ? styles.liveDotBlink : ''}`}
                             style={{
                                 border: `2px solid ${liveStatus.color}`,
                                 backgroundColor: liveStatus.fill,
@@ -70,7 +65,7 @@ function BinanceTickerCard({
             </div>
 
             <div ref={tickerWrapperRef} style={minimumSizeStyle}>
-                <div className={pageStyles.pcOnly}>
+                <div className={styles.pcOnly}>
                     <BinanceTicker
                         ticker={ticker}
                         upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}
@@ -79,7 +74,7 @@ function BinanceTickerCard({
                     />
                 </div>
 
-                <div className={pageStyles.mobileOnly}>
+                <div className={styles.mobileOnly}>
                     <BinanceTickerMobile
                         ticker={ticker}
                         upbitTicker={selectedCoin.upbitCode ? upbitTicker : undefined}

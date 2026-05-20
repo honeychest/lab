@@ -1,0 +1,33 @@
+/* Analysis 페이지 — 조건 행 (타입/연산자/값/팔레트/설명/삭제) */
+
+.analysis-cr {
+  display:     flex;
+  align-items: flex-start;
+  gap:         8px;
+}
+
+.analysis-cr__controls {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  flex-wrap:   wrap;
+  min-width:   0;
+}
+
+.analysis-cr__sep {
+  color:     var(--dark-text-muted);
+  font-size: 0.81rem;
+}
+
+.analysis-cr__desc {
+  font-size:     13px;
+  color:         var(--dark-text-primary);
+  flex:          1;
+  min-width:     80px;
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  text-align:    left;
+  display:       flex;
+  align-items:   center;
+}

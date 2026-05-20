@@ -94,8 +94,9 @@
 
 .errorText {
     margin: 0;
-    color: #ff9b9b;
+    color: #b91c1c;
     font-size: 12px;
+    font-weight: 700;
 }
 
 .refreshButton {
@@ -210,25 +211,25 @@
 }
 
 .matchRow td:last-child {
-    color: #79d7b2;
+    color: #047857;
     font-weight: 800;
 }
 
 .mismatchRow {
-    background: rgba(255, 168, 68, 0.1);
+    background: rgba(245, 158, 11, 0.12);
 }
 
 .mismatchRow td:last-child {
-    color: #ffbf69;
+    color: #b45309;
     font-weight: 800;
 }
 
 .partialRow {
-    background: rgba(116, 164, 255, 0.08);
+    background: rgba(59, 130, 246, 0.10);
 }
 
 .partialRow td:last-child {
-    color: #9fc1ff;
+    color: #1d4ed8;
     font-weight: 800;
 }
 

@@ -1,6 +1,6 @@
 import styles from '../AdminPage.module.css';
 import { SYMBOLS, MARKETS } from '../constants';
-import { fmtNum, fmtTime, statusColor } from '../utils';
+import { fmtNum, fmtTime, statusClass } from '../utils';
 
 export default function ManualCollectCard({ manualCollect }) {
     const {
@@ -36,18 +36,17 @@ export default function ManualCollectCard({ manualCollect }) {
                 <div className={styles.field}>
                     <div className={styles.label}>Market</div>
                     <select
-                        className={styles.select}
+                        className={`${styles.select} ${noMarket ? styles.btnDisabled : ''}`}
                         value={noMarket ? 'FUTURES' : cMarket}
                         disabled={noMarket}
                         onChange={e => setCMarket(e.target.value)}
-                        style={{ opacity: noMarket ? 0.5 : 1 }}
                     >
                         {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                 </div>
             </div>
 
-            <div className={styles.inputRow} style={{ marginTop: '10px' }}>
+            <div className={`${styles.inputRow} ${styles.rowGap}`}>
                 <div className={styles.field}>
                     <div className={styles.label}>{isIdBased ? 'From ID' : 'From'}</div>
                     {isIdBased
@@ -66,17 +65,16 @@ export default function ManualCollectCard({ manualCollect }) {
                     <div className={styles.label}>Action</div>
                     <button
                         type="button"
-                        className={`${styles.btn} ${styles.btnActive}`}
+                        className={`${styles.btn} ${styles.btnActive} ${styles.btnBlock}`}
                         onClick={handleCollect}
                         disabled={collectLoading || !cFrom}
-                        style={{ width: '100%', justifyContent: 'center' }}
                     >
                         {collectLoading ? '요청 중...' : '수집 시작'}
                     </button>
                 </div>
             </div>
 
-            {collectError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{collectError}</div>}
+            {collectError && <div className={`${styles.desc} ${styles.error}`}>{collectError}</div>}
 
             {jobs.length > 0 && (
                 <div className={styles.tableWrap}>
@@ -95,7 +93,7 @@ export default function ManualCollectCard({ manualCollect }) {
                                     <td className={`${styles.td} ${styles.mono}`}>{j.type}</td>
                                     <td className={`${styles.td} ${styles.mono}`}>{j.symbol}</td>
                                     <td className={`${styles.td} ${styles.mono}`}>{j.marketType}</td>
-                                    <td className={styles.td} style={{ color: statusColor(j.status) }}>{j.status}</td>
+                                    <td className={`${styles.td} ${styles[statusClass(j.status)]}`}>{j.status}</td>
                                     <td className={`${styles.td} ${styles.mono}`}>{j.inserted > 0 ? fmtNum(j.inserted) : '—'}</td>
                                     <td className={`${styles.td} ${styles.mono}`}>{fmtTime(j.startedAt)}</td>
                                     <td className={`${styles.td} ${styles.mono}`}>{j.finishedAt ? fmtTime(j.finishedAt) : j.status === 'RUNNING' ? '진행 중' : '—'}</td>

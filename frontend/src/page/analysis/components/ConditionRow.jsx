@@ -35,24 +35,6 @@ const OP_OPTIONS = {
 
 const UNIT_OPERATORS = ['AND', 'OR', 'NOT'];
 
-const sel = {
-  background:  'var(--dark-input-bg)',
-  border:      '1px solid var(--dark-input-border)',
-  borderRadius: '4px',
-  color:       'var(--dark-input-text)',
-  fontSize:    '11px',
-  padding:     '3px 6px',
-  cursor:      'pointer',
-  outline:     'none',
-  fontFamily:  "'Pretendard', sans-serif",
-};
-
-const inp = {
-  ...sel,
-  width: '72px',
-  textAlign: 'center',
-};
-
 export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, onOperatorChange, onDelete }) {
   const isDeltaSign = unit.type === 'DELTA' && (unit.op === 'POSITIVE' || unit.op === 'NEGATIVE');
   const isTimeRange = unit.type === 'TIME_RANGE';
@@ -69,29 +51,26 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
   const description = explainUnit(unit);
 
   return (
-    <div style={{
-      display:      'flex',
-      alignItems:   'flex-start',
-      gap:          '8px',
-      fontFamily:   "'Pretendard', sans-serif",
-    }}>
+    <div className="analysis-cr">
       {/* 왼쪽: 컨트롤들 (내용만큼, auto) */}
-      <div style={{
-        display:      'flex',
-        alignItems:   'center',
-        gap:          '6px',
-        flexWrap:     'wrap',
-        minWidth:     0,
-      }}>
+      <div className="analysis-cr__controls">
         {/* 연산자 (첫 행 제외) */}
         {rowIndex > 0 && (
-          <select value={operator} onChange={(e) => onOperatorChange(e.target.value)} style={sel}>
+          <select
+            className="analysis-select analysis-select--mini"
+            value={operator}
+            onChange={(e) => onOperatorChange(e.target.value)}
+          >
             {UNIT_OPERATORS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         )}
 
         {/* 조건 타입 */}
-        <select value={unit.type} onChange={(e) => handleTypeChange(e.target.value)} style={sel}>
+        <select
+          className="analysis-select analysis-select--mini"
+          value={unit.type}
+          onChange={(e) => handleTypeChange(e.target.value)}
+        >
           {CONDITION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
 
@@ -101,30 +80,38 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
             <input
               type="number" min={0} max={23} value={unit.startHour ?? 0}
               onChange={(e) => onUnitChange({ ...unit, startHour: Number(e.target.value) })}
-              style={{ ...inp, width: '48px' }} placeholder="시"
+              className="analysis-input analysis-input--num-sm"
+              placeholder="시"
             />
-            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>:</span>
+            <span className="analysis-cr__sep">:</span>
             <input
               type="number" min={0} max={59} value={unit.startMinute ?? 0}
               onChange={(e) => onUnitChange({ ...unit, startMinute: Number(e.target.value) })}
-              style={{ ...inp, width: '48px' }} placeholder="분"
+              className="analysis-input analysis-input--num-sm"
+              placeholder="분"
             />
-            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>~</span>
+            <span className="analysis-cr__sep">~</span>
             <input
               type="number" min={0} max={23} value={unit.endHour ?? 23}
               onChange={(e) => onUnitChange({ ...unit, endHour: Number(e.target.value) })}
-              style={{ ...inp, width: '48px' }} placeholder="시"
+              className="analysis-input analysis-input--num-sm"
+              placeholder="시"
             />
-            <span style={{ color: 'var(--dark-text-muted)', fontSize: '0.81rem' }}>:</span>
+            <span className="analysis-cr__sep">:</span>
             <input
               type="number" min={0} max={59} value={unit.endMinute ?? 59}
               onChange={(e) => onUnitChange({ ...unit, endMinute: Number(e.target.value) })}
-              style={{ ...inp, width: '48px' }} placeholder="분"
+              className="analysis-input analysis-input--num-sm"
+              placeholder="분"
             />
           </>
         ) : (
           <>
-            <select value={unit.op ?? ''} onChange={(e) => handleOpChange(e.target.value)} style={sel}>
+            <select
+              className="analysis-select analysis-select--mini"
+              value={unit.op ?? ''}
+              onChange={(e) => handleOpChange(e.target.value)}
+            >
               {(OP_OPTIONS[unit.type] ?? []).map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -134,7 +121,7 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
                 type="number"
                 value={unit.value ?? ''}
                 onChange={(e) => onUnitChange({ ...unit, value: e.target.value === '' ? '' : Number(e.target.value) })}
-                style={inp}
+                className="analysis-input analysis-input--num"
                 placeholder="값"
               />
             )}
@@ -143,43 +130,23 @@ export default function ConditionRow({ unit, rowIndex, operator, onUnitChange, o
 
         {/* 팔레트 */}
         <select
+          className="analysis-select analysis-select--mini"
           value={unit.palette ?? 'MID'}
           onChange={(e) => onUnitChange({ ...unit, palette: e.target.value })}
-          style={sel}
         >
           {PALETTE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
       </div>
 
-      {/* 가운데: 조건 한글 설명 (나머지 전체, 좌측 정렬, 세로 가운데 정렬 느낌) */}
-      <div style={{
-        fontSize:     '13px',
-        color:        'var(--dark-text-primary)',
-        flex:         1,
-        minWidth:     80,
-        whiteSpace:   'nowrap',
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
-        textAlign:    'left',
-        display:      'flex',
-        alignItems:   'center',
-      }}>
+      {/* 가운데: 조건 한글 설명 */}
+      <div className="analysis-cr__desc">
         <span>{description}</span>
       </div>
 
       {/* 오른쪽: 삭제 버튼 */}
       <button
         onClick={onDelete}
-        style={{
-          background:   'transparent',
-          border:       'none',
-          color:        'var(--dark-text-muted)',
-          cursor:       'pointer',
-          fontSize:     '16px',
-          padding:      '2px 4px',
-          lineHeight:   1,
-          flexShrink:   0,
-        }}
+        className="analysis-btn--icon analysis-btn--icon-lg"
       >×</button>
     </div>
   );

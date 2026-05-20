@@ -9,10 +9,11 @@ import TradePanel from './TradePanel.tsx';
 import TickTable from './TickTable.jsx';
 import {
     Sheet,
+    SheetClose,
     SheetContent,
-    SheetHeader,
     SheetTitle,
 } from '@/shared/ui/shadcn/sheet.js';
+import { X } from 'lucide-react';
 import styles from './TradePage.module.css';
 import '@/styles/themes/theme-dark.css';
 import { usePageTheme } from '@/app/context/useTheme.js';
@@ -28,6 +29,7 @@ import TradeScanSlot from './TradeScanSlot.jsx';
 import TradePageHeader from './TradePageHeader.jsx';
 import TradeDesktopTradesTable from './TradeDesktopTradesTable.jsx';
 import TradeMobileList from './TradeMobileList.jsx';
+import { useMediaQuery } from '@/shared/lib/useMediaQuery.ts';
 
 // ── 컴포넌트 ──────────────────────────────────────────────────
 function TradePage() {
@@ -48,8 +50,7 @@ function TradePage() {
     // 조회 사이드 패널 오픈 상태
     const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-    // 모바일 감지 (마운트 시 1회)
-    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const {
         loadMoreRef,
@@ -96,7 +97,6 @@ function TradePage() {
                                             trades={trades}
                                             newTradeIds={newTradeIds}
                                             initError={initError}
-                                            styles={styles}
                                         />
                                     </div>
                                 </div>
@@ -137,7 +137,6 @@ function TradePage() {
                                 loadMoreError={loadMoreError}
                                 onRetryLoadMore={handleLoadMore}
                                 loadMoreRef={loadMoreRef}
-                                styles={styles}
                             />
                         </div>
                     )}
@@ -149,13 +148,16 @@ function TradePage() {
                 <SheetContent
                     side="right"
                     aria-describedby={undefined}
-                    className="md:w-80 md:sm:w-96 p-0 border-[var(--dark-border)] bg-[var(--dark-card-bg)] md:max-w-96 w-full"
-                    showCloseButton={true}
+                    className="md:w-80 md:sm:w-96 p-0 gap-0 border-[var(--dark-border)] bg-[var(--dark-card-bg)] md:max-w-96 w-full"
+                    showCloseButton={false}
                 >
-                    <SheetHeader className="px-4 py-3 border-b border-[var(--dark-border)] flex flex-row items-center justify-between">
-                        <SheetTitle className="text-[var(--dark-text-primary)] text-sm">체결 조회</SheetTitle>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-hidden h-[calc(100%-56px)]">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--dark-border)] flex-shrink-0">
+                        <SheetTitle className="text-[var(--dark-text-primary)] text-sm font-semibold">체결 조회</SheetTitle>
+                        <SheetClose className="flex items-center justify-center w-8 h-8 rounded text-[var(--dark-text-neutral)] hover:text-[var(--dark-text-primary)] hover:bg-white/5 transition-colors">
+                            <X className="w-4 h-4" />
+                        </SheetClose>
+                    </div>
+                    <div className="flex-1 overflow-hidden">
                         <TradePanel threshold={threshold} canEditThreshold={canEditThreshold} onThresholdChange={setThreshold} onClose={() => setIsPanelOpen(false)} />
                     </div>
                 </SheetContent>

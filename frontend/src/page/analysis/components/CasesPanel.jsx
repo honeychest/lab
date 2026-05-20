@@ -3,18 +3,6 @@ import CaseCard from './CaseCard.jsx';
 
 const PAGE_SIZE = 18;
 
-const navBtn = (disabled) => ({
-  padding:      '4px 10px',
-  background:   'transparent',
-  border:       '1px solid var(--dark-input-border)',
-  borderRadius: '4px',
-  color:        disabled ? 'var(--dark-text-muted)' : 'var(--dark-text-secondary)',
-  fontSize:     '11px',
-  cursor:       disabled ? 'not-allowed' : 'pointer',
-  opacity:      disabled ? 0.3 : 1,
-  fontFamily:   "'Pretendard', sans-serif",
-});
-
 export default function CasesPanel({
   klineData,
   matchedIndices,
@@ -48,67 +36,20 @@ export default function CasesPanel({
     : '매칭 사례';
 
   return (
-    <div style={{
-      height:        '100%',
-      display:       'flex',
-      flexDirection: 'column',
-      background:    'var(--dark-card-bg)',
-      borderRadius:  '10px',
-      border:        '1px solid var(--dark-input-border)',
-      overflow:      'hidden',
-    }}>
+    <div className="analysis-card analysis-cases">
       {/* 헤더 */}
-      <div style={{
-        height:      '40px',
-        flexShrink:  0,
-        display:     'flex',
-        alignItems:  'center',
-        padding:     '0 12px',
-      }}>
-        <span style={{
-          fontSize:   '11px',
-          color:      'var(--dark-text-muted)',
-          fontFamily: "'Pretendard', sans-serif",
-        }}>
-          {countLabel}
-        </span>
+      <div className="analysis-cases__header">
+        <span className="analysis-cases__count">{countLabel}</span>
       </div>
 
       {/* 카드 목록: 3×6 그리드 (3열, 열마다 최대 6개) */}
-      <div style={{
-        flex:          1,
-        display:       'flex',
-        flexDirection: 'column',
-        padding:       '0 10px 8px 10px',
-        gap:           '8px',
-      }}>
+      <div className="analysis-cases__body">
         {totalCount === 0 ? (
-          <div style={{
-            flex:           1,
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'center',
-            fontSize:       '12px',
-            color:          'var(--dark-text-muted)',
-            fontFamily:     "'Pretendard', sans-serif",
-          }}>
-            매칭 없음
-          </div>
+          <div className="analysis-cases__empty">매칭 없음</div>
         ) : (
-          <div style={{
-            flex:          1,
-            display:       'flex',
-            gap:           '8px',
-            overflowY:     'auto',
-          }}>
+          <div className="analysis-cases__grid">
             {columnItems.map((col, colIdx) => (
-              <div key={colIdx} style={{
-                flex:          1,
-                display:       'flex',
-                flexDirection: 'column',
-                gap:           '6px',
-                minWidth:      0,
-              }}>
+              <div key={colIdx} className="analysis-cases__col">
                 {col.map((idx) => (
                   <CaseCard
                     key={idx}
@@ -126,25 +67,9 @@ export default function CasesPanel({
       </div>
 
       {/* 네비게이션 */}
-      <div style={{
-        height:         '44px',
-        flexShrink:     0,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        padding:        '0 12px',
-        borderTop:      '1px solid var(--dark-input-border)',
-      }}>
-        <button
-          onClick={onPrev}
-          disabled={disablePrev}
-          style={navBtn(disablePrev)}
-        >◀ 이전</button>
-        <button
-          onClick={onNext}
-          disabled={disableNext}
-          style={navBtn(disableNext)}
-        >다음 ▶</button>
+      <div className="analysis-cases__nav">
+        <button onClick={onPrev} disabled={disablePrev} className="analysis-cases__nav-btn">◀ 이전</button>
+        <button onClick={onNext} disabled={disableNext} className="analysis-cases__nav-btn">다음 ▶</button>
       </div>
     </div>
   );

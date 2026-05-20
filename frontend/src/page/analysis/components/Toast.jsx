@@ -12,37 +12,11 @@ export default function Toast({ message, type = 'success', onClose }) {
   }, [message, type, onClose]);
 
   return (
-    <div style={{
-      position:     'fixed',
-      bottom:       '24px',
-      right:        '24px',
-      zIndex:       200,
-      background:   'var(--dark-toast-bg)',
-      border:       '1px solid var(--dark-input-border)',
-      borderRadius: '8px',
-      padding:      '12px 16px',
-      fontSize:     '13px',
-      color:        'var(--dark-input-text)',
-      fontFamily:   "'Pretendard', sans-serif",
-      maxWidth:     '320px',
-      display:      'flex',
-      alignItems:   'center',
-      gap:          '10px',
-      boxShadow:    '0 4px 16px rgba(0,0,0,0.4)',
-    }}>
-      <span style={{ flex: 1 }}>{message}</span>
+    <div className="analysis-toast">
+      <span className="analysis-toast__msg">{message}</span>
       <button
         onClick={onClose}
-        style={{
-          background:  'transparent',
-          border:      'none',
-          color:       'var(--dark-text-muted)',
-          cursor:      'pointer',
-          fontSize:    '14px',
-          padding:     '0 2px',
-          lineHeight:  1,
-          fontFamily:  "'Pretendard', sans-serif",
-        }}
+        className="analysis-btn--icon analysis-btn--icon-md"
       >×</button>
     </div>
   );

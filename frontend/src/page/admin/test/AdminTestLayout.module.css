@@ -9,27 +9,28 @@
 .tabBar {
     display: flex;
     gap: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid var(--monitor-border);
     margin-bottom: 24px;
     flex-shrink: 0;
 }
 
 .tab {
     padding: 10px 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--monitor-border);
     border-bottom: none;
-    background: rgba(0, 0, 0, 0.15);
-    color: rgba(255, 255, 255, 0.5);
+    background: var(--monitor-card-bg);
+    color: var(--monitor-text-secondary);
     text-decoration: none;
     font-size: 14px;
+    font-weight: 600;
 }
 
 .tabActive {
-    background: rgba(0, 180, 160, 0.18);
+    background: var(--monitor-primary);
     color: #fff;
-    border-color: rgba(255, 255, 255, 0.22);
+    border-color: var(--monitor-primary);
 }
 
 .mutedBox {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--monitor-text-secondary);
 }

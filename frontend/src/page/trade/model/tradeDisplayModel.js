@@ -30,7 +30,7 @@ export const formatPrice = (v) =>
         maximumFractionDigits: 2,
     });
 
-export const formatQty = (v) => parseFloat(v).toFixed(4);
+export const formatQty = (v) => (v != null ? parseFloat(v).toFixed(4) : '—');
 
 export const formatValue = (v) => {
     const n = parseFloat(v);

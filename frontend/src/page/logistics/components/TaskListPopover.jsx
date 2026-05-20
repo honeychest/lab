@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { STAGE_DOMAIN, STAGE_LABELS } from '@/domain/logistics/common/stages';
 import { setFocus } from '@/store/focusStore';
 
@@ -29,8 +30,8 @@ export default function TaskListPopover({
     onClose,
     onTaskSelect,
 }) {
-    return (
-        <div className="logistics-node-popover-backdrop" style={{ zIndex: 120 }} onClick={onClose}>
+    return createPortal(
+        <div className="logistics-node-popover-backdrop" onClick={onClose}>
             <div className="logistics-node-popover" onClick={event => event.stopPropagation()}>
                 <div className="logistics-node-popover-top">
                     <div>
@@ -60,6 +61,7 @@ export default function TaskListPopover({
                     ))}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

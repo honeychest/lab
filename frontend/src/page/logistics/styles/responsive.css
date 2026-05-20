@@ -23,7 +23,8 @@
 
   .logistics-kpi-strip,
   .logistics-grid-3,
-  .logistics-grid-5 {
+  .logistics-grid-5,
+  .logistics-grid-8 {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -91,11 +92,6 @@
     min-width: 0;
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .logistics-support-strip {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .logistics-work-node--oms-mobile-title .logistics-work-node-top {
@@ -185,9 +181,8 @@
     grid-template-columns: repeat(7, minmax(180px, 1fr));
   }
 
-  .logistics-desktop-forced .logistics-support-strip {
-    align-items: center;
-    flex-direction: row;
+  .logistics-desktop-forced .logistics-grid-8 {
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
   }
 
   .logistics-desktop-forced .logistics-focus-side {

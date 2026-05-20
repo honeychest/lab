@@ -10,7 +10,7 @@ export default function FeatureFlagsCard({ flags, flagsLoading, patchFlags }) {
             {flagsLoading ? (
                 <div className={styles.muted}>불러오는 중...</div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div className={styles.flexColGap}>
                     <label className={styles.flagRow}>
                         <span className={styles.flagLabel}>Trade 임계값 변경 UI</span>
                         <input

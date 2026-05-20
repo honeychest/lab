@@ -1,4 +1,3 @@
-import chs from '@/global/chs';
 import styles from '../AdminPage.module.css';
 import { HEALTH_HOURS_OPTIONS, OUTLIER_RANGE_OPTIONS, SYMBOLS, MARKETS } from '../constants';
 import { fmtNum, fmtDateTime } from '../utils';
@@ -48,8 +47,8 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                     {healthLoading ? '조회 중...' : '조회'}
                 </button>
             </div>
-            {healthError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{healthError}</div>}
-            {deleteMessage && <div className={styles.desc} style={{ color: 'var(--monitor-text-secondary)' }}>{deleteMessage}</div>}
+            {healthError && <div className={`${styles.desc} ${styles.error}`}>{healthError}</div>}
+            {deleteMessage && <div className={`${styles.desc} ${styles.neutral}`}>{deleteMessage}</div>}
             {healthData && (() => {
                 const d = healthData.mismatch1s ?? {};
                 const cnt = Number(d.flat_count ?? 0);
@@ -64,7 +63,7 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td className={`${styles.td} ${styles.mono}`} style={{ color: hasFlat ? 'var(--monitor-severity-critical)' : 'var(--monitor-gauge-ok)' }}>
+                                    <td className={`${styles.td} ${styles.mono} ${hasFlat ? styles.error : styles.success}`}>
                                         {hasFlat ? fmtNum(cnt) : '✓ 없음'}
                                     </td>
                                     <td className={`${styles.td} ${styles.mono}`}>{hasFlat ? (d.flat_from ?? '—') : '—'}</td>
@@ -73,8 +72,7 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                                         {hasFlat && (
                                             <button
                                                 type="button"
-                                                className={styles.btn}
-                                                style={{ color: 'var(--monitor-severity-critical)', padding: '2px 8px', fontSize: '11px' }}
+                                                className={`${styles.btn} ${styles.btnSm} ${styles.error}`}
                                                 onClick={() => handleDeleteFlat('1s')}
                                                 disabled={deletingFlat !== null}
                                             >
@@ -99,21 +97,20 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 </button>
                 <button
                     type="button"
-                    className={`${styles.btn} ${styles.btnActive}`}
+                    className={`${styles.btn} ${styles.btnActive} ${(correctionLoading || healthMarket !== 'FUTURES') ? styles.btnDisabled : ''}`}
                     onClick={handleFlatCorrection}
                     disabled={correctionLoading || healthMarket !== 'FUTURES'}
-                    style={{ opacity: correctionLoading || healthMarket !== 'FUTURES' ? 0.6 : 1 }}
                 >
                     {correctionLoading ? '처리 중...' : 'FUTURES 보정 실행'}
                 </button>
             </div>
-            {correctionError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{correctionError}</div>}
+            {correctionError && <div className={`${styles.desc} ${styles.error}`}>{correctionError}</div>}
             {correctionHealth && (() => {
                 const raw = correctionHealth.rawAggTrade ?? {};
                 const flat1s = correctionHealth.flat1s ?? {};
                 const flat1m = correctionHealth.flat1m ?? {};
                 const flat5m = correctionHealth.flat5m ?? {};
-                chs.dlog(4, 'flat 대상 row 목록 표시');
+                // flat 대상 row 목록 표시
                 const rows2 = [
                     ['raw', raw.row_count, raw.min_ms, raw.max_ms],
                     ['1s flat', flat1s.flat_count, flat1s.min_ms, flat1s.max_ms],
@@ -170,14 +167,14 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 );
             })()}
             {correctionResult && (
-                <div className={styles.desc} style={{ color: 'var(--monitor-gauge-ok)' }}>
+                <div className={`${styles.desc} ${styles.success}`}>
                     보정 완료 · 1m 삭제 {fmtNum(correctionResult.oneMinute?.deletedFlat)} / 생성 {fmtNum(correctionResult.oneMinute?.inserted)}
                     {' · '}5m flat 삭제 {fmtNum(correctionResult.fiveMinute?.deletedFlat)} / 영향 재생성 {fmtNum(correctionResult.fiveMinute?.insertedImpacted)}
                     {' · '}영향 5m {fmtNum(correctionResult.fiveMinute?.impacted5mCount)}건
                 </div>
             )}
+            {/* outlier 전용 symbol/market/range select + 직접 지정 datetime-local 입력 */}
             <div className={styles.actions}>
-                {chs.dlog(4, 'outlier 전용 symbol select 표시')}
                 <select
                     className={styles.select}
                     value={outlierSymbol}
@@ -189,7 +186,6 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 >
                     {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                {chs.dlog(4, 'outlier 전용 market select 표시')}
                 <select
                     className={styles.select}
                     value={outlierMarket}
@@ -201,7 +197,6 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 >
                     {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
-                {chs.dlog(4, 'outlier 범위 선택에 직접 지정 옵션을 표시')}
                 <select
                     className={styles.select}
                     value={outlierRangeKey}
@@ -212,8 +207,6 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                         <option key={option.key} value={option.key}>{option.label}</option>
                     ))}
                 </select>
-                {chs.dlog(4, '직접 지정 옵션 선택 시 from datetime-local 입력을 표시')}
-                {chs.dlog(4, '직접 지정 옵션 선택 시 to datetime-local 입력을 표시')}
                 {outlierRangeKey === 'custom' && (
                     <>
                         <input
@@ -244,15 +237,14 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 </button>
                 <button
                     type="button"
-                    className={`${styles.btn} ${styles.btnActive}`}
+                    className={`${styles.btn} ${styles.btnActive} ${(outlierLoading || outlierMarket !== 'FUTURES') ? styles.btnDisabled : ''}`}
                     onClick={handleOutlierCorrection}
                     disabled={outlierLoading || outlierMarket !== 'FUTURES'}
-                    style={{ opacity: outlierLoading || outlierMarket !== 'FUTURES' ? 0.6 : 1 }}
                 >
                     {outlierLoading ? '처리 중...' : 'Outlier 보정 실행'}
                 </button>
             </div>
-            {outlierError && <div className={styles.desc} style={{ color: 'var(--monitor-severity-critical)' }}>{outlierError}</div>}
+            {outlierError && <div className={`${styles.desc} ${styles.error}`}>{outlierError}</div>}
             {outlierHealth && (
                 <div className={styles.tableWrap}>
                     <div className={styles.desc}>
@@ -267,9 +259,8 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                     {Array.isArray(outlierHealth.rows) && outlierHealth.rows.length > 0 && (
                         <table className={styles.table}>
                             <thead>
+                                {/* outlier 진단 테이블에 reason 컬럼 + agg/raw 차이 핵심값 표시 */}
                                 <tr>
-                                    {chs.dlog(4, 'outlier 진단 테이블에 reason 컬럼을 표시')}
-                                    {chs.dlog(4, 'outlier 진단 테이블에 agg와 raw 차이 핵심값을 표시')}
                                     {['시간', 'reason', 'agg OHLC', 'raw OHLC', 'max diff', 'agg/raw 거래수'].map(h => <th key={h} className={styles.th}>{h}</th>)}
                                 </tr>
                             </thead>
@@ -296,7 +287,7 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                 </div>
             )}
             {outlierResult && (
-                <div className={styles.desc} style={{ color: 'var(--monitor-gauge-ok)' }}>
+                <div className={`${styles.desc} ${styles.success}`}>
                     Outlier 보정 완료 · 1m 삭제 {fmtNum(outlierResult.oneMinute?.deleted)} / 생성 {fmtNum(outlierResult.oneMinute?.inserted)}
                     {' · '}5m 삭제 {fmtNum(outlierResult.fiveMinute?.deleted)} / 생성 {fmtNum(outlierResult.fiveMinute?.inserted)}
                     {' · '}대상 1m {fmtNum(outlierResult.summary?.targetOneMinuteCount)}건 / 대상 5m {fmtNum(outlierResult.summary?.targetFiveMinuteCount)}건

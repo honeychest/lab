@@ -352,32 +352,20 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
       const pad = (n) => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     })();
+    const tooltipClass = `analysis-mc__tooltip${tooltip.isMatched ? ' analysis-mc__tooltip--matched' : ''}`;
     return (
-      <div style={{
-        position:      'absolute',
-        left,
-        top:           Math.max(4, tooltip.y - 36),
-        background:    'var(--dark-toast-bg)',
-        border:        `1px solid ${tooltip.isMatched ? 'var(--dark-border-subtle)' : 'var(--dark-input-border)'}`,
-        borderRadius:  '6px',
-        padding:       '5px 10px',
-        pointerEvents: 'none',
-        fontFamily:    "'Pretendard', sans-serif",
-        fontSize:      '11px',
-        lineHeight:    '1.7',
-        whiteSpace:    'nowrap',
-        zIndex:        10,
-      }}>
-        <div style={{ color: 'var(--dark-text-muted)', marginBottom: '2px' }}>
-          {timeStr}
-        </div>
-        <div style={{ color: 'var(--dark-text-muted)' }}>
+      <div
+        className={tooltipClass}
+        style={{ left, top: Math.max(4, tooltip.y - 36) }}
+      >
+        <div className="analysis-mc__tooltip-time">{timeStr}</div>
+        <div className="analysis-mc__tooltip-row">
           거래량 {Number(tooltip.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}
         </div>
-        <div style={{ color: deltaColor }}>
+        <div className="analysis-mc__tooltip-row" style={{ color: deltaColor }}>
           {deltaLabel} {Number(deltaValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}
         </div>
-        <div style={{ color: 'var(--dark-text-primary)' }}>
+        <div className="analysis-mc__tooltip-row--price analysis-mc__tooltip-row">
           가격변화 {tooltip.priceChg}%
         </div>
       </div>
@@ -385,94 +373,44 @@ export default function MainChart({ klineData, matchedIndices, paletteLevel, loa
   })();
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+    <div className="analysis-mc">
+      <div ref={containerRef} className="analysis-mc__chart" />
 
       {/* 로딩 스피너 */}
       {loading && (
-        <div style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          background:     'var(--dark-overlay-bg)',
-          zIndex:         5,
-        }}>
-          <div style={{
-            width:        '28px',
-            height:       '28px',
-            border:       '3px solid var(--dark-spinner-track)',
-            borderTop:    '3px solid var(--dark-spinner-fill)',
-            borderRadius: '50%',
-            animation:    'spin 0.8s linear infinite',
-          }} />
+        <div className="analysis-mc__loading">
+          <div className="analysis-spinner analysis-spinner--lg" />
         </div>
       )}
 
       {/* 에러 */}
       {!loading && error && (
-        <div style={{
-          position:       'absolute',
-          inset:          0,
-          display:        'flex',
-          flexDirection:  'column',
-          alignItems:     'center',
-          justifyContent: 'center',
-          gap:            '8px',
-          zIndex:         5,
-        }}>
-          <div style={{ fontSize: '0.94rem', color: 'var(--dark-error)', fontFamily: "'Pretendard', sans-serif" }}>
-            데이터를 불러오지 못했습니다.
-          </div>
-          <div style={{ fontSize: '0.81rem', color: 'var(--dark-text-muted)', fontFamily: "'Pretendard', sans-serif" }}>
+        <div className="analysis-mc__error">
+          <div className="analysis-mc__error-title">데이터를 불러오지 못했습니다.</div>
+          <div className="analysis-mc__error-detail">
             {error.status ? `HTTP ${error.status} — ${error.message}` : error.message}
           </div>
-          <button
-            onClick={onRetry}
-            style={{
-              marginTop:    '4px',
-              padding:      '5px 14px',
-              background:   'var(--dark-input-bg)',
-              border:       '1px solid var(--dark-border-subtle)',
-              borderRadius: '4px',
-              color:        'var(--dark-input-text)',
-              fontSize:     '12px',
-              cursor:       'pointer',
-              fontFamily:   "'Pretendard', sans-serif",
-            }}
-          >다시 시도</button>
+          <button onClick={onRetry} className="analysis-mc__error-retry">다시 시도</button>
         </div>
       )}
 
       {/* 매칭 봉 오버레이 */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
+      <div className="analysis-mc__overlay-layer">
         {overlayPositions.map((h, i) => (
-          <span key={i} style={{
-            position:        'absolute',
-            left:            h.x,
-            width:           h.width,
-            top:             0,
-            bottom:          0,
-            backgroundColor: h.color,
-            pointerEvents:   'none',
-          }} />
+          <span
+            key={i}
+            className="analysis-mc__overlay-bar"
+            style={{ left: h.x, width: h.width, backgroundColor: h.color }}
+          />
         ))}
       </div>
 
       {/* 더블클릭 선택 봉 하이라이트 */}
       {selectedOverlay && (
-        <span style={{
-          position:        'absolute',
-          left:            selectedOverlay.x,
-          width:           selectedOverlay.width,
-          top:             0,
-          bottom:          0,
-          backgroundColor: 'rgba(255,220,50,0.15)',
-          border:          '1px solid rgba(255,220,50,0.55)',
-          pointerEvents:   'none',
-          zIndex:          3,
-        }} />
+        <span
+          className="analysis-mc__selected"
+          style={{ left: selectedOverlay.x, width: selectedOverlay.width }}
+        />
       )}
 
       {tooltipEl}

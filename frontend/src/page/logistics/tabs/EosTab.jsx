@@ -2,9 +2,7 @@ import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
 import { setFocus } from '@/store/focusStore';
-import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
-import { EOS_SUPPORT_FLOWS } from '../constants';
 import EosStageGrid from '../components/tabs/eos/EosStageGrid';
 
 export default function EosTab({ onInfoOpen }) {
@@ -33,8 +31,6 @@ export default function EosTab({ onInfoOpen }) {
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip title="EOS 흐름" flows={EOS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
-
             <EosStageGrid
                 tasks={tasks}
                 focusedTaskId={focusedTaskId}

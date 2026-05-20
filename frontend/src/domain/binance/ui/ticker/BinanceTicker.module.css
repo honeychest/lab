@@ -1,0 +1,221 @@
+/* ── 스켈레톤 ── */
+.skeletonHighLine { margin-bottom: 8px; }
+
+.skeletonPriceRow {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.skeletonChangeRow {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 8px;
+}
+
+.skeletonLowLine { margin-bottom: 20px; }
+
+.skeletonInfoGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.skeletonInfoItem {
+    background: var(--dark-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    flex: 1 1 120px;
+    min-width: 120px;
+}
+
+.skeletonPeriod { margin-top: 12px; }
+
+/* ── InfoBox ── */
+.infoBox {
+    background: var(--dark-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 120px;
+    flex: 1 1 120px;
+}
+
+.infoLabel {
+    color: var(--dark-text-secondary);
+    font-size: 11px;
+    margin-bottom: 4px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.infoValue {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+/* ── 고가 / 저가 라인 ── */
+.highLine {
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--dark-text-muted);
+}
+
+.lowLine {
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--dark-text-muted);
+}
+
+.highLowLabel { margin-right: 6px; }
+
+.highValue {
+    color: #2ecc71;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.lowValue {
+    color: #e74c3c;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.diffValue {
+    margin-left: 8px;
+    font-size: 11px;
+    color: #a5b4fc;
+}
+
+/* ── 3열 가격 그리드 ── */
+.priceGridWrapper { overflow-x: auto; }
+
+.priceGrid {
+    display: grid;
+    grid-template-columns: auto 150px auto;
+    grid-template-rows: auto auto;
+    column-gap: 28px;
+    row-gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    min-width: max-content;
+}
+
+.usdPrice {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--dark-accent-gold);
+    font-size: 40px;
+    font-weight: 800;
+    font-family: monospace;
+    letter-spacing: -1px;
+}
+
+.premiumCell {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    text-align: center;
+    padding: 10px 20px;
+    border-left: 1px solid var(--dark-border);
+    border-right: 1px solid var(--dark-border);
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+}
+
+.premiumLabel {
+    color: var(--dark-text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.premiumAmount {
+    font-size: 17px;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+.premiumRate {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.krwUpperCell {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+}
+
+.krwLabel {
+    color: var(--dark-text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.calcKrwPrice {
+    color: #94a3b8;
+    font-size: 36px;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+.changeCell {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.changeAmount {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.changeRate {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.upbitCell {
+    grid-column: 3;
+    grid-row: 2;
+    text-align: right;
+}
+
+.upbitLabel {
+    color: var(--dark-text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.upbitPrice {
+    color: #22c55e;
+    font-size: 36px;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+/* ── 정보 박스 그리드 ── */
+.infoGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* ── 집계 기간 ── */
+.period {
+    margin-top: 12px;
+    color: var(--dark-text-secondary);
+    font-size: 11px;
+}

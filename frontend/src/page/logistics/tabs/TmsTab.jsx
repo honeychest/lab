@@ -2,9 +2,7 @@ import { useState } from 'react';
 import useLogisticsSnapshot from '../hooks/useLogisticsSnapshot';
 import useFocusedTaskId from '../hooks/useFocusedTaskId';
 import { setFocus } from '@/store/focusStore';
-import SupportFlowStrip from '../components/SupportFlowStrip';
 import NodeTaskPopover from '../components/NodeTaskPopover';
-import { TMS_SUPPORT_FLOWS } from '../constants';
 import TmsStageGrid from '../components/tabs/tms/TmsStageGrid';
 
 export default function TmsTab({ onInfoOpen }) {
@@ -33,8 +31,6 @@ export default function TmsTab({ onInfoOpen }) {
 
     return (
         <section className="logistics-tab-shell logistics-stage-tab-shell">
-            <SupportFlowStrip title="TMS 흐름" flows={TMS_SUPPORT_FLOWS} onInfoOpen={onInfoOpen} />
-
             <TmsStageGrid
                 tasks={tasks}
                 focusedTaskId={focusedTaskId}

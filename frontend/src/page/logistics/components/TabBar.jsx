@@ -116,8 +116,6 @@ export default function TabBar({
     onSettingsOpen,
     onLogOpen,
     logOpening = false,
-    retentionFull = false,
-    onRetentionClear,
 }) {
     const [task, setTask] = useState(null);
 
@@ -144,23 +142,6 @@ export default function TabBar({
     return (
         <nav className="logistics-tabbar">
             <div className="logistics-tabbar-row logistics-tabbar-row-compact">
-                <div className="logistics-tabbar-nav">
-                    <button
-                        type="button"
-                        className={`logistics-tab-btn${activeTab === 'overview' ? ' active' : ''}`}
-                        onClick={() => onTabChange('overview')}
-                    >
-                        Overview
-                    </button>
-                    <button
-                        type="button"
-                        className={`logistics-tab-btn${activeTab === 'list' ? ' active' : ''}`}
-                        onClick={() => onTabChange('list')}
-                    >
-                        목록
-                    </button>
-                </div>
-
                 <div className="logistics-system-map-panel">
                     <TwoLaneMap task={task} activeTab={activeTab} onTabChange={onTabChange} />
                 </div>
@@ -180,11 +161,6 @@ export default function TabBar({
                     >
                         📊 로그
                     </button>
-                    {retentionFull && (
-                        <button className="logistics-meta-pill logistics-retention-badge" onClick={onRetentionClear}>
-                            ⚠ Store 초기화
-                        </button>
-                    )}
                 </div>
             </div>
         </nav>

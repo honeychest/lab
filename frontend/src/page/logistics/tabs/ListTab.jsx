@@ -22,15 +22,16 @@ function statusText(task) {
 export default function ListTab() {
     const { tasks } = useLogisticsSnapshot();
     const focusedTaskId = useFocusedTaskId();
+    const orderedTasks = [...tasks].sort((left, right) => right.createdAt - left.createdAt);
 
     return (
-        <section className="logistics-tab-shell">
+        <section className="logistics-tab-shell logistics-tab-shell--fill">
             <div className="logistics-tab-header">
                 <div>
-                    <h2 className="logistics-tab-title">목록</h2>
+                    <h2 className="logistics-tab-title">전체 작업</h2>
                 </div>
                 <div className="logistics-tab-actions">
-                    <span className="logistics-meta-pill">총 {tasks.length}건</span>
+                    <span className="logistics-meta-pill">총 {orderedTasks.length}건</span>
                 </div>
             </div>
 
@@ -49,7 +50,7 @@ export default function ListTab() {
                         </tr>
                     </thead>
                     <tbody>
-                        {tasks.length > 0 ? tasks.map(task => (
+                        {orderedTasks.length > 0 ? orderedTasks.map(task => (
                             <tr
                                 key={task.taskId}
                                 className={focusedTaskId === task.taskId ? 'logistics-list-row focused' : 'logistics-list-row'}

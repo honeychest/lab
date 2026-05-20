@@ -1,4 +1,4 @@
-import { EVENT_STORE_RETENTION_LIMIT } from '@/store/eventStore';
+import { EVENT_STORE_RETENTION_LIMIT, clearEventStore } from '@/store/eventStore';
 import { getWorkNodeDescription } from '@/domain/logistics/common/stages';
 import { getFailureCandidatesForStage } from '@/domain/logistics/common/failures';
 import { formatRelativeAge, latestEvent, getStageTitle } from '../../utils';
@@ -16,6 +16,18 @@ function DetailItem({ label, value, tone }) {
 
 
 function EventStorePill({ eventCount }) {
+    const isFull = eventCount >= EVENT_STORE_RETENTION_LIMIT;
+    if (isFull) {
+        return (
+            <button
+                type="button"
+                className="logistics-meta-pill logistics-retention-badge"
+                onClick={clearEventStore}
+            >
+                ⚠ Event Store {eventCount}/{EVENT_STORE_RETENTION_LIMIT} 초기화
+            </button>
+        );
+    }
     return (
         <span
             className="logistics-meta-pill"
@@ -30,7 +42,7 @@ function FocusWorkHeader({ title, nodeDescription, eventCount, latest }) {
     return (
         <div className="logistics-work-head">
             <div>
-                <span className="logistics-caption-label">Current Work</span>
+                {/* <span className="logistics-caption-label">Current Work</span> */}
                 {nodeDescription ? (
                     <div className="logistics-work-title-row">
                         <strong>{title}</strong>

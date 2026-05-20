@@ -10,9 +10,8 @@ export default function VisualSampleCard({ onOpen }) {
                 </div>
                 <button
                     type="button"
-                    className={`${styles.btn} ${styles.btnActive}`}
+                    className={`${styles.btn} ${styles.btnActive} ${styles.pushRight}`}
                     onClick={onOpen}
-                    style={{ marginLeft: 'auto' }}
                 >
                     샘플 보기
                 </button>

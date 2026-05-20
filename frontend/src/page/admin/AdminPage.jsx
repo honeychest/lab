@@ -40,7 +40,7 @@ export default function AdminPage() {
     const dataHealth = useDataHealth();
     const outlier = useOutlier({ healthHours: dataHealth.healthHours, resetGapView: dataGap.resetGapView });
     const rollup = useRollup();
-    const { myIp } = useMyIp();
+    const myIp = useMyIp();
     const visitor = useVisitorLogs();
     const allowed = useAllowedIps({ enabled: featureFlags.flags.monitorAllowedIpManage });
 

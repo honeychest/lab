@@ -1,36 +1,6 @@
 // [AGENT] Signal 수동 탐색 팝업 — 더블클릭 봉 기준 등락율 검색
 import { useState } from 'react';
 
-const FIELD_STYLE = {
-    background: 'var(--dark-input-bg)',
-    border: '1px solid var(--dark-input-border)',
-    borderRadius: '4px',
-    color: 'var(--dark-input-text)',
-    fontSize: '12px',
-    padding: '3px 7px',
-    outline: 'none',
-    width: '100px',
-    fontFamily: "'Pretendard', sans-serif",
-};
-
-const TOLERANCE_STYLE = {
-    ...FIELD_STYLE,
-    width: '60px',
-};
-
-const LABEL_STYLE = {
-    color: 'var(--dark-text-muted)',
-    fontSize: '11px',
-    width: '60px',
-    flexShrink: 0,
-};
-
-const ROW_STYLE = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-};
-
 function fmt(num, decimals = 2) {
     if (num === null || num === undefined) return '';
     return Number(num).toFixed(decimals);
@@ -131,51 +101,31 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
         });
     }
 
-    const btnBase = {
-        padding: '5px 16px',
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        fontFamily: "'Pretendard', sans-serif",
-        border: 'none',
-    };
+    const dimIf = (active) => active ? '' : 'analysis-signal-popup--dim';
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000,
-            background: 'var(--dark-overlay-bg)',
-        }}>
-            <div style={{
-                background: 'var(--dark-modal-bg)',
-                border: '1px solid var(--dark-input-border)',
-                borderRadius: '10px',
-                padding: '20px 24px',
-                minWidth: '320px',
-                fontFamily: "'Pretendard', sans-serif",
-            }}>
-                <div style={{ color: 'var(--dark-input-text)', fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>
-                    유사한 거래 패턴 검색
-                </div>
+        <div className="analysis-modal-backdrop analysis-modal-backdrop--signal">
+            <div className="analysis-signal-popup">
+                <div className="analysis-signal-popup__title">유사한 거래 패턴 검색</div>
 
                 {/* 등락율 + 허용범위 */}
-                <div style={{ ...ROW_STYLE, marginBottom: '8px' }}>
+                <div className="analysis-signal-popup__row analysis-signal-popup__row--top">
                     <input type="checkbox" checked={useRateFilter}
-                        onChange={(e) => { if (!e.target.checked && !useVolFilter) return; setUseRateFilter(e.target.checked); }}
-                        style={{ cursor: 'pointer', accentColor: 'var(--dark-accent)' }} />
-                    <span style={{ ...LABEL_STYLE, opacity: useRateFilter ? 1 : 0.35 }}>등락율</span>
-                    <input type="number" step="0.01" style={{ ...FIELD_STYLE, opacity: useRateFilter ? 1 : 0.35 }}
+                        className="analysis-signal-popup__check"
+                        onChange={(e) => { if (!e.target.checked && !useVolFilter) return; setUseRateFilter(e.target.checked); }} />
+                    <span className={`analysis-signal-popup__label ${dimIf(useRateFilter)}`}>등락율</span>
+                    <input type="number" step="0.01"
+                        className={`analysis-input analysis-signal-popup__field ${dimIf(useRateFilter)}`}
                         disabled={!useRateFilter}
                         value={priceChangeRate}
                         onChange={(e) => handleRateChange(e.target.value)} />
-                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%  ±</span>
-                    <input type="number" step="0.01" min="0" style={{ ...TOLERANCE_STYLE, opacity: useRateFilter ? 1 : 0.35 }}
+                    <span className="analysis-signal-popup__unit">%  ±</span>
+                    <input type="number" step="0.01" min="0"
+                        className={`analysis-input analysis-signal-popup__field analysis-signal-popup__field--tol ${dimIf(useRateFilter)}`}
                         disabled={!useRateFilter}
                         value={rateTolerance}
                         onChange={(e) => setRateTolerance(e.target.value)} />
-                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%p</span>
+                    <span className="analysis-signal-popup__unit">%p</span>
                 </div>
 
                 {/* OHLC */}
@@ -185,62 +135,59 @@ export default function SignalSearchPopup({ doubleClickData, onSearch, onClose, 
                     ['Low',   lowPrice,   setLowPrice],
                     ['Close', closePrice, setClosePrice],
                 ].map(([label, val, setter]) => (
-                    <div key={label} style={{ ...ROW_STYLE, marginBottom: '6px' }}>
-                        <span style={LABEL_STYLE}>{label}</span>
-                        <input type="number" step="0.01" min="0" style={FIELD_STYLE}
+                    <div key={label} className="analysis-signal-popup__row analysis-signal-popup__row--ohlc">
+                        <span className="analysis-signal-popup__label">{label}</span>
+                        <input type="number" step="0.01" min="0"
+                            className="analysis-input analysis-signal-popup__field"
                             value={val}
                             onChange={(e) => setter(e.target.value)} />
                     </div>
                 ))}
 
                 {/* 거래대금 + 허용범위 */}
-                <div style={{ ...ROW_STYLE, marginBottom: '12px', marginTop: '2px' }}>
+                <div className="analysis-signal-popup__row analysis-signal-popup__row--volume">
                     <input type="checkbox" checked={useVolFilter}
-                        onChange={(e) => { if (!e.target.checked && !useRateFilter) return; setUseVolFilter(e.target.checked); }}
-                        style={{ cursor: 'pointer', accentColor: 'var(--dark-accent)' }} />
-                    <span style={{ ...LABEL_STYLE, opacity: useVolFilter ? 1 : 0.35 }}>거래대금</span>
-                    <input type="number" step="1" min="0" style={{ ...FIELD_STYLE, opacity: useVolFilter ? 1 : 0.35 }}
+                        className="analysis-signal-popup__check"
+                        onChange={(e) => { if (!e.target.checked && !useRateFilter) return; setUseVolFilter(e.target.checked); }} />
+                    <span className={`analysis-signal-popup__label ${dimIf(useVolFilter)}`}>거래대금</span>
+                    <input type="number" step="1" min="0"
+                        className={`analysis-input analysis-signal-popup__field ${dimIf(useVolFilter)}`}
                         disabled={!useVolFilter}
                         value={totalVolume}
                         onChange={(e) => setTotalVolume(e.target.value)} />
-                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>±</span>
-                    <input type="number" step="1" min="0" style={{ ...TOLERANCE_STYLE, opacity: useVolFilter ? 1 : 0.35 }}
+                    <span className="analysis-signal-popup__unit">±</span>
+                    <input type="number" step="1" min="0"
+                        className={`analysis-input analysis-signal-popup__field analysis-signal-popup__field--tol ${dimIf(useVolFilter)}`}
                         disabled={!useVolFilter}
                         value={volTolerance}
                         onChange={(e) => setVolTolerance(e.target.value)} />
-                    <span style={{ color: 'var(--dark-text-muted)', fontSize: '11px' }}>%</span>
+                    <span className="analysis-signal-popup__unit">%</span>
                 </div>
 
                 {/* 오류 메시지 */}
                 {Object.values(errors).length > 0 && (
-                    <div style={{ marginBottom: '10px' }}>
+                    <div className="analysis-signal-popup__errors">
                         {Object.values(errors).map((msg) => (
-                            <div key={msg} style={{ color: 'var(--dark-error)', fontSize: '11px', marginBottom: '2px' }}>{msg}</div>
+                            <div key={msg} className="analysis-signal-popup__error">{msg}</div>
                         ))}
                     </div>
                 )}
 
                 {/* 쿨다운 */}
                 {cooldownTimeLeft > 0 && (
-                    <div style={{ color: 'var(--dark-text-muted)', fontSize: '11px', marginBottom: '8px' }}>
+                    <div className="analysis-signal-popup__cooldown">
                         {cooldownTimeLeft}초 뒤 다시 시도 가능합니다
                     </div>
                 )}
 
                 {/* 버튼 */}
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button onClick={onClose}
-                        style={{ ...btnBase, background: 'var(--dark-btn-secondary)', color: 'var(--dark-text-muted)' }}>
+                <div className="analysis-signal-popup__actions">
+                    <button onClick={onClose} className="analysis-signal-popup__btn analysis-signal-popup__btn--cancel">
                         취소
                     </button>
                     <button onClick={handleSearch}
                         disabled={cooldownTimeLeft > 0}
-                        style={{
-                            ...btnBase,
-                            background: cooldownTimeLeft > 0 ? 'var(--dark-btn-secondary)' : 'var(--dark-btn-primary)',
-                            color: 'var(--dark-text-primary)',
-                            cursor: cooldownTimeLeft > 0 ? 'not-allowed' : 'pointer',
-                        }}>
+                        className="analysis-signal-popup__btn analysis-signal-popup__btn--submit">
                         조회
                     </button>
                 </div>

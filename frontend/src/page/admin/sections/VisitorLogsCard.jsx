@@ -8,21 +8,20 @@ export default function VisitorLogsCard({ visitor }) {
                 <div className={styles.title}>방문 현황</div>
                 <button
                     type="button"
-                    className={`${styles.btn} ${styles.btnActive}`}
+                    className={`${styles.btn} ${styles.btnActive} ${styles.pushRight}`}
                     onClick={loadVisitorLogs}
                     disabled={visitorLoading}
-                    style={{ marginLeft: 'auto' }}
                 >
                     {visitorLoading ? '로딩 중...' : '새로고침'}
                 </button>
             </div>
             {visitorError && (
-                <div className={styles.muted} style={{ color: 'var(--monitor-severity-critical)' }}>{visitorError}</div>
+                <div className={`${styles.muted} ${styles.error}`}>{visitorError}</div>
             )}
             {visitorData && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                <div className={styles.visitorGrid}>
                     <div>
-                        <div className={styles.label} style={{ marginBottom: '8px' }}>경로별 집계</div>
+                        <div className={`${styles.label} ${styles.labelSpacer}`}>경로별 집계</div>
                         <div className={styles.tableWrapScroll}>
                             <table className={styles.table}>
                                 <thead>
@@ -43,7 +42,7 @@ export default function VisitorLogsCard({ visitor }) {
                         </div>
                     </div>
                     <div>
-                        <div className={styles.label} style={{ marginBottom: '8px' }}>최근 방문 이력</div>
+                        <div className={`${styles.label} ${styles.labelSpacer}`}>최근 방문 이력</div>
                         <div className={styles.tableWrapScroll}>
                             <table className={styles.table}>
                                 <thead>
@@ -62,7 +61,7 @@ export default function VisitorLogsCard({ visitor }) {
                                         </tr>
                                     ))}
                                     {visitorData.recent.length === 0 && (
-                                        <tr><td colSpan={3} className={styles.muted} style={{ textAlign: 'center', padding: '12px' }}>데이터 없음</td></tr>
+                                        <tr><td colSpan={3} className={`${styles.muted} ${styles.tableEmpty}`}>데이터 없음</td></tr>
                                     )}
                                 </tbody>
                             </table>

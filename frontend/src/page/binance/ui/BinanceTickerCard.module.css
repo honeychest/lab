@@ -15,6 +15,31 @@
     gap: 8px;
 }
 
+.pcOnly {
+    display: block;
+}
+
+.mobileOnly {
+    display: none;
+}
+
+.coinTabsScroll {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    max-width: 100%;
+    padding: 4px 5px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.coinTabsScroll::-webkit-scrollbar {
+    display: none;
+}
+
 .coinTab {
     padding: 6px 12px;
     border-radius: 999px;
@@ -22,6 +47,16 @@
     font-weight: 700;
     cursor: pointer;
     touch-action: manipulation;
+    outline-offset: 2px;
+}
+
+.coinTab:hover {
+    filter: brightness(1);
+    transition: filter 0.15s ease;
+}
+
+.coinTab:focus-visible {
+    outline: 2px solid #F3BA2F;
     outline-offset: 2px;
 }
 
@@ -57,4 +92,30 @@
     font-size: 11px;
     font-family: monospace;
     font-variant-numeric: tabular-nums;
+}
+
+@keyframes liveDotBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+
+.liveDotBlink {
+    animation: liveDotBlink 0.35s ease 1;
+}
+
+@media (max-width: 768px) {
+    .pcOnly {
+        display: none;
+    }
+    .mobileOnly {
+        display: block;
+    }
+    .headerRow {
+        justify-content: flex-start;
+        align-items: flex-start;
+    }
+    .statusBlock {
+        width: 100%;
+        align-items: flex-start !important;
+    }
 }

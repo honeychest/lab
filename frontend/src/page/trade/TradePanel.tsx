@@ -2,6 +2,8 @@
 // 연관파일: TradePage.jsx, BinanceTradeController.java
 import { useState } from 'react';
 import apiClient from '@/api/apiClient.js';
+import { formatPrice, formatValue, getElapsed } from './model/tradeDisplayModel.js';
+import { useTradePanelSearch } from './model/hook/useTradePanelSearch.ts';
 import {
     Select,
     SelectContent,
@@ -21,53 +23,6 @@ import {
     TableRow,
 } from '@/shared/ui/shadcn/table';
 
-interface TradeRow {
-    id: number;
-    symbol: string;
-    marketType: 'SPOT' | 'FUTURES';
-    price: string;
-    quantity: string;
-    tradeValue: string;
-    isBuyerMaker: boolean;
-    tradedAt: number;
-}
-
-interface PageResult {
-    content: TradeRow[];
-    totalElements: number;
-    totalPages: number;
-    page: number;
-    size: number;
-}
-
-const formatPrice = (v: string) =>
-    parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const formatValue = (v: string) => {
-    const n = parseFloat(v);
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-    return `$${(n / 1_000).toFixed(0)}K`;
-};
-
-const formatTime = (tradedAt: number) =>
-    new Date(tradedAt).toLocaleString('ko-KR', {
-        timeZone: 'Asia/Seoul',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    });
-
-const getElapsed = (tradedAt: number) => {
-    const diffMin = Math.floor((Date.now() - tradedAt) / 60_000);
-    if (diffMin < 1) return '방금';
-    if (diffMin < 60) return `${diffMin}분 전`;
-    const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour}시간 전`;
-    return `${Math.floor(diffHour / 24)}일 전`;
-};
-
 interface TradePanelProps {
     threshold: number | null;
     canEditThreshold?: boolean;
@@ -76,21 +31,6 @@ interface TradePanelProps {
 }
 
 export default function TradePanel({ threshold, canEditThreshold = false, onThresholdChange, onClose }: TradePanelProps) {
-    const [symbol, setSymbol]         = useState('BTCUSDT');
-    const [marketType, setMarketType] = useState('ALL');
-    
-    // 오늘 날짜로 기본값 설정
-    const getTodayString = () => {
-        const now = new Date();
-        return now.toISOString().split('T')[0];
-    };
-    
-    const [from, setFrom]             = useState(getTodayString());
-    const [to, setTo]                 = useState(getTodayString());
-    const [sort, setSort]             = useState('tradedAt');
-    const [order, setOrder]           = useState('DESC');
-    const [size, setSize]             = useState(30);
-
     const [thresholdInput, setThresholdInput] = useState('');
     const [thresholdLoading, setThresholdLoading] = useState(false);
 
@@ -107,46 +47,24 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
         }
     };
 
-    const [result, setResult]       = useState<PageResult | null>(null);
-    const [currentPage, setCurrentPage] = useState(0);
-    const [loading, setLoading]     = useState(false);
-    const [error, setError]         = useState(false);
-
-    const fetchPage = async (page: number) => {
-        setLoading(true);
-        setError(false);
-        try {
-            const params = new URLSearchParams({
-                symbol,
-                sort,
-                order,
-                page: String(page),
-                size: String(size),
-            });
-            if (marketType !== 'ALL') params.set('marketType', marketType);
-            if (from) params.set('from', from);
-            if (to) params.set('to', to);
-
-            const res = await apiClient.get<PageResult>(`/api/binance/trades?${params}`);
-            setResult(res.data);
-            setCurrentPage(page);
-        } catch {
-            setError(true);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSearch = () => fetchPage(0);
-
-    const handleSizeChange = (val: string) => {
-        setSize(Number(val));
-        setCurrentPage(0);
-        setResult(null);
-    };
-
-    const startItem = result ? currentPage * size + 1 : 0;
-    const endItem   = result ? Math.min((currentPage + 1) * size, result.totalElements) : 0;
+    const {
+        symbol, setSymbol,
+        marketType, setMarketType,
+        from, setFrom,
+        to, setTo,
+        sort, setSort,
+        order, setOrder,
+        size,
+        result,
+        currentPage,
+        loading,
+        error,
+        fetchPage,
+        handleSearch,
+        handleSizeChange,
+        startItem,
+        endItem,
+    } = useTradePanelSearch();
 
     return (
         <div className="flex flex-col h-full bg-[var(--dark-card-bg)] text-[var(--dark-text-primary)] overflow-hidden">
@@ -270,36 +188,51 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                     </div>
                 </div>
 
-                {/* 건수 */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[var(--dark-text-neutral)]">건수</label>
+                {/* 건수 + 조회 + 닫기 */}
+                <div className="flex items-center justify-between gap-2">
                     <div className="flex gap-1">
                         {[30, 90, 200].map(n => (
-                            <button
+                            <Button
                                 key={n}
                                 type="button"
+                                id={`btn-size-${n}`}
+                                data-testid={`btn-size-${n}`}
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleSizeChange(String(n))}
-                                className={`px-2 py-1 text-xs rounded border transition-colors ${
+                                className={`px-2 py-1 text-xs rounded border transition-colors h-auto ${
                                     size === n
-                                        ? 'bg-blue-600 border-blue-500 text-white'
+                                        ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-600'
                                         : 'bg-[var(--dark-border)] border-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] hover:border-blue-500'
                                 }`}
                             >
                                 {n}
-                            </button>
+                            </Button>
                         ))}
                     </div>
-                </div>
-
-                {/* 조회 버튼 */}
-                <div className="flex justify-end">
-                    <Button
-                        onClick={handleSearch}
-                        disabled={loading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-sm px-6"
-                    >
-                        {loading ? '조회 중...' : '조회'}
-                    </Button>
+                    <div className="flex gap-1">
+                        <Button
+                            id="btn-search"
+                            data-testid="btn-search"
+                            onClick={handleSearch}
+                            disabled={loading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-sm px-4"
+                        >
+                            {loading ? '조회 중...' : '조회'}
+                        </Button>
+                        {onClose && (
+                            <Button
+                                id="btn-panel-close"
+                                data-testid="btn-panel-close"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onClose}
+                                className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-8 text-sm px-3"
+                            >
+                                닫기
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
 

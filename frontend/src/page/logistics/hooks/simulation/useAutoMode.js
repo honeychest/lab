@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { dlog } from '@/global/chs';
 import { startAutoOmsOrders, stopAutoOmsOrders } from '../../services/omsSimulation';
 import { startAutoEosTasks, stopAutoEosTasks } from '../../services/eosSimulation';
-import { isTickLoopRunning, startTickLoop, stopTickLoop } from '@/scheduler/tickLoop';
+import { isTickLoopRunning, resumeIfNeeded, startTickLoop, stopTickLoop } from '@/scheduler/tickLoop';
 
 export default function useAutoMode() {
     const [autoMode, setAutoMode] = useState(false);
     const [simRunning, setSimRunning] = useState(isTickLoopRunning());
+
+    useEffect(() => {
+        resumeIfNeeded().then(resumed => {
+            if (resumed) setSimRunning(true);
+        });
+    }, []);
 
     const startSimulation = () => {
         startTickLoop();

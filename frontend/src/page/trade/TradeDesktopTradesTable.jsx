@@ -14,8 +14,9 @@ import {
     getElapsed,
     formatKrw,
 } from './model/tradeDisplayModel.js';
+import styles from './TradePage.module.css';
 
-function TradeDesktopTradesTable({ trades, newTradeIds, initError, styles }) {
+function TradeDesktopTradesTable({ trades, newTradeIds, initError }) {
     return (
         <Table className="table-fixed w-full flex-shrink-0">
             <TableHeader>

@@ -1,0 +1,147 @@
+/* Analysis 페이지 — 재사용 atomic 클래스 (button / input / select / card / spinner) */
+
+/* ── 카드 / 패널 surface ───────────────────────────────────────────────── */
+.analysis-card {
+  background:    var(--dark-card-bg);
+  border:        1px solid var(--dark-input-border);
+  border-radius: 10px;
+}
+
+.analysis-surface {
+  background:    var(--dark-surface-bg);
+  border:        1px solid var(--dark-input-border);
+  border-radius: 6px;
+}
+
+/* ── 텍스트 도우미 ────────────────────────────────────────────────────── */
+.analysis-text-muted    { color: var(--dark-text-muted); }
+.analysis-text-primary  { color: var(--dark-text-primary); }
+.analysis-text-secondary{ color: var(--dark-text-secondary); }
+.analysis-text-error    { color: var(--dark-error); }
+.analysis-text-tiny     { font-size: 0.75rem; }
+.analysis-text-small    { font-size: 0.81rem; }
+
+/* ── 입력 / 셀렉트 ────────────────────────────────────────────────────── */
+.analysis-input,
+.analysis-select {
+  background:    var(--dark-input-bg);
+  border:        1px solid var(--dark-input-border);
+  border-radius: 4px;
+  color:         var(--dark-input-text);
+  outline:       none;
+}
+
+.analysis-input  { font-size: 12px; padding: 4px 8px; }
+.analysis-select { font-size: 12px; padding: 5px 8px; cursor: pointer; }
+
+.analysis-input--num {
+  width: 72px;
+  font-size: 11px;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.analysis-input--num-sm {
+  width: 48px;
+  font-size: 11px;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.analysis-select--mini {
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
+.analysis-select--group-link {
+  background:    var(--dark-btn-secondary);
+  font-size:     11px;
+  padding:       2px 6px;
+}
+
+.analysis-input--focus-strong {
+  border-color: var(--dark-border-subtle);
+}
+
+/* ── 버튼 ─────────────────────────────────────────────────────────────── */
+.analysis-btn {
+  border-radius: 4px;
+  font-size:     12px;
+  font-weight:   600;
+  padding:       5px 12px;
+  cursor:        pointer;
+  color:         var(--dark-input-text);
+  background:    var(--dark-btn-secondary);
+  border:        1px solid var(--dark-input-border);
+}
+
+.analysis-btn--primary {
+  background: var(--dark-btn-primary);
+  border:     none;
+  color:      var(--dark-text-primary);
+}
+
+.analysis-btn--ghost {
+  background:   transparent;
+  border:       1px solid var(--dark-input-border);
+  color:        var(--dark-text-muted);
+  font-size:    11px;
+  font-weight:  400;
+  padding:      3px 10px;
+}
+
+.analysis-btn--icon {
+  background:  transparent;
+  border:      none;
+  color:       var(--dark-text-muted);
+  cursor:      pointer;
+  padding:     2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.analysis-btn--icon-lg {
+  font-size: 16px;
+}
+
+.analysis-btn--icon-md {
+  font-size: 14px;
+}
+
+.analysis-btn--text {
+  background:  transparent;
+  border:      none;
+  color:       var(--dark-text-muted);
+  cursor:      pointer;
+  font-size:   11px;
+  padding:     2px 4px;
+}
+
+.analysis-btn[disabled],
+.analysis-btn--disabled {
+  cursor:  not-allowed;
+  opacity: 0.5;
+}
+
+.analysis-btn--load {
+  padding:     5px 14px;
+  flex-shrink: 0;
+}
+
+/* ── 스피너 ───────────────────────────────────────────────────────────── */
+.analysis-spinner {
+  width:         16px;
+  height:        16px;
+  border:        2px solid var(--dark-spinner-track);
+  border-top:    2px solid var(--dark-spinner-fill);
+  border-radius: 50%;
+  animation:     analysis-spin 0.8s linear infinite;
+  flex-shrink:   0;
+}
+
+.analysis-spinner--lg {
+  width:      28px;
+  height:     28px;
+  border-width: 3px;
+  border-top-width: 3px;
+}
