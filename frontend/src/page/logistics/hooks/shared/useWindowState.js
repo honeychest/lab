@@ -23,7 +23,7 @@ export default function useWindowState() {
         const original = meta.getAttribute('content');
         meta.setAttribute(
             'content',
-            desktopView ? 'width=1024' : 'width=device-width, initial-scale=1.0'
+            desktopView ? 'width=1280' : 'width=device-width, initial-scale=1.0'
         );
         return () => {
             meta.setAttribute('content', original);

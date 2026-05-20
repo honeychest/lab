@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import ErrorPage from '../error/ErrorPage.tsx';
 import '../../styles/themes/theme-dark.css';
@@ -20,6 +20,7 @@ import { buildBinanceLiveStatus } from '../../domain/binance/model/status/binanc
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function BinancePage() {
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
     const [selectedSymbol, setSelectedSymbol] = useState(BINANCE_MARKETS[0].symbol);
     const { ticker, status } = useBinanceWebSocket(selectedSymbol);
     const {
@@ -48,6 +49,12 @@ function BinancePage() {
         : undefined;
     const usdtTicker = upbitTickers['KRW-USDT'] ?? null;
 
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const {
         wrapperRef: tickerWrapperRef,
         minimumSizeStyle,
@@ -62,13 +69,13 @@ function BinancePage() {
             <div className={themeClass || undefined} style={{
                 minHeight: '100%',
                 background: 'var(--dark-bg)',
-                padding: '32px',
+                padding: isMobile ? '16px' : '32px',
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
             }}>
-                <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
+                <div style={{ maxWidth: isMobile ? '100%' : '1120px', margin: '0 auto' }}>
                     <BinancePageHeader />
 
                     <BinanceTickerCard
