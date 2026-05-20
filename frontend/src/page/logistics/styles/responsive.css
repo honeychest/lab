@@ -116,29 +116,14 @@
   body:has(.logistics-shell.logistics-desktop-forced),
   #root:has(.logistics-shell.logistics-desktop-forced) {
     width: auto;
-    height: auto;
-    overflow: auto;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .logistics-shell.logistics-desktop-forced {
     width: 1280px;
     min-width: 1280px;
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
-  }
-
-  .logistics-desktop-forced .logistics-body,
-  .logistics-desktop-forced .logistics-main,
-  .logistics-desktop-forced .logistics-tab-shell,
-  .logistics-desktop-forced .logistics-stage-tab-shell,
-  .logistics-desktop-forced .logistics-stage-grid-shell {
-    height: auto;
-    overflow: visible;
-  }
-
-  .logistics-desktop-forced .logistics-lane {
-    max-height: none;
   }
 
   .logistics-desktop-forced .logistics-header-top {
