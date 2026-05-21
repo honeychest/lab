@@ -1,7 +1,7 @@
 import { PIPELINE_STAGES, INBOUND_STAGES } from '@/domain/logistics/common/stages';
 
 const STORAGE_KEY = 'logistics.simulationSettings';
-const DEFAULT_GLOBAL_FAILURE_RATE = 5;
+const DEFAULT_GLOBAL_FAILURE_RATE = 2;
 const SIMULATION_STAGES = [...PIPELINE_STAGES, ...INBOUND_STAGES];
 
 export function getDefaultSimulationSettings() {

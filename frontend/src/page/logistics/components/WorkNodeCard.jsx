@@ -11,7 +11,9 @@ export default function WorkNodeCard({
 }) {
     const counts = {
         active: nodeTasks.filter(t => t.status === 'active').length,
+        paused: nodeTasks.filter(t => t.status === 'paused').length,
         failed: nodeTasks.filter(t => t.status === 'failed').length,
+        inProgress: nodeTasks.filter(t => t.status === 'active' || t.status === 'paused').length,
     };
     const nodeClass = [
         'logistics-work-node',
@@ -43,7 +45,7 @@ export default function WorkNodeCard({
                         </button>
                         <div className="logistics-work-node-status-row">
                             {[
-                                ['active', '진행중', counts.active],
+                                ['active', '진행중', counts.inProgress],
                                 ['failed', '실패', counts.failed],
                             ].map(([status, label, count]) => (
                                 <button
@@ -54,7 +56,11 @@ export default function WorkNodeCard({
                                     onClick={(event) => onPopover(event, stage, node, status, nodeTasks)}
                                 >
                                     {status === 'active' ? (
-                                        <span className={count > 0 ? 'sample_live_spinner' : 'logistics-status-idle-ring'} aria-hidden="true" />
+                                        <span className={
+                                            counts.active > 0 ? 'sample_live_spinner' :
+                                            counts.paused > 0 ? 'logistics-status-pause-ring' :
+                                            'logistics-status-idle-ring'
+                                        } aria-hidden="true" />
                                     ) : (
                                         <span className="logistics-health-dot" aria-hidden="true">❌</span>
                                     )}

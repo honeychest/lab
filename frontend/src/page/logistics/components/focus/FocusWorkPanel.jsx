@@ -73,14 +73,9 @@ function EmptyFocusWorkGrid() {
                 <DetailItem label="대상" value="레인 카드 선택 대기" />
             </div>
             <div className="logistics-work-card">
-                <h3>현재 처리</h3>
-                <DetailItem label="담당" value="대기" />
-                <DetailItem label="처리" value="대기" />
-            </div>
-            <div className="logistics-work-card">
-                <h3>진행 근거</h3>
-                <DetailItem label="최근 신호" value="event 대기" />
-                <DetailItem label="추적" value="대기" />
+                <h3>상태 요약</h3>
+                <DetailItem label="상태" value="작업 선택 대기" />
+                <DetailItem label="신호" value="event 대기" />
             </div>
             <div className="logistics-work-card logistics-work-action-card">
                 <h3>처리 방법</h3>
@@ -116,7 +111,7 @@ function FocusActionCard({ isFailed, recoveryActions, branchCandidates, onWorkAc
 
     return (
         <div className="logistics-work-card logistics-work-action-card">
-            <h3>오류주입</h3>
+            <h3>예외 시뮬레이션</h3>
             {branchCandidates.length > 0 ? (
                 <div className="logistics-work-actions">
                     {branchCandidates.map(failure => (
@@ -137,15 +132,8 @@ function FocusActionCard({ isFailed, recoveryActions, branchCandidates, onWorkAc
 }
 
 function FocusWorkGrid({ task, history, onWorkAction, onBranchInject }) {
-    const uniqueEventKeys = new Set(history.map(event => event.idempotencyKey)).size;
     const latest = latestEvent(history);
     const isFailed = task.status === 'failed';
-    const actorText = task.actor === 'system' ? '자동' : task.actor;
-    const executionText = task.zoneCode
-        ? `Zone ${task.zoneCode}`
-        : task.vehicleId
-            ? task.vehicleId
-            : '실행 정보 대기';
     const failureCode = task.failureCode ?? task.failureLabel ?? '에러 코드 대기';
     const failureReason = task.failureReason ?? task.failureLabel ?? '에러 상세가 아직 기록되지 않았습니다.';
     const recoveryActions = task.failureActions ?? [];
@@ -158,13 +146,8 @@ function FocusWorkGrid({ task, history, onWorkAction, onBranchInject }) {
                 <DetailItem label="화주" value={task.owner} />
                 <DetailItem label="품목" value={`${task.itemCode} · ${task.quantity}ea`} />
             </div>
-            <div className="logistics-work-card">
-                <h3>현재 처리</h3>
-                <DetailItem label="담당" value={`${task.currentStage.split('_')[0]} / ${actorText}`} />
-                <DetailItem label="실행" value={executionText} />
-            </div>
             <div className={`logistics-work-card${isFailed ? ' is-alert' : ''}`}>
-                <h3>{isFailed ? '에러 상세' : '진행 근거'}</h3>
+                <h3>{isFailed ? '에러 상세' : '상태 요약'}</h3>
                 {isFailed ? (
                     <>
                         <DetailItem label="코드" value={failureCode} tone="alert" />
@@ -172,8 +155,8 @@ function FocusWorkGrid({ task, history, onWorkAction, onBranchInject }) {
                     </>
                 ) : (
                     <>
+                        <DetailItem label="상태" value={task.status === 'paused' ? '일시정지' : '진행중'} />
                         <DetailItem label="신호" value={latest?.routingKey ?? 'event 대기'} />
-                        <DetailItem label="이벤트" value={`고유 ${uniqueEventKeys}건`} />
                     </>
                 )}
             </div>

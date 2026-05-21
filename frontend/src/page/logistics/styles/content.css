@@ -492,6 +492,7 @@
 
 .logistics-work-node-status .sample_live_spinner,
 .logistics-status-idle-ring,
+.logistics-status-pause-ring,
 .logistics-work-node-status .logistics-health-dot {
   flex: 0 0 auto;
   width: 12px;
@@ -511,6 +512,14 @@
   border: 2px solid currentColor;
   border-radius: 999px;
   box-sizing: border-box;
+}
+
+.logistics-status-pause-ring {
+  display: inline-block;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  box-sizing: border-box;
+  animation: logistics-pause-ring-pulse 2s ease-in-out infinite;
 }
 
 .logistics-work-node-status .logistics-health-dot {
@@ -587,6 +596,11 @@
     opacity: 0.12;
     background-position: 0 calc(100% + 38px);
   }
+}
+
+@keyframes logistics-pause-ring-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 @keyframes logistics-failure-pulse {
