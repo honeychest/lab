@@ -4,7 +4,7 @@ import { dlog, dtag } from '@/global/chs';
 import type { LogisticEvent } from '@/domain/logistics/common/events';
 
 // 흐름 11: EventStoreRetentionPolicy — 단계1 차단 Adapter (T3-ARCH 결정-17)
-export const EVENT_STORE_RETENTION_LIMIT = 5000;
+export const EVENT_STORE_RETENTION_LIMIT = 10000;
 
 async function checkRetention(): Promise<boolean> {
     const count = await db.events.count();

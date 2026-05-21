@@ -6,7 +6,6 @@ import { getTaskById, updateTaskStatus } from '@/store/taskStore';
 import { getEventsByAggregate } from '@/store/eventStore';
 import { pauseTask, resumeTask } from '@/scheduler/tickLoop';
 import { appendAuditEvent } from '@/store/auditStore';
-import { performBranchInject, performRecoveryAction } from '../services/recoveryActions';
 import RightPanelContent from './side/RightPanelContent';
 
 export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
@@ -80,18 +79,6 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
         });
     };
 
-    const handleBranchInject = async (type) => {
-        if (!task) return;
-        await performBranchInject(task, type);
-        await refresh(task.taskId);
-    };
-
-    const handleRecoveryAction = async (action) => {
-        if (!task) return;
-        await performRecoveryAction(task, action);
-        await refresh(task.taskId);
-    };
-
     const handleLogOpen = () => {
         onLogOpen?.();
     };
@@ -110,8 +97,6 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
                         onPause={handlePause}
                         onCancel={handleCancel}
                         onLogOpen={handleLogOpen}
-                        onBranchInject={handleBranchInject}
-                        onRecoveryAction={handleRecoveryAction}
                     />
                 </div>
             </div>

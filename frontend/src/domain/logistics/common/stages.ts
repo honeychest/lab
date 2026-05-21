@@ -378,7 +378,7 @@ const EOS_PO_DISPATCHED_WORK_NODES: EosWorkNode[] = [
 ];
 
 const EOS_PO_CONFIRMED_WORK_NODES: EosWorkNode[] = [
-    { key: 'confirm-wait', label: '공급사 수신확인 대기', summary: '공급사가 발주를 검토·수용한 수신확인을 대기합니다.', signal: '응답 지연, 거부', output: '수신확인 수신', stage: 4, dlog: 'EosPoConfirmed.confirmWait — 공급사 수신확인 대기 (stage=4 외부 응답)', handoff: '확인 응답', description: '공급사가 발주를 수락했다는 응답을 기다리는 단계입니다.' },
+    { key: 'confirm-wait', label: '공급사 수신확인', summary: '공급사가 발주를 검토·수용한 수신확인을 대기합니다.', signal: '응답 지연, 거부', output: '수신확인 수신', stage: 4, dlog: 'EosPoConfirmed.confirmWait — 공급사 수신확인 대기 (stage=4 외부 응답)', handoff: '확인 응답', description: '공급사가 발주를 수락했다는 응답을 기다리는 단계입니다.' },
     { key: 'confirm-record', label: '수신확인 기록', summary: '공급사 수신확인을 시스템에 기록하고 입고 예정으로 분류합니다.', signal: '기록 실패', output: '수신확인 레코드', stage: 2, dlog: 'EosPoConfirmed.confirmRecord — 수신확인 기록 구현 지점', handoff: '확인 ID, 입고 예정일', description: '공급사 수신확인을 시스템에 정식 기록하는 단계입니다.' },
     { key: 'handoff-inbound', label: 'WMS 입고 핸드오프', summary: 'task를 INBOUND_RECEIVED로 전이시켜 WMS 입고 흐름으로 인계합니다.', signal: '전이 실패', output: 'INBOUND task 전이 완료', stage: 2, dlog: 'EosPoConfirmed.handoffInbound — EOS→WMS-IN 핸드오프 구현 지점', handoff: 'taskId, nextStage=INBOUND_RECEIVED', description: 'EOS 끝 단계에서 같은 task를 입고 흐름으로 넘기는 핸드오프 단계입니다.' },
 ];

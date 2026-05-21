@@ -1,5 +1,4 @@
 import { getOmsReceiveNodeLabel, STAGE_GUIDANCE, STAGE_LABELS } from '@/domain/logistics/common/stages';
-import { getFailureCandidatesForStage } from '@/domain/logistics/common/failures';
 import { CHAIN_BG, CHAIN_ICON } from '../../constants';
 import {
     historyEventLabel,
@@ -63,63 +62,6 @@ function TaskDetailSection({ task, history, isPaused, onPause, onCancel, onLogOp
     );
 }
 
-const BRANCH_SLOT_COUNT = 4;
-
-function BranchInjectionSection({ task, onBranchInject }) {
-    const branchCandidates = getFailureCandidatesForStage(task.currentStage, task.receiveNodeKey);
-    const slots = branchCandidates.length > 0
-        ? [...branchCandidates, ...Array(BRANCH_SLOT_COUNT - branchCandidates.length).fill(null)]
-        : [];
-
-    return (
-        <div className="logistics-side-section">
-            <div className="logistics-side-title">오류주입</div>
-            <div className="logistics-action-grid">
-                {slots.length === 0 ? (
-                    <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
-                        이 단계에 등록된 실패 주입 후보가 없습니다.
-                    </div>
-                ) : slots.map((failure, idx) => failure ? (
-                    <button
-                        key={failure.code}
-                        className="logistics-outline-btn"
-                        onClick={() => onBranchInject(failure.code)}
-                    >
-                        {failure.label}
-                    </button>
-                ) : (
-                    <button
-                        key={`phantom-${idx}`}
-                        className="logistics-outline-btn"
-                        aria-hidden="true"
-                        tabIndex={-1}
-                        style={{ visibility: 'hidden', pointerEvents: 'none' }}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function RecoveryActionSection({ task, onRecoveryAction }) {
-    return (
-        <div className="logistics-side-section">
-            <div className="logistics-side-title">조치 ({task.failureLabel ?? '실패'})</div>
-            <div className="logistics-action-grid">
-                {(task.failureActions ?? []).map(action => (
-                    <button
-                        key={action.id}
-                        className="logistics-success-btn"
-                        onClick={() => onRecoveryAction(action)}
-                    >
-                        {action.label}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
-
 function HistoryChainSection({ task, history }) {
     return (
         <div className="logistics-side-section grow">
@@ -149,14 +91,11 @@ export default function RightPanelContent({
     onPause,
     onCancel,
     onLogOpen,
-    onBranchInject,
-    onRecoveryAction,
 }) {
     if (!task) {
         return <div className="logistics-panel-empty">📭 포커스 작업 없음</div>;
     }
 
-    const isFailed = task.status === 'failed';
     const isPaused = task.status === 'paused';
 
     return (
@@ -169,17 +108,6 @@ export default function RightPanelContent({
                 onCancel={onCancel}
                 onLogOpen={onLogOpen}
             />
-            {!isFailed ? (
-                <BranchInjectionSection
-                    task={task}
-                    onBranchInject={onBranchInject}
-                />
-            ) : (
-                <RecoveryActionSection
-                    task={task}
-                    onRecoveryAction={onRecoveryAction}
-                />
-            )}
             <HistoryChainSection
                 task={task}
                 history={history}
