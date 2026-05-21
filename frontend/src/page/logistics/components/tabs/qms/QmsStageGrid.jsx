@@ -26,7 +26,7 @@ export default function QmsStageGrid({ tasks, focusedTaskId, onPopover }) {
             focusedTaskId={focusedTaskId}
             onPopover={onPopover}
             getNodeTasks={getQmsNodeTasks}
-            stacked={false}
+            stacked
             cardClassName="logistics-work-node--qms-compact"
         />
     );

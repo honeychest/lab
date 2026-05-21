@@ -12,6 +12,7 @@ export default function InboundStageGrid({ tasks, focusedTaskId, onPopover }) {
             onPopover={onPopover}
             taskTypes={['INBOUND', 'EOS']}
             stacked
+            cardClassName="logistics-work-node--qms-compact"
         />
     );
 }

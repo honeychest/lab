@@ -12,6 +12,7 @@ export default function EosStageGrid({ tasks, focusedTaskId, onPopover }) {
             onPopover={onPopover}
             taskTypes={['EOS']}
             stacked
+            cardClassName="logistics-work-node--qms-compact"
         />
     );
 }

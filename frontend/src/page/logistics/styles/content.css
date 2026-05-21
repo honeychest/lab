@@ -322,8 +322,13 @@
 
 
 .logistics-work-node--stacked .logistics-work-node-top {
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "title count"
+    "status status";
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .logistics-work-node--stacked {
@@ -331,63 +336,36 @@
 }
 
 .logistics-work-node--stacked .logistics-work-node-top-meta {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  width: 100%;
-}
-
-.logistics-work-node--stacked .logistics-work-node-count {
-  margin-inline: auto;
+  display: contents;
 }
 
 .logistics-work-node--stacked .logistics-work-node-title {
-  width: 100%;
+  grid-area: title;
+  width: auto;
+}
+
+.logistics-work-node--stacked .logistics-work-node-count {
+  grid-area: count;
+  margin-inline: 0;
+}
+
+.logistics-work-node--stacked .logistics-work-node-status-row {
+  grid-area: status;
 }
 
 .logistics-qms-stage-grid .logistics-receive-workflow {
   gap: 8px;
 }
 
-.logistics-work-node--qms-compact {
-  min-height: 82px;
-}
-
 .logistics-work-node--qms-compact .logistics-work-node-body {
-  min-height: 72px;
   padding: 8px;
 }
 
-.logistics-work-node--qms-compact .logistics-work-node-top {
-  align-items: stretch;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .logistics-work-node--qms-compact .logistics-work-node-title {
-  flex: 0 0 auto;
   font-size: 13px;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.logistics-work-node--qms-compact .logistics-work-node-top-meta {
-  display: grid;
-  flex: 0 0 auto;
-  grid-template-rows: 18px 24px;
-  gap: 4px;
-  justify-content: stretch;
-  width: 100%;
 }
 
 .logistics-work-node--qms-compact .logistics-work-node-count {
-  justify-self: center;
-  min-width: 24px;
-  width: auto;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: 999px;
   font-size: 11px;
 }
 
@@ -401,7 +379,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 4px;
-  width: 100%;
 }
 
 .logistics-work-node--qms-compact .logistics-work-node-status span,
