@@ -6,7 +6,7 @@ export function DesktopViewGate({
   return (
     <div style={{
       flex:           1,
-      minHeight:      '100dvh',
+      minHeight:      0,
       display:        'flex',
       flexDirection:  'column',
       alignItems:     'center',
