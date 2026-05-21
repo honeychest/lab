@@ -4,7 +4,7 @@ import StageWorkGrid from '../shared/StageWorkGrid';
 export default function InboundStageGrid({ tasks, focusedTaskId, onPopover }) {
     return (
         <StageWorkGrid
-            gridClassName="logistics-grid-5"
+            gridClassName="logistics-grid-6"
             stages={INBOUND_STAGES}
             workNodesByStage={INBOUND_STAGE_WORK_NODES}
             tasks={tasks}

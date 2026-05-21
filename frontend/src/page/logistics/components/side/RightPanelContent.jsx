@@ -51,9 +51,11 @@ function TaskDetailSection({ task, history, isPaused, onPause, onCancel, onLogOp
                 </div>
             )}
             <div className="logistics-button-row">
-                <button className="logistics-secondary-btn" onClick={onPause}>
-                    {isPaused ? '▶ 재개' : '⏸ 일시정지'}
-                </button>
+                {task.status !== 'failed' && (
+                    <button className="logistics-secondary-btn" onClick={onPause}>
+                        {isPaused ? '▶ 재개' : '⏸ 일시정지'}
+                    </button>
+                )}
                 <button className="logistics-danger-btn" onClick={onCancel}>✕ 취소</button>
                 <button className="logistics-outline-btn" onClick={onLogOpen}>🔍 로그 보기</button>
             </div>
@@ -61,14 +63,23 @@ function TaskDetailSection({ task, history, isPaused, onPause, onCancel, onLogOp
     );
 }
 
+const BRANCH_SLOT_COUNT = 4;
+
 function BranchInjectionSection({ task, onBranchInject }) {
     const branchCandidates = getFailureCandidatesForStage(task.currentStage, task.receiveNodeKey);
+    const slots = branchCandidates.length > 0
+        ? [...branchCandidates, ...Array(BRANCH_SLOT_COUNT - branchCandidates.length).fill(null)]
+        : [];
 
     return (
         <div className="logistics-side-section">
             <div className="logistics-side-title">오류주입</div>
             <div className="logistics-action-grid">
-                {branchCandidates.length > 0 ? branchCandidates.map(failure => (
+                {slots.length === 0 ? (
+                    <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
+                        이 단계에 등록된 실패 주입 후보가 없습니다.
+                    </div>
+                ) : slots.map((failure, idx) => failure ? (
                     <button
                         key={failure.code}
                         className="logistics-outline-btn"
@@ -76,11 +87,15 @@ function BranchInjectionSection({ task, onBranchInject }) {
                     >
                         {failure.label}
                     </button>
-                )) : (
-                    <div className="logistics-empty-card" style={{ padding: '12px 14px' }}>
-                        이 단계에 등록된 실패 주입 후보가 없습니다.
-                    </div>
-                )}
+                ) : (
+                    <button
+                        key={`phantom-${idx}`}
+                        className="logistics-outline-btn"
+                        aria-hidden="true"
+                        tabIndex={-1}
+                        style={{ visibility: 'hidden', pointerEvents: 'none' }}
+                    />
+                ))}
             </div>
         </div>
     );

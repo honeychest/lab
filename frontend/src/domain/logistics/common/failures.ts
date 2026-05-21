@@ -487,6 +487,36 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
                 { id: 'skip_handoff', label: '통보 건너뜀 (수동 처리)', nextStage: 'INBOUND_COMPLETED', nextReceiveNodeKey: 'handoff-close' },
             ],
         },
+        {
+            code: 'INBOUND_AUDIT_LOG_FAILED',
+            label: '입고 감사 로그 저장 실패',
+            domain: 'INBOUND',
+            type: 'system',
+            stage: 'INBOUND_COMPLETED',
+            receiveNodeKey: 'audit-close',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '입고 전 과정의 감사 로그 저장에 실패했습니다.',
+            actions: [
+                { id: 'replay_event', label: '감사 로그 재저장', nextStage: 'INBOUND_COMPLETED', nextReceiveNodeKey: 'audit-close' },
+                { id: 'notify_customer', label: '운영팀 로그 점검 요청' },
+            ],
+        },
+        {
+            code: 'INBOUND_CLOSE_FAILED',
+            label: '입고 종료 실패',
+            domain: 'INBOUND',
+            type: 'system',
+            stage: 'INBOUND_COMPLETED',
+            receiveNodeKey: 'handoff-close',
+            recoverable: true,
+            resumePolicy: 'retry_current_stage',
+            summary: '입고 흐름 종료 처리 중 오류가 발생했습니다.',
+            actions: [
+                { id: 'replay_event', label: '입고 종료 재시도', nextStage: 'INBOUND_COMPLETED', nextReceiveNodeKey: 'handoff-close' },
+                { id: 'notify_customer', label: 'WMS 담당자 수동 종결 요청' },
+            ],
+        },
     ],
     WMS_RECEIVED: [
         {
@@ -1059,16 +1089,20 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
     EOS_FORECASTED: [
         { code: 'EOS_DEMAND_COLLECT_FAILED', label: '수요 데이터 수집 실패', domain: 'EOS', type: 'system', stage: 'EOS_FORECASTED', receiveNodeKey: 'demand-collect', recoverable: true, resumePolicy: 'retry_current_stage', summary: '수요 데이터 소스 조회에 실패해 예측 입력값을 구성하지 못했습니다.', actions: [{ id: 'replay_event', label: '수집 재시도', nextStage: 'EOS_FORECASTED', nextReceiveNodeKey: 'demand-collect' }, { id: 'notify_customer', label: 'EOS 운영팀 확인 요청' }] },
         { code: 'EOS_FORECAST_LOW_CONFIDENCE', label: '예측 신뢰도 부족', domain: 'EOS', type: 'business', stage: 'EOS_FORECASTED', receiveNodeKey: 'forecast-calc', recoverable: true, resumePolicy: 'manual_review', summary: '예측 결과 신뢰도가 임계 이하라 자동 진행을 보류했습니다.', actions: [{ id: 'retry_validation', label: '모델 재계산', nextStage: 'EOS_FORECASTED', nextReceiveNodeKey: 'forecast-calc' }, { id: 'notify_customer', label: '운영자 수동 검토 요청' }] },
+        { code: 'EOS_FORECAST_PUBLISH_FAILED', label: '예측 결과 발행 실패', domain: 'EOS', type: 'system', stage: 'EOS_FORECASTED', receiveNodeKey: 'forecast-publish', recoverable: true, resumePolicy: 'retry_current_stage', summary: '예측 결과 이벤트 발행에 실패해 발주점 평가 단계로 인계되지 않았습니다.', actions: [{ id: 'replay_event', label: '예측 결과 재발행', nextStage: 'EOS_FORECASTED', nextReceiveNodeKey: 'forecast-publish' }, { id: 'notify_customer', label: '이벤트 버스 점검 요청' }] },
     ],
     EOS_REORDER_TRIGGERED: [
         { code: 'EOS_STOCK_LOOKUP_FAILED', label: '재고 조회 실패', domain: 'EOS', type: 'system', stage: 'EOS_REORDER_TRIGGERED', receiveNodeKey: 'stock-check', recoverable: true, resumePolicy: 'retry_current_stage', summary: '재고 시스템에서 현재 수량을 조회하지 못했습니다.', actions: [{ id: 'replay_event', label: '재고 재조회', nextStage: 'EOS_REORDER_TRIGGERED', nextReceiveNodeKey: 'stock-check' }, { id: 'notify_customer', label: 'WMS 담당자 확인 요청' }] },
         { code: 'EOS_REORDER_POINT_UNDEFINED', label: '발주점 미등록', domain: 'EOS', type: 'data', stage: 'EOS_REORDER_TRIGGERED', receiveNodeKey: 'reorder-evaluate', recoverable: true, resumePolicy: 'manual_review', summary: '품목의 발주점(ROP)이 정의되어 있지 않아 자동 평가가 불가능합니다.', actions: [{ id: 'assign_default_policy', label: '기본 ROP 임시 적용', nextStage: 'EOS_REORDER_TRIGGERED', nextReceiveNodeKey: 'reorder-evaluate' }, { id: 'notify_customer', label: '품목 마스터 담당자에게 등록 요청' }] },
+        { code: 'EOS_REORDER_TRIGGER_FAILED', label: '발주 트리거 발행 실패', domain: 'EOS', type: 'system', stage: 'EOS_REORDER_TRIGGERED', receiveNodeKey: 'reorder-trigger', recoverable: true, resumePolicy: 'retry_current_stage', summary: '발주 트리거 이벤트 발행에 실패해 공급사 선정 단계로 인계되지 않았습니다.', actions: [{ id: 'replay_event', label: '트리거 재발행', nextStage: 'EOS_REORDER_TRIGGERED', nextReceiveNodeKey: 'reorder-trigger' }, { id: 'notify_customer', label: '이벤트 버스 점검 요청' }] },
     ],
     EOS_SUPPLIER_SELECTED: [
         { code: 'EOS_SUPPLIER_NOT_FOUND', label: '공급사 후보 없음', domain: 'EOS', type: 'data', stage: 'EOS_SUPPLIER_SELECTED', receiveNodeKey: 'supplier-lookup', recoverable: true, resumePolicy: 'manual_review', summary: '발주 대상 품목을 공급 가능한 등록 공급사가 없습니다.', actions: [{ id: 'notify_customer', label: '구매팀 공급사 확보 요청' }, { id: 'cancel_order', label: '발주 취소' }] },
-        { code: 'EOS_SUPPLIER_SCORE_TIE', label: '공급사 평가 동점', domain: 'EOS', type: 'business', stage: 'EOS_SUPPLIER_SELECTED', receiveNodeKey: 'supplier-decide', recoverable: true, resumePolicy: 'manual_review', summary: '다수 공급사가 동일 점수로 선정이 자동 결정되지 않았습니다.', actions: [{ id: 'override_inspection_type', label: '운영자 수동 선정', nextStage: 'EOS_SUPPLIER_SELECTED', nextReceiveNodeKey: 'supplier-decide' }, { id: 'notify_customer', label: '구매팀 결정 요청' }] },
+        { code: 'EOS_SUPPLIER_SCORE_DATA_MISSING', label: '공급사 평가 데이터 누락', domain: 'EOS', type: 'data', stage: 'EOS_SUPPLIER_SELECTED', receiveNodeKey: 'supplier-score', recoverable: true, resumePolicy: 'retry_current_stage', summary: '공급사 평가에 필요한 단가·납기·품질 이력 일부가 누락되어 점수 계산에 실패했습니다.', actions: [{ id: 'retry_validation', label: '데이터 보완 후 재평가', nextStage: 'EOS_SUPPLIER_SELECTED', nextReceiveNodeKey: 'supplier-score' }, { id: 'notify_customer', label: '구매팀 평가 데이터 확인 요청' }] },
+        { code: 'EOS_SUPPLIER_SCORE_TIE', label: '공급사 평가 동점', domain: 'EOS', type: 'business', stage: 'EOS_SUPPLIER_SELECTED', receiveNodeKey: 'supplier-decide', recoverable: true, resumePolicy: 'manual_review', summary: '다수 공급사가 동일 점수로 선정이 자동 결정되지 않았습니다.', actions: [{ id: 'manual_select_supplier', label: '운영자 수동 선정', nextStage: 'EOS_SUPPLIER_SELECTED', nextReceiveNodeKey: 'supplier-decide' }, { id: 'notify_customer', label: '구매팀 결정 요청' }] },
     ],
     EOS_PO_ISSUED: [
+        { code: 'EOS_PO_BUILD_INCOMPLETE', label: '발주서 필수 항목 누락', domain: 'EOS', type: 'data', stage: 'EOS_PO_ISSUED', receiveNodeKey: 'po-build', recoverable: true, resumePolicy: 'retry_current_stage', summary: '발주서 구성 중 단가·납기 등 필수 항목 일부가 채워지지 않았습니다.', actions: [{ id: 'retry_validation', label: '항목 보완 후 재구성', nextStage: 'EOS_PO_ISSUED', nextReceiveNodeKey: 'po-build' }, { id: 'cancel_order', label: '발주 취소' }] },
         { code: 'EOS_PO_APPROVAL_REJECTED', label: '발주 승인 반려', domain: 'EOS', type: 'business', stage: 'EOS_PO_ISSUED', receiveNodeKey: 'po-approve', recoverable: true, resumePolicy: 'manual_review', summary: '승인권자가 발주를 반려했거나 한도를 초과해 승인되지 않았습니다.', actions: [{ id: 'notify_customer', label: '구매팀 한도·승인 재검토 요청' }, { id: 'cancel_order', label: '발주 취소' }] },
         { code: 'EOS_PO_NUMBER_DUPLICATE', label: '발주번호 중복', domain: 'EOS', type: 'data', stage: 'EOS_PO_ISSUED', receiveNodeKey: 'po-issue', recoverable: true, resumePolicy: 'retry_current_stage', summary: '발급한 발주번호가 이미 등록된 다른 발주서와 충돌합니다.', actions: [{ id: 'replay_event', label: '발주번호 재발급', nextStage: 'EOS_PO_ISSUED', nextReceiveNodeKey: 'po-issue' }, { id: 'retry_validation', label: '시퀀스 재초기화 후 재시도' }] },
     ],
@@ -1079,6 +1113,7 @@ const FAILURE_CATALOG: Record<TaskStage, FailureDefinition[]> = {
     ],
     EOS_PO_CONFIRMED: [
         { code: 'EOS_CONFIRM_TIMEOUT', label: '수신확인 응답 타임아웃', domain: 'EOS', type: 'external', stage: 'EOS_PO_CONFIRMED', receiveNodeKey: 'confirm-wait', recoverable: true, resumePolicy: 'manual_review', summary: '공급사가 수신확인을 지정 기한 내에 회신하지 않았습니다.', actions: [{ id: 'replay_event', label: '확인 요청 재발송', nextStage: 'EOS_PO_CONFIRMED', nextReceiveNodeKey: 'confirm-wait' }, { id: 'notify_customer', label: '공급사 담당자 연락' }] },
+        { code: 'EOS_CONFIRM_RECORD_FAILED', label: '수신확인 기록 실패', domain: 'EOS', type: 'system', stage: 'EOS_PO_CONFIRMED', receiveNodeKey: 'confirm-record', recoverable: true, resumePolicy: 'retry_current_stage', summary: '공급사 수신확인을 시스템에 기록하는 중 오류가 발생했습니다.', actions: [{ id: 'replay_event', label: '기록 재시도', nextStage: 'EOS_PO_CONFIRMED', nextReceiveNodeKey: 'confirm-record' }, { id: 'notify_customer', label: '운영팀 DB 점검 요청' }] },
         { code: 'EOS_HANDOFF_INBOUND_FAILED', label: 'WMS 입고 핸드오프 실패', domain: 'EOS', type: 'system', stage: 'EOS_PO_CONFIRMED', receiveNodeKey: 'handoff-inbound', recoverable: true, resumePolicy: 'retry_current_stage', summary: 'task의 INBOUND_RECEIVED 전이에 실패해 입고 흐름이 시작되지 않았습니다.', actions: [{ id: 'replay_event', label: '핸드오프 재시도', nextStage: 'EOS_PO_CONFIRMED', nextReceiveNodeKey: 'handoff-inbound' }, { id: 'notify_customer', label: 'WMS 담당자 확인 요청' }] },
     ],
     AFT_BILLING: [
@@ -1110,9 +1145,9 @@ export function hasFailureCandidates(stage: TaskStage): boolean {
 
 export function getFailureCandidatesForStage(stage: TaskStage, receiveNodeKey?: string): FailureDefinition[] {
     const candidates = FAILURE_CATALOG[stage] ?? [];
-    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_') || stage.startsWith('WMS_') || stage.startsWith('QMS_') || stage.startsWith('AFT_');
+    const isWorkNodeStage = stage.startsWith('OMS_') || stage.startsWith('TMS_') || stage.startsWith('WMS_') || stage.startsWith('QMS_') || stage.startsWith('AFT_') || stage.startsWith('INBOUND_') || stage.startsWith('EOS_');
     if (!isWorkNodeStage || !receiveNodeKey) return candidates;
-    return candidates.filter(item => item.receiveNodeKey === receiveNodeKey);
+    return candidates.filter(item => !item.receiveNodeKey || item.receiveNodeKey === receiveNodeKey);
 }
 
 export function getFailureDefinitionByCode(code?: string): FailureDefinition | null {

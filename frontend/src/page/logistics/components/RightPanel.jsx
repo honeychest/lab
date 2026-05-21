@@ -46,7 +46,7 @@ export default function RightPanel({ open, onToggle, onInfoOpen, onLogOpen }) {
     }, [task?.taskId, task?.status]);
 
     const handlePause = async () => {
-        if (!task) return;
+        if (!task || task.status === 'failed') return;
         dtag(2, ['logistics', 'ops', 'audit'], '운영자 일시정지/재개 감사 로그와 중단 시점 복원 블록', task.taskId);
         if (task.status === 'paused') {
             resumeTask(task.taskId);
