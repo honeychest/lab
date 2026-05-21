@@ -2,7 +2,7 @@ import { dlog, dtag } from '@/global/chs';
 import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
 import { createTask, patchTask } from '@/store/taskStore';
-import { removeTask, resumeTask, seedTickState } from '@/scheduler/tickLoop';
+import { removeTask, resumeIfNeeded, resumeTask, seedTickState } from '@/scheduler/tickLoop';
 import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, QMS_WORK_NODE_TICKS, EOS_WORK_NODE_TICKS, INBOUND_WORK_NODE_TICKS, AFT_WORK_NODE_TICKS, PIPELINE_STAGES, EOS_PIPELINE, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey, getInitialQmsStageWorkNodeKey, getInitialEosStageWorkNodeKey, getInitialInboundStageWorkNodeKey, getInitialAftStageWorkNodeKey, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
 import { getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
 import { buildInjectedFailureEvent } from '../utils/eventHelpers';
@@ -96,6 +96,7 @@ async function performPartialShip(task, action) {
     resumeTask(task.taskId);
     seedTickState(backorderId, WMS_WORK_NODE_TICKS);
     resumeTask(backorderId);
+    await resumeIfNeeded();
 
     await appendEvent(buildRecoveryEvent(task, action, targetStage, targetNodeKey));
     await appendAuditEvent('audit.recovery.performed', {
@@ -146,16 +147,8 @@ export async function performBranchInject(task, failureCode) {
 export async function performRecoveryAction(task, action) {
     if (!task || !action) return;
 
-    if (action.id === 'partial_ship') {
-        await performPartialShip(task, action);
-        return;
-    }
-
     dtag(2, ['logistics', 'ops', 'recovery', 'event'], '운영자 복구 조치 결과 이벤트와 감사 로그 저장 블록', task.taskId, action.id);
-    const targetStage = action.nextStage
-        ?? (task.failureResumePolicy === 'rollback_previous_stage'
-            ? previousStage(task.currentStage)
-            : task.currentStage);
+    const targetStage = task.currentStage;
     const isOmsStage     = targetStage.startsWith('OMS_');
     const isWmsStage     = targetStage.startsWith('WMS_');
     const isQmsStage     = targetStage.startsWith('QMS_');
@@ -163,19 +156,8 @@ export async function performRecoveryAction(task, action) {
     const isEosStage     = targetStage.startsWith('EOS_');
     const isInboundStage = targetStage.startsWith('INBOUND_');
     const isAftStage     = targetStage.startsWith('AFT_');
-    const isSameStage    = targetStage === task.currentStage;
     const targetReceiveNodeKey = (isOmsStage || isTmsStage || isWmsStage || isQmsStage || isEosStage || isInboundStage || isAftStage)
-        ? isSameStage
-            ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
-            : (action.nextReceiveNodeKey ?? (
-                  isTmsStage     ? getInitialTmsStageWorkNodeKey(targetStage)
-                : isWmsStage     ? getInitialWmsStageWorkNodeKey(targetStage)
-                : isQmsStage     ? getInitialQmsStageWorkNodeKey(targetStage)
-                : isEosStage     ? getInitialEosStageWorkNodeKey(targetStage)
-                : isInboundStage ? getInitialInboundStageWorkNodeKey(targetStage)
-                : isAftStage     ? getInitialAftStageWorkNodeKey(targetStage)
-                : undefined
-            ))
+        ? (action.nextReceiveNodeKey ?? task.failureReceiveNodeKey ?? task.receiveNodeKey)
         : undefined;
     const targetTicks = isOmsStage     ? OMS_RECEIVE_NODE_TICKS
         : isWmsStage     ? WMS_WORK_NODE_TICKS
@@ -188,9 +170,12 @@ export async function performRecoveryAction(task, action) {
 
     const terminalStatus = TERMINAL_STATUS[action.id] ?? null;
     const isTerminal = terminalStatus !== null;
+    const nextStatus = isTerminal
+        ? terminalStatus
+        : 'active';
 
     await patchTask(task.taskId, {
-        status: isTerminal ? terminalStatus : 'active',
+        status: nextStatus,
         currentStage: isTerminal ? task.currentStage : targetStage,
         receiveNodeKey: isTerminal ? task.receiveNodeKey : targetReceiveNodeKey,
         ticksInCurrentStage: 0,
@@ -223,6 +208,7 @@ export async function performRecoveryAction(task, action) {
     } else {
         seedTickState(task.taskId, targetTicks);
         resumeTask(task.taskId);
+        await resumeIfNeeded();
     }
 
     dlog(1, `Logistics.recovery — ${action.label}`);
