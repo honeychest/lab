@@ -1,17 +1,20 @@
 import asyncio
 import logging
+from datetime import datetime, timezone, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from telegram import Bot
 
 from chs import dlog
 from session import QuizSession, ScheduleTracker
-from services import todo_service, notion_service
+from services import todo_service, notion_service, schedule_reminder_service
 
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
+KST = timezone(timedelta(hours=9))
 
 SCHEDULE_HOURS = [9, 15, 22]
 
@@ -58,6 +61,39 @@ async def send_schedule_message(bot: Bot, chat_id: int, hour: int, *, timeout: f
     logger.info(f"스케줄 메시지 발송 — {hour:02d}:00, msg_ids: {sent_ids}")
 
 
+async def send_schedule_reminder(bot: Bot, chat_id: int, reminder) -> None:
+    text = schedule_reminder_service.format_reminder(reminder)
+    await bot.send_message(chat_id=chat_id, text=text)
+    logger.info(f"루틴 알림 발송 — {reminder.when:%H:%M}, page_id: {reminder.page_id}")
+
+
+async def refresh_schedule_reminders(bot: Bot, chat_id: int) -> None:
+    for job in scheduler.get_jobs():
+        if job.id.startswith("routine_"):
+            scheduler.remove_job(job.id)
+
+    reminders = await schedule_reminder_service.load_schedule_reminders()
+    for reminder in reminders:
+        trigger = (
+            CronTrigger(
+                hour=reminder.when.hour,
+                minute=reminder.when.minute,
+                timezone="Asia/Seoul",
+            )
+            if reminder.is_recurring
+            else DateTrigger(run_date=reminder.when)
+        )
+        scheduler.add_job(
+            send_schedule_reminder,
+            trigger=trigger,
+            args=[bot, chat_id, reminder],
+            id=reminder.job_id,
+            replace_existing=True,
+        )
+
+    logger.info(f"루틴 알림 갱신 완료 — {len(reminders)}개 등록")
+
+
 def setup_scheduler(bot: Bot, chat_id: int) -> None:
     for h in SCHEDULE_HOURS:
         scheduler.add_job(
@@ -68,6 +104,22 @@ def setup_scheduler(bot: Bot, chat_id: int) -> None:
             replace_existing=True,
         )
         logger.info(f"스케줄 등록 — {h:02d}:00 KST (schedule_{h})")
+
+    scheduler.add_job(
+        refresh_schedule_reminders,
+        trigger=CronTrigger(minute="*/5", timezone="Asia/Seoul"),
+        args=[bot, chat_id],
+        id="routine_refresh_every_5m",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        refresh_schedule_reminders,
+        trigger=DateTrigger(run_date=datetime.now(KST) + timedelta(seconds=1)),
+        args=[bot, chat_id],
+        id="routine_refresh_startup",
+        replace_existing=True,
+    )
+    logger.info("루틴 알림 갱신 등록 — 시작 시 1회, 매 5분")
 
     scheduler.start()
     logger.info("스케줄러 시작 완료")
