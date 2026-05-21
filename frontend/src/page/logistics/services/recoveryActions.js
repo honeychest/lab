@@ -1,23 +1,12 @@
 import { dlog, dtag } from '@/global/chs';
 import { appendAuditEvent } from '@/store/auditStore';
 import { appendEvent } from '@/store/eventStore';
-import { createTask, patchTask } from '@/store/taskStore';
+import { patchTask } from '@/store/taskStore';
 import { removeTask, resumeIfNeeded, resumeTask, seedTickState } from '@/scheduler/tickLoop';
-import { INBOUND_STAGES, OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, QMS_WORK_NODE_TICKS, EOS_WORK_NODE_TICKS, INBOUND_WORK_NODE_TICKS, AFT_WORK_NODE_TICKS, PIPELINE_STAGES, EOS_PIPELINE, getInitialTmsStageWorkNodeKey, getInitialWmsStageWorkNodeKey, getInitialQmsStageWorkNodeKey, getInitialEosStageWorkNodeKey, getInitialInboundStageWorkNodeKey, getInitialAftStageWorkNodeKey, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
+import { OMS_RECEIVE_NODE_TICKS, TMS_WORK_NODE_TICKS, WMS_WORK_NODE_TICKS, QMS_WORK_NODE_TICKS, EOS_WORK_NODE_TICKS, INBOUND_WORK_NODE_TICKS, AFT_WORK_NODE_TICKS, getOmsReceiveNodeLabel } from '@/domain/logistics/common/stages';
 import { getFailureDefinitionByCode } from '@/domain/logistics/common/failures';
 import { buildInjectedFailureEvent } from '../utils/eventHelpers';
 import generateUUID from '@/shared/lib/generateUUID';
-
-function previousStage(stage) {
-    const stages = stage.startsWith('INBOUND_')
-        ? INBOUND_STAGES
-        : stage.startsWith('EOS_')
-            ? EOS_PIPELINE
-            : PIPELINE_STAGES;
-    const index = stages.indexOf(stage);
-    if (index <= 0) return stage;
-    return stages[index - 1];
-}
 
 const TERMINAL_STATUS = {
     cancel_order:       'cancelled',
@@ -44,75 +33,6 @@ function buildRecoveryEvent(task, action, targetStage, targetReceiveNodeKey) {
         correlationId: task.correlationId,
         idempotencyKey: `${task.taskId}:recover:${action.id}`,
     };
-}
-
-async function performPartialShip(task, action) {
-    const shipQty    = Math.max(1, Math.floor(task.quantity / 2));
-    const backQty    = task.quantity - shipQty;
-    const targetStage = action.nextStage ?? 'WMS_PICKING';
-    const targetNodeKey = action.nextReceiveNodeKey ?? getInitialWmsStageWorkNodeKey(targetStage);
-    const clearFailure = {
-        failureReason: undefined, failureCode: undefined, failureLabel: undefined,
-        failureReceiveNodeKey: undefined, failureDomain: undefined, failureType: undefined,
-        failureRecoverable: undefined, failureActions: undefined, failureResumePolicy: undefined,
-    };
-
-    await patchTask(task.taskId, {
-        quantity: shipQty,
-        status: 'active',
-        currentStage: targetStage,
-        receiveNodeKey: targetNodeKey,
-        ticksInCurrentStage: 0,
-        ticksTarget: WMS_WORK_NODE_TICKS,
-        ...clearFailure,
-    });
-
-    const backorderId = generateUUID();
-    const backorderInitStage = 'WMS_RECEIVED';
-    await createTask({
-        taskId: backorderId,
-        type: task.type,
-        correlationId: task.correlationId,
-        owner: task.owner,
-        itemCode: task.itemCode,
-        quantity: backQty,
-        destination: task.destination,
-        currentStage: backorderInitStage,
-        receiveNodeKey: getInitialWmsStageWorkNodeKey(backorderInitStage),
-        status: 'active',
-        actor: task.actor,
-        sourceChannel: task.sourceChannel,
-        ownerView: task.ownerView,
-        zoneCode: task.zoneCode,
-        zoneTemperature: task.zoneTemperature,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        idempotencyKey: `${task.idempotencyKey}:backorder:${backorderId}`,
-        ticksInCurrentStage: 0,
-        ticksTarget: WMS_WORK_NODE_TICKS,
-    });
-
-    seedTickState(task.taskId, WMS_WORK_NODE_TICKS);
-    resumeTask(task.taskId);
-    seedTickState(backorderId, WMS_WORK_NODE_TICKS);
-    resumeTask(backorderId);
-    await resumeIfNeeded();
-
-    await appendEvent(buildRecoveryEvent(task, action, targetStage, targetNodeKey));
-    await appendAuditEvent('audit.recovery.performed', {
-        stage: task.currentStage,
-        actionId: action.id,
-        nextStage: targetStage,
-        backorderId,
-        shipQty,
-        backQty,
-    }, {
-        aggregateId: task.taskId,
-        correlationId: task.correlationId,
-        actor: 'operator',
-    });
-
-    dlog(1, `Logistics.partialShip — 원본 ${shipQty}개 WMS_PICKING, 잔여 ${backQty}개 backorder(${backorderId})`);
 }
 
 export async function performBranchInject(task, failureCode) {
