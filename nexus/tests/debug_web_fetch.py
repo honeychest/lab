@@ -1,4 +1,4 @@
-#!/Users/honey/devcontext/project/home/nexus/.venv/bin/python
+#!/Users/honey/devcontext/project/lab/nexus/.venv/bin/python
 """
 웹 fetch 체인 및 URL 요약 테스트.
 Jina → curl_cffi+trafilatura → BS4 폴백 체인과 전체 요약 파이프라인을 검증합니다.
