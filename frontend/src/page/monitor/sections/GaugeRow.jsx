@@ -6,8 +6,8 @@ export default function GaugeRow({ snapshot, collectedAt }) {
     return (
         <div className={styles.topRow}>
             <div className={styles.gauges}>
-                <GaugeBar label="CPU (AWS m7i-flex.large)" value={snapshot?.cpu ?? null} />
-                <GaugeBar label="RAM (AWS 8 GB)" value={snapshot?.ram ?? null} />
+                <GaugeBar label="CPU" value={snapshot?.cpu ?? null} />
+                <GaugeBar label="RAM" value={snapshot?.ram ?? null} />
                 <GaugeBar label="DISK" value={snapshot?.disk ?? null} />
                 <LastUpdatedChip collectedAt={collectedAt} />
             </div>
