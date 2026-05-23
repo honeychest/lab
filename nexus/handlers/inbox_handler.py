@@ -178,7 +178,7 @@ async def handle_inbox_callback(update: Update, context: ContextTypes.DEFAULT_TY
             try:
                 await notion_service.update_inbox_date(page_id, date_iso)
                 label = _format_date_label(date_iso, today)
-                await query.answer(f"↩ {label}로 연기되었습니다")
+                await query.edit_message_text(f"↩ {label}로 연기: {query.message.text}")
             except Exception as e:
                 logger.warning(f"Notion 업데이트 실패: {e}")
                 await query.answer("❌ 저장에 실패했습니다. 다시 시도해주세요", show_alert=True)
