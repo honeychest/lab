@@ -53,7 +53,7 @@ def _replace_row_by_callback_prefix(markup: InlineKeyboardMarkup, prefix: str, n
     new_keyboard = []
     replaced = False
     for row in markup.inline_keyboard:
-        if not replaced and row and row[0].callback_data and row[0].callback_data.startswith(prefix):
+        if not replaced and row and any(btn.callback_data and btn.callback_data.startswith(prefix) for btn in row):
             new_keyboard.extend(new_rows)
             replaced = True
         else:
