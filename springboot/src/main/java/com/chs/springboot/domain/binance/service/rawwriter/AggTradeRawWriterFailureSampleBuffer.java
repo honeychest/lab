@@ -23,4 +23,14 @@ final class AggTradeRawWriterFailureSampleBuffer {
     List<AggTradeRawWriterKafkaFailureSample> snapshot() {
         return List.copyOf(recentFailures);
     }
+
+    void restore(List<AggTradeRawWriterKafkaFailureSample> samples) {
+        recentFailures.clear();
+        if (samples == null || samples.isEmpty()) {
+            return;
+        }
+        for (AggTradeRawWriterKafkaFailureSample sample : samples) {
+            recentFailures.addLast(sample);
+        }
+    }
 }

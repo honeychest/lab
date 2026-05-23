@@ -119,6 +119,35 @@ final class AggTradeRawWriterTelemetryBucketStore {
         );
     }
 
+    List<AggTradeRawWriterKafkaTelemetryWindow> snapshot() {
+        return buckets.entrySet().stream()
+                .map(entry -> entry.getValue().toWindow(
+                        entry.getKey(),
+                        entry.getKey() + baseBucketMs
+                ))
+                .toList();
+    }
+
+    void restore(List<AggTradeRawWriterKafkaTelemetryWindow> windows) {
+        buckets.clear();
+        if (windows == null || windows.isEmpty()) {
+            return;
+        }
+        for (AggTradeRawWriterKafkaTelemetryWindow window : windows) {
+            WindowAccumulator bucket = new WindowAccumulator();
+            bucket.consumedRecords = window.consumedRecords();
+            bucket.writeSuccessRecords = window.writeSuccessRecords();
+            bucket.invalidRecords = window.invalidRecords();
+            bucket.dlqPublishedRecords = window.dlqPublishedRecords();
+            bucket.dlqPublishFailureRecords = window.dlqPublishFailureRecords();
+            bucket.dbFailureRecords = window.dbFailureRecords();
+            bucket.retrySuccessRecords = window.retrySuccessRecords();
+            bucket.successfulBatches = window.successfulBatches();
+            bucket.failedBatches = window.failedBatches();
+            buckets.put(window.bucketStartMs(), bucket);
+        }
+    }
+
     private WindowAccumulator bucket(long now) {
         long bucketStart = KafkaWindow.startOf(now, baseBucketMs);
         return buckets.computeIfAbsent(bucketStart, ignored -> new WindowAccumulator());
