@@ -23,7 +23,7 @@ from openai import AsyncOpenAI
 from config import settings
 
 # ── LM Studio (OpenAI 호환) 설정 ──────────────────────────────────
-LMSTUDIO_BASE_URL = "http://100.69.229.3:1234/v1"
+LMSTUDIO_BASE_URL = "http://100.69.229.3:2345/v1"
 LMSTUDIO_API_KEY  = "lm-studio"
 LMSTUDIO_TIMEOUT  = 60.0
 

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     NOTION_WORD_DATABASE_ID: str
     NOTION_GRAMMAR_DATABASE_ID: str
     AI_PROVIDER: str = "gemini"
-    LMSTUDIO_BASE_URL: str = "http://100.69.229.3:1234/v1"
+    LMSTUDIO_BASE_URL: str = "http://100.69.229.3:2345/v1"
     LMSTUDIO_API_KEY: str = "lm-studio"
     LMSTUDIO_MODEL: str = ""
     LMSTUDIO_TIMEOUT: float = 60.0
