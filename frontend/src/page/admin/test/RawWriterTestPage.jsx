@@ -33,13 +33,15 @@ const EMPTY_SNAPSHOT = {
     dlqTopic: null,
 };
 
+const DEFAULT_MINUTES = 360;
+
 const EMPTY_WINDOWS = {
-    minutes: 60,
+    minutes: DEFAULT_MINUTES,
     bucketSeconds: 60,
     windows: [],
 };
 
-const MINUTE_PRESETS = [15, 60, 180, 720];
+const MINUTE_PRESETS = [60, 360, 720, 1440];
 
 function formatMode(mode) {
     return mode ? String(mode).toUpperCase() : 'UNKNOWN';
@@ -100,7 +102,7 @@ export default function RawWriterTestPage() {
     const [windows, setWindows] = useState(EMPTY_WINDOWS);
     const [windowsLog, setWindowsLog] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [selectedMinutes, setSelectedMinutes] = useState(60);
+    const [selectedMinutes, setSelectedMinutes] = useState(DEFAULT_MINUTES);
 
     const loadTelemetry = async (minutes = selectedMinutes) => {
         if (loading) return;
