@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'BACKEND_ONLY',  defaultValue: false, description: 'Backend 강제 배포')
+        booleanParam(name: 'FRONTEND_ONLY', defaultValue: false, description: 'Frontend 강제 배포')
+        booleanParam(name: 'NEXUS_ONLY',    defaultValue: false, description: 'Nexus 강제 배포')
+    }
+
     stages {
         stage('Detect Changes') {
             steps {
@@ -17,7 +23,10 @@ pipeline {
             when {
                 allOf {
                     branch 'main'
-                    environment name: 'DEPLOY_BACK', value: 'true'
+                    anyOf {
+                        environment name: 'DEPLOY_BACK', value: 'true'
+                        expression { return params.BACKEND_ONLY }
+                    }
                 }
             }
             steps {
@@ -29,7 +38,10 @@ pipeline {
             when {
                 allOf {
                     branch 'main'
-                    environment name: 'DEPLOY_FRONT', value: 'true'
+                    anyOf {
+                        environment name: 'DEPLOY_FRONT', value: 'true'
+                        expression { return params.FRONTEND_ONLY }
+                    }
                 }
             }
             steps {
@@ -41,7 +53,10 @@ pipeline {
             when {
                 allOf {
                     branch 'main'
-                    environment name: 'DEPLOY_NEXUS', value: 'true'
+                    anyOf {
+                        environment name: 'DEPLOY_NEXUS', value: 'true'
+                        expression { return params.NEXUS_ONLY }
+                    }
                 }
             }
             steps {
