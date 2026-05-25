@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
@@ -44,9 +46,11 @@ public class ForceOrderStreamService {
                 t.setDaemon(false);
                 return t;
             });
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private volatile boolean running = true;
-    private volatile int generation = 0;
+    private final AtomicInteger generation = new AtomicInteger(0);
+    private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
 
     @PostConstruct
     public void start() {
@@ -54,7 +58,8 @@ public class ForceOrderStreamService {
     }
 
     private void connect() {
-        final int myGen = ++generation;
+        final int myGen = generation.incrementAndGet();
+        reconnectPending.set(false);
         scheduler.execute(() -> openStream(myGen));
     }
 
@@ -62,8 +67,7 @@ public class ForceOrderStreamService {
         if (!running) return;
         try {
             log.info("[ForceOrderStream] 연결 시도 (gen={})", myGen);
-            HttpClient.newHttpClient()
-                    .newWebSocketBuilder()
+            httpClient.newWebSocketBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
                     .buildAsync(URI.create(FORCE_ORDER_WS_URL), new java.net.http.WebSocket.Listener() {
                         private final StringBuilder buffer = new StringBuilder();
@@ -145,7 +149,7 @@ public class ForceOrderStreamService {
                         @Override
                         public java.util.concurrent.CompletionStage<?> onClose(java.net.http.WebSocket ws, int statusCode, String reason) {
                             log.warn("[ForceOrderStream] 종료 (gen={}, status={}): {}", myGen, statusCode, reason);
-                            if (myGen == generation) {
+                            if (myGen == generation.get()) {
                                 scheduleReconnect();
                             }
                             return null;
@@ -154,14 +158,14 @@ public class ForceOrderStreamService {
                         @Override
                         public void onError(java.net.http.WebSocket ws, Throwable error) {
                             log.error("[ForceOrderStream] 오류 (gen={}): {}", myGen, error.getMessage());
-                            if (myGen == generation) {
+                            if (myGen == generation.get()) {
                                 scheduleReconnect();
                             }
                         }
                     })
                     .exceptionally(ex -> {
                         log.error("[ForceOrderStream] 연결 실패 (gen={}): {}", myGen, ex.getMessage());
-                        if (myGen == generation) scheduleReconnect();
+                        if (myGen == generation.get()) scheduleReconnect();
                         return null;
                     });
         } catch (Exception e) {
@@ -172,6 +176,7 @@ public class ForceOrderStreamService {
 
     private void scheduleReconnect() {
         if (!running) return;
+        if (!reconnectPending.compareAndSet(false, true)) return;
         scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
     }
 

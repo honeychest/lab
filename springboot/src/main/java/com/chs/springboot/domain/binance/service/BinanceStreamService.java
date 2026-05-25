@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletionStage;
@@ -18,6 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -40,10 +42,11 @@ public class BinanceStreamService {
     private final NotificationService notificationService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private volatile java.net.http.WebSocket binanceWs;
     private volatile boolean running = true;
-    private volatile int connectionGeneration = 0;
+    private final AtomicInteger connectionGeneration = new AtomicInteger(0);
     private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
 
     public BinanceStreamService(BinancePriceWebSocketHandler handler,
@@ -60,15 +63,15 @@ public class BinanceStreamService {
     private void connectToBinance() {
         if (!running) return;
 
-        final int myGeneration = ++connectionGeneration;
+        final int myGeneration = connectionGeneration.incrementAndGet();
         reconnectPending.set(false);
 
         try {
             String url = getStreamUrl();
             log.info("[BinanceStream] upstream connect try (generation={}, symbols={})", myGeneration, SUBSCRIBED_SYMBOLS);
 
-            HttpClient.newHttpClient()
-                    .newWebSocketBuilder()
+            httpClient.newWebSocketBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
                     .buildAsync(URI.create(url), new BinanceListener(myGeneration))
                     .thenAccept(ws -> {
                         this.binanceWs = ws;
@@ -139,7 +142,7 @@ public class BinanceStreamService {
         @Override
         public CompletionStage<?> onClose(java.net.http.WebSocket ws, int statusCode, String reason) {
             log.warn("[BinanceStream] upstream closed (generation={}, status={}): {}", generation, statusCode, reason);
-            if (generation == connectionGeneration) {
+            if (generation == connectionGeneration.get()) {
                 scheduleReconnect();
             }
             return null;
@@ -148,7 +151,7 @@ public class BinanceStreamService {
         @Override
         public void onError(java.net.http.WebSocket ws, Throwable error) {
             log.error("[BinanceStream] upstream error (generation={}): {}", generation, error.getMessage());
-            if (generation == connectionGeneration) {
+            if (generation == connectionGeneration.get()) {
                 notificationService.sendAlert("[BinanceStream] error: " + error.getMessage());
                 scheduleReconnect();
             }

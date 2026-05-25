@@ -1,6 +1,3 @@
-// [AGENT] 단일 Binance WebSocket 스트림 연결/재연결 공통 클래스
-// 연관파일: AggTradeStreamService.java(4개 인스턴스), BinanceStreamService.java, ForceOrderStreamService.java
-// 핵심: 인스턴스별 독립 generation 관리 → 다중 스트림 운영 시 재연결 누락 방지
 package com.chs.springboot.domain.binance.service;
 
 import org.slf4j.Logger;
@@ -10,16 +7,25 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BinanceWebSocketStream {
 
     private static final Logger log = LoggerFactory.getLogger(BinanceWebSocketStream.class);
+    private static final WebSocketConnector SHARED_CONNECTOR = createSharedConnector();
 
     @FunctionalInterface
     public interface MessageListener {
         void onMessage(String json);
+    }
+
+    @FunctionalInterface
+    public interface WebSocketConnector {
+        CompletableFuture<WebSocket> connect(URI uri, WebSocket.Listener listener);
     }
 
     private final String url;
@@ -27,22 +33,32 @@ public class BinanceWebSocketStream {
     private final MessageListener listener;
     private final ScheduledExecutorService scheduler;
     private final long reconnectDelaySeconds;
+    private final WebSocketConnector connector;
 
     private volatile boolean running = true;
-    private volatile int generation = 0;
+    private final AtomicInteger generation = new AtomicInteger(0);
+    private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
     private volatile WebSocket webSocket;
 
     public BinanceWebSocketStream(String url, String logLabel, MessageListener listener,
                                    ScheduledExecutorService scheduler, long reconnectDelaySeconds) {
+        this(url, logLabel, listener, scheduler, reconnectDelaySeconds, SHARED_CONNECTOR);
+    }
+
+    public BinanceWebSocketStream(String url, String logLabel, MessageListener listener,
+                                   ScheduledExecutorService scheduler, long reconnectDelaySeconds,
+                                   WebSocketConnector connector) {
         this.url = url;
         this.logLabel = logLabel;
         this.listener = listener;
         this.scheduler = scheduler;
         this.reconnectDelaySeconds = reconnectDelaySeconds;
+        this.connector = connector;
     }
 
     public void connect() {
-        final int myGen = ++generation;
+        final int myGen = generation.incrementAndGet();
+        reconnectPending.set(false);
         scheduler.execute(() -> openStream(myGen));
     }
 
@@ -62,10 +78,7 @@ public class BinanceWebSocketStream {
         if (!running) return;
         try {
             log.info("[{}] 연결 시도 (gen={})", logLabel, myGen);
-            HttpClient.newHttpClient()
-                    .newWebSocketBuilder()
-                    .connectTimeout(Duration.ofSeconds(10))
-                    .buildAsync(URI.create(url), new WebSocket.Listener() {
+            connector.connect(URI.create(url), new WebSocket.Listener() {
                         @Override
                         public void onOpen(WebSocket ws) {
                             webSocket = ws;
@@ -95,32 +108,40 @@ public class BinanceWebSocketStream {
                         @Override
                         public java.util.concurrent.CompletionStage<?> onClose(WebSocket ws, int statusCode, String reason) {
                             log.warn("[{}] 종료 (gen={}, status={}): {}", logLabel, myGen, statusCode, reason);
-                            if (myGen == generation) scheduleReconnect();
+                            if (myGen == generation.get()) scheduleReconnect();
                             return null;
                         }
 
                         @Override
                         public void onError(WebSocket ws, Throwable error) {
                             log.error("[{}] 오류 (gen={}): {}", logLabel, myGen, error.getMessage());
-                            if (myGen == generation) scheduleReconnect();
+                            if (myGen == generation.get()) scheduleReconnect();
                         }
                     })
                     .whenComplete((ws, error) -> {
                         if (error != null) {
                             log.error("[{}] handshake 실패 (gen={}): {}", logLabel, myGen, error.getMessage());
-                            if (myGen == generation) {
+                            if (myGen == generation.get()) {
                                 scheduleReconnect();
                             }
                         }
                     });
         } catch (Exception e) {
             log.error("[{}] 연결 오류: {}", logLabel, e.getMessage());
-            scheduleReconnect();
+            if (myGen == generation.get()) scheduleReconnect();
         }
     }
 
     private void scheduleReconnect() {
         if (!running) return;
+        if (!reconnectPending.compareAndSet(false, true)) return;
         scheduler.schedule(this::connect, reconnectDelaySeconds, TimeUnit.SECONDS);
+    }
+
+    private static WebSocketConnector createSharedConnector() {
+        HttpClient client = HttpClient.newHttpClient();
+        return (uri, listener) -> client.newWebSocketBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .buildAsync(uri, listener);
     }
 }

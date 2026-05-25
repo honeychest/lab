@@ -13,11 +13,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -39,10 +42,12 @@ public class UpbitStreamService {
     private final UpbitPriceWebSocketHandler handler;
     private final NotificationService notificationService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private volatile java.net.http.WebSocket upbitWs;
     private volatile boolean running = true;
-    private volatile int connectionGeneration = 0;
+    private final AtomicInteger connectionGeneration = new AtomicInteger(0);
+    private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
 
     public UpbitStreamService(UpbitPriceWebSocketHandler handler, NotificationService notificationService) {
         this.handler = handler;
@@ -51,21 +56,22 @@ public class UpbitStreamService {
 
     @PostConstruct
     public void connect() {
-        connectToUpbit(++connectionGeneration);
+        connectToUpbit();
     }
 
-    private void connectToUpbit(int generation) {
+    private void connectToUpbit() {
         if (!running) return;
-        if (generation != connectionGeneration) return;
+        final int generation = connectionGeneration.incrementAndGet();
+        reconnectPending.set(false);
 
         try {
             String subscribePayload = buildSubscribePayload();
 
-            HttpClient.newHttpClient()
-                    .newWebSocketBuilder()
+            httpClient.newWebSocketBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
                     .buildAsync(URI.create(UPBIT_STREAM_URL), new UpbitListener(generation))
                     .thenAccept(ws -> {
-                        if (!running || generation != connectionGeneration) {
+                        if (!running || generation != connectionGeneration.get()) {
                             try {
                                 ws.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "stale connection");
                             } catch (Exception ignored) {
@@ -78,7 +84,7 @@ public class UpbitStreamService {
                         ws.sendText(subscribePayload, true)
                                 .exceptionally(e -> {
                                     log.error("[UpbitStream] subscribe send failed: {}", e.getMessage());
-                                    scheduleReconnect(generation);
+                                    scheduleReconnect();
                                     return null;
                                 });
 
@@ -86,23 +92,19 @@ public class UpbitStreamService {
                     })
                     .exceptionally(e -> {
                         log.error("[UpbitStream] connect failed: {}", e.getMessage());
-                        scheduleReconnect(generation);
+                        scheduleReconnect();
                         return null;
                     });
         } catch (Exception e) {
             log.error("[UpbitStream] connect error: {}", e.getMessage());
-            scheduleReconnect(generation);
+            scheduleReconnect();
         }
     }
 
-    private void scheduleReconnect(int generation) {
+    private void scheduleReconnect() {
         if (!running) return;
-
-        scheduler.schedule(() -> {
-            if (!running) return;
-            if (generation != connectionGeneration) return;
-            connectToUpbit(generation);
-        }, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
+        if (!reconnectPending.compareAndSet(false, true)) return;
+        scheduler.schedule(this::connectToUpbit, RECONNECT_DELAY_SEC, TimeUnit.SECONDS);
     }
 
     private String buildSubscribePayload() {
@@ -175,8 +177,8 @@ public class UpbitStreamService {
         @Override
         public CompletionStage<?> onClose(java.net.http.WebSocket ws, int statusCode, String reason) {
             log.warn("[UpbitStream] upstream closed (generation={}, status={}): {}", generation, statusCode, reason);
-            if (generation == connectionGeneration) {
-                scheduleReconnect(generation);
+            if (generation == connectionGeneration.get()) {
+                scheduleReconnect();
             }
             return null;
         }
@@ -184,9 +186,9 @@ public class UpbitStreamService {
         @Override
         public void onError(java.net.http.WebSocket ws, Throwable error) {
             log.error("[UpbitStream] upstream error (generation={}): {}", generation, error.getMessage());
-            if (generation == connectionGeneration) {
+            if (generation == connectionGeneration.get()) {
                 notificationService.sendAlert("[UpbitStream] error: " + error.getMessage());
-                scheduleReconnect(generation);
+                scheduleReconnect();
             }
         }
 
