@@ -33,15 +33,19 @@ interface TradePanelProps {
 export default function TradePanel({ threshold, canEditThreshold = false, onThresholdChange, onClose }: TradePanelProps) {
     const [thresholdInput, setThresholdInput] = useState('');
     const [thresholdLoading, setThresholdLoading] = useState(false);
+    const [thresholdError, setThresholdError] = useState(false);
 
     const handleThresholdApply = async () => {
         const value = Number(thresholdInput);
         if (!value || value <= 0 || !Number.isInteger(value) || value > 10_000_000) return;
         setThresholdLoading(true);
+        setThresholdError(false);
         try {
             const res = await apiClient.post(`/api/binance/trades/threshold?value=${value}`);
             onThresholdChange(res.data.value);
             setThresholdInput('');
+        } catch {
+            setThresholdError(true);
         } finally {
             setThresholdLoading(false);
         }
@@ -91,9 +95,9 @@ export default function TradePanel({ threshold, canEditThreshold = false, onThre
                     <Button
                         onClick={handleThresholdApply}
                         disabled={thresholdLoading}
-                        className="bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)] h-7 text-xs px-3 shrink-0"
+                        className={`h-7 text-xs px-3 shrink-0 ${thresholdError ? 'bg-red-900/40 hover:bg-red-900/60 text-red-400' : 'bg-[var(--dark-btn-bg)] hover:bg-[var(--dark-border-strong)] text-[var(--dark-text-neutral)]'}`}
                     >
-                        적용
+                        {thresholdError ? '실패' : '적용'}
                     </Button>
                     {onClose && (
                         <Button

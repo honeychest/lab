@@ -33,7 +33,7 @@ function TradeDesktopTradesTable({ trades, newTradeIds, initError }) {
             <TableBody>
                 {trades.length === 0 && !initError && (
                     <TableRow className="border-[var(--dark-border)] hover:bg-transparent">
-                        <TableCell colSpan={8} className="text-center text-[var(--dark-text-secondary)] text-sm py-12">
+                        <TableCell colSpan={7} className="text-center text-[var(--dark-text-secondary)] text-sm py-12">
                             체결 감시 중...
                         </TableCell>
                     </TableRow>

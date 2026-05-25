@@ -7,7 +7,7 @@ export const useTradeMobileLoadMore = ({ trades, loadMore, isMobile }) => {
     const [loadMoreError, setLoadMoreError] = useState(false);
 
     const handleLoadMore = useCallback(async () => {
-        if (!shouldLoadMoreTrades({ isMobile: true, isLoadingMore, tradeCount: trades.length })) return;
+        if (!shouldLoadMoreTrades({ isMobile, isLoadingMore, tradeCount: trades.length })) return;
         const oldestId = getOldestTradeId(trades);
         setIsLoadingMore(true);
         setLoadMoreError(false);
@@ -18,7 +18,7 @@ export const useTradeMobileLoadMore = ({ trades, loadMore, isMobile }) => {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [isLoadingMore, loadMore, trades]);
+    }, [isMobile, isLoadingMore, loadMore, trades]);
 
     useEffect(() => {
         if (!isMobile || !loadMoreRef.current) return;

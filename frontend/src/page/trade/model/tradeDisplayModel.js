@@ -24,16 +24,20 @@ export const formatTime = (tradedAt) =>
         hour12: false,
     });
 
-export const formatPrice = (v) =>
-    parseFloat(v).toLocaleString('en-US', {
+export const formatPrice = (v) => {
+    const n = parseFloat(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+};
 
 export const formatQty = (v) => (v != null ? parseFloat(v).toFixed(4) : '—');
 
 export const formatValue = (v) => {
     const n = parseFloat(v);
+    if (!Number.isFinite(n)) return '—';
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
     return `$${(n / 1_000).toFixed(0)}K`;
 };
@@ -52,4 +56,4 @@ export const formatKrw = (usdValue) => {
     return `${commaInt(krw)}원`;
 };
 
-export const formatTickQtyTotal = (v) => v.toFixed(4);
+export const formatTickQtyTotal = (v) => (v != null ? v.toFixed(4) : '0.0000');

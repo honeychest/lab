@@ -17,7 +17,7 @@ export function useTradeThreshold() {
             const mapped = mapThresholdResponse(r.data);
             setThreshold(mapped.value);
             setServerCanEdit(mapped.canEdit);
-        });
+        }).catch(() => {});
         return () => { cancelled = true; };
     }, []);
 
