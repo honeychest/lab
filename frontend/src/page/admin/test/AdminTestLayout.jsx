@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../../shared/ui/layout/Layout.jsx';
 import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
+import { shouldRedirectToAdminLogin } from '../adminAccessPolicy.js';
 import '../../../styles/themes/monitor-teal.css';
 import styles from './AdminTestLayout.module.css';
 
@@ -21,10 +22,10 @@ export default function AdminTestLayout() {
     const { canAccess, isForbidden } = useAdminAuth();
 
     useEffect(() => {
-        if (isForbidden) {
+        if (shouldRedirectToAdminLogin({ canAccess, isForbidden })) {
             navigate('/admin/login', { replace: true, state: { from: location.pathname } });
         }
-    }, [isForbidden, navigate, location.pathname]);
+    }, [canAccess, isForbidden, navigate, location.pathname]);
 
     if (canAccess === null) {
         return (
@@ -37,7 +38,7 @@ export default function AdminTestLayout() {
     if (!canAccess) {
         return (
             <Layout footerCenter={['Admin', 'Test']}>
-                <div className={`${styles.layout} ${styles.mutedBox}`}>접근 권한이 없습니다.</div>
+                <div className={`${styles.layout} ${styles.mutedBox}`}>로그인 페이지로 이동 중...</div>
             </Layout>
         );
     }

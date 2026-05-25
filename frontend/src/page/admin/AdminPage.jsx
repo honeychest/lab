@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../shared/ui/layout/Layout.jsx';
 import { useAdminAuth } from '@/shared/auth/useAdminAuth.js';
+import { shouldRedirectToAdminLogin } from './adminAccessPolicy.js';
 import styles from './AdminPage.module.css';
 import '../../styles/themes/monitor-teal.css';
 import useFeatureFlags from './hooks/useFeatureFlags';
@@ -47,10 +48,10 @@ export default function AdminPage() {
     const [sampleOpen, setSampleOpen] = useState(false);
 
     useEffect(() => {
-        if (isForbidden) {
+        if (shouldRedirectToAdminLogin({ canAccess, isForbidden })) {
             navigate('/admin/login', { replace: true, state: { from: location.pathname } });
         }
-    }, [isForbidden, navigate, location.pathname]);
+    }, [canAccess, isForbidden, navigate, location.pathname]);
 
     if (canAccess === null) {
         return (
@@ -68,7 +69,7 @@ export default function AdminPage() {
             <Layout footerCenter={['Admin', 'Redis', 'MySQL', 'Backfill']} enableSupport={false}>
                 <div className={styles.page}>
                     <div className={styles.card}>
-                        <div className={styles.title}>접근 권한이 없습니다.</div>
+                        <div className={styles.muted}>로그인 페이지로 이동 중...</div>
                     </div>
                 </div>
             </Layout>
