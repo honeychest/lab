@@ -444,7 +444,7 @@ export function useBinanceWebSocket(selectedSymbol: string): UseBinanceWebSocket
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             const ws = wsRef.current;
             if (ws) {
-                // CONNECTING 상태에서 close()하면 브라우저가 "closed before the connection is established" 로그를 남김(Strict Mode 클린업). 닫지 않고 ref만 끊으면, 나중에 onopen 시 isManualClose로 닫음.
+                // CONNECTING 상태에서 close()하면 브라우저가 "closed before the connection is established" 로그를 남김(Strict Mode 클린업). 닫지 않고 ref만 끊으면, 나중에 onopen 시 effectSeq 가드가 ws.close()를 호출해 정리함.
                 if (ws.readyState === WebSocket.CONNECTING) {
                     wsRef.current = null;
                 } else {

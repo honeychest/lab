@@ -17,9 +17,11 @@ import {
 } from '../../domain/binance/model/market/binanceMarketSelection.js';
 import { buildBinanceLiveStatus } from '../../domain/binance/model/status/binanceLiveStatus.js';
 
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 function BinancePage() {
+    const prefersReducedMotion = useMemo(
+        () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        [],
+    );
     const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
     const [selectedSymbol, setSelectedSymbol] = useState(BINANCE_MARKETS[0].symbol);
     const { ticker, status } = useBinanceWebSocket(selectedSymbol);
