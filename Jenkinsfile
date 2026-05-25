@@ -11,7 +11,13 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    def changed = sh(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim()
+                    def changed = sh(script: '''
+                        if git rev-parse HEAD^2 > /dev/null 2>&1; then
+                            git diff --name-only HEAD^1 HEAD^2
+                        else
+                            git diff --name-only HEAD~1 HEAD
+                        fi
+                    ''', returnStdout: true).trim()
                     env.DEPLOY_BACK  = changed.contains('springboot/') ? 'true' : 'false'
                     env.DEPLOY_FRONT = changed.contains('frontend/')   ? 'true' : 'false'
                     env.DEPLOY_NEXUS = changed.contains('nexus/')      ? 'true' : 'false'
