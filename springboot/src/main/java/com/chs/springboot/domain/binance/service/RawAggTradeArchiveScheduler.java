@@ -18,6 +18,8 @@ import java.time.ZoneOffset;
 @Service
 public class RawAggTradeArchiveScheduler {
 
+    private static final int MAX_CONSECUTIVE_FAILURES = 3;
+
     private final RawAggTradeRepository rawAggTradeRepository;
     private final S3ArchiveService s3ArchiveService;
     private final MetricCollectorService metricCollectorService;
@@ -25,11 +27,15 @@ public class RawAggTradeArchiveScheduler {
     @Value("${spring.task.scheduling.enabled:true}")
     private boolean schedulingEnabled;
 
-    @Value("${archive.retention-days:15}")
+    @Value("${archive.retention-days:3}")
     private int retentionDays;
 
     @Value("${archive.cpu-max-percent:70.0}")
     private double cpuMaxPercent;
+
+    private int consecutiveFailures = 0;
+    private boolean disabled = false;
+    private String lastFailureMessage;
 
     public RawAggTradeArchiveScheduler(RawAggTradeRepository rawAggTradeRepository,
                                        S3ArchiveService s3ArchiveService,
@@ -50,13 +56,19 @@ public class RawAggTradeArchiveScheduler {
     public void run() {
         if (!schedulingEnabled) return;
 
+        if (disabled) {
+            log.warn("[Archive] S3 연속 {}회 실패로 비활성화 상태 — 스킵 (마지막 에러: {})",
+                    MAX_CONSECUTIVE_FAILURES, lastFailureMessage);
+            return;
+        }
+
         double cpu = metricCollectorService.getLastCpu();
         if (cpu >= 0 && cpu >= cpuMaxPercent) {
             log.warn("[Archive] CPU={}% 초과 — 스킵 (임계값={}%)", String.format("%.1f", cpu), cpuMaxPercent);
             return;
         }
 
-        long retentionMs = (long) retentionDays * 24 * 60 * 60 * 1_000; // retentionDays * 하루치 밀리세컨드
+        long retentionMs = (long) retentionDays * 24 * 60 * 60 * 1_000;
         long cutoffMs = System.currentTimeMillis() - retentionMs;
 
         Long minTradedAt = rawAggTradeRepository.findMinTradedAtBefore(cutoffMs);
@@ -73,6 +85,38 @@ public class RawAggTradeArchiveScheduler {
         long endMs = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
 
         log.warn("[Archive] 시작: date={} cpu={}%", date, String.format("%.1f", cpu));
-        s3ArchiveService.archive(startMs, endMs, "SCHEDULER");
+        S3ArchiveService.ArchiveResult result = s3ArchiveService.archive(startMs, endMs, "SCHEDULER");
+
+        if (result.success()) {
+            consecutiveFailures = 0;
+        } else {
+            consecutiveFailures++;
+            lastFailureMessage = result.errorMessage();
+            log.error("[Archive] 실패 ({}/{}): {}", consecutiveFailures, MAX_CONSECUTIVE_FAILURES, lastFailureMessage);
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                disabled = true;
+                log.error("[Archive] 연속 {}회 실패 — 스케줄러 비활성화. POST /api/admin/archive/scheduler-reset 으로 복구 필요",
+                        MAX_CONSECUTIVE_FAILURES);
+            }
+        }
+    }
+
+    public void reset() {
+        this.consecutiveFailures = 0;
+        this.disabled = false;
+        this.lastFailureMessage = null;
+        log.warn("[Archive] 스케줄러 수동 리셋 완료 — 다음 주기부터 재시도");
+    }
+
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    public int getConsecutiveFailures() {
+        return consecutiveFailures;
+    }
+
+    public String getLastFailureMessage() {
+        return lastFailureMessage;
     }
 }

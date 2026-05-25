@@ -8,6 +8,7 @@ package com.chs.springboot.domain.binance.controller;
 
 import com.chs.springboot.domain.binance.repository.RawAggTradeRepository;
 import com.chs.springboot.domain.binance.service.ArchiveScanService;
+import com.chs.springboot.domain.binance.service.RawAggTradeArchiveScheduler;
 import com.chs.springboot.domain.binance.service.S3ArchiveService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,13 +23,16 @@ public class ArchiveAdminController {
     private final RawAggTradeRepository rawAggTradeRepository;
     private final S3ArchiveService s3ArchiveService;
     private final ArchiveScanService archiveScanService;
+    private final RawAggTradeArchiveScheduler archiveScheduler;
 
     public ArchiveAdminController(RawAggTradeRepository rawAggTradeRepository,
                                   S3ArchiveService s3ArchiveService,
-                                  ArchiveScanService archiveScanService) {
+                                  ArchiveScanService archiveScanService,
+                                  RawAggTradeArchiveScheduler archiveScheduler) {
         this.rawAggTradeRepository = rawAggTradeRepository;
         this.s3ArchiveService = s3ArchiveService;
         this.archiveScanService = archiveScanService;
+        this.archiveScheduler = archiveScheduler;
     }
 
     /** 아카이빙 실행 전 대상 건수 조회 */
@@ -73,5 +77,23 @@ public class ArchiveAdminController {
     public ResponseEntity<ArchiveScanService.ScanResult> scan() {
         ArchiveScanService.ScanResult result = archiveScanService.scan();
         return ResponseEntity.ok(result);
+    }
+
+    /** 아카이브 스케줄러 상태 조회 */
+    @GetMapping("/scheduler-status")
+    public ResponseEntity<Map<String, Object>> schedulerStatus() {
+        return ResponseEntity.ok(Map.of(
+                "disabled", archiveScheduler.isDisabled(),
+                "consecutiveFailures", archiveScheduler.getConsecutiveFailures(),
+                "lastFailureMessage", archiveScheduler.getLastFailureMessage() != null
+                        ? archiveScheduler.getLastFailureMessage() : ""
+        ));
+    }
+
+    /** 아카이브 스케줄러 수동 리셋 (S3 연속 실패로 비활성화된 경우) */
+    @PostMapping("/scheduler-reset")
+    public ResponseEntity<Map<String, String>> schedulerReset() {
+        archiveScheduler.reset();
+        return ResponseEntity.ok(Map.of("status", "reset_complete"));
     }
 }

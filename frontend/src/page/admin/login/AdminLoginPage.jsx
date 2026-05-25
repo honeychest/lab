@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
     };
 
     return (
-        <Layout footerCenter={['Admin', 'Login']} enableSupport={false}>
+        <Layout footerCenter={['Admin', 'Login', 'PBKDF2', 'JWT']} enableSupport={false}>
             <div className={styles.wrap}>
                 <form className={styles.card} onSubmit={handleSubmit}>
                     <div className={styles.header}>
