@@ -16,7 +16,7 @@ x-logging: &default-logging
     max-file: "3"
 
 x-common: &common
-  image: localhost:5000/chsproject-docker:latest
+  image: localhost:5010/chsproject-docker:latest
   env_file:
     - .env
   networks:
@@ -68,7 +68,7 @@ services:
 
 
   nexus:
-    image: localhost:5000/chs-nexus:latest
+    image: localhost:5010/chs-nexus:latest
     container_name: chs-nexus
     env_file:
       - /Users/honey/devcontext/project/lab/nexus/.env
@@ -85,7 +85,7 @@ services:
           memory: 256M
 
   frontend:
-    image: localhost:5000/chs-frontend:latest
+    image: localhost:5010/chs-frontend:latest
     container_name: chs-frontend
     ports:
       - "127.0.0.1:3000:80"

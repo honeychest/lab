@@ -169,7 +169,7 @@ services:
     image: registry:2
     container_name: chs-registry
     ports:
-      - "5000:5000"
+      - "5010:5000"
     volumes:
       - ${VOLUMES_BASE}/registry:/var/lib/registry
     networks:
@@ -186,7 +186,7 @@ services:
     image: joxit/docker-registry-ui:latest
     container_name: chs-registry-ui
     ports:
-      - "127.0.0.1:5001:80"
+      - "127.0.0.1:5011:80"
     environment:
       - REGISTRY_URL=http://chs-registry:5000
       - SINGLE_REGISTRY=true
