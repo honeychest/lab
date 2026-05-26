@@ -39,6 +39,7 @@ def _stage_icon(stage: int) -> str:
 
 def _format_quiz_body(word: str, meaning_ko: str, stage: int, question: str) -> str:
     """stage별 문제 본문 포맷. stage 3은 첫글자 힌트 + 뜻 + 상황 문장."""
+    logger.info(f"[debug] _format_quiz_body: word={word!r}, stage={stage!r} (type={type(stage).__name__}), meaning_ko={meaning_ko!r}")
     if stage >= 3:
         first_letter_hint = " ".join(w[0] + "____" for w in word.split())
         return f"{first_letter_hint} {meaning_ko}\n{question}"
