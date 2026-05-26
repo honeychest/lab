@@ -1,0 +1,105 @@
+# Purpose: 로컬 .env 설정을 유지하면서, Docker 환경에서만 DB 주소를 가로채서 변경함
+x-logging: &default-logging
+  driver: json-file
+  options:
+    # Docker 컨테이너 표준출력/표준에러 로그 설정 확인:
+    # 현재 컨테이너에 적용된 로그 드라이버와 옵션 확인
+    # docker inspect <container> --format '{{json .HostConfig.LogConfig}}'
+    # 현재 컨테이너 로그 파일의 실제 경로 확인
+    # docker inspect <container> --format '{{.LogPath}}'
+    # 현재 활성 로그 파일 크기 확인
+    # ls -lh "$(docker inspect <container> --format '{{.LogPath}}')"
+    # 롤링된 로그 파일까지 포함한 전체 로그 파일 개수와 크기 확인
+    # ls -lh "$(dirname "$(docker inspect <container> --format '{{.LogPath}}')")"
+    # 의미: 컨테이너 stdout/stderr 로그를 파일당 50MB, 최대 3개까지 보관
+    max-size: "50m"
+    max-file: "3"
+
+x-common: &common
+  image: localhost:5000/chsproject-docker:latest
+  env_file:
+    - .env
+  networks:
+    - chs-network
+  restart: always
+  logging: *default-logging
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro # Docker 소켓 접근 권한 필요 모니터링에서 조회하기위해 명령어 날리려고.
+  environment: &common-env
+    RABBIT_HOST: ${RABBIT_HOST}
+    RABBIT_USERNAME: ${RABBIT_USERNAME}
+    RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+    JAVA_OPTS: -Xms128m -Xmx512m -XX:+UseSerialGC
+    DATASOURCE_URL: jdbc:mysql://mysql-db:3306/lab-db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    REDIS_HOST: chs-redis
+        # 앱 컨테이너는 Docker 네트워크 내부 listener로 Kafka에 접속
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+services:
+  app1:
+    <<: *common
+    container_name: chs-app-1
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      <<: *common-env
+      SERVER_NAME: DOCKER1
+      TELEGRAM_MODE: polling
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+
+  app2:
+    <<: *common
+    container_name: chs-app-2
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      <<: *common-env
+      SERVER_NAME: DOCKER2
+      TELEGRAM_MODE: polling
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+
+
+  nexus:
+    image: localhost:5000/chs-nexus:latest
+    container_name: chs-nexus
+    env_file:
+      - /Users/honey/devcontext/project/lab/nexus/.env
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+    environment:
+      REDIS_URL: redis://chs-redis:6379
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 256M
+
+  frontend:
+    image: localhost:5000/chs-frontend:latest
+    container_name: chs-frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 64M
+
+networks:
+  chs-network:
+    name: chs-network
+    external: true

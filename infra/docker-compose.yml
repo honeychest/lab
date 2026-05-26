@@ -1,0 +1,199 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    # 확인:
+    # 현재 컨테이너에 적용된 로그 드라이버와 옵션 확인
+    # docker inspect <container> --format '{{json .HostConfig.LogConfig}}'
+    # 현재 컨테이너 로그 파일의 실제 경로 확인
+    # docker inspect <container> --format '{{.LogPath}}'
+    # 현재 활성 로그 파일 크기 확인
+    # ls -lh "$(docker inspect <container> --format '{{.LogPath}}')"
+    # 롤링된 로그 파일까지 포함한 전체 로그 파일 개수와 크기 확인
+    # ls -lh "$(dirname "$(docker inspect <container> --format '{{.LogPath}}')")"
+    # 의미: 컨테이너 stdout/stderr 로그를 파일당 50MB, 최대 3개까지 보관
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    logging: *default-logging
+    networks:
+      - chs-network
+    env_file: .env
+    environment:
+      MYSQL_DATABASE: lab-db
+      MYSQL_ROOT_PASSWORD: ${USER_PASSWORD}
+    command:
+      - --max_execution_time=300000 # 5분이상 걸리는 쿼리 강제 킬 (배치작업시 주의)
+      - --wait_timeout=600 # 10분간 idle 인 커넥션 종료
+      - --interactive_timeout=600
+      - --innodb_buffer_pool_size=256MB # 96MB (기본 128MB에서 축소)
+      - --performance_schema=OFF # 50~100MB 절약, information_schema는 정상 동작
+      - --slow_query_log=ON # 느린 쿼리 로깅
+      - --long_query_time=5 # 5초 이상 쿼리 기록
+      # 확인:
+      # MySQL 바이너리 로그 사용 여부 확인
+      # docker exec -it mysql-db mysql -uroot -p"$USER_PASSWORD" -e "SHOW VARIABLES LIKE 'log_bin';"
+      # 현재 남아 있는 binlog 파일 목록과 각 파일 크기 확인
+      # docker exec -it mysql-db mysql -uroot -p"$USER_PASSWORD" -e "SHOW BINARY LOGS;"
+      # binlog 파일 1개 최대 크기 설정 확인
+      # docker exec -it mysql-db mysql -uroot -p"$USER_PASSWORD" -e "SHOW VARIABLES LIKE 'max_binlog_size';"
+      # binlog 자동 삭제 보관 기간(초) 설정 확인
+      # docker exec -it mysql-db mysql -uroot -p"$USER_PASSWORD" -e "SHOW VARIABLES LIKE 'binlog_expire_logs_seconds';"
+      - --max_binlog_size=209715200 # binlog 파일 하나당 200MB 제한
+      - --binlog_expire_logs_seconds=259200 # binlog 3일치만 유지
+    ports:
+      - "3306:3306"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+    volumes:
+      - ${VOLUMES_BASE}/mysql:/var/lib/mysql # 컨테이너가 죽어도 데이터는 서버에 남게 함
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: chs-rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    container_name: chs-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+    command:
+      - redis-server
+      - --appendonly
+      - yes
+      - --auto-aof-rewrite-percentage
+      - "100"
+      - --auto-aof-rewrite-min-size
+      - 64mb
+    # 확인:
+    # Redis AOF 영속화 사용 여부 확인
+    # docker exec -it chs-redis redis-cli CONFIG GET appendonly
+    # AOF 자동 재작성 비율 기준 확인
+    # docker exec -it chs-redis redis-cli CONFIG GET auto-aof-rewrite-percentage
+    # AOF 자동 재작성 최소 크기 기준 확인
+    # docker exec -it chs-redis redis-cli CONFIG GET auto-aof-rewrite-min-size
+    # 현재 AOF rewrite 진행 상태와 persistence 상태값 확인
+    # docker exec -it chs-redis redis-cli INFO persistence
+    # 실제 Redis 데이터/AOF 파일들이 차지하는 디스크 사용량과 파일 목록 확인
+    # docker exec -it chs-redis sh -lc 'du -sh /data && find /data -maxdepth 2 -type f | sort'
+    volumes:
+      - ${VOLUMES_BASE}/redis:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+
+  # Binance aggTrade 원천 이벤트를 먼저 받아둘 단일 노드 Kafka.
+  # DB writer/실시간 시그널/gap detector를 consumer group으로 분리하기 위한 인프라.
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: chs-kafka
+    networks:
+      - chs-network
+    restart: always
+    ports:
+      # 호스트에서 CLI/디버깅용으로 접근할 때만 사용. AWS 보안그룹에 public open 금지.
+      - "127.0.0.1:9094:9094"
+    logging: *default-logging
+    environment:
+      # KRaft 단일 노드 모드: ZooKeeper 없이 broker와 controller를 같은 컨테이너에서 실행
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # PLAINTEXT는 컨테이너 내부 통신, EXTERNAL은 호스트 CLI 접근용
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # 단일 브로커라 내부 topic replication도 1로 고정
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # topic 오타로 인한 자동 생성 방지. 필요한 topic은 runbook대로 명시 생성.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      # shadow 검증 / 재시작 검증 / 지연 분석 시간을 확보하기 위해 24h 보관.
+      # partition당 최대 1GB까지 보관하고, segment 파일은 256MB 단위로 롤링.
+      # 확인:
+      # Kafka 시간 기준 보관 설정 확인
+      # docker exec -it chs-kafka printenv | grep KAFKA_LOG_RETENTION_HOURS
+      # Kafka 파티션당 최대 보관 용량 설정 확인
+      # docker exec -it chs-kafka printenv | grep KAFKA_LOG_RETENTION_BYTES
+      # Kafka 세그먼트 파일 1개당 최대 크기 설정 확인
+      # docker exec -it chs-kafka printenv | grep KAFKA_LOG_SEGMENT_BYTES
+      # 실제 Kafka 데이터 디렉터리 사용량과 저장 파일 예시 확인
+      # docker exec -it chs-kafka sh -lc 'du -sh /var/lib/kafka/data && find /var/lib/kafka/data -maxdepth 3 -type f | head'
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
+      # 컨테이너 메모리 안에서 Kafka JVM heap은 512M로 제한
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - ${VOLUMES_BASE}/kafka:/var/lib/kafka/data
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2048M
+
+  registry:
+    image: registry:2
+    container_name: chs-registry
+    ports:
+      - "5000:5000"
+    volumes:
+      - ${VOLUMES_BASE}/registry:/var/lib/registry
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    container_name: chs-registry-ui
+    ports:
+      - "127.0.0.1:5001:80"
+    environment:
+      - REGISTRY_URL=http://chs-registry:5000
+      - SINGLE_REGISTRY=true
+      - DELETE_IMAGES=true
+    networks:
+      - chs-network
+    restart: always
+    logging: *default-logging
+    depends_on:
+      - registry
+
+networks:
+  chs-network:
+    name: chs-network
+    external: true
