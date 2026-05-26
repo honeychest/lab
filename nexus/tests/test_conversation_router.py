@@ -11,19 +11,15 @@ def _run(coro):
 
 
 class FakeConversationState:
-    def __init__(self, *, law_active=False, quiz_state=None, quiz_paused=False):
+    def __init__(self, *, law_active=False, quiz_state=None):
         self.law_active = law_active
         self.quiz_state = quiz_state
-        self.quiz_paused = quiz_paused
 
     async def is_law_active(self):
         return self.law_active
 
     async def get_quiz_state(self):
         return self.quiz_state
-
-    async def is_quiz_paused(self):
-        return self.quiz_paused
 
 
 class TestConversationRouter(unittest.TestCase):

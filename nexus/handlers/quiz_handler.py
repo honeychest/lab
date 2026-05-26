@@ -20,16 +20,7 @@ def _quiz_buttons() -> InlineKeyboardMarkup:
         InlineKeyboardButton("힌트", callback_data="quiz:hint"),
         InlineKeyboardButton("질문", callback_data="quiz:word_query"),
         InlineKeyboardButton("실패", callback_data="quiz:fail"),
-        InlineKeyboardButton("중지", callback_data="quiz:pause"),
-    ]])
-
-
-def _quiz_pause_buttons() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("힌트", callback_data="quiz:hint"),
-        InlineKeyboardButton("질문", callback_data="quiz:word_query"),
-        InlineKeyboardButton("실패", callback_data="quiz:fail"),
-        InlineKeyboardButton("재개", callback_data="quiz:resume"),
+        InlineKeyboardButton("중지", callback_data="quiz:stop"),
     ]])
 
 
@@ -226,7 +217,6 @@ async def handle_quiz_start_callback(update: Update, context: ContextTypes.DEFAU
     chat_id = query.message.chat_id
 
     qs = QuizSession(chat_id)
-    await qs.resume()
 
     count = await qs.get_count()
     if not count or count <= 0:
@@ -319,17 +309,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             reply_markup=_quiz_buttons(),
         )
 
-    elif data == "quiz:pause":
-        await qs.pause()
-        await query.edit_message_reply_markup(reply_markup=_quiz_pause_buttons())
-
-    elif data == "quiz:resume":
-        await qs.resume()
-        session = await qs.get_session()
-        if not session:
-            await query.answer("퀴즈 세션이 만료됐어요. 내일 다시 시작해요!", show_alert=True)
-            return
-        await query.edit_message_reply_markup(reply_markup=_quiz_buttons())
+    elif data == "quiz:stop":
+        await qs.clear_active()
+        await query.edit_message_text("퀴즈를 중지했어요. 다음 시간에 이어서 풀 수 있어요 ✋")
 
     elif data == "quiz:fail":
         result = await create_quiz_flow(chat_id).fail_current_quiz()
@@ -356,5 +338,4 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     elif data == "quiz:end":
         await qs.clear_active()
-        await qs.resume()
         await query.edit_message_text("오늘은 여기까지! 내일 또 봐요 💪")

@@ -25,7 +25,7 @@ class ConversationRouter:
         if text.startswith("/"):
             return ConversationIntent("ignored_command", text)
 
-        if await self._state.get_quiz_state() == "quiz" and not await self._state.is_quiz_paused():
+        if await self._state.get_quiz_state() == "quiz":
             return ConversationIntent("quiz_answer", text)
 
         if not _contains_hangul(text):
@@ -49,9 +49,6 @@ class RedisConversationState:
 
     async def get_quiz_state(self) -> str | None:
         return await self._quiz.get_state()
-
-    async def is_quiz_paused(self) -> bool:
-        return await self._quiz.is_paused()
 
 
 def _contains_hangul(text: str) -> bool:

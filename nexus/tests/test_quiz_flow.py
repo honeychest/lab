@@ -15,10 +15,11 @@ class FakeQuizSession:
         self.progress = progress
         self.saved_session = None
         self.state = None
-        self.resumed = False
         self.prefetch_cleared = False
         self.count_reset = False
         self.current_session = None
+        self.count_value = None
+        self.total_value = None
 
     async def consume_count(self):
         return self.progress
@@ -32,14 +33,22 @@ class FakeQuizSession:
     async def set_state(self, state):
         self.state = state
 
-    async def resume(self):
-        self.resumed = True
-
     async def clear_prefetch(self):
         self.prefetch_cleared = True
 
     async def reset_count(self):
         self.count_reset = True
+
+    async def set_count(self, n):
+        self.count_value = n
+
+    async def clear_state(self):
+        self.state = None
+
+    async def clear_active(self):
+        self.state = None
+        self.current_session = None
+        self.prefetch_cleared = True
 
 
 class FakeWordSource:
@@ -159,7 +168,6 @@ class TestQuizFlowAutoStart(unittest.TestCase):
         result = _run(flow.start_practice_quiz())
 
         self.assertIsInstance(result, QuizTurn)
-        self.assertTrue(session.resumed)
         self.assertTrue(session.prefetch_cleared)
         self.assertTrue(session.count_reset)
         self.assertEqual(result.progress, "[🔄]")
@@ -353,6 +361,115 @@ class TestQuizFlowAutoStart(unittest.TestCase):
         self.assertEqual(result.collocation_errors, ["eat an apple"])
         self.assertEqual(grammar_pending.saved["expression"], "apple")
         self.assertEqual(updater.calls, [("word-page", True)])
+
+
+class FakeRedis:
+    """session.py 단위 테스트용 인메모리 Redis."""
+
+    def __init__(self):
+        self._store: dict[str, str] = {}
+        self._ttls: dict[str, int] = {}
+
+    async def get(self, key):
+        return self._store.get(key)
+
+    async def set(self, key, value, ex=None):
+        self._store[key] = str(value)
+        if ex:
+            self._ttls[key] = ex
+
+    async def delete(self, *keys):
+        for k in keys:
+            self._store.pop(k, None)
+            self._ttls.pop(k, None)
+
+    async def decr(self, key):
+        val = int(self._store.get(key, "0")) - 1
+        self._store[key] = str(val)
+        return val
+
+    async def expire(self, key, ttl):
+        self._ttls[key] = ttl
+
+    async def getdel(self, key):
+        val = self._store.pop(key, None)
+        self._ttls.pop(key, None)
+        return val
+
+
+class TestQuizSessionResetCount(unittest.TestCase):
+    """reset_count()가 total_k도 동기화하는지 검증."""
+
+    def setUp(self):
+        import session as session_mod
+        self.fake_redis = FakeRedis()
+        self._orig_redis = session_mod._redis
+        session_mod._redis = self.fake_redis
+        self.session = session_mod.QuizSession(chat_id=1)
+
+    def tearDown(self):
+        import session as session_mod
+        session_mod._redis = self._orig_redis
+
+    def test_reset_count_sets_both_count_and_total(self):
+        _run(self.session.reset_count())
+
+        count = _run(self.fake_redis.get(self.session._count_k))
+        total = _run(self.fake_redis.get(self.session._total_k))
+
+        self.assertEqual(count, str(self.session.DAILY_QUIZ_LIMIT))
+        self.assertEqual(total, str(self.session.DAILY_QUIZ_LIMIT))
+
+    def test_reset_count_then_consume_returns_correct_progress(self):
+        _run(self.session.reset_count())
+        result = _run(self.session.consume_count())
+
+        self.assertIsNotNone(result)
+        remaining, total = result
+        self.assertEqual(total, self.session.DAILY_QUIZ_LIMIT)
+        self.assertEqual(remaining, self.session.DAILY_QUIZ_LIMIT - 1)
+
+    def test_reset_count_overwrites_stale_total(self):
+        _run(self.fake_redis.set(self.session._total_k, "999"))
+        _run(self.session.reset_count())
+
+        total = _run(self.fake_redis.get(self.session._total_k))
+        self.assertEqual(total, str(self.session.DAILY_QUIZ_LIMIT))
+
+
+class TestQuizSessionSetCount(unittest.TestCase):
+    """set_count(n)는 count_k만 설정하고 total_k는 건드리지 않는지 검증."""
+
+    def setUp(self):
+        import session as session_mod
+        self.fake_redis = FakeRedis()
+        self._orig_redis = session_mod._redis
+        session_mod._redis = self.fake_redis
+        self.session = session_mod.QuizSession(chat_id=1)
+
+    def tearDown(self):
+        import session as session_mod
+        session_mod._redis = self._orig_redis
+
+    def test_set_count_only_sets_count(self):
+        _run(self.fake_redis.set(self.session._total_k, "15"))
+        _run(self.session.set_count(10))
+
+        count = _run(self.fake_redis.get(self.session._count_k))
+        total = _run(self.fake_redis.get(self.session._total_k))
+
+        self.assertEqual(count, "10")
+        self.assertEqual(total, "15")
+
+    def test_set_count_zero_preserves_total(self):
+        _run(self.fake_redis.set(self.session._total_k, "15"))
+        _run(self.session.set_count(0))
+
+        count = _run(self.fake_redis.get(self.session._count_k))
+        total = _run(self.fake_redis.get(self.session._total_k))
+
+        self.assertEqual(count, "0")
+        self.assertEqual(total, "15")
 
 
 if __name__ == "__main__":

@@ -98,7 +98,6 @@ class QuizFlow:
         )
 
     async def start_practice_quiz(self) -> QuizTurn | NoQuizAvailable:
-        await self._session.resume()
         await self._session.clear_prefetch()
         await self._session.reset_count()
 

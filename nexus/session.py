@@ -71,7 +71,6 @@ class QuizSession:
         self._state_k    = f"nexus:quiz:state:{c}"
         self._count_k    = f"nexus:quiz:count:{c}"
         self._total_k    = f"nexus:quiz:total:{c}"
-        self._pause_k    = f"nexus:quiz:pause:{c}"
         self._prefetch_k = f"nexus:quiz:prefetch:{c}"
 
     # ── 세션 (현재 문제 데이터) ─────────────────────────────────────────────────
@@ -94,17 +93,6 @@ class QuizSession:
     async def clear_state(self) -> None:
         await _redis.delete(self._state_k)
 
-    # ── 일시정지 ────────────────────────────────────────────────────────────────
-
-    async def is_paused(self) -> bool:
-        return bool(await _redis.get(self._pause_k))
-
-    async def pause(self) -> None:
-        await _redis.set(self._pause_k, "1")
-
-    async def resume(self) -> None:
-        await _redis.delete(self._pause_k)
-
     # ── Prefetch ────────────────────────────────────────────────────────────────
 
     async def pop_prefetch(self) -> dict | None:
@@ -125,7 +113,9 @@ class QuizSession:
 
     async def reset_count(self) -> None:
         """DAILY_QUIZ_LIMIT으로 초기화 (/quiz 명령)."""
-        await _redis.set(self._count_k, self.DAILY_QUIZ_LIMIT, ex=_ttl())
+        ttl = _ttl()
+        await _redis.set(self._count_k, self.DAILY_QUIZ_LIMIT, ex=ttl)
+        await _redis.set(self._total_k, self.DAILY_QUIZ_LIMIT, ex=ttl)
 
     async def init_count(self, n: int) -> None:
         """오늘의 due words 수로 count + total 동시 초기화 (09시 스케줄러)."""
@@ -163,12 +153,12 @@ class QuizSession:
     # ── 생명주기 ────────────────────────────────────────────────────────────────
 
     async def clear_active(self) -> None:
-        """퀴즈 완료/종료 — state + session 삭제."""
-        await _redis.delete(self._state_k, self._session_k)
+        """퀴즈 완료/종료 — state + session + prefetch 삭제."""
+        await _redis.delete(self._state_k, self._session_k, self._prefetch_k)
 
     async def clear_all(self) -> None:
         """/exit 전체 초기화 — 4개 키 삭제."""
-        await _redis.delete(self._session_k, self._state_k, self._pause_k, self._prefetch_k)
+        await _redis.delete(self._session_k, self._state_k, self._prefetch_k)
 
 
 # ── 도메인별 서브클래스 ────────────────────────────────────────────────────────
