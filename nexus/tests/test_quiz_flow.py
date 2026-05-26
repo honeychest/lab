@@ -125,7 +125,7 @@ class TestQuizFlowAutoStart(unittest.TestCase):
         self.assertIsInstance(result, QuizTurn)
         self.assertEqual(result.progress, "[1/5]")
         self.assertEqual(result.word, "apple")
-        self.assertEqual(result.body, "사과\n\nA round fruit.")
+        self.assertEqual(result.body, "A round fruit.")
         self.assertEqual(session.state, "quiz")
         self.assertEqual(session.saved_session["page_id"], "good")
         self.assertEqual(session.saved_session["mode"], "auto")
@@ -346,7 +346,8 @@ class TestQuizFlowAutoStart(unittest.TestCase):
         result = _run(flow.grade_answer("I apple eat."))
 
         self.assertIsInstance(result, QuizAnswerFeedback)
-        self.assertTrue(result.should_continue)
+        self.assertFalse(result.should_continue)
+        self.assertTrue(result.needs_correction)
         self.assertIn("✅ 정답! 올바르게 사용했어요.", result.reply)
         self.assertEqual(result.grammar_errors, [{"type": "시제", "detail": "eat → ate"}])
         self.assertEqual(result.collocation_errors, ["eat an apple"])

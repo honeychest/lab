@@ -7,6 +7,7 @@ from utils.strings import levenshtein
 @dataclass(frozen=True)
 class QuizTurn:
     word: str
+    meaning_ko: str
     page_id: str
     stage: int
     progress: str
@@ -30,6 +31,10 @@ class QuizAnswerFeedback:
     next_exclude_page_id: str | None = None
     grammar_errors: list[dict] | None = None
     collocation_errors: list[str] | None = None
+    vocab_hints: list[str] | None = None
+    example_sentence: str | None = None
+    usage_hint: str | None = None
+    needs_correction: bool = False
 
 
 class QuizFlow:
@@ -82,9 +87,10 @@ class QuizFlow:
         await self._session.set_state("quiz")
 
         progress = _format_progress(remaining, total)
-        body = f"{parsed['meaning_ko']}\n\n{question}" if parsed["stage"] == 1 else question
+        body = question
         return QuizTurn(
             word=parsed["word"],
+            meaning_ko=parsed["meaning_ko"],
             page_id=parsed["page_id"],
             stage=parsed["stage"],
             progress=progress,
@@ -118,9 +124,10 @@ class QuizFlow:
         })
         await self._session.set_state("quiz")
 
-        body = f"{parsed['meaning_ko']}\n\n{question}" if parsed["stage"] == 1 else question
+        body = question
         return QuizTurn(
             word=parsed["word"],
+            meaning_ko=parsed["meaning_ko"],
             page_id=parsed["page_id"],
             stage=parsed["stage"],
             progress="[🔄]",
@@ -179,9 +186,10 @@ class QuizFlow:
         await self._session.set_state("quiz")
 
         progress = _format_progress(remaining, total) if mode == "auto" else "[🔄]"
-        body = f"{parsed['meaning_ko']}\n\n{question}" if parsed["stage"] == 1 else question
+        body = question
         return QuizTurn(
             word=parsed["word"],
+            meaning_ko=parsed["meaning_ko"],
             page_id=parsed["page_id"],
             stage=parsed["stage"],
             progress=progress,
@@ -249,51 +257,93 @@ class QuizFlow:
         word_used = word.lower() in answer.lower()
         result = await self._quiz_generator.grade_writing(word, meaning_ko, question, answer)
 
+        grammar_errors = result.get("grammar_errors", [])
+        collocation_errors = result.get("collocation_errors", [])
+        vocab_hints = result.get("vocab_hints", [])
+        example_sentence = result.get("example_sentence", "")
+        usage_hint = result.get("usage_hint", "")
+
+        # ── 단어 미포함 ──────────────────────────────────────────
         if not word_used:
             if result["context_ok"]:
                 return QuizAnswerFeedback(
                     reply=f"⚠️ 의미는 맞지만 '{word}'를 직접 사용해야 해요. 다시 도전!",
                     should_continue=False,
                 )
-            correct = False
-            reply = f"❌ 오답. '{word}'를 사용한 문장을 만들어보세요. 1단계로 돌아갑니다."
-        else:
-            correct = result["used_correctly"]
-            if correct:
-                reply = "✅ 정답! 올바르게 사용했어요."
-                alternatives = result.get("alternatives", [])
-                if alternatives:
-                    reply += "\n\n💡 비슷한 표현: " + " / ".join(alternatives)
-            else:
-                reply = f"❌ 오답. '{word}'를 올바른 맥락으로 사용해야 해요. 1단계로 돌아갑니다."
+            if self._stage_updater:
+                await self._stage_updater.update_word_stage(page_id, False)
+            reply = f"❌ 오답. '{word}'를 사용한 문장을 만들어보세요."
+            if example_sentence:
+                reply += f"\n💡 모범답안: {example_sentence}"
+            return QuizAnswerFeedback(
+                reply=reply,
+                should_continue=True,
+                next_exclude_page_id=page_id,
+            )
 
-        grammar_errors = result.get("grammar_errors", [])
-        collocation_errors = result.get("collocation_errors", [])
+        # ── 단어 포함 + 의미 전달 O ─────────────────────────────
+        if result["used_correctly"]:
+            reply = "✅ 정답! 올바르게 사용했어요."
+            alternatives = result.get("alternatives", [])
+            if alternatives:
+                reply += "\n\n💡 비슷한 표현: " + " / ".join(alternatives)
 
-        if correct and (grammar_errors or collocation_errors):
-            if grammar_errors:
-                error_lines = "\n".join(f"[{e['type']}] {e['detail']}" for e in grammar_errors)
-                reply += f"\n\n⚠️ 문법 오류:\n{error_lines}"
-            if collocation_errors:
-                reply += f"\n\n💡 연어 등록 추천:\n" + "\n".join(collocation_errors)
+            needs_correction = bool(grammar_errors or collocation_errors)
+            if needs_correction:
+                if grammar_errors:
+                    error_lines = "\n".join(f"⚠️ [{e['type']}] {e['detail']}" for e in grammar_errors)
+                    reply += f"\n\n{error_lines}"
+                if collocation_errors:
+                    reply += f"\n\n💡 연어 등록 추천:\n" + "\n".join(collocation_errors)
+                reply += "\n\n📝 한번 더 다듬어서 써볼까요?"
 
-            if self._grammar_pending:
-                await self._grammar_pending.set({
-                    "expression": word,
-                    "wrong_sentence": answer,
-                    "grammar_errors": grammar_errors,
-                    "collocation_errors": collocation_errors,
-                })
+                if self._grammar_pending:
+                    await self._grammar_pending.set({
+                        "expression": word,
+                        "wrong_sentence": answer,
+                        "grammar_errors": grammar_errors,
+                        "collocation_errors": collocation_errors,
+                    })
 
-        if self._stage_updater and not (mode == "quiz" and correct):
-            await self._stage_updater.update_word_stage(page_id, correct)
+            if self._stage_updater and mode != "quiz" and not needs_correction:
+                await self._stage_updater.update_word_stage(page_id, True)
+
+            return QuizAnswerFeedback(
+                reply=reply,
+                should_continue=not needs_correction,
+                next_exclude_page_id=page_id if not needs_correction else None,
+                grammar_errors=grammar_errors if needs_correction else None,
+                collocation_errors=collocation_errors if needs_correction else None,
+                needs_correction=needs_correction,
+            )
+
+        # ── 단어 포함 + 의미 전달 X → 재시도 (갱신 없음) ────────
+        writing_retry = session.get("writing_retry", 0) + 1
+        session["writing_retry"] = writing_retry
+        await self._session.set_session(session)
+
+        if writing_retry >= 5:
+            reply = f"⏰ 여러 번 시도했어요."
+            if example_sentence:
+                reply += f"\n💡 모범답안: {example_sentence}"
+            return QuizAnswerFeedback(
+                reply=reply,
+                should_continue=True,
+                next_exclude_page_id=page_id,
+            )
+
+        reply = "💡 단어는 잘 넣었어요! 문장을 다듬어보세요 🔄"
+        if usage_hint:
+            reply += f"\n📝 용법: {usage_hint}"
+        if vocab_hints:
+            reply += f"\n📖 보조 어휘: {', '.join(vocab_hints)}"
 
         return QuizAnswerFeedback(
             reply=reply,
-            should_continue=True,
-            next_exclude_page_id=page_id,
-            grammar_errors=grammar_errors if correct and grammar_errors else None,
-            collocation_errors=collocation_errors if correct and collocation_errors else None,
+            should_continue=False,
+            vocab_hints=vocab_hints,
+            example_sentence=example_sentence,
+            usage_hint=usage_hint,
         )
 
     async def fail_current_quiz(self) -> QuizAnswerFeedback | NoQuizAvailable:

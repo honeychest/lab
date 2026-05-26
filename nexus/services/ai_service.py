@@ -128,21 +128,8 @@ async def generate_quiz_with_hint(word: str, meaning_ko: str, stage: int) -> tup
 
 
 async def grade_writing(word: str, meaning_ko: str, question: str, answer: str) -> dict:
-    prompt = f"""아래 영어 작문을 채점해줘. 반드시 아래 형식으로만 답해.
-사용여부: (yes/no) — "{word}"를 포함해서 아래 한국어 문장의 의미를 영어로 전달했는지. 시제·관사·단복수 같은 문법 오류가 있어도 의미가 전달되면 yes.
-맥락: (yes/no) — 단어 없어도 의미 전달이 됐는지
-오류: (명백한 문법 규칙 위반만. 더 자연스러운 표현이나 다른 단어 선택은 오류가 아님. 없으면 "없음". 최대 3개.
-  형식: "[유형] 오류내용 → 수정내용" 한 줄씩. 반드시 대괄호 사용.
-  유형은 반드시 아래 중 하나: 관사 / 단복수 / 전치사 / 동사원형 / 시제 / 어순 / 철자 / 접속사 / 연어
-  주어·목적어·필수 보어 누락도 오류로 신고.
-  연어는 "{word}"가 포함된 관용적 단어 조합만. 문장 교정이나 문장 보완은 연어에 포함하지 않음.
-  예시: [시제] He was underwent change → He underwent change)
-대안표현: (오류 없을 때만. 작문과 비슷한 의미의 다른 표현 1~2개를 "/" 로 구분. 오류 있으면 "없음".)
-
-한국어 문장: {question}
-단어: {word}
-뜻: {meaning_ko}
-작문: {answer}"""
+    from services.prompts import grade_writing as grade_writing_prompt
+    prompt = grade_writing_prompt(word, meaning_ko, question, answer)
     result = await model_runner.run(prompt)
     return parse_grade_response(result["summary"])
 

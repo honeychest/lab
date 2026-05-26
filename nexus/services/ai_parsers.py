@@ -56,8 +56,24 @@ def parse_grade_response(text: str) -> dict:
     alternatives: list[str] = []
     if alternatives_raw:
         raw_alt = alternatives_raw.group(1).strip()
-        if raw_alt and raw_alt != "없음":
+        if raw_alt and raw_alt != "없음" and raw_alt.rstrip('.') != "없음":
             alternatives = [a.strip() for a in raw_alt.split("/") if a.strip()]
+
+    vocab_raw = re.search(r'보조어휘:\s*(.*)', text)
+    vocab_hints: list[str] = []
+    if vocab_raw:
+        raw_v = vocab_raw.group(1).strip()
+        if raw_v and raw_v != "없음":
+            vocab_hints = [v.strip() for v in raw_v.split(",") if v.strip()]
+
+    example_raw = re.search(r'모범답안:\s*(.*)', text)
+    example_sentence = example_raw.group(1).strip() if example_raw else ""
+
+    correction_raw = re.search(r'교정힌트:\s*(.*)', text)
+    correction_hint = correction_raw.group(1).strip() if correction_raw else ""
+
+    usage_raw = re.search(r'용법힌트:\s*(.*)', text)
+    usage_hint = usage_raw.group(1).strip() if usage_raw else ""
 
     return {
         "used_correctly":    used.group(1).lower() == "yes" if used    else False,
@@ -65,6 +81,10 @@ def parse_grade_response(text: str) -> dict:
         "grammar_errors":    grammar_errors,
         "collocation_errors": collocation_errors,
         "alternatives":      alternatives,
+        "vocab_hints":       vocab_hints,
+        "example_sentence":  example_sentence,
+        "correction_hint":   correction_hint,
+        "usage_hint":        usage_hint,
     }
 
 
