@@ -176,6 +176,11 @@ services:
       - chs-network
     restart: always
     logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
 
   registry-ui:
     image: joxit/docker-registry-ui:latest
@@ -192,6 +197,11 @@ services:
     logging: *default-logging
     depends_on:
       - registry
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 32M
 
 networks:
   chs-network:
