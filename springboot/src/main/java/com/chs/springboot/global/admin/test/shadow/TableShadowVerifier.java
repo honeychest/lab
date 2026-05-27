@@ -22,9 +22,32 @@ public class TableShadowVerifier {
     }
 
     public TableShadowCompareResponse compareRecent(TableShadowProfile profile, int minutes, int graceSeconds) {
+        return compareRecent(profile, minutes, graceSeconds, System.currentTimeMillis());
+    }
+
+    public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList) {
+        return compareRecentWindows(profile, minutesList, 20);
+    }
+
+    public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList, int graceSeconds) {
+        long now = System.currentTimeMillis();
+        List<TableShadowWindowSummary> windows = minutesList.stream()
+                .distinct()
+                .map(minutes -> compareRecent(profile, minutes, graceSeconds, now))
+                .map(response -> new TableShadowWindowSummary(
+                        response.minutes(),
+                        response.graceSeconds(),
+                        response.rows().size(),
+                        (int) response.rows().stream().filter(row -> !"OK".equals(row.status())).count(),
+                        response.rows().stream().mapToLong(TableShadowCompareRow::countDelta).sum()
+                ))
+                .collect(Collectors.toList());
+        return new TableShadowMultiCompareResponse(profile.id(), windows);
+    }
+
+    private TableShadowCompareResponse compareRecent(TableShadowProfile profile, int minutes, int graceSeconds, long now) {
         int safeMinutes = Math.max(1, Math.min(minutes, 24 * 60));
         int safeGraceSeconds = Math.max(0, Math.min(graceSeconds, 5 * 60));
-        long now = System.currentTimeMillis();
         long sinceMs = now - safeMinutes * 60_000L;
         long untilMs = now - safeGraceSeconds * 1_000L;
         Map<String, TableStats> rawStats = loadStats(profile, profile.rawTable(), sinceMs, untilMs);
@@ -35,26 +58,6 @@ public class TableShadowVerifier {
         shadowStats.forEach((key, shadow) -> rows.putIfAbsent(key, toRow(rawStats.get(key), shadow)));
 
         return new TableShadowCompareResponse(profile.id(), safeMinutes, safeGraceSeconds, List.copyOf(rows.values()));
-    }
-
-    public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList) {
-        return compareRecentWindows(profile, minutesList, 20);
-    }
-
-    public TableShadowMultiCompareResponse compareRecentWindows(TableShadowProfile profile, List<Integer> minutesList, int graceSeconds) {
-        int safeGraceSeconds = Math.max(0, Math.min(graceSeconds, 5 * 60));
-        List<TableShadowWindowSummary> windows = minutesList.stream()
-                .distinct()
-                .map(minutes -> compareRecent(profile, minutes, safeGraceSeconds))
-                .map(response -> new TableShadowWindowSummary(
-                        response.minutes(),
-                        response.graceSeconds(),
-                        response.rows().size(),
-                        (int) response.rows().stream().filter(row -> !"OK".equals(row.status())).count(),
-                        response.rows().stream().mapToLong(TableShadowCompareRow::countDelta).sum()
-                ))
-                .collect(Collectors.toList());
-        return new TableShadowMultiCompareResponse(profile.id(), windows);
     }
 
     private Map<String, TableStats> loadStats(TableShadowProfile profile, String tableName, long sinceMs, long untilMs) {
