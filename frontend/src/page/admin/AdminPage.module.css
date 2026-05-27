@@ -68,7 +68,7 @@
 
 .subtitle {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--monitor-text-secondary);
 }
 
@@ -83,7 +83,7 @@
   background: #fff;
   border-radius: 10px;
   padding: 7px 10px;
-  font-weight: 900;
+  font-weight: 600;
   cursor: pointer;
   color: var(--monitor-text-secondary);
 }
@@ -103,13 +103,13 @@
 .desc {
   margin: 8px 0 0;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--monitor-text-secondary);
 }
 
 .muted {
   color: var(--monitor-text-secondary);
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .tableWrap {
@@ -154,7 +154,7 @@
   text-align: left;
   padding: 10px 10px;
   color: var(--monitor-text-secondary);
-  font-weight: 900;
+  font-weight: 600;
   border-bottom: 1px solid rgba(17, 24, 39, 0.10);
   white-space: nowrap;
 }
@@ -194,7 +194,7 @@
 }
 
 .flagLabel {
-  font-weight: 900;
+  font-weight: 600;
   color: var(--monitor-text-primary);
 }
 
@@ -219,7 +219,7 @@
 
 .label {
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   color: var(--monitor-text-secondary);
 }
 
@@ -227,7 +227,7 @@
   border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: 10px;
   padding: 8px 10px;
-  font-weight: 900;
+  font-weight: 500;
   background: #fff;
   color: var(--monitor-text-primary);
   outline: none;

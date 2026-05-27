@@ -20,7 +20,7 @@ const rowStyle = {
     marginBottom: '12px',
 };
 
-const labelStyle = { fontWeight: 700, opacity: 0.9 };
+const labelStyle = { fontWeight: 600, opacity: 0.9 };
 
 function formatBody(body) {
     if (body === null || body === undefined) return '(없음)';

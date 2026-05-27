@@ -96,7 +96,7 @@
     margin: 0;
     color: #b91c1c;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .refreshButton {
@@ -203,7 +203,7 @@
     z-index: 1;
     background: var(--monitor-sidebar-bg);
     color: var(--monitor-text-secondary);
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .summaryTable tbody tr:hover {
@@ -212,7 +212,7 @@
 
 .matchRow td:last-child {
     color: #047857;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .mismatchRow {
@@ -221,7 +221,7 @@
 
 .mismatchRow td:last-child {
     color: #b45309;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .partialRow {
@@ -230,7 +230,7 @@
 
 .partialRow td:last-child {
     color: #1d4ed8;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .emptyBox {

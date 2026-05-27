@@ -132,7 +132,7 @@
   background: linear-gradient(135deg, var(--monitor-primary) 0%, #10b981 100%);
   color: #fff;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(13, 148, 136, 0.20);
   transition: box-shadow 0.2s, transform 0.15s;
