@@ -9,7 +9,7 @@ package com.chs.springboot.global.redis;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 
@@ -25,7 +25,7 @@ public class RedisConfig {
 
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(sseListenerAdapter, new PatternTopic(SSE_CHANNEL));
+        container.addMessageListener(sseListenerAdapter, new ChannelTopic(SSE_CHANNEL));
         return container;
     }
 

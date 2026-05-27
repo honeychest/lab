@@ -12,10 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -25,6 +28,14 @@ public class LeaderElectionService {
     public static final String SERVER_LEADER_LEASE = "server-leader";
     private static final String SERVER_LEADER_KEY = "server:leader";
     private static final Duration TTL = Duration.ofSeconds(10);
+
+    private static final RedisScript<Long> EXPIRE_IF_OWNER = new DefaultRedisScript<>(
+            "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end",
+            Long.class);
+
+    private static final RedisScript<Long> DELETE_IF_OWNER = new DefaultRedisScript<>(
+            "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
+            Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
@@ -41,10 +52,11 @@ public class LeaderElectionService {
     public void refreshLeadership() {
         try {
             if (isLeader) {
-                // 이미 리더면 TTL 연장
-                Boolean success = redisTemplate.expire(SERVER_LEADER_KEY, TTL);
-                if (Boolean.FALSE.equals(success)) {
-                    // 키가 사라졌으면 다시 획득 시도
+                Long result = redisTemplate.execute(
+                        EXPIRE_IF_OWNER,
+                        List.of(SERVER_LEADER_KEY),
+                        serverName, String.valueOf(TTL.toMillis()));
+                if (!Long.valueOf(1L).equals(result)) {
                     tryAcquire();
                 }
             } else {
@@ -72,7 +84,7 @@ public class LeaderElectionService {
     @PreDestroy
     public void releaseLeadership() {
         if (isLeader) {
-            redisTemplate.delete(SERVER_LEADER_KEY);
+            redisTemplate.execute(DELETE_IF_OWNER, List.of(SERVER_LEADER_KEY), serverName);
             updateLeadership(false);
             log.info("[{}] ServerLeader 반납 (shutdown)", serverName);
         }

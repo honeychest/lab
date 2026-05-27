@@ -12,9 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -107,24 +109,27 @@ class LeaderElectionServiceTest {
     }
 
     @Test
-    @DisplayName("이미 리더 + expire 성공 → setIfAbsent 재시도 없음")
+    @DisplayName("이미 리더 + Lua expire 성공 → setIfAbsent 재시도 없음")
     void refreshLeadership_leaderExpireTrue_noAcquire() {
         acquireTelegramLease();
-        when(redisTemplate.expire(eq(SERVER_LEADER_KEY), any(Duration.class))).thenReturn(true);
+        when(redisTemplate.execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)),
+                eq("server-A"), anyString())).thenReturn(1L);
 
         service.refreshLeadership();
 
         assertThat(service.isLeader()).isTrue();
-        verify(redisTemplate).expire(eq(SERVER_LEADER_KEY), any(Duration.class));
+        verify(redisTemplate).execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)),
+                eq("server-A"), anyString());
         verify(valueOps, never()).setIfAbsent(eq(SERVER_LEADER_KEY), any(), any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    @DisplayName("이미 리더 + expire 실패(키 소실) → setIfAbsent로 재획득")
+    @DisplayName("이미 리더 + Lua expire 실패(소유자 불일치 또는 키 소실) → setIfAbsent로 재획득")
     void refreshLeadership_leaderExpireFalse_reacquires() {
         acquireTelegramLease();
-        when(redisTemplate.expire(eq(SERVER_LEADER_KEY), any(Duration.class))).thenReturn(false);
+        when(redisTemplate.execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)),
+                eq("server-A"), anyString())).thenReturn(0L);
         when(valueOps.setIfAbsent(eq(SERVER_LEADER_KEY), eq("server-A"), any(Duration.class))).thenReturn(true);
 
         service.refreshLeadership();
@@ -138,7 +143,9 @@ class LeaderElectionServiceTest {
     @DisplayName("Redis 예외 시 리더 플래그 false")
     void refreshLeadership_redisThrows_clearsLeader() {
         acquireTelegramLease();
-        when(redisTemplate.expire(eq(SERVER_LEADER_KEY), any(Duration.class))).thenThrow(new RuntimeException("redis down"));
+        when(redisTemplate.execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)),
+                eq("server-A"), anyString()))
+                .thenThrow(new RuntimeException("redis down"));
 
         service.refreshLeadership();
 
@@ -147,22 +154,22 @@ class LeaderElectionServiceTest {
     }
 
     @Test
-    @DisplayName("releaseLeadership: 리더일 때만 키 삭제")
+    @DisplayName("releaseLeadership: 리더일 때 Lua로 소유자 확인 후 삭제")
     void releaseLeadership_whenLeader_deletesKey() {
         acquireTelegramLease();
 
         service.releaseLeadership();
 
-        verify(redisTemplate).delete(SERVER_LEADER_KEY);
+        verify(redisTemplate).execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)), eq("server-A"));
         verify(eventPublisher).publishEvent(new LeadershipChangedEvent("server-A", false));
     }
 
     @Test
-    @DisplayName("releaseLeadership: 비리더면 delete 호출 없음")
+    @DisplayName("releaseLeadership: 비리더면 Lua 호출 없음")
     void releaseLeadership_whenNotLeader_noDelete() {
         service.releaseLeadership();
 
-        verify(redisTemplate, never()).delete(anyString());
+        verify(redisTemplate, never()).execute(any(RedisScript.class), anyList(), any());
     }
 
     @Test
@@ -172,7 +179,8 @@ class LeaderElectionServiceTest {
 
         service.refreshLeadership();
         clearInvocations(valueOps, redisTemplate);
-        when(redisTemplate.expire(eq(SERVER_LEADER_KEY), any(Duration.class))).thenReturn(true);
+        when(redisTemplate.execute(any(RedisScript.class), eq(List.of(SERVER_LEADER_KEY)),
+                eq("server-A"), anyString())).thenReturn(1L);
         service.refreshLeadership();
 
         assertThat(service.isLeader()).isTrue();
