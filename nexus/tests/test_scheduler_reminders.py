@@ -9,10 +9,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class TestSchedulerReminders(unittest.TestCase):
+    def test_send_schedule_message_counts_only_parseable_due_words(self):
+        import scheduler
+
+        due_pages = [{"id": "ok-1"}, {"id": "bad"}, {"id": "ok-2"}]
+
+        def parse_word_page(page):
+            if page["id"] == "bad":
+                return None
+            return {"page_id": page["id"], "word": "word", "meaning_ko": "뜻", "stage": 1}
+
+        with patch("scheduler.ScheduleTracker") as MockTracker, \
+             patch("scheduler.QuizSession") as MockQuiz, \
+             patch("scheduler.notion_service.get_words_due", AsyncMock(return_value=due_pages)), \
+             patch("scheduler.notion_service.parse_word_page", side_effect=parse_word_page), \
+             patch("scheduler.todo_service.build_schedule_content", AsyncMock(return_value=[])):
+            MockTracker.return_value.get_message_ids = AsyncMock(return_value=[])
+            MockTracker.return_value.set_message_ids = AsyncMock()
+            MockQuiz.return_value.init_count = AsyncMock()
+
+            _run(scheduler.send_schedule_message(AsyncMock(), 12345, hour=9))
+
+        MockQuiz.return_value.init_count.assert_awaited_once_with(2)
+
     def test_send_schedule_reminder_formats_and_sends_message(self):
         import scheduler
         from services.schedule_reminder_service import ScheduleReminder

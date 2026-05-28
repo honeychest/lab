@@ -20,7 +20,7 @@ SCHEDULE_HOURS = [9, 15, 22]
 
 
 # [AGENT]
-# 09시 스케줄은 due words 개수로 QuizSession.init_count()를 호출한다.
+# 09시 스케줄은 파싱 가능한 due words 개수로 QuizSession.init_count()를 호출한다.
 # 15시/22시 스케줄은 todo_service.build_schedule_content()가 현재 카운트로 메시지를 만든다.
 
 
@@ -37,7 +37,8 @@ async def send_schedule_message(bot: Bot, chat_id: int, hour: int, *, timeout: f
 
     if hour == 9:
         due_words = await notion_service.get_words_due()
-        await QuizSession(chat_id).init_count(len(due_words))
+        count = sum(1 for page in due_words if notion_service.parse_word_page(page))
+        await QuizSession(chat_id).init_count(count)
 
     try:
         messages = await asyncio.wait_for(

@@ -304,7 +304,7 @@ class QuizFlow:
                         "collocation_errors": collocation_errors,
                     })
 
-            if self._stage_updater and mode != "quiz" and not needs_correction:
+            if self._stage_updater and mode != "quiz":
                 await self._stage_updater.update_word_stage(page_id, True)
 
             return QuizAnswerFeedback(
