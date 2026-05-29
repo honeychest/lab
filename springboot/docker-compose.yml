@@ -83,22 +83,6 @@ services:
         limits:
           cpus: '2'
           memory: 256M
-
-  frontend:
-    image: localhost:5010/chs-frontend:latest
-    container_name: chs-frontend
-    ports:
-      - "127.0.0.1:3000:80"
-    networks:
-      - chs-network
-    restart: always
-    logging: *default-logging
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 64M
-
 networks:
   chs-network:
     name: chs-network
