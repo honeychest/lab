@@ -562,6 +562,56 @@
   color: var(--monitor-severity-critical);
 }
 
+/* 피드 상태 (업스트림 freshness) */
+.feedRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  border-radius: 12px;
+}
+
+.feedColName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+  color: var(--monitor-text-primary);
+}
+
+.feedColAgo {
+  text-align: right;
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+}
+
+.feedColStatus {
+  display: flex;
+  justify-content: center;
+}
+
+.feedBadgeUp {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.10);
+  color: var(--monitor-gauge-ok);
+}
+
+.feedBadgeStale {
+  border-color: rgba(245, 158, 11, 0.30);
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.feedBadgeDown {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.10);
+  color: var(--monitor-severity-critical);
+}
+
 /* DISK 용량 정보 (GB) */
 .diskMeta {
   display: flex;

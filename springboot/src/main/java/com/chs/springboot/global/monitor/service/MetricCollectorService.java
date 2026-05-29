@@ -7,6 +7,7 @@ import com.chs.springboot.domain.binance.websocket.CandleWebSocketHandler;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
 import com.chs.springboot.global.config.service.AppConfigService;
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
 import com.chs.springboot.global.monitor.handler.MonitorWebSocketHandler;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +59,7 @@ public class MetricCollectorService {
     private final ObjectMapper objectMapper;
     private final LeaderElectionService leaderElectionService;
     private final S3ArchiveLogRepository s3ArchiveLogRepository;
+    private final FeedHealthRegistry feedHealthRegistry;
 
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     @Resource(name = "batchDataSource")
@@ -114,6 +116,8 @@ public class MetricCollectorService {
         List<MetricSnapshot.ContainerInfo> containers = cachedContainers;
         if (containers == null) containers = List.of();
 
+        List<FeedHealthRegistry.FeedHealth> feeds = Optional.ofNullable(safe(feedHealthRegistry::snapshot)).orElse(List.of());
+
         MetricSnapshot snapshot = new MetricSnapshot(
                 cpu,
                 ram,
@@ -132,6 +136,7 @@ public class MetricCollectorService {
                 wsUpbit,
                 wsCandle,
                 apiErrorRate,
+                feeds,
                 containers,
                 LocalDateTime.now(),
                 containerId

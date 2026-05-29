@@ -9,6 +9,7 @@ import GaugeRow from './sections/GaugeRow.jsx';
 import DiskMeta from './sections/DiskMeta.jsx';
 import RawAggTradeMeta from './sections/RawAggTradeMeta.jsx';
 import DockerCard from './sections/DockerCard.jsx';
+import FeedHealthCard from './sections/FeedHealthCard.jsx';
 import MobileSummaryCards from './sections/MobileSummaryCards.jsx';
 import WsSidebar from './sections/WsSidebar.jsx';
 import WaitOverlay from './sections/WaitOverlay.jsx';
@@ -39,6 +40,7 @@ export default function MonitorPage() {
 
                 <div className={styles.grid}>
                     <section className={styles.main} ref={mainRef}>
+                        <FeedHealthCard feeds={snapshot?.feeds ?? []} />
                         {!isMobile && <DiskMeta snapshot={snapshot} />}
                         {!isMobile && <RawAggTradeMeta snapshot={snapshot} />}
                         {isMobile && <MobileSummaryCards snapshot={snapshot} dockerSummary={dockerSummary} />}

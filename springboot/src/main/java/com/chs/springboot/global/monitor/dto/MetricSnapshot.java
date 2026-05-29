@@ -1,6 +1,8 @@
 // [AGENT] /ws/monitor 브로드캐스트용 스냅샷 DTO (T3 계약 준수)
 package com.chs.springboot.global.monitor.dto;
 
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,6 +24,7 @@ public record MetricSnapshot(
         Integer wsUpbitConnections,
         Integer wsCandleConnections,
         Double apiErrorRate,
+        List<FeedHealthRegistry.FeedHealth> feeds,
         List<ContainerInfo> containers,
         LocalDateTime collectedAt,
         String containerId

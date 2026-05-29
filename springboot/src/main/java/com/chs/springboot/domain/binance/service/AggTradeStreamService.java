@@ -1,6 +1,8 @@
 // [AGENT] 역할: Binance aggTrade WebSocket 스트림 구독 서비스 (SPOT/FUTURES) | 연관파일: LeaderElectionService.java(server-leader lease), AggTradeParser.java(JSON→Event), AggTradeSink.java(어댑터 SPI), BinanceWebSocketStream.java(재연결 공통) | 핵심: 리더 획득 시 BTCUSDT/ENAUSDT SPOT/FUTURES 4개 스트림 연결, 메시지 1회 파싱 후 등록된 모든 AggTradeSink 로 dispatch
 package com.chs.springboot.domain.binance.service;
 
+import com.chs.springboot.global.monitor.feed.FeedHealthConfig;
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.redis.LeadershipChangedEvent;
 import jakarta.annotation.PostConstruct;
@@ -33,6 +35,7 @@ public class AggTradeStreamService {
     private final AggTradeParser parser;
     private final List<AggTradeSink> sinks;
     private final StreamFactory streamFactory;
+    private final FeedHealthRegistry feedHealthRegistry;
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -45,16 +48,19 @@ public class AggTradeStreamService {
     private volatile boolean connected = false;
 
     @Autowired
-    public AggTradeStreamService(AggTradeParser parser, List<AggTradeSink> sinks) {
-        this(parser, sinks, BinanceWebSocketStream::new);
+    public AggTradeStreamService(AggTradeParser parser, List<AggTradeSink> sinks,
+                                 FeedHealthRegistry feedHealthRegistry) {
+        this(parser, sinks, BinanceWebSocketStream::new, feedHealthRegistry);
     }
 
     AggTradeStreamService(AggTradeParser parser,
                           List<AggTradeSink> sinks,
-                          StreamFactory streamFactory) {
+                          StreamFactory streamFactory,
+                          FeedHealthRegistry feedHealthRegistry) {
         this.parser = parser;
         this.sinks = sinks;
         this.streamFactory = streamFactory;
+        this.feedHealthRegistry = feedHealthRegistry;
     }
 
     @PostConstruct
@@ -109,6 +115,7 @@ public class AggTradeStreamService {
     }
 
     private void dispatch(String rawJson, String symbol, String marketType) {
+        feedHealthRegistry.markReceived(FeedHealthConfig.BINANCE_AGG_TRADE);
         AggTradeEvent event = parser.parse(rawJson, symbol, marketType, System.currentTimeMillis());
         for (AggTradeSink sink : sinks) {
             try {

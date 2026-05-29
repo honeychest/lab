@@ -2,6 +2,8 @@ package com.chs.springboot.domain.upbit.service;
 
 import com.chs.springboot.domain.binance.service.NotificationService;
 import com.chs.springboot.domain.upbit.websocket.UpbitPriceWebSocketHandler;
+import com.chs.springboot.global.monitor.feed.FeedHealthConfig;
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -41,6 +43,7 @@ public class UpbitStreamService {
 
     private final UpbitPriceWebSocketHandler handler;
     private final NotificationService notificationService;
+    private final FeedHealthRegistry feedHealthRegistry;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -49,9 +52,11 @@ public class UpbitStreamService {
     private final AtomicInteger connectionGeneration = new AtomicInteger(0);
     private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
 
-    public UpbitStreamService(UpbitPriceWebSocketHandler handler, NotificationService notificationService) {
+    public UpbitStreamService(UpbitPriceWebSocketHandler handler, NotificationService notificationService,
+                              FeedHealthRegistry feedHealthRegistry) {
         this.handler = handler;
         this.notificationService = notificationService;
+        this.feedHealthRegistry = feedHealthRegistry;
     }
 
     @PostConstruct
@@ -193,8 +198,9 @@ public class UpbitStreamService {
         }
 
         private void relay(String json) {
-            if (handler.getSessionCount() <= 0) return;
             if (json == null || json.isEmpty()) return;
+            feedHealthRegistry.markReceived(FeedHealthConfig.UPBIT);
+            if (handler.getSessionCount() <= 0) return;
             handler.broadcastPrice(json);
         }
     }

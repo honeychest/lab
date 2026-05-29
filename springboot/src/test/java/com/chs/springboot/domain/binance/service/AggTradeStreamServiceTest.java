@@ -1,5 +1,6 @@
 package com.chs.springboot.domain.binance.service;
 
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
 import com.chs.springboot.global.redis.LeaderElectionService;
 import com.chs.springboot.global.redis.LeadershipChangedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,7 +35,8 @@ class AggTradeStreamServiceTest {
                     createdStreams.add(stream);
                     capturedListeners.add(listener);
                     return stream;
-                });
+                },
+                new FeedHealthRegistry(java.time.Clock.systemDefaultZone()));
     }
 
     @Test

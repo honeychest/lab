@@ -1,6 +1,8 @@
 package com.chs.springboot.domain.binance.service;
 
 import com.chs.springboot.domain.binance.websocket.BinancePriceWebSocketHandler;
+import com.chs.springboot.global.monitor.feed.FeedHealthConfig;
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -40,6 +42,7 @@ public class BinanceStreamService {
 
     private final BinancePriceWebSocketHandler handler;
     private final NotificationService notificationService;
+    private final FeedHealthRegistry feedHealthRegistry;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -50,9 +53,11 @@ public class BinanceStreamService {
     private final AtomicBoolean reconnectPending = new AtomicBoolean(false);
 
     public BinanceStreamService(BinancePriceWebSocketHandler handler,
-                                NotificationService notificationService) {
+                                NotificationService notificationService,
+                                FeedHealthRegistry feedHealthRegistry) {
         this.handler = handler;
         this.notificationService = notificationService;
+        this.feedHealthRegistry = feedHealthRegistry;
     }
 
     @PostConstruct
@@ -134,6 +139,7 @@ public class BinanceStreamService {
             buffer.append(data);
 
             if (last) {
+                feedHealthRegistry.markReceived(FeedHealthConfig.BINANCE_TICKER);
                 if (handler.getSessionCount() > 0) {
                     relayBySessionSymbol(buffer.toString());
                 }
