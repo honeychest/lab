@@ -145,7 +145,7 @@ public class AggTradeBackfillService {
     private void executeBackfill() throws Exception {
         List<Map.Entry<String, String>> targets = Arrays.asList(
                 Map.entry("BTCUSDT", "SPOT"),
-                // Map.entry("BTCUSDT", "FUTURES"),
+                Map.entry("BTCUSDT", "FUTURES"),
                 Map.entry("ENAUSDT", "SPOT"),
                 Map.entry("ENAUSDT", "FUTURES")
         );
