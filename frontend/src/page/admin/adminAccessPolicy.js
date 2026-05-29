@@ -1,3 +1,3 @@
-export function shouldRedirectToAdminLogin({ canAccess, isForbidden }) {
+export function shouldRedirectToAdminLogin({ isForbidden }) {
     return isForbidden;
 }

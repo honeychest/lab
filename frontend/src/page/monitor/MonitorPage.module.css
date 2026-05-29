@@ -225,6 +225,10 @@
   margin-bottom: 10px;
 }
 
+.sideTitleRow .sideTitle {
+  margin-bottom: 0;
+}
+
 .refresh {
   border: 1px solid rgba(17, 24, 39, 0.12);
   background: #fff;
@@ -253,13 +257,6 @@
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   color: var(--monitor-text-primary);
-}
-
-.wsBreakdown {
-  margin-top: 6px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--monitor-text-secondary);
 }
 
 .alertBottom {
@@ -562,19 +559,8 @@
   color: var(--monitor-severity-critical);
 }
 
-/* 피드 상태 (업스트림 freshness) */
-.feedRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 110px;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 10px;
-  background: #fff;
-  border: 1px solid rgba(17, 24, 39, 0.10);
-  border-radius: 12px;
-}
-
-.feedColName {
+/* 피드 상태 (업스트림 freshness) — sideCard 경량 행 */
+.feedName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -583,15 +569,17 @@
   color: var(--monitor-text-primary);
 }
 
-.feedColAgo {
-  text-align: right;
-  font-weight: 900;
-  color: var(--monitor-text-secondary);
+.feedRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.feedColStatus {
-  display: flex;
-  justify-content: center;
+.feedAgo {
+  font-weight: 900;
+  color: var(--monitor-text-secondary);
+  white-space: nowrap;
 }
 
 .feedBadgeUp {
