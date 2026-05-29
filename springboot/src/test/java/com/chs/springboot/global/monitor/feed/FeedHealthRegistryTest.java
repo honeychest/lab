@@ -57,6 +57,30 @@ class FeedHealthRegistryTest {
         assertThat(health.secondsSinceLastMessage()).isNull();
     }
 
+    @Test
+    void received_exposesLastMessageTimeAndCumulativeCount() {
+        FeedHealthRegistry registry = new FeedHealthRegistry(clock);
+        registry.register("binance-aggTrade", new FeedHealthRegistry.FeedThreshold(10, 30));
+
+        registry.markReceived("binance-aggTrade");
+        registry.markReceived("binance-aggTrade");
+        registry.markReceived("binance-aggTrade");
+
+        FeedHealthRegistry.FeedHealth health = registry.snapshot().get(0);
+        assertThat(health.receivedCount()).isEqualTo(3L);
+        assertThat(health.lastMessageAtEpochMs()).isEqualTo(clock.instant().toEpochMilli());
+    }
+
+    @Test
+    void neverReceived_countZeroAndLastMessageNull() {
+        FeedHealthRegistry registry = new FeedHealthRegistry(clock);
+        registry.register("upbit", new FeedHealthRegistry.FeedThreshold(10, 30));
+
+        FeedHealthRegistry.FeedHealth health = registry.snapshot().get(0);
+        assertThat(health.receivedCount()).isEqualTo(0L);
+        assertThat(health.lastMessageAtEpochMs()).isNull();
+    }
+
     private static FeedStatus statusOf(FeedHealthRegistry registry, String feedId) {
         return registry.snapshot().stream()
                 .filter(h -> h.feedId().equals(feedId))
