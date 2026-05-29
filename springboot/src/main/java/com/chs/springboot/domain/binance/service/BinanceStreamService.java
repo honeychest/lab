@@ -125,6 +125,11 @@ public class BinanceStreamService {
         }
 
         @Override
+        public void onOpen(java.net.http.WebSocket ws) {
+            ws.request(1);
+        }
+
+        @Override
         public CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
             buffer.append(data);
 
