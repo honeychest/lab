@@ -1,6 +1,8 @@
 import styles from '../AdminPage.module.css';
 import { CHECKS } from '../constants';
 
+const GAP_ROW_DISPLAY_LIMIT = 200;
+
 export default function DataGapCard({ dataGap, collectLoading, collectError }) {
     const {
         activeKey, rows, loading, error, selectedRows,
@@ -13,7 +15,7 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
         <div className={styles.card}>
             <div className={styles.titleRow}>
                 <div className={styles.title}>갭 조회</div>
-                <div className={styles.subtitle}>최대 20건 표시</div>
+                <div className={styles.subtitle}>최대 {GAP_ROW_DISPLAY_LIMIT}건 표시</div>
             </div>
             <div className={styles.btnRow}>
                 {CHECKS.filter(c => !c.danger).map(({ type, label, desc, days }) => {
@@ -33,7 +35,7 @@ export default function DataGapCard({ dataGap, collectLoading, collectError }) {
                     );
                 })}
             </div>
-            {activeKey && <p className={styles.desc}>{activeCheck?.desc}{' · '}최대 20건 표시</p>}
+            {activeKey && <p className={styles.desc}>{activeCheck?.desc}{' · '}최대 {GAP_ROW_DISPLAY_LIMIT}건 표시</p>}
 
             {loading && <div className={styles.muted}>조회 중...</div>}
             {!loading && error && <div className={`${styles.muted} ${styles.error}`}>{error}</div>}

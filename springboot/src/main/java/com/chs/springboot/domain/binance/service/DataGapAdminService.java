@@ -1,6 +1,6 @@
 // [AGENT] 역할: 수집 데이터 누락 구간 탐지 서비스 | 연관파일: DataGapAdminController.java
 // 지원 타입: RAW_AGG_TRADE, AGG_1M, AGG_5M, OI
-// 각 쿼리는 LIMIT 20 갭을 missing_count/gap_minutes 내림차순으로 반환
+// 각 쿼리는 최대 200개 갭을 missing_count/gap_minutes 내림차순으로 반환
 package com.chs.springboot.domain.binance.service;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +11,8 @@ import java.util.Map;
 
 @Service
 public class DataGapAdminService {
+
+    private static final int GAP_RESULT_LIMIT = 200;
 
     private final JdbcTemplate batchJdbcTemplate;
 
@@ -55,8 +57,8 @@ public class DataGapAdminService {
             ) t
             WHERE next_id - agg_trade_id > 1
             ORDER BY missing_count DESC
-            LIMIT 100
-            """;
+            LIMIT %d
+            """.formatted(GAP_RESULT_LIMIT);
         return batchJdbcTemplate.queryForList(sql);
     }
 
@@ -84,8 +86,8 @@ public class DataGapAdminService {
             ) t
             WHERE next_candle_ms - candle_time_ms > %d
             ORDER BY missing_candles DESC
-            LIMIT 100
-            """, intervalMs, intervalMs, intervalMs, intervalMs, table, intervalMs);
+            LIMIT %d
+            """, intervalMs, intervalMs, intervalMs, intervalMs, table, intervalMs, GAP_RESULT_LIMIT);
         return batchJdbcTemplate.queryForList(sql);
     }
 
@@ -111,8 +113,8 @@ public class DataGapAdminService {
             ) t
             WHERE collected_at_ms - prev_time_ms > 600000
             ORDER BY gap_minutes DESC
-            LIMIT 100
-            """;
+            LIMIT %d
+            """.formatted(GAP_RESULT_LIMIT);
         return batchJdbcTemplate.queryForList(sql);
     }
 }

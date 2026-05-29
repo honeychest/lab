@@ -350,6 +350,20 @@ public class AggTrade1sRollupService {
     // ─── 배치 INSERT ──────────────────────────────────────────────────────
 
     private void batchInsert(List<AggTrade1s> candles) {
+        List<AggTrade1s> validCandles = candles.stream()
+            .filter(c -> {
+                boolean invalid = hasVolumeAndTradesWithoutDeltaSource(c);
+                if (invalid) {
+                    log.warn("[AggTrade1sGuard] skip invalid 1s candle symbol={} market={} candleTimeMs={} tradeCount={} totalVolume={}",
+                        c.getSymbol(), c.getMarketType(), c.getCandleTimeMs(), c.getTradeCount(), c.getTotalVolume());
+                }
+                return !invalid;
+            })
+            .toList();
+        if (validCandles.isEmpty()) {
+            return;
+        }
+
         String sql = """
             INSERT INTO agg_trade_1s
                 (symbol, market_type, candle_time_ms,
@@ -383,7 +397,7 @@ public class AggTrade1sRollupService {
         batchJdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
-                AggTrade1s c = candles.get(i);
+                AggTrade1s c = validCandles.get(i);
                 ps.setString(1, c.getSymbol());
                 ps.setString(2, c.getMarketType());
                 ps.setLong(3, c.getCandleTimeMs());
@@ -409,9 +423,19 @@ public class AggTrade1sRollupService {
 
             @Override
             public int getBatchSize() {
-                return candles.size();
+                return validCandles.size();
             }
         });
+    }
+
+    private boolean hasVolumeAndTradesWithoutDeltaSource(AggTrade1s c) {
+        BigDecimal totalVolume = c.getTotalVolume() == null ? BigDecimal.ZERO : c.getTotalVolume();
+        BigDecimal buyQuantity = c.getBuyQuantity() == null ? BigDecimal.ZERO : c.getBuyQuantity();
+        BigDecimal sellQuantity = c.getSellQuantity() == null ? BigDecimal.ZERO : c.getSellQuantity();
+        long tradeCount = c.getTradeCount() == null ? 0L : c.getTradeCount();
+        return tradeCount > 0
+            && totalVolume.compareTo(BigDecimal.ZERO) > 0
+            && buyQuantity.add(sellQuantity).compareTo(BigDecimal.ZERO) == 0;
     }
 
     // ─── CandleData 변환 ──────────────────────────────────────────────────

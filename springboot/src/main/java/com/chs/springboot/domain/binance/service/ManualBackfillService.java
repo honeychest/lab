@@ -28,6 +28,7 @@ public class ManualBackfillService {
     private static final Logger log = LoggerFactory.getLogger(ManualBackfillService.class);
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final long OUTLIER_MAX_RANGE_MS = 48L * 60L * 60L * 1000L;
+    private static final int DIAGNOSTIC_ROW_LIMIT = 200;
     private static final String REPLACE_BAD_CANDLE_UPDATE_SQL = """
         open_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(open_price),         open_price),
         high_price         = IF(min_agg_trade_id = 0 OR min_first_trade_id = 0 OR (buy_trade_count = 0 AND sell_trade_count = 0 AND trade_count > 0), VALUES(high_price),         high_price),
@@ -575,9 +576,9 @@ public class ManualBackfillService {
         result.put("flat1m", flat1m);
         result.put("flat5m", flat5m);
         chs.dlog("flat 대상 row 목록 조회");
-        List<Map<String, Object>> flat1sRows = findFlatCandleRows("agg_trade_1s", symbol, marketType, fromMs, toMs, 50);
-        List<Map<String, Object>> flat1mRows = findFlatCandleRows("agg_trade_1m", symbol, marketType, fromMs, toMs, 50);
-        List<Map<String, Object>> flat5mRows = findFlatCandleRows("agg_trade_5m", symbol, marketType, fromMs, toMs, 50);
+        List<Map<String, Object>> flat1sRows = findFlatCandleRows("agg_trade_1s", symbol, marketType, fromMs, toMs, DIAGNOSTIC_ROW_LIMIT);
+        List<Map<String, Object>> flat1mRows = findFlatCandleRows("agg_trade_1m", symbol, marketType, fromMs, toMs, DIAGNOSTIC_ROW_LIMIT);
+        List<Map<String, Object>> flat5mRows = findFlatCandleRows("agg_trade_5m", symbol, marketType, fromMs, toMs, DIAGNOSTIC_ROW_LIMIT);
         chs.dlog("flat1s flat1m flat5m 별 대상 candle_time_ms 목록 조회");
         result.put("flat1sRows", flat1sRows);
         result.put("flat1mRows", flat1mRows);

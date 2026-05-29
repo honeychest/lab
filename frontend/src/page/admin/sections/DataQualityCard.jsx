@@ -2,6 +2,8 @@ import styles from '../AdminPage.module.css';
 import { HEALTH_HOURS_OPTIONS, OUTLIER_RANGE_OPTIONS, SYMBOLS, MARKETS } from '../constants';
 import { fmtNum, fmtDateTime } from '../utils';
 
+const DIAGNOSTIC_ROW_DISPLAY_LIMIT = 200;
+
 export default function DataQualityCard({ dataHealth, outlier }) {
     const {
         healthSymbol, setHealthSymbol, healthMarket, setHealthMarket,
@@ -150,7 +152,7 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {flatRows.slice(0, 20).map((row, idx) => (
+                                    {flatRows.slice(0, DIAGNOSTIC_ROW_DISPLAY_LIMIT).map((row, idx) => (
                                         <tr key={`${row.label}-${row.candle_time_ms}-${idx}`}>
                                             <td className={`${styles.td} ${styles.mono}`}>{row.label}</td>
                                             <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(row.candle_time_ms)}</td>
@@ -265,7 +267,7 @@ export default function DataQualityCard({ dataHealth, outlier }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {outlierHealth.rows.slice(0, 20).map((row, idx) => (
+                                {outlierHealth.rows.slice(0, DIAGNOSTIC_ROW_DISPLAY_LIMIT).map((row, idx) => (
                                     <tr key={`${row.candle_time_ms}-${idx}`}>
                                         <td className={`${styles.td} ${styles.mono}`}>{fmtDateTime(row.candle_time_ms)}</td>
                                         <td className={`${styles.td} ${styles.mono}`}>{row.reason}</td>
