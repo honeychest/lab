@@ -20,7 +20,8 @@ import java.time.LocalDateTime;
 public class AlertHistory {
 
     public enum MetricType {
-        CPU, RAM, DISK, REDIS_QUEUE, API_ERROR
+        CPU, RAM, DISK, REDIS_QUEUE, API_ERROR,
+        FEED_BINANCE_TICKER, FEED_BINANCE_AGG, FEED_UPBIT
     }
 
     public enum Severity {

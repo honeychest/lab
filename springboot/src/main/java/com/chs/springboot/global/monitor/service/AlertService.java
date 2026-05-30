@@ -3,6 +3,8 @@ package com.chs.springboot.global.monitor.service;
 
 import com.chs.springboot.global.monitor.dto.MetricSnapshot;
 import com.chs.springboot.global.monitor.entity.AlertHistory;
+import com.chs.springboot.global.monitor.feed.FeedHealthRegistry;
+import com.chs.springboot.global.monitor.feed.FeedStatus;
 import com.chs.springboot.global.monitor.repository.AlertHistoryRepository;
 import com.chs.springboot.global.telegram.TelegramProvider;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,8 @@ public class AlertService {
 
         // DISK: 80% 이상이면 하루에 한 번만 알림
         evaluateDiskDaily(snapshot.disk(), 80d, snapshot.containerId());
+
+        evaluateFeedAlerts(snapshot.feeds());
     }
 
     private void evaluateCritical(AlertHistory.MetricType type, Double value, double threshold, String containerId) {
@@ -97,6 +101,49 @@ public class AlertService {
         }
     }
 
+    private void evaluateFeedAlerts(java.util.List<FeedHealthRegistry.FeedHealth> feeds) {
+        if (feeds == null || feeds.isEmpty()) {
+            return;
+        }
+        for (FeedHealthRegistry.FeedHealth feed : feeds) {
+            if (feed == null) {
+                continue;
+            }
+            FeedStatus status = feed.status();
+            if (status != FeedStatus.STALE && status != FeedStatus.DOWN) {
+                continue;
+            }
+
+            String feedId = feed.feedId();
+            String cooldownKey = "monitor:alert:cooldown:FEED:" + feedId + ":" + status.name();
+            String already = redisTemplate.opsForValue().get(cooldownKey);
+            if (already != null) {
+                continue;
+            }
+
+            AlertHistory history = new AlertHistory();
+            history.setMetricType(feedMetricType(feedId));
+            history.setValue(feed.secondsSinceLastMessage() == null ? 0d : feed.secondsSinceLastMessage().doubleValue());
+            history.setThreshold(status == FeedStatus.DOWN ? 30d : 10d);
+            history.setDurationSec(feed.secondsSinceLastMessage() == null ? 0 : Math.toIntExact(feed.secondsSinceLastMessage()));
+            history.setSeverity(status == FeedStatus.DOWN ? AlertHistory.Severity.CRITICAL : AlertHistory.Severity.WARN);
+            history.setSentAt(LocalDateTime.now());
+            history.setMemo("[%s] %s / lastMessageAt=%s / receivedCount=%d"
+                    .formatted(feedId, status.name(), feed.lastMessageAtEpochMs(), feed.receivedCount()));
+            alertHistoryRepository.save(history);
+            redisTemplate.opsForValue().set(cooldownKey, "1", 3600, TimeUnit.SECONDS);
+        }
+    }
+
+    private static AlertHistory.MetricType feedMetricType(String feedId) {
+        return switch (feedId) {
+            case "binance-ticker" -> AlertHistory.MetricType.FEED_BINANCE_TICKER;
+            case "binance-aggTrade" -> AlertHistory.MetricType.FEED_BINANCE_AGG;
+            case "upbit" -> AlertHistory.MetricType.FEED_UPBIT;
+            default -> AlertHistory.MetricType.API_ERROR;
+        };
+    }
+
     private void sendAndStore(
             AlertHistory.MetricType type,
             double value,
@@ -113,6 +160,9 @@ public class AlertService {
                 case DISK -> "DISK";
                 case REDIS_QUEUE -> "Redis 큐";
                 case API_ERROR -> "API 에러율";
+                case FEED_BINANCE_TICKER -> "피드(binance-ticker)";
+                case FEED_BINANCE_AGG -> "피드(binance-aggTrade)";
+                case FEED_UPBIT -> "피드(upbit)";
             };
 
             String sentAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
