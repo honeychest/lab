@@ -41,7 +41,7 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(_github_error_reply(str(e)))
             return
         result = await summarize_github(repo_info)
-        await save(url, result["title"], result["summary"], platform="github")
+        await save(url, result["title"], result["summary"], platform="github", tags=result.get("tags"))
         # 새 저장 성공 후 기존 페이지 삭제 (실패해도 새 데이터는 보존됨)
         if existing_id:
             await delete_page(existing_id)
@@ -54,7 +54,7 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await query.edit_message_text("❌ 처리 중 오류가 발생했습니다.")
             return
-        await save(url, result["title"], result["summary"], platform)
+        await save(url, result["title"], result["summary"], platform, tags=result.get("tags"))
         if existing_id:
             await delete_page(existing_id)
         await query.edit_message_text(f"✔ 갱신 완료\n\n{result['summary'][:_TELEGRAM_MAX]}")
@@ -66,7 +66,7 @@ async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await query.edit_message_text("❌ 처리 중 오류가 발생했습니다.")
             return
-        await save(url, result["title"], result["summary"], platform)
+        await save(url, result["title"], result["summary"], platform, tags=result.get("tags"))
         if existing_id:
             await delete_page(existing_id)
         await query.edit_message_text(f"✔ 갱신 완료\n\n{result['summary'][:_TELEGRAM_MAX]}")

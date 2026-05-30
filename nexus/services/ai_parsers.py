@@ -9,7 +9,34 @@ import re
 def parse_response(text: str) -> dict:
     match = re.search(r'\*{0,2}제목:\*{0,2}\s*(.*)', text)
     title = match.group(1).strip() if match else ""
-    return {"title": title, "summary": text}
+    return {
+        "title": title,
+        "summary": strip_link_tag_lines(text),
+        "tags": parse_link_tags(text),
+    }
+
+
+def parse_link_tags(text: str, *, limit: int = 6) -> list[str]:
+    match = re.search(r'(?m)^\s*\*{0,2}태그:\*{0,2}\s*(.+?)\s*$', text)
+    if not match:
+        return []
+
+    tags: list[str] = []
+    seen = set()
+    for raw in re.split(r'[,/|]', match.group(1)):
+        tag = raw.strip().strip("#`*[]()")
+        tag = re.sub(r'\s+', ' ', tag)
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag[:100])
+        if len(tags) >= limit:
+            break
+    return tags
+
+
+def strip_link_tag_lines(text: str) -> str:
+    return re.sub(r'(?m)^\s*\*{0,2}태그:\*{0,2}\s*.+?\s*$', '', text).strip()
 
 
 def parse_explain_response(text: str) -> dict:

@@ -86,7 +86,7 @@ async def _handle_github(update: Update, context: ContextTypes.DEFAULT_TYPE, url
         return
 
     result = await summarize_github(repo_info)
-    await save(url, result["title"], result["summary"], platform="github")
+    await save(url, result["title"], result["summary"], platform="github", tags=result.get("tags"))
 
     meta_line = f"⭐ {repo_info['stars']} | {repo_info['language']} | {repo_info['license']}"
     reply_text = f"{meta_line}\n\n{result['summary'][:_TELEGRAM_MAX]}"
@@ -107,7 +107,7 @@ async def _handle_generic(update: Update, url: str, platform: str):
         await _log_failure(url, str(e))
         raise
 
-    await save(url, result["title"], result["summary"], platform)
+    await save(url, result["title"], result["summary"], platform, tags=result.get("tags"))
     await update.message.reply_text(f"✔ 노션 저장 완료\n\n{result['summary'][:_TELEGRAM_MAX]}")
 
 

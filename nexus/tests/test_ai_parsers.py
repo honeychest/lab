@@ -5,12 +5,39 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.ai_parsers import (
+    parse_response,
     parse_grade_response,
     parse_explain_response,
     has_invalid_content,
     has_invalid_content_stage2,
     force_clean,
 )
+
+
+class TestParseResponse(unittest.TestCase):
+
+    def test_extracts_search_tags_and_hides_tag_line_from_summary(self):
+        text = (
+            "제목: Claude Code 컨텍스트 관리 Skill\n"
+            "- Claude Code에서 컨텍스트 낭비를 줄이는 방법\n"
+            "태그: Claude, 클로드, AI에이전트, 컨텍스트 관리, 토큰 절약, 스킬"
+        )
+
+        r = parse_response(text)
+
+        self.assertEqual(r["title"], "Claude Code 컨텍스트 관리 Skill")
+        self.assertEqual(
+            r["tags"],
+            ["Claude", "클로드", "AI에이전트", "컨텍스트 관리", "토큰 절약", "스킬"],
+        )
+        self.assertNotIn("태그:", r["summary"])
+
+    def test_tags_are_limited_and_deduplicated(self):
+        text = "제목: 테스트\n태그: Claude, Claude, 클로드, AI, 컨텍스트, 스킬, 자동화, 개발도구"
+
+        r = parse_response(text)
+
+        self.assertEqual(r["tags"], ["Claude", "클로드", "AI", "컨텍스트", "스킬", "자동화"])
 
 
 class TestParseGradeResponse(unittest.TestCase):

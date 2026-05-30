@@ -4,6 +4,7 @@ from notion_client import AsyncClient
 from chs import dlog
 from config import settings
 from constants import WORD_STAGE_DAYS as STAGE_DAYS, MAX_ACTIVE_STAGE, GRADUATED_STAGE
+from services.ai_parsers import parse_link_tags, strip_link_tag_lines
 from services.word_repository import parse_word_page as _parse_word_page
 
 logger = logging.getLogger(__name__)
@@ -40,29 +41,37 @@ async def delete_page(page_id: str) -> None:
         logger.warning(f"Notion 페이지 삭제 실패: {e}")
 
 
-async def save(url: str, title: str, summary: str, platform: str= "telegram") -> str:
+async def save(url: str, title: str, summary: str, platform: str= "telegram", tags: list[str] | None = None) -> str:
+    tags = tags if tags is not None else parse_link_tags(summary)
+    clean_summary = strip_link_tag_lines(summary)
+    properties = {
+        "제목": {
+            "title": [{"text": {"content": title}}] # title 만 조작가능한 부분이고 나머지는 다 notion양식이라 변경x
+        },
+        "원본": {
+            "url": url
+        },
+        "플랫폼": {
+            "select": {"name": platform}
+        },
+        "저장일시": {
+            "date": {"start": datetime.now(timezone.utc).isoformat()}
+        },
+    }
+    if tags:
+        properties["태그"] = {
+            "multi_select": [{"name": tag} for tag in tags]
+        }
+
     response = await client.pages.create(
         parent={"type": "data_source_id", "data_source_id": settings.NOTION_LINK_DATABASE_ID},
-        properties={
-            "제목": {
-                "title": [{"text": {"content": title}}] # title 만 조작가능한 부분이고 나머지는 다 notion양식이라 변경x
-            },
-            "원본": {
-                "url": url
-            },
-            "플랫폼": {
-                "select": {"name": platform}
-            },
-            "저장일시": {
-                "date": {"start": datetime.now(timezone.utc).isoformat()}
-            },
-        },
+        properties=properties,
         children=[
             {
                 "object": "block",
                 "type": "paragraph",
                 "paragraph":{
-                    "rich_text": [{"type": "text", "text": {"content": summary}}]
+                    "rich_text": [{"type": "text", "text": {"content": clean_summary}}]
                 }
             }
         ]
