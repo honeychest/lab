@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "바이낸스 마틴게일 분할주문",
+  "description": "지정가 기준으로 가격은 등비, 금액은 마틴게일로 나눠 지정가 주문을 걸어 둔다.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage"],
+  "host_permissions": ["https://fapi.binance.com/*"],
+  "background": {
+    "service_worker": "src/background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.binance.com/futures/*",
+        "https://www.binance.com/*/futures/*"
+      ],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/content/panel.css"],
+      "matches": ["https://www.binance.com/*"]
+    }
+  ],
+  "options_page": "src/options/options.html"
+}

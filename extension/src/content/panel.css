@@ -1,0 +1,269 @@
+/* Shadow DOM 안에서만 적용된다. 바이낸스 전역 CSS 와 서로 간섭하지 않는다. */
+
+:host,
+.panel {
+    all: initial;
+}
+
+.panel {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    z-index: 2147483000;
+    width: 500px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #2b3139;
+    border-radius: 8px;
+    background: #12161c;
+    color: #eaecef;
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.panel * {
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2b3139;
+}
+
+/* 접혀 있을 때만 폭을 내용에 맞춘다. 펼친 폭 그대로 두면 바이낸스 주문창을 가린다. */
+.panel.collapsed {
+    width: auto;
+    max-width: 500px;
+    padding: 8px 10px;
+}
+
+.panel.collapsed .header {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* 이동은 접힌 상태에서만 된다. */
+.header.draggable {
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+}
+
+.symbol {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.meta {
+    flex: 1;
+    color: #848e9c;
+}
+
+.toggle,
+.step,
+.side,
+.run,
+.cancel,
+.resume,
+.back {
+    padding: 4px 10px;
+    border: 1px solid #2b3139;
+    border-radius: 4px;
+    background: #1e2329;
+    color: #eaecef;
+    cursor: pointer;
+}
+
+.pick {
+    padding: 4px 8px;
+    border: 1px solid #2b3139;
+    border-radius: 4px;
+    background: #1e2329;
+    color: #5e6673;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.side.on,
+.pick.on {
+    border-color: #f0b90b;
+    color: #f0b90b;
+}
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    padding: 8px 10px;
+    border: 1px solid #f6465d;
+    border-radius: 4px;
+    background: #2b1216;
+    color: #f6465d;
+    font-weight: 700;
+}
+
+.banner span {
+    flex: 1;
+}
+
+.open-options {
+    padding: 4px 10px;
+    border: 1px solid #f6465d;
+    border-radius: 4px;
+    background: #1e2329;
+    color: #f6465d;
+    cursor: pointer;
+}
+
+.controls {
+    padding: 8px 0;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.row label {
+    width: 78px;
+    color: #848e9c;
+}
+
+.row input,
+.mode {
+    flex: 1;
+    padding: 4px 6px;
+    border: 1px solid #2b3139;
+    border-radius: 4px;
+    background: #0b0e11;
+    color: #eaecef;
+}
+
+.mode {
+    flex: 0 0 90px;
+}
+
+.stepper .value {
+    min-width: 34px;
+    text-align: center;
+    font-weight: 700;
+    color: #f0b90b;
+}
+
+.stepper .hint {
+    color: #5e6673;
+    font-size: 11px;
+}
+
+.table {
+    margin: 8px 0;
+    border-top: 1px solid #2b3139;
+    padding-top: 8px;
+}
+
+ /* 입력이 바뀌어 아직 다시 계산되지 않은 표. 지우지 않고 흐리게 둔다. */
+.table.stale {
+    opacity: 0.45;
+}
+
+.tr {
+    display: grid;
+    grid-template-columns: 26px 78px 64px 64px 64px 1fr;
+    gap: 4px;
+    padding: 2px 0;
+}
+
+.tr.th {
+    color: #848e9c;
+    border-bottom: 1px solid #2b3139;
+    margin-bottom: 2px;
+}
+
+.tr span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 제외 사유는 잘리면 뜻을 잃는다. 줄바꿈을 허용한다. */
+.reason {
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.25;
+}
+
+.tr.skip {
+    color: #5e6673;
+}
+
+.reason {
+    color: #f6465d;
+}
+
+.totals {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #2b3139;
+    font-weight: 700;
+}
+
+.warn {
+    margin-top: 4px;
+    color: #f0b90b;
+}
+
+.footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #2b3139;
+}
+
+.run {
+    flex: 1;
+    font-weight: 700;
+}
+
+.run.live {
+    border-color: #f6465d;
+    color: #f6465d;
+}
+
+/* 2단 확인이 걸린 상태. 한 번 더 눌러야 실제로 나간다. */
+.armed {
+    border-color: #f6465d;
+    background: #2b1216;
+    color: #f6465d;
+    font-weight: 700;
+}
+
+.run:disabled,
+.cancel:disabled,
+.resume:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.message,
+.open,
+.note {
+    width: 100%;
+    color: #848e9c;
+}
+
+.note {
+    padding: 12px 0;
+}

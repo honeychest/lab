@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <title>바이낸스 분할주문 - API 키</title>
+    <style>
+        body { margin: 0; padding: 24px; background: #12161c; color: #eaecef;
+               font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; font-size: 13px; }
+        main { max-width: 560px; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        p.lead { color: #848e9c; margin: 0 0 20px; }
+        label { display: block; margin: 14px 0 4px; color: #848e9c; }
+        input { width: 100%; padding: 8px; border: 1px solid #2b3139; border-radius: 4px;
+                background: #0b0e11; color: #eaecef; box-sizing: border-box; }
+        .actions { display: flex; gap: 8px; margin-top: 18px; }
+        button { padding: 8px 16px; border: 1px solid #2b3139; border-radius: 4px;
+                 background: #1e2329; color: #eaecef; cursor: pointer; }
+        #save { border-color: #f0b90b; color: #f0b90b; }
+        #status { margin-top: 14px; min-height: 20px; color: #f0b90b; }
+        section.guide { margin-top: 28px; padding-top: 16px; border-top: 1px solid #2b3139; color: #848e9c; }
+        section.guide ul { padding-left: 18px; margin: 8px 0; }
+        code { color: #eaecef; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>API 키</h1>
+    <p class="lead">한 번 넣으면 지울 때까지 유지됩니다. 브라우저나 PC 를 남에게 넘길 때는 지우세요.</p>
+
+    <label for="apiKey">API Key</label>
+    <input id="apiKey" type="password" autocomplete="off" spellcheck="false">
+
+    <label for="secretKey">Secret Key</label>
+    <input id="secretKey" type="password" autocomplete="off" spellcheck="false">
+
+    <div class="actions">
+        <button id="save">저장</button>
+        <button id="clear">지우기</button>
+    </div>
+    <div id="status"></div>
+
+    <section class="guide">
+        <p>이 확장이 쓰는 권한은 하나뿐입니다. 바이낸스 API 키 설정에서 이렇게 두세요.</p>
+        <ul>
+            <li>켤 것 — <code>Enable Reading</code>, <code>Enable Futures</code></li>
+            <li>끌 것 — 출금, 현물·마진, 유럽식 옵션, <code>Permits Universal Transfer</code></li>
+            <li>IP 접근 제한을 걸고, 거래할 심볼만 Symbol Whitelist 에 등록하세요</li>
+        </ul>
+        <p>이체 권한을 끄면 이 키로는 선물 지갑 잔고만 건드릴 수 있습니다.
+            선물 지갑에 운용액만 두면 최악의 경우가 그 금액으로 닫힙니다.</p>
+        <p>키는 이 브라우저 프로필에 저장됩니다. 다른 확장은 읽지 못하지만
+            디스크에는 평문으로 남습니다. 이상하다 싶으면 바이낸스에서 그 키를 삭제하는 것이
+            가장 확실한 복구입니다.</p>
+        <p>키를 지워도 <b>이미 걸어 둔 주문은 그대로 남습니다.</b>
+            취소는 바이낸스 화면이나 패널에서 하세요.</p>
+    </section>
+</main>
+<script src="options.js" type="module"></script>
+</body>
+</html>
