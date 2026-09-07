@@ -14,6 +14,7 @@ import {
     RANGE_MAX,
 } from '../core/plan.js';
 import { toSymbolRules, checkPercentPrice } from '../core/filters.js';
+import { checkMargin } from '../core/margin.js';
 import { hasCredentials, saveCredentials, clearCredentials } from './keys.js';
 
 const PLAN_PREFIX = 'plan:';
@@ -120,10 +121,11 @@ function recount(plan) {
 
 async function positionMetaOf(symbol, side) {
     if (!(await hasCredentials())) {
-        return { needKey: true, positionSide: 'BOTH', mode: null, leverage: null };
+        return { needKey: true, positionSide: 'BOTH', mode: null, leverage: null, availableBalance: null };
     }
     const mode = await api.positionMode();
     const positionSide = mode === 'HEDGE' ? (side === 'LONG' ? 'LONG' : 'SHORT') : 'BOTH';
+
     let leverage = null;
     try {
         const risks = await api.positionRisk(symbol);
@@ -131,7 +133,26 @@ async function positionMetaOf(symbol, side) {
     } catch {
         leverage = null;
     }
-    return { needKey: false, positionSide, mode, leverage };
+
+    // 지갑 잔고가 아니라 가용 잔고를 쓴다 — 이미 걸어 둔 주문과 포지션이 잡아 둔
+    // 증거금이 빠진 값이라, 그걸 써야 이중으로 세지 않는다.
+    let availableBalance = null;
+    try {
+        const account = await api.futuresAccount();
+        availableBalance = (account.assets || []).find((a) => a.asset === 'USDT')?.availableBalance ?? null;
+    } catch {
+        availableBalance = null;
+    }
+
+    return { needKey: false, positionSide, mode, leverage, availableBalance };
+}
+
+function marginOf(plan, position) {
+    return checkMargin({
+        actualNotional: plan.totals.actualNotional,
+        leverage: position.leverage,
+        availableBalance: position.availableBalance,
+    });
 }
 
 async function preview(input) {
@@ -155,8 +176,16 @@ async function preview(input) {
         plan.warnings.push('단방향 모드입니다 — 반대 포지션이 있으면 이 주문이 그 포지션을 줄입니다');
     }
 
+    const margin = marginOf(plan, position);
+    if (margin.kind === 'INSUFFICIENT') {
+        plan.warnings.push(
+            `증거금이 ${margin.shortfall} USDT 모자랍니다 (필요 ${margin.required} / 가용 ${margin.available})`,
+        );
+    }
+
     return {
         kind: 'PLAN',
+        margin,
         planId,
         digest,
         levels: plan.levels,
@@ -202,10 +231,26 @@ async function place(planId, digest, mode) {
         return { kind: 'INVALID', reasons: ['전송할 회차가 없습니다'] };
     }
 
+    // 전송 직전에 다시 잰다. 미리보기 이후 다른 주문이 증거금을 잡았을 수 있다.
+    const margin = marginOf(plan, position);
+    if (margin.kind === 'INSUFFICIENT') {
+        return {
+            kind: 'INVALID',
+            reasons: [
+                `증거금이 부족합니다 — 필요 ${margin.required} USDT / 가용 ${margin.available} USDT ` +
+                    `(${margin.shortfall} 모자람). 총액을 줄이거나 레버리지를 올리세요`,
+            ],
+        };
+    }
+
     // 이미 전송을 시작한 계획이면 상태를 새로 만들지 않는다.
     // 덮어쓰면 접수된 회차가 PENDING 으로 되돌아가 중복 주문이 된다.
     await exec.ensureState({ planId, plan, meta, mode });
-    return exec.sendPending(planId);
+    try {
+        return await exec.sendPending(planId);
+    } finally {
+        api.clearAccountCache();
+    }
 }
 
 async function resume(planId) {
@@ -247,6 +292,7 @@ async function cancelAll(symbol) {
     if (!(await hasCredentials())) return { kind: 'NEED_KEY' };
     const before = (await api.openOrders(symbol)) || [];
     await api.cancelAllOpenOrders(symbol);
+    api.clearAccountCache();
     const after = (await api.openOrders(symbol)) || [];
     // 응답에 취소 건수가 없어서 전후 조회로 센다. 그 사이 체결이 있으면
     // 숫자가 정확하지 않을 수 있어 "확인된 개수" 로 표시한다.

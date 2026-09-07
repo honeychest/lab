@@ -646,6 +646,20 @@
                     `평균단가 ${totals.averagePrice} · 전송 ${totals.sendCount}건 제외 ${totals.skipCount}건`,
             ),
         );
+
+        // 필요 증거금 = 실제 명목금액 / 레버리지.
+        const margin = state.plan.margin;
+        if (margin && margin.kind !== 'UNKNOWN') {
+            const leverage = state.plan.leverage ? `${state.plan.leverage}x` : '';
+            box.append(
+                el(
+                    'div',
+                    margin.kind === 'INSUFFICIENT' ? 'margin short' : 'margin',
+                    `필요 증거금 ${money(margin.required)} ${leverage} · 가용 ${money(margin.available)} USDT` +
+                        (margin.kind === 'INSUFFICIENT' ? ` — ${money(margin.shortfall)} 모자람` : ''),
+                ),
+            );
+        }
         for (const warning of state.plan.warnings ?? []) box.append(el('div', 'warn', warning));
         return box;
     }
@@ -660,7 +674,9 @@
                 : `${sendCount}건 주문 실행`;
         const button = el('button', `run ${state.mode === 'LIVE' ? 'live' : ''} ${state.confirming === 'place' ? 'armed' : ''}`, runLabel);
         const unknown = state.lastExecution?.summary?.unknown ?? 0;
-        button.disabled = state.busy || state.needKey || !state.planId || sendCount === 0 || unknown > 0;
+        const shortMargin = state.plan?.margin?.kind === 'INSUFFICIENT';
+        button.disabled =
+            state.busy || state.needKey || !state.planId || sendCount === 0 || unknown > 0 || shortMargin;
         button.addEventListener('click', place);
         box.append(button);
 

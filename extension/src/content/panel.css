@@ -219,6 +219,17 @@
     font-weight: 700;
 }
 
+.margin {
+    margin-top: 4px;
+    color: #848e9c;
+}
+
+/* 증거금이 모자라면 전송이 막힌다. 눈에 띄어야 한다. */
+.margin.short {
+    color: #f6465d;
+    font-weight: 700;
+}
+
 .warn {
     margin-top: 4px;
     color: #f0b90b;

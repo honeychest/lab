@@ -27,6 +27,23 @@ let serverTimeOffsetMs = 0;
 let serverTimeSyncedAtMs = 0;
 const exchangeInfoCache = new Map();
 
+// 미리보기는 값이 바뀔 때마다 도는데 계좌·레버리지·포지션모드는 그 사이 거의 안 변한다.
+// 짧게 캐시해 서명 호출 수를 줄인다. 캐시는 최적화일 뿐이라 비어도 동작한다.
+const responseCache = new Map();
+
+async function cached(key, ttlMs, fetcher) {
+    const hit = responseCache.get(key);
+    if (hit && Date.now() - hit.at < ttlMs) return hit.value;
+    const value = await fetcher();
+    responseCache.set(key, { at: Date.now(), value });
+    return value;
+}
+
+// 주문을 내거나 취소한 뒤에는 잔고가 바뀐다. 그때는 캐시를 버려야 한다.
+export function clearAccountCache() {
+    responseCache.clear();
+}
+
 function toQuery(params) {
     return Object.entries(params)
         .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -157,16 +174,20 @@ export async function markPrice(symbol) {
 }
 
 export async function positionMode() {
-    const response = await signedRequest('GET', '/fapi/v1/positionSide/dual');
+    const response = await cached('positionMode', 30_000, () =>
+        signedRequest('GET', '/fapi/v1/positionSide/dual'),
+    );
     return response.dualSidePosition === true ? 'HEDGE' : 'ONE_WAY';
 }
 
 export async function futuresAccount() {
-    return signedRequest('GET', '/fapi/v3/account');
+    return cached('account', 5_000, () => signedRequest('GET', '/fapi/v3/account'));
 }
 
 export async function positionRisk(symbol) {
-    return signedRequest('GET', '/fapi/v2/positionRisk', { symbol });
+    return cached(`positionRisk:${symbol}`, 5_000, () =>
+        signedRequest('GET', '/fapi/v2/positionRisk', { symbol }),
+    );
 }
 
 export async function openOrders(symbol) {
