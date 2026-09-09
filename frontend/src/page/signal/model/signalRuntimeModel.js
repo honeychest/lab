@@ -42,11 +42,11 @@ export function applyAggTrade(state, trade, symbol) {
 export function applyForceOrder(state, order, symbol) {
   if (!order || order.symbol !== symbol) return state;
 
+  // 에너지는 순수 체결대금이라 청산을 빼지 않는다 — 청산 체결은 aggTrade 원본에 이미 포함돼 있다.
   const value = Number.parseFloat(order.quantity) * Number.parseFloat(order.price);
   if (order.side === 'SELL') {
     return {
       ...state,
-      longEnergy: Math.max(0, state.longEnergy - value),
       longLiqTotal: state.longLiqTotal + value,
       longLiqEvents: [order, ...state.longLiqEvents].slice(0, LIQUIDATION_BUFFER_SIZE),
     };
@@ -54,7 +54,6 @@ export function applyForceOrder(state, order, symbol) {
 
   return {
     ...state,
-    shortEnergy: Math.max(0, state.shortEnergy - value),
     shortLiqTotal: state.shortLiqTotal + value,
     shortLiqEvents: [order, ...state.shortLiqEvents].slice(0, LIQUIDATION_BUFFER_SIZE),
   };

@@ -84,6 +84,8 @@ public class SignalDataService {
         log.info("[SignalEnergy] interval={} longEnergy={} shortEnergy={}", interval.value(), longEnergy, shortEnergy);
 
         // 누계: SUM 집계 쿼리 (전체 범위, 목록 조회 없음)
+        // 청산은 누계·목록 표시용으로만 쓴다 — 에너지는 순수 체결대금이고,
+        // 청산 체결은 agg_trade·kline 원본에 이미 포함돼 있어 빼지 않는다.
         BigDecimal longLiqTotal  = BigDecimal.ZERO;
         BigDecimal shortLiqTotal = BigDecimal.ZERO;
         var liqSums = forceOrderRepository.sumLiqTotalBySymbolAndTimeRange(symbol, fromMs, nowMs);
@@ -94,13 +96,10 @@ public class SignalDataService {
             log.info("[SignalEnergy] liq side={} total={}", side, total);
             if ("SELL".equals(side)) {
                 longLiqTotal = total;
-                longEnergy   = longEnergy.subtract(total);
             } else {
                 shortLiqTotal = total;
-                shortEnergy   = shortEnergy.subtract(total);
             }
         }
-        log.info("[SignalEnergy] after liq adjust longEnergy={} shortEnergy={}", longEnergy, shortEnergy);
 
         // 이벤트 목록: side별 최근 10건
         var longTop10  = forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, "SELL", fromMs, nowMs);
@@ -127,8 +126,8 @@ public class SignalDataService {
         }).toList();
 
         Map<String, Object> result = new HashMap<>();
-        result.put("longEnergy",    longEnergy.max(BigDecimal.ZERO).doubleValue());
-        result.put("shortEnergy",   shortEnergy.max(BigDecimal.ZERO).doubleValue());
+        result.put("longEnergy",    longEnergy.doubleValue());
+        result.put("shortEnergy",   shortEnergy.doubleValue());
         result.put("longLiqTotal",  longLiqTotal.doubleValue());
         result.put("shortLiqTotal", shortLiqTotal.doubleValue());
         result.put("longLiqEvents",  longLiqEvents);

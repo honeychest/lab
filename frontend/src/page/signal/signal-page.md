@@ -77,8 +77,8 @@ col→  1    2    3    4    5    6    7    8    9   10   11   12
 |---|---|---|
 | `symbol` | string | 현재 심볼 (BTCUSDT / ENAUSDT) |
 | `timeRange` | string | 선택된 봉 단위 (1m / 5m / 30m / 1h) |
-| `longEnergy` | number | 롱 누적 에너지 (USD) |
-| `shortEnergy` | number | 숏 누적 에너지 (USD) |
+| `longEnergy` | number | 롱 누적 에너지 = 매수 주도 체결대금 (USD, 청산 미차감) |
+| `shortEnergy` | number | 숏 누적 에너지 = 매도 주도 체결대금 (USD, 청산 미차감) |
 | `longTrades` | array | 롱 체결 tape (최근 20개) |
 | `shortTrades` | array | 숏 체결 tape (최근 20개) |
 | `longLiqEvents` | array | 롱 청산 이벤트 목록 (히스토리 top10 + SSE 실시간) |
