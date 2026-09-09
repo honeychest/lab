@@ -46,7 +46,7 @@ test('applyAggTrade adds non-buyer-maker trade value to long energy and ignores 
   assert.equal(ignored, next);
 });
 
-test('applyForceOrder handles long and short liquidation with energy floor and buffers', () => {
+test('applyForceOrder accumulates liquidation totals and buffers without touching energy', () => {
   const state = createSignalRuntimeState({
     longEnergy: 100,
     shortEnergy: 20,
@@ -68,11 +68,11 @@ test('applyForceOrder handles long and short liquidation with energy floor and b
   const afterLong = applyForceOrder(state, longLiquidation, 'BTCUSDT');
   const afterShort = applyForceOrder(afterLong, shortLiquidation, 'BTCUSDT');
 
-  assert.equal(afterLong.longEnergy, 0);
+  assert.equal(afterLong.longEnergy, 100);
   assert.equal(afterLong.longLiqTotal, 120);
   assert.equal(afterLong.longLiqEvents.length, 50);
   assert.deepEqual(afterLong.longLiqEvents[0], longLiquidation);
-  assert.equal(afterShort.shortEnergy, 0);
+  assert.equal(afterShort.shortEnergy, 20);
   assert.equal(afterShort.shortLiqTotal, 20);
   assert.deepEqual(afterShort.shortLiqEvents, [shortLiquidation]);
 });

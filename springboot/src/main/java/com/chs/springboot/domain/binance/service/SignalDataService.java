@@ -94,13 +94,10 @@ public class SignalDataService {
             log.info("[SignalEnergy] liq side={} total={}", side, total);
             if ("SELL".equals(side)) {
                 longLiqTotal = total;
-                longEnergy   = longEnergy.subtract(total);
             } else {
                 shortLiqTotal = total;
-                shortEnergy   = shortEnergy.subtract(total);
             }
         }
-        log.info("[SignalEnergy] after liq adjust longEnergy={} shortEnergy={}", longEnergy, shortEnergy);
 
         // 이벤트 목록: side별 최근 10건
         var longTop10  = forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(symbol, "SELL", fromMs, nowMs);
@@ -127,8 +124,8 @@ public class SignalDataService {
         }).toList();
 
         Map<String, Object> result = new HashMap<>();
-        result.put("longEnergy",    longEnergy.max(BigDecimal.ZERO).doubleValue());
-        result.put("shortEnergy",   shortEnergy.max(BigDecimal.ZERO).doubleValue());
+        result.put("longEnergy",    longEnergy.doubleValue());
+        result.put("shortEnergy",   shortEnergy.doubleValue());
         result.put("longLiqTotal",  longLiqTotal.doubleValue());
         result.put("shortLiqTotal", shortLiqTotal.doubleValue());
         result.put("longLiqEvents",  longLiqEvents);
