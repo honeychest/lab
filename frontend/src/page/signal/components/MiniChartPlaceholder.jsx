@@ -13,16 +13,6 @@ function getLastOiValue(oiData, symbol) {
     return Math.round(val).toLocaleString() + ' ' + symbol.replace('USDT', '');
 }
 
-function getLastDelta(candleHistory, symbol) {
-    if (!candleHistory || candleHistory.length === 0) return null;
-    const sorted = [...candleHistory].sort((a, b) => b.time - a.time);
-    const delta = sorted[0]?.delta ?? null;
-    if (delta === null) return null;
-    const label = delta >= 0 ? '순매수' : '순매도';
-    const sign  = delta >= 0 ? '+' : '';
-    return { label, text: `${label} ${sign}${Number(delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${symbol.replace('USDT', '')}`, positive: delta >= 0 };
-}
-
 const slotStyle = {
     backgroundColor: 'var(--black-surface-bg)',
     borderRadius: '6px',
@@ -51,7 +41,6 @@ const contentStyle = {
 
 export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistory = [], candleType, rangeMs, onCandleTime, onCandleUpdate, longEnergy, shortEnergy }) {
     const lastOiValue  = getLastOiValue(oiData, symbol);
-    const lastDelta    = getLastDelta(candleHistory, symbol);
 
     return (
         <div
@@ -66,11 +55,6 @@ export default function MiniChartPlaceholder({ oiData = [], symbol, candleHistor
             <div style={slotStyle}>
                 <div style={labelStyle}>
                     <span>FUTURES</span>
-                    {lastDelta && (
-                        <span style={{ color: lastDelta.positive ? 'rgba(80,160,255,0.9)' : 'rgba(255,160,50,0.9)', fontSize: '10px', fontWeight: '600' }}>
-                            {lastDelta.text}
-                        </span>
-                    )}
                 </div>
                 <div style={contentStyle}>
                     <CandleChart symbol={symbol} candleHistory={candleHistory} candleType={candleType} onCandleTime={onCandleTime} onCandleUpdate={onCandleUpdate} />
