@@ -105,7 +105,7 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 64M
+          memory: 128M
 
   # Binance aggTrade 원천 이벤트를 먼저 받아둘 단일 노드 Kafka.
   # DB writer/실시간 시그널/gap detector를 consumer group으로 분리하기 위한 인프라.

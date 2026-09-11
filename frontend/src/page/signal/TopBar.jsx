@@ -91,7 +91,19 @@ export default function TopBar({
     onCustomHistoryStartChange,
 }) {
     const [panelOpen, setPanelOpen] = useState(false);
+    const [currentDateOnly, setCurrentDateOnly] = useState('');
     const gearContainerRef = useRef(null);
+
+    useEffect(() => {
+        const updateCurrentDate = () => {
+            const next = msToDatetimeLocal(Date.now()).slice(0, 10);
+            setCurrentDateOnly((previous) => previous === next ? previous : next);
+        };
+
+        updateCurrentDate();
+        const intervalId = window.setInterval(updateCurrentDate, 60_000);
+        return () => window.clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         if (!panelOpen) return;
@@ -147,8 +159,6 @@ export default function TopBar({
         fontWeight: '500',
         padding: '3px 6px',
     };
-    const currentDatetimeLocal = msToDatetimeLocal(Date.now());
-    const currentDateOnly = currentDatetimeLocal.slice(0, 10);
 
     return (
         <>
