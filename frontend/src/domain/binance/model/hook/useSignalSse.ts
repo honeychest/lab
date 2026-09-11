@@ -1,6 +1,6 @@
 // [AGENT] SSE 훅 — Signal Dashboard 실시간 데이터 수신 (aggtrade, forceOrder, oi)
 // 연관파일: SignalPage.jsx, /api/signal/stream/sse
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface AggTradeEvent {
     symbol: string;
@@ -31,16 +31,32 @@ interface UseSignalSseParams {
 
 const RECONNECT_DELAY_MS = 1_000;
 const SYMBOL_CHANGE_DEBOUNCE_MS = 300;
+const AGG_TRADE_QUEUE_MAX = 1_000;
+const FORCE_ORDER_QUEUE_MAX = 100;
 
 export function useSignalSse({ symbol }: UseSignalSseParams) {
-    const [aggTrades, setAggTrades] = useState<AggTradeEvent[]>([]);
-    const [forceOrders, setForceOrders] = useState<ForceOrderEvent[]>([]);
     const [latestOi, setLatestOi] = useState<OiEvent | null>(null);
     const [connected, setConnected] = useState(false);
+    const [aggTradeVersion, setAggTradeVersion] = useState(0);
+    const [forceOrderVersion, setForceOrderVersion] = useState(0);
 
+    const aggTradeQueueRef = useRef<AggTradeEvent[]>([]);
+    const forceOrderQueueRef = useRef<ForceOrderEvent[]>([]);
     const esRef = useRef<EventSource | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const symbolDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const drainAggTrades = useCallback(() => {
+        const queued = aggTradeQueueRef.current;
+        aggTradeQueueRef.current = [];
+        return queued;
+    }, []);
+
+    const drainForceOrders = useCallback(() => {
+        const queued = forceOrderQueueRef.current;
+        forceOrderQueueRef.current = [];
+        return queued;
+    }, []);
 
     useEffect(() => {
         let closed = false;
@@ -52,8 +68,8 @@ export function useSignalSse({ symbol }: UseSignalSseParams) {
         symbolDebounceTimerRef.current = setTimeout(() => {
             if (closed) return;
 
-            setAggTrades([]);
-            setForceOrders([]);
+            aggTradeQueueRef.current = [];
+            forceOrderQueueRef.current = [];
             setLatestOi(null);
             setConnected(false);
 
@@ -78,7 +94,10 @@ export function useSignalSse({ symbol }: UseSignalSseParams) {
                     if (closed) return;
                     try {
                         const trade: AggTradeEvent = JSON.parse(e.data);
-                        setAggTrades(prev => [trade, ...prev].slice(0, 100));
+                        const queue = aggTradeQueueRef.current;
+                        queue.push(trade);
+                        if (queue.length > AGG_TRADE_QUEUE_MAX) queue.shift();
+                        setAggTradeVersion(prev => prev + 1);
                     } catch {
                         // ignore parse error
                     }
@@ -88,7 +107,10 @@ export function useSignalSse({ symbol }: UseSignalSseParams) {
                     if (closed) return;
                     try {
                         const order: ForceOrderEvent = JSON.parse(e.data);
-                        setForceOrders(prev => [order, ...prev].slice(0, 50));
+                        const queue = forceOrderQueueRef.current;
+                        queue.push(order);
+                        if (queue.length > FORCE_ORDER_QUEUE_MAX) queue.shift();
+                        setForceOrderVersion(prev => prev + 1);
                     } catch {
                         // ignore parse error
                     }
@@ -156,6 +178,8 @@ export function useSignalSse({ symbol }: UseSignalSseParams) {
                 window.removeEventListener('pageshow', handlePageShow);
                 esRef.current?.close();
                 esRef.current = null;
+                aggTradeQueueRef.current = [];
+                forceOrderQueueRef.current = [];
                 if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             };
         }, SYMBOL_CHANGE_DEBOUNCE_MS);
@@ -166,5 +190,12 @@ export function useSignalSse({ symbol }: UseSignalSseParams) {
         };
     }, [symbol]);
 
-    return { aggTrades, forceOrders, latestOi, connected };
+    return {
+        latestOi,
+        connected,
+        aggTradeVersion,
+        forceOrderVersion,
+        drainAggTrades,
+        drainForceOrders,
+    };
 }

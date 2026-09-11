@@ -4,7 +4,9 @@ import {
   appendCandle,
   appendOi,
   applyAggTrade,
+  applyAggTrades,
   applyForceOrder,
+  applyForceOrders,
   createSignalRuntimeState,
   resetSignalRuntimeState,
 } from './signalRuntimeModel.js';
@@ -46,6 +48,22 @@ test('applyAggTrade adds non-buyer-maker trade value to long energy and ignores 
   assert.equal(ignored, next);
 });
 
+test('applyAggTrades consumes every matching trade in a batch', () => {
+  const state = createSignalRuntimeState();
+  const trades = [
+    { symbol: 'BTCUSDT', price: '10', quantity: '2', isBuyerMaker: false },
+    { symbol: 'BTCUSDT', price: '20', quantity: '3', isBuyerMaker: true },
+    { symbol: 'ENAUSDT', price: '100', quantity: '9', isBuyerMaker: false },
+  ];
+
+  const next = applyAggTrades(state, trades, 'BTCUSDT');
+
+  assert.equal(next.longEnergy, 20);
+  assert.equal(next.shortEnergy, 60);
+  assert.deepEqual(next.longTrades, [trades[0]]);
+  assert.deepEqual(next.shortTrades, [trades[1]]);
+});
+
 test('applyForceOrder accumulates liquidation totals and buffers without touching energy', () => {
   const state = createSignalRuntimeState({
     longEnergy: 100,
@@ -75,6 +93,22 @@ test('applyForceOrder accumulates liquidation totals and buffers without touchin
   assert.equal(afterShort.shortEnergy, 20);
   assert.equal(afterShort.shortLiqTotal, 20);
   assert.deepEqual(afterShort.shortLiqEvents, [shortLiquidation]);
+});
+
+test('applyForceOrders consumes every matching liquidation in a batch', () => {
+  const state = createSignalRuntimeState();
+  const orders = [
+    { symbol: 'BTCUSDT', side: 'SELL', price: '40', quantity: '3' },
+    { symbol: 'BTCUSDT', side: 'BUY', price: '10', quantity: '2' },
+    { symbol: 'ENAUSDT', side: 'SELL', price: '100', quantity: '9' },
+  ];
+
+  const next = applyForceOrders(state, orders, 'BTCUSDT');
+
+  assert.equal(next.longLiqTotal, 120);
+  assert.equal(next.shortLiqTotal, 20);
+  assert.deepEqual(next.longLiqEvents, [orders[0]]);
+  assert.deepEqual(next.shortLiqEvents, [orders[1]]);
 });
 
 test('appendOi appends matching symbol only and caps history', () => {

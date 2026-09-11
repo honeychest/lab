@@ -39,6 +39,13 @@ export function applyAggTrade(state, trade, symbol) {
   };
 }
 
+export function applyAggTrades(state, trades, symbol) {
+  return (trades ?? []).reduce(
+    (next, trade) => applyAggTrade(next, trade, symbol),
+    state,
+  );
+}
+
 export function applyForceOrder(state, order, symbol) {
   if (!order || order.symbol !== symbol) return state;
 
@@ -57,6 +64,13 @@ export function applyForceOrder(state, order, symbol) {
     shortLiqTotal: state.shortLiqTotal + value,
     shortLiqEvents: [order, ...state.shortLiqEvents].slice(0, LIQUIDATION_BUFFER_SIZE),
   };
+}
+
+export function applyForceOrders(state, orders, symbol) {
+  return (orders ?? []).reduce(
+    (next, order) => applyForceOrder(next, order, symbol),
+    state,
+  );
 }
 
 export function appendOi(state, oi, symbol) {

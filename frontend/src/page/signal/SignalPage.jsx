@@ -21,8 +21,8 @@ import { usePageTheme } from '@/app/context/useTheme.js';
 import {
     appendCandle,
     appendOi,
-    applyAggTrade,
-    applyForceOrder,
+    applyAggTrades,
+    applyForceOrders,
     createSignalRuntimeState,
     resetSignalRuntimeState,
 } from './model/signalRuntimeModel.js';
@@ -88,7 +88,13 @@ export default function SignalPage() {
     const abortControllerRef = useRef(null);
     const symbolDebounceRef = useRef(null);
 
-    const { aggTrades, forceOrders, latestOi } = useSignalSse({ symbol });
+    const {
+        aggTradeVersion,
+        forceOrderVersion,
+        drainAggTrades,
+        drainForceOrders,
+        latestOi,
+    } = useSignalSse({ symbol });
 
     useEffect(() => {
         const loadInit = async () => {
@@ -230,16 +236,18 @@ export default function SignalPage() {
     };
 
     useEffect(() => {
-        if (aggTrades.length === 0) return;
+        const trades = drainAggTrades();
+        if (trades.length === 0) return;
 
-        setRuntimeState((prev) => applyAggTrade(prev, aggTrades[0], symbol));
-    }, [aggTrades, symbol]);
+        setRuntimeState((prev) => applyAggTrades(prev, trades, symbol));
+    }, [aggTradeVersion, drainAggTrades, symbol]);
 
     useEffect(() => {
-        if (forceOrders.length === 0) return;
+        const orders = drainForceOrders();
+        if (orders.length === 0) return;
 
-        setRuntimeState((prev) => applyForceOrder(prev, forceOrders[0], symbol));
-    }, [forceOrders, symbol]);
+        setRuntimeState((prev) => applyForceOrders(prev, orders, symbol));
+    }, [forceOrderVersion, drainForceOrders, symbol]);
 
     // OI 데이터 수신 처리
     useEffect(() => {
