@@ -1,0 +1,5 @@
+.autotradePipBody {
+  min-height: 100vh;
+  min-width: 960px;
+  overflow: auto;
+}

@@ -6,11 +6,13 @@ Apply Always : /chs/chs-rules.md
 # 폴더별 코드 규칙 (모든 AI 에이전트)
 - `frontend/AGENTS.md`, `springboot/AGENTS.md` — 해당 폴더의 파일을 수정하기 전에 읽는다.
   (공용 훅·순수 모듈 등 "가져다 쓸 것" 모범 패턴과 금지 사항이 정리돼 있음)
+- `tradingview/AGENTS.md` — `.pine` 파일을 만들거나 고치기 전에 읽는다.
+  (로컬 컴파일러가 없어 문법 오류가 사용자 왕복 비용이 되므로, 레퍼런스 조회 절차와 함정이 정리돼 있음)
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **lab** (13040 symbols, 27720 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **lab** (16871 symbols, 34678 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

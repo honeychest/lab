@@ -12,6 +12,7 @@ import TestTest      from '../../page/error/TestTest.jsx';
 import BinancePage   from '../../page/binance/BinancePage.jsx';
 import TradePage     from '../../page/trade/TradePage.jsx';
 import AdminPage     from '../../page/admin/AdminPage.jsx';
+import AutoTradePage from '../../page/autotrade/AutoTradePage.jsx';
 import HealthBoardPage from '../../page/admin/health/HealthBoardPage.jsx';
 import AnalysisPage  from '../../page/analysis/AnalysisPage.jsx';
 import MonitorPage      from '../../page/monitor/MonitorPage.jsx';
@@ -82,6 +83,9 @@ function MainRouter() {
 
                 {/* Admin 페이지 */}
                 <Route path="/admin" element={<AdminPage />} />
+
+                {/* Binance 자동매매 관제 */}
+                <Route path="/autotrade" element={<AutoTradePage />} />
 
                 {/* 헬스 체크 보드 (독립 라우트, 로그인 필요) */}
                 <Route path="/admin/health" element={<HealthBoardPage />} />

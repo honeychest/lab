@@ -1,0 +1,52 @@
+.page {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 22px;
+  background: var(--monitor-bg);
+}
+
+.accessState,
+.detachedState {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  gap: 10px;
+  padding: 32px;
+  box-sizing: border-box;
+  color: var(--monitor-text-secondary);
+  text-align: center;
+}
+
+.detachedPage {
+  min-width: 960px;
+}
+
+.detachedState {
+  min-height: 55vh;
+}
+
+.detachedKicker {
+  color: var(--monitor-primary);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.returnButton {
+  min-height: 44px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: var(--monitor-card-bg);
+  color: var(--monitor-text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 680px) {
+  .page {
+    padding: 14px;
+  }
+}

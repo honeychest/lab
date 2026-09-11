@@ -99,7 +99,8 @@ public class DataGapAdminService {
         return batchJdbcTemplate.queryForList(sql);
     }
 
-    /** open_interest: 2분 이상 공백 탐지 (symbol 파티션) */
+    /** open_interest: 10분 초과 공백 탐지 (symbol 파티션). OI 는 5분 간격 저장이라
+     *  기준을 그보다 짧게 잡으면 정상 행이 전부 갭으로 잡힌다. */
     private List<Map<String, Object>> oiGap() {
         String sql = """
             SELECT

@@ -1,0 +1,675 @@
+.console {
+  min-height: 100%;
+  color: var(--monitor-text-primary);
+}
+
+:global(.autotradePipBody) {
+  margin: 0;
+  min-width: 320px;
+  background: var(--monitor-bg);
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.kicker,
+.cardEyebrow {
+  color: var(--monitor-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 4px 0 0;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  color: var(--monitor-text-secondary);
+  font-size: 14px;
+}
+
+.heroActions,
+.bannerActions,
+.inlineStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 12px;
+  background: var(--monitor-card-bg);
+  color: var(--monitor-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.topToggle input {
+  accent-color: var(--monitor-primary);
+}
+
+.secondaryButton,
+.secondaryButtonWide,
+.primaryButton,
+.primaryButtonWide,
+.dangerButton,
+.warningButton {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.secondaryButton:hover,
+.primaryButton:hover,
+.primaryButtonWide:hover,
+.dangerButton:hover,
+.warningButton:hover {
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  border-color: var(--monitor-border);
+  background: var(--monitor-card-bg);
+  color: var(--monitor-text-secondary);
+}
+
+.secondaryButtonWide {
+  width: 100%;
+  border-color: var(--monitor-border);
+  background: var(--monitor-card-bg);
+  color: var(--monitor-text-primary);
+}
+
+.primaryButton,
+.primaryButtonWide {
+  background: var(--monitor-primary);
+  color: var(--monitor-card-bg);
+}
+
+.primaryButtonWide {
+  width: 100%;
+}
+
+.dangerButton {
+  background: var(--monitor-severity-critical);
+  color: var(--monitor-card-bg);
+}
+
+.warningButton {
+  width: 100%;
+  border-color: var(--monitor-severity-warn);
+  background: var(--monitor-banner-reconnect-bg);
+  color: var(--monitor-banner-reconnect-text);
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.bannerError {
+  border-color: var(--monitor-severity-critical);
+  background: color-mix(in srgb, var(--monitor-severity-critical) 8%, var(--monitor-card-bg));
+  color: var(--monitor-severity-critical);
+}
+
+.bannerSuccess {
+  border-color: var(--monitor-gauge-ok);
+  background: color-mix(in srgb, var(--monitor-gauge-ok) 8%, var(--monitor-card-bg));
+  color: var(--monitor-gauge-ok);
+}
+
+.bannerInfo {
+  background: var(--monitor-sidebar-bg);
+  color: var(--monitor-text-secondary);
+}
+
+.bannerWarning {
+  border-color: var(--monitor-severity-warn);
+  background: var(--monitor-banner-reconnect-bg);
+  color: var(--monitor-banner-reconnect-text);
+}
+
+.statusStrip,
+.positionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.statusStrip {
+  margin-bottom: 14px;
+}
+
+.metric {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 14px;
+  background: var(--monitor-card-bg);
+}
+
+.metricLabel,
+.fieldLabel,
+.detailList span,
+.metricDetail {
+  color: var(--monitor-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.metricValue {
+  overflow: hidden;
+  margin-top: 7px;
+  font-size: 19px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metricDetail {
+  overflow: hidden;
+  margin-top: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.mainColumn,
+.sideColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 16px;
+  background: var(--monitor-card-bg);
+}
+
+.actionCard {
+  background: var(--monitor-sidebar-bg);
+}
+
+.cardHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cardTitle {
+  margin: 3px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.observationLower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--monitor-border);
+}
+
+.field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.fieldControl {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 10px;
+  padding: 0 11px;
+  background: var(--monitor-sidebar-bg);
+  color: var(--monitor-text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+
+.inputWithSuffix {
+  padding-right: 64px;
+}
+
+.input:focus {
+  border-color: var(--monitor-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--monitor-primary) 18%, transparent);
+}
+
+.fieldSuffix {
+  position: absolute;
+  right: 28px;
+  color: var(--monitor-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.readonlyValue {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  align-items: center;
+  border: 1px solid var(--monitor-border);
+  border-radius: 10px;
+  padding: 0 11px;
+  background: var(--monitor-sidebar-bg);
+  color: var(--monitor-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.helper {
+  margin: 14px 0 0;
+  color: var(--monitor-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.modePicker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.modeButton {
+  display: flex;
+  min-height: 58px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--monitor-border);
+  border-radius: 12px;
+  padding: 0 11px;
+  background: var(--monitor-sidebar-bg);
+  color: var(--monitor-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.modeButton small {
+  color: var(--monitor-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.modeButton em {
+  color: var(--monitor-primary);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.modeButtonActive {
+  border-color: var(--monitor-primary);
+  background: color-mix(in srgb, var(--monitor-primary) 10%, var(--monitor-card-bg));
+  color: var(--monitor-text-primary);
+}
+
+.modeButtonApplied {
+  box-shadow: inset 0 0 0 1px var(--monitor-primary);
+}
+
+.modeButtonLive.modeButtonActive {
+  border-color: var(--monitor-severity-critical);
+  background: color-mix(in srgb, var(--monitor-severity-critical) 8%, var(--monitor-card-bg));
+}
+
+.operationFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.accountSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.accountSummary .metric {
+  padding: 11px;
+}
+
+.accountSummary .metricValue {
+  font-size: 15px;
+}
+
+.pendingNotice {
+  margin-top: 10px;
+  color: var(--monitor-severity-warn-text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.buttonStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.operatorHealth {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--monitor-border);
+}
+
+.operatorHealth > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--monitor-card-bg);
+}
+
+.operatorHealth span,
+.operatorHealth strong {
+  font-size: 11px;
+}
+
+.operatorHealth span {
+  color: var(--monitor-text-secondary);
+  font-weight: 700;
+}
+
+.operatorHealth strong {
+  color: var(--monitor-text-primary);
+}
+
+.advancedSettings {
+  margin-top: 14px;
+  border-top: 1px solid var(--monitor-border);
+}
+
+.advancedSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--monitor-text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.advancedSummary::-webkit-details-marker {
+  display: none;
+}
+
+.advancedSummary::after {
+  content: '+';
+  color: var(--monitor-primary);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.advancedSettings[open] .advancedSummary::after {
+  content: '−';
+}
+
+.advancedSummary small {
+  margin-left: auto;
+  color: var(--monitor-text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.advancedSettings .formGrid {
+  grid-template-columns: 1fr;
+  padding-bottom: 12px;
+}
+
+.emptyState {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 78px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--monitor-sidebar-bg);
+}
+
+.emptyState strong,
+.emptyState span {
+  display: block;
+}
+
+.emptyState span {
+  margin-top: 4px;
+  color: var(--monitor-text-secondary);
+  font-size: 12px;
+}
+
+.statusDot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.inlineStatus {
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--monitor-border);
+  color: var(--monitor-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detailList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detailList > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--monitor-border);
+}
+
+.detailList > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detailList strong {
+  max-width: 62%;
+  color: var(--monitor-text-primary);
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.lastAction {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--monitor-sidebar-bg);
+}
+
+.lastActionKind {
+  color: var(--monitor-primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.lastAction p {
+  margin: 8px 0;
+  color: var(--monitor-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lastAction span {
+  color: var(--monitor-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.statusDot.success,
+.success { color: var(--monitor-gauge-ok); }
+
+.statusDot.warn,
+.warn { color: var(--monitor-severity-warn-text); }
+
+.statusDot.critical,
+.critical { color: var(--monitor-severity-critical); }
+
+.statusDot.primary,
+.primary { color: var(--monitor-primary); }
+
+.neutral { color: var(--monitor-text-secondary); }
+
+@media (max-width: 900px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sideColumn {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .heroActions {
+    justify-content: space-between;
+  }
+
+  .statusStrip,
+  .positionGrid,
+  .formGrid,
+  .modePicker,
+  .sideColumn {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .observationLower {
+    grid-template-columns: 1fr;
+  }
+
+  .accountSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .operationFields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .statusStrip,
+  .positionGrid,
+  .formGrid,
+  .modePicker,
+  .sideColumn {
+    grid-template-columns: 1fr;
+  }
+
+  .cardHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

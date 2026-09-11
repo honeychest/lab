@@ -15,6 +15,7 @@ const NAV_ITEMS = [
     { label: 'Trade',     path: '/trade' },
     { label: 'Signal',    path: '/signal' },
     { label: 'Analysis',  path: '/analysis' },
+    { label: 'AutoTrade', path: '/autotrade' },
     { label: 'Logistics', path: '/logistics' },
     { label: 'Winner',    path: '/winner' },
     { label: 'Monitor',   path: '/monitor' },

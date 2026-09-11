@@ -40,3 +40,5 @@ docs/.cache/
 /package.json
 /package-lock.json
 codex-runner/
+tradingview/research/.cache/
+tradingview/research/검수/
