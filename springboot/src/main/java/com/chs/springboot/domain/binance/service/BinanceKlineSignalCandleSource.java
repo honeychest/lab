@@ -155,19 +155,34 @@ public class BinanceKlineSignalCandleSource implements SignalCandleSource {
             QueryMode mode) {
         long effectiveTo = effectiveTo(toMsExclusive, interval, mode);
         if (effectiveTo <= fromMs) {
-            return new Energy(BigDecimal.ZERO, BigDecimal.ZERO);
+            return new Energy(
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO);
         }
 
-        BigDecimal longEnergy = BigDecimal.ZERO;
-        BigDecimal shortEnergy = BigDecimal.ZERO;
+        BigDecimal spotLong = BigDecimal.ZERO;
+        BigDecimal spotShort = BigDecimal.ZERO;
+        BigDecimal futuresLong = BigDecimal.ZERO;
+        BigDecimal futuresShort = BigDecimal.ZERO;
         long legacyEnd = legacyEnd(interval);
         long legacyTo = Math.min(effectiveTo, legacyEnd);
         if (fromMs < legacyTo) {
-            Map<String, Object> row = interval == Interval.ONE_MINUTE
+            List<Map<String, Object>> rows = interval == Interval.ONE_MINUTE
                     ? agg1mRepository.sumEnergyBySymbolAndTimeRange(symbol, fromMs, legacyTo)
                     : agg5mRepository.sumEnergyBySymbolAndTimeRange(symbol, fromMs, legacyTo);
-            longEnergy = decimal(row.get("long_energy"));
-            shortEnergy = decimal(row.get("short_energy"));
+            for (Map<String, Object> row : rows) {
+                String marketType = (String) row.get("market_type");
+                BigDecimal rowLong = decimal(row.get("long_energy"));
+                BigDecimal rowShort = decimal(row.get("short_energy"));
+                if ("SPOT".equals(marketType)) {
+                    spotLong = spotLong.add(rowLong);
+                    spotShort = spotShort.add(rowShort);
+                } else if ("FUTURES".equals(marketType)) {
+                    futuresLong = futuresLong.add(rowLong);
+                    futuresShort = futuresShort.add(rowShort);
+                }
+            }
         }
 
         long tempFrom = Math.max(fromMs, legacyEnd);
@@ -176,12 +191,25 @@ public class BinanceKlineSignalCandleSource implements SignalCandleSource {
                 for (BinanceKlineTempCandle candle : tempRows(symbol, marketType, tempFrom, effectiveTo)) {
                     BigDecimal quote = decimal(candle.getQuoteVolume());
                     BigDecimal buyQuote = decimal(candle.getTakerBuyQuoteVolume());
-                    longEnergy = longEnergy.add(buyQuote);
-                    shortEnergy = shortEnergy.add(quote.subtract(buyQuote));
+                    BigDecimal rowLong = buyQuote;
+                    BigDecimal rowShort = quote.subtract(buyQuote);
+                    if ("SPOT".equals(marketType)) {
+                        spotLong = spotLong.add(rowLong);
+                        spotShort = spotShort.add(rowShort);
+                    } else {
+                        futuresLong = futuresLong.add(rowLong);
+                        futuresShort = futuresShort.add(rowShort);
+                    }
                 }
             }
         }
-        return new Energy(longEnergy, shortEnergy);
+        return new Energy(
+                spotLong.add(futuresLong),
+                spotShort.add(futuresShort),
+                spotLong,
+                spotShort,
+                futuresLong,
+                futuresShort);
     }
 
     private List<SignalCandle> findLegacy(

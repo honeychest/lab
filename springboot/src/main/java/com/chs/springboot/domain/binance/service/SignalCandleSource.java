@@ -59,7 +59,13 @@ public interface SignalCandleSource {
     }
 
     /** 기존 /history 계약의 long/short 에너지 합계를 원천 안에서 계산한 결과. */
-    record Energy(BigDecimal longEnergy, BigDecimal shortEnergy) {
+    record Energy(
+            BigDecimal longEnergy,
+            BigDecimal shortEnergy,
+            BigDecimal spotLong,
+            BigDecimal spotShort,
+            BigDecimal futuresLong,
+            BigDecimal futuresShort) {
     }
 
     List<SignalCandle> find(

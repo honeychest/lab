@@ -23,14 +23,16 @@ public interface AggTrade1mRepository extends JpaRepository<AggTrade1m, Long> {
 
     @Query(value = """
         SELECT
+            market_type,
             COALESCE(SUM(buy_volume),  0) AS long_energy,
             COALESCE(SUM(sell_volume), 0) AS short_energy
         FROM agg_trade_1m
         WHERE symbol = :symbol
           AND candle_time_ms >= :fromMs
           AND candle_time_ms < :toMs
+        GROUP BY market_type
         """, nativeQuery = true)
-    Map<String, Object> sumEnergyBySymbolAndTimeRange(
+    List<Map<String, Object>> sumEnergyBySymbolAndTimeRange(
         @Param("symbol") String symbol,
         @Param("fromMs")  long fromMs,
         @Param("toMs")    long toMs);

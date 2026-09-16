@@ -1,11 +1,25 @@
 const TRADE_BUFFER_SIZE = 20;
 const LIQUIDATION_BUFFER_SIZE = 50;
 const OI_BUFFER_SIZE = 5000;
+const MARKET_ENERGY_KEYS = {
+  SPOT: {
+    long: 'spotLongEnergy',
+    short: 'spotShortEnergy',
+  },
+  FUTURES: {
+    long: 'futuresLongEnergy',
+    short: 'futuresShortEnergy',
+  },
+};
 
 export function createSignalRuntimeState(overrides = {}) {
   return {
     longEnergy: 0,
     shortEnergy: 0,
+    spotLongEnergy: 0,
+    spotShortEnergy: 0,
+    futuresLongEnergy: 0,
+    futuresShortEnergy: 0,
     longTrades: [],
     shortTrades: [],
     longLiqEvents: [],
@@ -23,11 +37,13 @@ export function createSignalRuntimeState(overrides = {}) {
 export function applyAggTrade(state, trade, symbol) {
   if (!trade || trade.symbol !== symbol) return state;
 
+  const marketKeys = MARKET_ENERGY_KEYS[trade.marketType];
   const value = Number.parseFloat(trade.quantity) * Number.parseFloat(trade.price);
   if (trade.isBuyerMaker) {
     return {
       ...state,
       shortEnergy: state.shortEnergy + value,
+      ...(marketKeys ? { [marketKeys.short]: state[marketKeys.short] + value } : {}),
       shortTrades: [...state.shortTrades, trade].slice(-TRADE_BUFFER_SIZE),
     };
   }
@@ -35,6 +51,7 @@ export function applyAggTrade(state, trade, symbol) {
   return {
     ...state,
     longEnergy: state.longEnergy + value,
+    ...(marketKeys ? { [marketKeys.long]: state[marketKeys.long] + value } : {}),
     longTrades: [...state.longTrades, trade].slice(-TRADE_BUFFER_SIZE),
   };
 }
@@ -93,6 +110,10 @@ export function resetSignalRuntimeState() {
   return createSignalRuntimeState({
     longEnergy: 0,
     shortEnergy: 0,
+    spotLongEnergy: 0,
+    spotShortEnergy: 0,
+    futuresLongEnergy: 0,
+    futuresShortEnergy: 0,
     longTrades: [],
     shortTrades: [],
     longLiqEvents: [],

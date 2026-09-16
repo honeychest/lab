@@ -75,6 +75,54 @@ class BinanceKlineSignalCandleSourceTest {
 
         assertThat(energy.longEnergy()).isEqualByComparingTo("56");
         assertThat(energy.shortEnergy()).isEqualByComparingTo("20");
+        assertThat(energy.spotLong()).isEqualByComparingTo("6");
+        assertThat(energy.spotShort()).isEqualByComparingTo("0");
+        assertThat(energy.futuresLong()).isEqualByComparingTo("50");
+        assertThat(energy.futuresShort()).isEqualByComparingTo("20");
+    }
+
+    @Test
+    void separatesLegacyOneMinuteEnergyByMarketType() {
+        long cutover = (1_700_000_000_000L / MINUTE_MS) * MINUTE_MS;
+        long fromMs = cutover - MINUTE_MS;
+        BinanceKlineSignalCandleSource source = source(cutover, List.of(), List.of());
+        when(sourceAgg1m(source).sumEnergyBySymbolAndTimeRange(SYMBOL, fromMs, cutover))
+                .thenReturn(List.of(
+                        legacyEnergyRow("SPOT", "6", "0"),
+                        legacyEnergyRow("FUTURES", "50", "20")));
+
+        SignalCandleSource.Energy energy = source.sumEnergy(
+                SYMBOL, SignalCandleSource.Interval.ONE_MINUTE, fromMs, cutover,
+                SignalCandleSource.QueryMode.COMPLETED);
+
+        assertThat(energy.longEnergy()).isEqualByComparingTo("56");
+        assertThat(energy.shortEnergy()).isEqualByComparingTo("20");
+        assertThat(energy.spotLong()).isEqualByComparingTo("6");
+        assertThat(energy.spotShort()).isEqualByComparingTo("0");
+        assertThat(energy.futuresLong()).isEqualByComparingTo("50");
+        assertThat(energy.futuresShort()).isEqualByComparingTo("20");
+    }
+
+    @Test
+    void separatesLegacyFiveMinuteEnergyByMarketType() {
+        long cutover = (1_700_000_000_000L / FIVE_MINUTE_MS) * FIVE_MINUTE_MS;
+        long fromMs = cutover - FIVE_MINUTE_MS;
+        BinanceKlineSignalCandleSource source = source(cutover, List.of(), List.of());
+        when(sourceAgg5m(source).sumEnergyBySymbolAndTimeRange(SYMBOL, fromMs, cutover))
+                .thenReturn(List.of(
+                        legacyEnergyRow("SPOT", "7", "1"),
+                        legacyEnergyRow("FUTURES", "40", "15")));
+
+        SignalCandleSource.Energy energy = source.sumEnergy(
+                SYMBOL, SignalCandleSource.Interval.FIVE_MINUTES, fromMs, cutover,
+                SignalCandleSource.QueryMode.COMPLETED);
+
+        assertThat(energy.longEnergy()).isEqualByComparingTo("47");
+        assertThat(energy.shortEnergy()).isEqualByComparingTo("16");
+        assertThat(energy.spotLong()).isEqualByComparingTo("7");
+        assertThat(energy.spotShort()).isEqualByComparingTo("1");
+        assertThat(energy.futuresLong()).isEqualByComparingTo("40");
+        assertThat(energy.futuresShort()).isEqualByComparingTo("15");
     }
 
     @Test
@@ -309,6 +357,17 @@ class BinanceKlineSignalCandleSourceTest {
         row.put("total_volume", quote);
         row.put("base_volume", "1");
         row.put("delta", delta);
+        return row;
+    }
+
+    private Map<String, Object> legacyEnergyRow(
+            String marketType,
+            String longEnergy,
+            String shortEnergy) {
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("market_type", marketType);
+        row.put("long_energy", longEnergy);
+        row.put("short_energy", shortEnergy);
         return row;
     }
 

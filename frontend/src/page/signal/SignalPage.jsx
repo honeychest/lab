@@ -13,6 +13,8 @@ import ShortLiqPanel from './components/ShortLiqPanel.jsx';
 import LiquidationPanel from './components/LiquidationPanel.jsx';
 import MainCore from './components/MainCore.jsx';
 import PatternStrip from './components/PatternStrip.jsx';
+import OiPhasePanel from './components/OiPhasePanel.jsx';
+import EnergyDiff from './components/EnergyDiff.jsx';
 import apiClient from '@/api/apiClient.js';
 import EnergyGauge from './components/EnergyGauge.jsx';
 import TugOfWar from './components/TugOfWar.jsx';
@@ -39,6 +41,7 @@ const TIME_RANGES = [
     { value: '3d',  label: '3일',   dataRange: '3d',  candleType: '5m' },
     { value: '7d',  label: '7일',   dataRange: '7d',  candleType: '5m' },
 ];
+const OI_PHASE_HIDDEN_RANGES = new Set(['5m', '30m']);
 const getDataRange  = (range) => TIME_RANGES.find((r) => r.value === range)?.dataRange  ?? '4h';
 const getCandleType = (range) => TIME_RANGES.find((r) => r.value === range)?.candleType ?? '5m';
 
@@ -68,6 +71,7 @@ export default function SignalPage() {
     const [customHistoryStart, setCustomHistoryStart] = useState(() => localStorage.getItem('signal_customHistoryStart') || '');
     const [historyError, setHistoryError] = useState('');
     const [initData, setInitData] = useState(null);
+    const [oiPhaseData, setOiPhaseData] = useState(null);
     const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
     useEffect(() => {
@@ -86,6 +90,7 @@ export default function SignalPage() {
     });
 
     const abortControllerRef = useRef(null);
+    const oiPhaseAbortControllerRef = useRef(null);
     const symbolDebounceRef = useRef(null);
 
     const {
@@ -135,6 +140,10 @@ export default function SignalPage() {
                     ...prev,
                     longEnergy: res.data.longEnergy ?? prev.longEnergy,
                     shortEnergy: res.data.shortEnergy ?? prev.shortEnergy,
+                    spotLongEnergy: res.data.spotLongEnergy ?? prev.spotLongEnergy,
+                    spotShortEnergy: res.data.spotShortEnergy ?? prev.spotShortEnergy,
+                    futuresLongEnergy: res.data.futuresLongEnergy ?? prev.futuresLongEnergy,
+                    futuresShortEnergy: res.data.futuresShortEnergy ?? prev.futuresShortEnergy,
                     longLiqTotal: res.data.longLiqTotal ?? prev.longLiqTotal,
                     shortLiqTotal: res.data.shortLiqTotal ?? prev.shortLiqTotal,
                     longLiqEvents: res.data.longLiqEvents ?? prev.longLiqEvents,
@@ -168,6 +177,42 @@ export default function SignalPage() {
         loadOiHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, timeRange]);
+
+    useEffect(() => {
+        if (oiPhaseAbortControllerRef.current) {
+            oiPhaseAbortControllerRef.current.abort();
+            oiPhaseAbortControllerRef.current = null;
+        }
+        setOiPhaseData(null);
+
+        if (OI_PHASE_HIDDEN_RANGES.has(timeRange)) return undefined;
+
+        let requestUrl;
+        if (customHistoryEnabled) {
+            const fromMs = datetimeLocalToMs(customHistoryStart);
+            if (!Number.isFinite(fromMs) || fromMs > Date.now()) return undefined;
+            requestUrl = `/api/signal/oi-phases?symbol=${symbol}&fromMs=${fromMs}`;
+        } else {
+            requestUrl = `/api/signal/oi-phases?symbol=${symbol}&range=${getDataRange(timeRange)}`;
+        }
+
+        const controller = new AbortController();
+        oiPhaseAbortControllerRef.current = controller;
+
+        const loadOiPhaseData = async () => {
+            try {
+                const res = await apiClient.get(requestUrl, { signal: controller.signal });
+                if (!controller.signal.aborted) setOiPhaseData(res.data ?? null);
+            } catch (err) {
+                if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+                    console.error('[SignalPage] OI phase failed', err);
+                }
+            }
+        };
+        loadOiPhaseData();
+
+        return () => controller.abort();
+    }, [symbol, timeRange, customHistoryEnabled, customHistoryStart]);
 
     useEffect(() => {
         const loadParams = async () => {
@@ -379,8 +424,6 @@ export default function SignalPage() {
                     symbol={symbol}
                     longEnergy={runtimeState.longEnergy}
                     shortEnergy={runtimeState.shortEnergy}
-                    longLiqTotal={runtimeState.longLiqTotal}
-                    shortLiqTotal={runtimeState.shortLiqTotal}
                     fundingRate={commonProps.fundingRate}
                     oiData={runtimeState.oiDataHistory}
                     candleHistory={runtimeState.candleHistory}
@@ -400,13 +443,20 @@ export default function SignalPage() {
                 <LiquidationPanel total={runtimeState.longLiqTotal} events={runtimeState.longLiqEvents} />
             </div>
 
-            <div style={{ gridColumn: '1 / 13', gridRow: '4' }}>
-            <PatternStrip
-                symbol={symbol}
-                templateId={selectedTemplateId}
-                templateName={templates.find((t) => t.id === selectedTemplateId)?.name}
-                paletteLevel={templates.find((t) => t.id === selectedTemplateId)?.palette ?? 'MID'}
-            />
+            <div style={{ gridColumn: '1 / 13', gridRow: '4', display: 'grid', gridTemplateRows: '44px minmax(0, 1fr)', minWidth: 0, minHeight: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, minHeight: 0, padding: '4px 10px', borderBottom: '1px solid var(--black-border-subtle)' }}>
+                    <EnergyDiff
+                        spotLongEnergy={runtimeState.spotLongEnergy}
+                        spotShortEnergy={runtimeState.spotShortEnergy}
+                        futuresLongEnergy={runtimeState.futuresLongEnergy}
+                        futuresShortEnergy={runtimeState.futuresShortEnergy}
+                        longLiqTotal={runtimeState.longLiqTotal}
+                        shortLiqTotal={runtimeState.shortLiqTotal}
+                    />
+                </div>
+                <div style={{ minWidth: 0, minHeight: 0 }}>
+                    <OiPhasePanel data={oiPhaseData} />
+                </div>
             </div>
             </div>
         </Layout>

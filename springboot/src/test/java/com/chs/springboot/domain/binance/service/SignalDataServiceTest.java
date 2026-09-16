@@ -90,6 +90,21 @@ class SignalDataServiceTest {
     }
 
     @Test
+    @DisplayName("history 응답에 합산 에너지와 시장별 에너지를 함께 반환한다")
+    void getHistoryData_includesMarketEnergyFields() {
+        Fixture fixture = fixture();
+
+        var result = fixture.service.getHistoryData("BTCUSDT", "50m", null);
+
+        assertThat(result).containsEntry("longEnergy", 10.0);
+        assertThat(result).containsEntry("shortEnergy", 10.0);
+        assertThat(result).containsEntry("spotLongEnergy", 1.0);
+        assertThat(result).containsEntry("spotShortEnergy", 1.0);
+        assertThat(result).containsEntry("futuresLongEnergy", 9.0);
+        assertThat(result).containsEntry("futuresShortEnergy", 9.0);
+    }
+
+    @Test
     @DisplayName("미래의 fromMs는 원천을 호출하지 않고 거부한다")
     void getHistoryData_rejectsFutureCustomStartBeforeQuery() {
         SignalCandleSource candleSource = mock(SignalCandleSource.class);
@@ -140,7 +155,13 @@ class SignalDataServiceTest {
         SignalCandleSource candleSource = mock(SignalCandleSource.class);
         ForceOrderRepository forceOrderRepository = mock(ForceOrderRepository.class);
         when(candleSource.sumEnergy(anyString(), any(SignalCandleSource.Interval.class), anyLong(), anyLong(), any(SignalCandleSource.QueryMode.class)))
-                .thenReturn(new SignalCandleSource.Energy(BigDecimal.TEN, BigDecimal.TEN));
+                .thenReturn(new SignalCandleSource.Energy(
+                        BigDecimal.TEN,
+                        BigDecimal.TEN,
+                        BigDecimal.ONE,
+                        BigDecimal.ONE,
+                        BigDecimal.valueOf(9),
+                        BigDecimal.valueOf(9)));
         when(forceOrderRepository.sumLiqTotalBySymbolAndTimeRange(anyString(), anyLong(), anyLong()))
                 .thenReturn(java.util.List.of());
         when(forceOrderRepository.findTop10BySymbolAndSideAndTradeTimeMsBetweenOrderByTradeTimeMsDesc(anyString(), anyString(), anyLong(), anyLong()))

@@ -143,6 +143,19 @@ public class SignalController {
         return ResponseEntity.ok(data);
     }
 
+    @GetMapping("/oi-phases")
+    public ResponseEntity<Map<String, Object>> getOiPhases(
+            @RequestParam String symbol,
+            @RequestParam(required = false) String range,
+            @RequestParam(required = false) Long fromMs) {
+        log.debug("[SignalController] GET /oi-phases symbol={} range={} fromMs={}", symbol, range, fromMs);
+        Map<String, Object> data = signalDataService.getOiPhases(symbol, range, fromMs);
+        if (Boolean.FALSE.equals(data.get("supported"))) {
+            return ResponseEntity.badRequest().body(data);
+        }
+        return ResponseEntity.ok(data);
+    }
+
     @GetMapping("/divergence")
     public ResponseEntity<Map<String, Object>> getDivergence(
             @RequestParam String symbol,

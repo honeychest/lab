@@ -8,8 +8,8 @@ import com.chs.springboot.domain.binance.model.SignalParams;
 import com.chs.springboot.domain.binance.repository.ForceOrderRepository;
 import com.chs.springboot.domain.binance.repository.OpenInterestRepository;
 import com.chs.springboot.domain.binance.repository.SignalParamsRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,13 +23,36 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SignalDataService {
 
     private final OpenInterestRepository openInterestRepository;
     private final ForceOrderRepository       forceOrderRepository;
     private final SignalCandleSource         candleSource;
     private final SignalParamsRepository     signalParamsRepository;
+    private final OpenInterestPhaseService   openInterestPhaseService;
+
+    @Autowired
+    public SignalDataService(
+            OpenInterestRepository openInterestRepository,
+            ForceOrderRepository forceOrderRepository,
+            SignalCandleSource candleSource,
+            SignalParamsRepository signalParamsRepository,
+            OpenInterestPhaseService openInterestPhaseService) {
+        this.openInterestRepository = openInterestRepository;
+        this.forceOrderRepository = forceOrderRepository;
+        this.candleSource = candleSource;
+        this.signalParamsRepository = signalParamsRepository;
+        this.openInterestPhaseService = openInterestPhaseService;
+    }
+
+    public SignalDataService(
+            OpenInterestRepository openInterestRepository,
+            ForceOrderRepository forceOrderRepository,
+            SignalCandleSource candleSource,
+            SignalParamsRepository signalParamsRepository) {
+        this(openInterestRepository, forceOrderRepository, candleSource,
+                signalParamsRepository, null);
+    }
 
     public Map<String, Object> getInitData(String symbol) {
         Map<String, Object> result = new HashMap<>();
@@ -81,6 +104,10 @@ public class SignalDataService {
                 symbol, interval, fromMs, nowMs, SignalCandleSource.QueryMode.COMPLETED);
         BigDecimal longEnergy = energy.longEnergy();
         BigDecimal shortEnergy = energy.shortEnergy();
+        BigDecimal spotLongEnergy = energy.spotLong();
+        BigDecimal spotShortEnergy = energy.spotShort();
+        BigDecimal futuresLongEnergy = energy.futuresLong();
+        BigDecimal futuresShortEnergy = energy.futuresShort();
         log.info("[SignalEnergy] interval={} longEnergy={} shortEnergy={}", interval.value(), longEnergy, shortEnergy);
 
         // 누계: SUM 집계 쿼리 (전체 범위, 목록 조회 없음)
@@ -126,8 +153,12 @@ public class SignalDataService {
         }).toList();
 
         Map<String, Object> result = new HashMap<>();
-        result.put("longEnergy",    longEnergy.doubleValue());
-        result.put("shortEnergy",   shortEnergy.doubleValue());
+        result.put("longEnergy",         longEnergy.doubleValue());
+        result.put("shortEnergy",        shortEnergy.doubleValue());
+        result.put("spotLongEnergy",     spotLongEnergy.doubleValue());
+        result.put("spotShortEnergy",    spotShortEnergy.doubleValue());
+        result.put("futuresLongEnergy",  futuresLongEnergy.doubleValue());
+        result.put("futuresShortEnergy", futuresShortEnergy.doubleValue());
         result.put("longLiqTotal",  longLiqTotal.doubleValue());
         result.put("shortLiqTotal", shortLiqTotal.doubleValue());
         result.put("longLiqEvents",  longLiqEvents);
@@ -154,6 +185,32 @@ public class SignalDataService {
                     return m;
                 })
                 .toList();
+    }
+
+    public Map<String, Object> getOiPhases(String symbol, String range, Long customFromMs) {
+        long nowMs = System.currentTimeMillis();
+        long fromMs;
+        boolean anchoredRange = customFromMs != null;
+        if (anchoredRange) {
+            if (customFromMs < 0 || customFromMs > nowMs) {
+                throw new IllegalArgumentException("fromMs는 0 이상이고 현재 시각을 넘을 수 없습니다.");
+            }
+            fromMs = customFromMs;
+        } else {
+            if (range == null || range.isBlank()) {
+                throw new IllegalArgumentException("range 또는 fromMs 중 하나는 필수입니다.");
+            }
+            long rangeMs = parseRangeToMs(range);
+            if (rangeMs < 60 * 60_000L) {
+                return Map.of(
+                        "supported", false,
+                        "code", "UNSUPPORTED_RANGE",
+                        "message", "OI 국면은 1시간 이상 범위에서만 지원합니다.",
+                        "range", range);
+            }
+            fromMs = Math.floorDiv(nowMs - rangeMs, 300_000L) * 300_000L;
+        }
+        return openInterestPhaseService.getPhases(symbol, fromMs, nowMs, anchoredRange);
     }
 
     private long parseRangeToMs(String range) {

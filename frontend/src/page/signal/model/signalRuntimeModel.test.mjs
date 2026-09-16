@@ -20,6 +20,7 @@ test('applyAggTrade adds buyer-maker trade value to short energy and short trade
     price: '100',
     quantity: '2',
     isBuyerMaker: true,
+    marketType: 'SPOT',
   };
 
   const next = applyAggTrade(state, trade, 'BTCUSDT');
@@ -38,6 +39,7 @@ test('applyAggTrade adds non-buyer-maker trade value to long energy and ignores 
     price: '10',
     quantity: '3',
     isBuyerMaker: false,
+    marketType: 'SPOT',
   };
 
   const next = applyAggTrade(state, trade, 'BTCUSDT');
@@ -51,9 +53,9 @@ test('applyAggTrade adds non-buyer-maker trade value to long energy and ignores 
 test('applyAggTrades consumes every matching trade in a batch', () => {
   const state = createSignalRuntimeState();
   const trades = [
-    { symbol: 'BTCUSDT', price: '10', quantity: '2', isBuyerMaker: false },
-    { symbol: 'BTCUSDT', price: '20', quantity: '3', isBuyerMaker: true },
-    { symbol: 'ENAUSDT', price: '100', quantity: '9', isBuyerMaker: false },
+    { symbol: 'BTCUSDT', marketType: 'SPOT', price: '10', quantity: '2', isBuyerMaker: false },
+    { symbol: 'BTCUSDT', marketType: 'FUTURES', price: '20', quantity: '3', isBuyerMaker: true },
+    { symbol: 'ENAUSDT', marketType: 'SPOT', price: '100', quantity: '9', isBuyerMaker: false },
   ];
 
   const next = applyAggTrades(state, trades, 'BTCUSDT');
@@ -62,6 +64,48 @@ test('applyAggTrades consumes every matching trade in a batch', () => {
   assert.equal(next.shortEnergy, 60);
   assert.deepEqual(next.longTrades, [trades[0]]);
   assert.deepEqual(next.shortTrades, [trades[1]]);
+});
+
+test('applyAggTrades separates spot and futures energy and preserves totals', () => {
+  const next = applyAggTrades(createSignalRuntimeState(), [
+    {
+      symbol: 'BTCUSDT',
+      marketType: 'SPOT',
+      price: '10',
+      quantity: '3',
+      isBuyerMaker: false,
+    },
+    {
+      symbol: 'BTCUSDT',
+      marketType: 'FUTURES',
+      price: '20',
+      quantity: '2',
+      isBuyerMaker: true,
+    },
+  ], 'BTCUSDT');
+
+  assert.equal(next.longEnergy, 30);
+  assert.equal(next.shortEnergy, 40);
+  assert.equal(next.spotLongEnergy, 30);
+  assert.equal(next.spotShortEnergy, 0);
+  assert.equal(next.futuresLongEnergy, 0);
+  assert.equal(next.futuresShortEnergy, 40);
+});
+
+test('applyAggTrade keeps aggregate energy and buffers when market type is missing', () => {
+  const next = applyAggTrade(createSignalRuntimeState(), {
+    symbol: 'BTCUSDT',
+    price: '10',
+    quantity: '3',
+    isBuyerMaker: false,
+  }, 'BTCUSDT');
+
+  assert.equal(next.longEnergy, 30);
+  assert.equal(next.longTrades.length, 1);
+  assert.equal(next.spotLongEnergy, 0);
+  assert.equal(next.spotShortEnergy, 0);
+  assert.equal(next.futuresLongEnergy, 0);
+  assert.equal(next.futuresShortEnergy, 0);
 });
 
 test('applyForceOrder accumulates liquidation totals and buffers without touching energy', () => {
@@ -136,6 +180,10 @@ test('resetSignalRuntimeState clears volatile runtime data', () => {
   const state = createSignalRuntimeState({
     longEnergy: 1,
     shortEnergy: 2,
+    spotLongEnergy: 11,
+    spotShortEnergy: 12,
+    futuresLongEnergy: 13,
+    futuresShortEnergy: 14,
     longTrades: [{ id: 1 }],
     shortTrades: [{ id: 2 }],
     longLiqEvents: [{ id: 3 }],
