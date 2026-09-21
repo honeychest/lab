@@ -153,6 +153,10 @@ services:
       KAFKA_LOG_SEGMENT_BYTES: 268435456
       # 컨테이너 메모리 안에서 Kafka JVM heap은 512M로 제한
       KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+      # 기본값(/tmp/kafka-logs)은 컨테이너 레이어라 재생성 시 유실됨. 볼륨 경로로 지정.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # KRaft no-op 메타데이터 기록 주기(기본 500ms). idle 시 SSD 쓰기 절감을 위해 60s로 완화.
+      KAFKA_METADATA_MAX_IDLE_INTERVAL_MS: 60000
     volumes:
       - ${VOLUMES_BASE}/kafka:/var/lib/kafka/data
     deploy:
