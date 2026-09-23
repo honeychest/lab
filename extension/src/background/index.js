@@ -2,6 +2,17 @@
 
 import * as api from './binance.js';
 import * as exec from './execution.js';
+import { MutexBusyError } from '../core/mutex.js';
+import {
+    amendmentTraced,
+    chaseParamsOf,
+    classifyModifyResponse,
+    createModifyIdGenerator,
+    sameOrder,
+    symbolFromPageUrl,
+} from '../core/chase.js';
+import { isCloseOrder, pickPosition, pnlAt } from '../core/watch.js';
+import * as D from '../core/decimal.js';
 import {
     buildPlan,
     canonicalOf,
@@ -14,20 +25,32 @@ import {
     RANGE_MAX,
 } from '../core/plan.js';
 import { toSymbolRules, checkPercentPrice } from '../core/filters.js';
+import { decimalsOf } from '../core/decimal.js';
 import { checkMargin } from '../core/margin.js';
+import { validateExpectedPnlOrders } from '../core/expected-pnl-validation.js';
 import { hasCredentials, saveCredentials, clearCredentials } from './keys.js';
+import * as watchService from './watch.js';
 
 const PLAN_PREFIX = 'plan:';
 const PLAN_TTL_MS = 5 * 60 * 1000;
+const modifyIdGenerator = createModifyIdGenerator();
+const POSITION_DISPLAY_CACHE_TTL_MS = 3_000;
+let positionDisplayCache = { at: 0, value: null };
+let positionDisplayPending = null;
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    handle(message)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handle(message, sender)
         .then(sendResponse)
         .catch((error) => sendResponse({ kind: 'FAILED', message: error.message }));
     return true; // 비동기 응답을 끝까지 유지한다.
 });
 
-async function handle(message) {
+async function handle(message, sender) {
+    try {
+        await watchService.ensureReady();
+    } catch (error) {
+        return { kind: 'FAILED', message: `확장 초기화 실패: ${error?.message || '알 수 없는 오류'}` };
+    }
     switch (message?.kind) {
         case 'LIMITS':
             // 경계값의 원본은 core/plan.js 하나뿐이다. 화면이 따로 갖지 않는다.
@@ -53,18 +76,87 @@ async function handle(message) {
             return { kind: 'NEED_KEY' };
         case 'PRICE':
             return currentPrice(message.symbol);
+        case 'TICKER':
+            return ticker(message.symbol);
         case 'PREVIEW':
             return preview(message.input);
         case 'PLACE':
-            return place(message.planId, message.digest, message.mode);
+            return runLocked('place', () => place(message.planId, message.digest, message.mode));
         case 'RESUME':
-            return resume(message.planId);
+            return runLocked('resume', () => resume(message.planId));
         case 'ACCOUNT':
             return account(message.symbol);
         case 'CANCEL_ALL':
-            return cancelAll(message.symbol);
+            return runLocked('cancel-all', () => cancelAll(message.symbol));
+        case 'OPEN_ORDERS_ALL':
+            return openOrdersAll();
+        case 'EXPECTED_PNL':
+            return expectedPnl(message.orders);
+        case 'CHASE_ONE':
+            return chaseOne(message, sender);
+        case 'WATCH_ARM':
+            return watchArm(message, sender);
+        case 'WATCH_LIST':
+            return watchService.listWatches();
+        case 'WATCH_DISARM':
+            return watchService.disarmWatch(message.id);
+        case 'WATCH_STOP_ALL':
+            return watchService.stopAll();
+        case 'WATCH_REFRESH':
+            return watchService.refresh();
+        case 'WATCH_RESUME_PREVIEW':
+            return watchService.resumePreview(message.ids ?? 'all');
+        case 'WATCH_RESUME':
+            return watchService.resume(message.ids ?? 'all');
+        case 'WATCH_SETTINGS_GET':
+            return { kind: 'WATCH_SETTINGS', settings: await watchService.getSettings() };
+        case 'WATCH_SETTINGS_SET':
+            return { kind: 'WATCH_SETTINGS', settings: await watchService.setSettings(message.settings || {}) };
         default:
             return { kind: 'FAILED', message: `알 수 없는 요청입니다: ${message?.kind}` };
+    }
+}
+
+async function watchArm(message, sender) {
+    return watchService.armWatch(async () => {
+        if (
+            sender?.id !== chrome.runtime.id
+            || sender?.frameId !== 0
+            || symbolFromPageUrl(sender?.url) !== message.symbol
+        ) {
+            return { kind: 'REJECTED', reason: '이 심볼 화면에서만 감시를 켤 수 있습니다' };
+        }
+        if (message.mode !== 'LIVE') return { kind: 'REJECTED', reason: '실전 모드에서만 감시를 켤 수 있습니다' };
+        if (!(await hasCredentials())) return { kind: 'REJECTED', reason: 'API 키가 없습니다' };
+
+        const actual = await api.orderById(message.symbol, String(message.orderId));
+        const diff = sameOrder(message.expected, actual);
+        if (diff.length) return { kind: 'REJECTED', reason: `주문이 바뀌었습니다: ${diff.join(', ')}` };
+        const [last, mark] = await Promise.all([
+            api.tickerPrice(message.symbol),
+            api.premiumIndex(message.symbol),
+        ]);
+        const position = message.triggers?.pnl
+            ? pickPosition(await api.positionRiskFresh(), message.symbol, actual.positionSide)
+            : undefined;
+        return {
+            order: actual,
+            triggers: message.triggers,
+            position,
+            current: { LAST: last?.price, MARK: mark?.markPrice },
+            limits: { maxSymbols: 10, maxOrders: 30 },
+        };
+    });
+}
+
+async function runLocked(label, fn) {
+    try {
+        return await exec.operationLock.run(label, fn);
+    } catch (error) {
+        if (error instanceof MutexBusyError) {
+            return { kind: 'BUSY', message: `다른 작업이 진행 중입니다(${error.label})` };
+        }
+        throw error;
     }
 }
 
@@ -72,6 +164,14 @@ async function handle(message) {
 async function currentPrice(symbol) {
     const book = await api.bookTicker(symbol);
     return { kind: 'PRICE', symbol, bid: book.bidPrice, ask: book.askPrice };
+}
+
+async function ticker(symbol) {
+    const [last, mark] = await Promise.all([
+        api.tickerPrice(symbol),
+        api.premiumIndex(symbol),
+    ]);
+    return { kind: 'TICKER', symbol, last: last?.price, mark: mark?.markPrice };
 }
 
 // 계획을 만든다. 심볼 규칙과 호가는 매번 새로 읽는다.
@@ -286,6 +386,210 @@ async function account(symbol) {
             status: o.status,
         })),
     };
+}
+
+async function openOrdersAll() {
+    if (!(await hasCredentials())) return { kind: 'NEED_KEY' };
+    const [orders, positions] = await Promise.all([
+        api.allOpenOrders(),
+        displayPositions(),
+    ]);
+    const openOrders = orders || [];
+    const symbols = [...new Set(openOrders.map((order) => order.symbol))];
+    const priceDecimals = new Map(await Promise.all(symbols.map(async (symbol) => {
+        try {
+            const info = await api.symbolInfo(symbol);
+            const tickSize = info.filters?.find((filter) => filter.filterType === 'PRICE_FILTER')?.tickSize;
+            if (typeof tickSize !== 'string' || !/^\d+(\.\d+)?$/.test(tickSize)) return [symbol, null];
+            return [symbol, decimalsOf(tickSize)];
+        } catch {
+            return [symbol, null];
+        }
+    })));
+    return {
+        kind: 'OPEN_ORDERS',
+        positions: positions?.items ?? null,
+        orders: openOrders.map((order) => ({
+            symbol: order.symbol,
+            orderId: order.orderId,
+            side: order.side,
+            positionSide: order.positionSide,
+            type: order.type,
+            timeInForce: order.timeInForce,
+            reduceOnly: order.reduceOnly,
+            price: order.price,
+            priceDecimals: priceDecimals.get(order.symbol) ?? null,
+            origQty: order.origQty,
+            executedQty: order.executedQty,
+            status: order.status,
+            updateTime: order.updateTime,
+            expectedPnl: expectedPnlForOrder(order, positions?.raw ?? null),
+        })),
+    };
+}
+
+async function displayPositions() {
+    const now = Date.now();
+    if (now - positionDisplayCache.at < POSITION_DISPLAY_CACHE_TTL_MS) return positionDisplayCache.value;
+    if (!positionDisplayPending) {
+        positionDisplayPending = api.positionRiskFresh()
+            .then((raw) => {
+                const list = Array.isArray(raw) ? raw : null;
+                const items = list
+                    ? list.map((item) => ({
+                        position: pickPosition([item], item?.symbol, item?.positionSide),
+                        symbol: item?.symbol,
+                    })).filter((item) => item.position).map((item) => ({
+                        ...item.position,
+                        symbol: item.symbol,
+                    }))
+                    : null;
+                positionDisplayCache = { at: Date.now(), value: { raw: list, items } };
+                return positionDisplayCache.value;
+            })
+            .catch(() => {
+                positionDisplayCache = { at: Date.now(), value: null };
+                return null;
+            })
+            .finally(() => {
+                positionDisplayPending = null;
+            });
+    }
+    return positionDisplayPending;
+}
+
+function decimalText(value) {
+    const raw = D.format(value, D.SCALE);
+    return raw.includes('.') ? raw.replace(/0+$/, '').replace(/\.$/, '') : raw;
+}
+
+function remainingQuantity(order) {
+    try {
+        const left = D.fromString(order?.origQty) - D.fromString(order?.executedQty ?? '0');
+        return left > 0n ? decimalText(left) : null;
+    } catch {
+        return null;
+    }
+}
+
+function expectedPnlForOrder(order, positions) {
+    if (!isCloseOrder(order) || !Array.isArray(positions)) return null;
+    const position = pickPosition(positions, order.symbol, order.positionSide);
+    const qtyLeft = remainingQuantity(order);
+    if (!position || !qtyLeft) return null;
+    try {
+        return decimalText(pnlAt({ ...position, sizeAbs: qtyLeft }, order.price));
+    } catch {
+        return null;
+    }
+}
+
+async function expectedPnl(orders) {
+    const validation = validateExpectedPnlOrders(orders);
+    if (!validation.ok) return { kind: 'REJECTED', message: validation.message };
+    const positions = await displayPositions();
+    const list = validation.orders;
+    const priceDecimals = new Map(await Promise.all([...new Set(list.map((order) => order.symbol))].map(async (symbol) => {
+        try {
+            const info = await api.symbolInfo(symbol);
+            const tickSize = info.filters?.find((filter) => filter.filterType === 'PRICE_FILTER')?.tickSize;
+            return [symbol, typeof tickSize === 'string' && /^\d+(\.\d+)?$/.test(tickSize) ? decimalsOf(tickSize) : null];
+        } catch {
+            return [symbol, null];
+        }
+    })));
+    return {
+        kind: 'EXPECTED_PNL',
+        orders: list.map((order) => ({
+            requestKey: order.requestKey,
+            price: order.price,
+            priceDecimals: priceDecimals.get(order.symbol) ?? null,
+            expectedPnl: expectedPnlForOrder(order, positions?.raw ?? null),
+            entryPrice: (() => {
+                const position = Array.isArray(positions?.raw)
+                    ? pickPosition(positions.raw, order?.symbol, order?.positionSide)
+                    : null;
+                return position?.entryPrice ?? null;
+            })(),
+        })),
+    };
+}
+
+async function chaseOne(message, sender) {
+    if (
+        sender?.id !== chrome.runtime.id ||
+        sender?.frameId !== 0 ||
+        symbolFromPageUrl(sender?.url) !== message.symbol
+    ) {
+        return { kind: 'FORBIDDEN', message: '이 심볼 화면에서만 수정할 수 있습니다' };
+    }
+    if (message.mode !== 'LIVE') {
+        return { kind: 'NOT_SENT', message: '실전 모드에서만 보냅니다(주문 수정은 시험 전송이 없습니다)' };
+    }
+    if (!(await hasCredentials())) return { kind: 'NEED_KEY' };
+
+    return runLocked('chase', async () => {
+        try {
+            const actual = await api.orderById(message.symbol, String(message.orderId));
+            const diff = sameOrder(message.expected, actual);
+            if (diff.length) return { kind: 'STALE', diff };
+
+            const modifyId = modifyIdGenerator.next(Date.now());
+            const params = chaseParamsOf(actual, modifyId);
+            if (!params.ok) return { kind: 'INVALID', message: params.reason };
+
+            try {
+                const response = await api.modifyOrder(params.params);
+                const classified = classifyModifyResponse(params.params, response);
+                if (classified.kind === 'MISMATCH') {
+                    return { kind: 'UNKNOWN', message: classified.reason };
+                }
+
+                let traced = false;
+                try {
+                    traced = amendmentTraced(await api.orderAmendments(message.symbol, String(message.orderId)), modifyId);
+                } catch {
+                    // 수정 성공 응답 뒤의 이력 조회 실패는 흔적 미확인으로만 남긴다.
+                }
+                return {
+                    kind: 'CHASED',
+                    orderId: actual.orderId,
+                    modifyId,
+                    before: { price: actual.price },
+                    after: { price: classified.price, status: classified.status },
+                    traced,
+                };
+            } catch (error) {
+                if (error.kind === 'REJECTED') {
+                    return { kind: 'REJECTED', code: error.code, message: error.message };
+                }
+                if (error.kind === 'RATE_LIMIT') {
+                    return { kind: 'RATE_LIMIT', message: error.message };
+                }
+
+                try {
+                    const amendments = await api.orderAmendments(message.symbol, String(message.orderId));
+                    if (amendmentTraced(amendments, modifyId)) {
+                        const after = await api.orderById(message.symbol, String(message.orderId));
+                        return {
+                            kind: 'CHASED',
+                            orderId: after.orderId,
+                            modifyId,
+                            before: { price: actual.price },
+                            after: { price: after.price, status: after.status },
+                            traced: true,
+                            confirmedBy: '조회',
+                        };
+                    }
+                } catch {
+                    // 흔적 조회 자체가 실패하면 재전송하지 않고 사용자가 확인하게 한다.
+                }
+                return { kind: 'UNKNOWN', message: '수정됐는지 확인하지 못했습니다. 바이낸스 화면에서 확인하세요' };
+            }
+        } finally {
+            api.clearAccountCache();
+        }
+    });
 }
 
 async function cancelAll(symbol) {
